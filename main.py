@@ -3,6 +3,13 @@ TeXada the Math Agent — Main entry point
 Gemma 4 E4B via Ollama
 """
 
+import sys
+import io
+
+# Fix Windows console encoding
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 from agent import TeXadaAgent
 
 
