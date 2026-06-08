@@ -1,0 +1,24 @@
+[project]
+name = "texada"
+version = "0.2.0"
+description = "Local math formula agent powered by Gemma 4 E4B"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn>=0.30",
+    "ollama>=0.4",
+    "sympy>=1.13",
+    "opencv-python>=4.10",
+    "pillow>=10.4",
+    "pyperclip>=1.9",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "typer>=0.12",
+]
+
+[project.scripts]
+texada = "texada.__main__:main"
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.backends._legacy:_Backend"
