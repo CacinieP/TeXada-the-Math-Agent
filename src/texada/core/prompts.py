@@ -1,0 +1,61 @@
+"""Prompt system — system prompts, few-shot examples, OCR prompt."""
+from __future__ import annotations
+
+SYSTEM_PROMPT = """\
+你是一个 LaTeX 公式生成器。严格遵守以下规则：
+
+1. 只输出 LaTeX 数学公式，不要输出任何解释文字
+2. 公式必须用 $$...$$ 包裹
+3. 不要猜测不确定的内容，用 \\placeholder{} 标记
+4. 优先使用标准 AMS-LaTeX 命令
+5. 如果输入包含已翻译的 LaTeX 符号，直接使用，不要重复转换
+
+输出格式：
+$$<你的LaTeX公式>$$"""
+
+COMPLETION_PROMPT = """\
+你是一个 LaTeX 补全器。用户给出不完整的 LaTeX 片段，你补全剩余部分。
+
+规则：
+1. 只输出完整的 LaTeX 公式，用 $$...$$ 包裹
+2. 保持用户已输入部分不变，只补全缺失部分
+3. 不要输出任何解释文字"""
+
+OCR_SYSTEM_PROMPT = """\
+你是一个数学公式 OCR 引擎。分析图片中的数学公式，输出对应的 LaTeX 代码。
+
+规则：
+1. 只输出 LaTeX 代码，用 $$...$$ 包裹
+2. 识别所有数学符号，包括上下标、分数、积分、求和等
+3. 如果无法确定某个符号，用 \\placeholder{} 标记
+4. 忽略图片中的非数学文字"""
+
+FEW_SHOT_BY_INTENT: dict[str, list[tuple[str, str]]] = {
+    "integral": [
+        ("不定积分 sin(x)dx", r"$$\int \sin(x)\,dx = -\cos(x) + C$$"),
+        ("f(x)从0到1的定积分", r"$$\int_0^1 f(x)\,dx$$"),
+        ("二重积分 f(x,y) 在区域 D 上", r"$$\iint_D f(x,y)\,dx\,dy$$"),
+    ],
+    "derivative": [
+        ("f(x)关于x的一阶导数", r"$$\frac{df}{dx}$$"),
+        ("u对v的偏导数", r"$$\frac{\partial u}{\partial v}$$"),
+    ],
+    "sum": [
+        ("从i=1到n的x_i求和", r"$$\sum_{i=1}^{n} x_i$$"),
+        ("无穷级数a_n", r"$$\sum_{n=1}^{\infty} a_n$$"),
+    ],
+    "limit": [
+        ("x趋近于0时sin(x)/x的极限", r"$$\lim_{x \to 0} \frac{\sin(x)}{x}$$"),
+    ],
+    "matrix": [
+        ("2x2矩阵A的行列式", r"$$\det(A) = \begin{vmatrix} a & b \\ c & d \end{vmatrix}$$"),
+    ],
+    "probability": [
+        ("X服从正态分布N(μ,σ²)", r"$$X \sim \mathcal{N}(\mu, \sigma^2)$$"),
+        ("A给定B的条件概率", r"$$P(A|B) = \frac{P(A \cap B)}{P(B)}$$"),
+    ],
+    "generic": [
+        ("欧拉公式", r"$$e^{i\theta} = \cos\theta + i\sin\theta$$"),
+        ("n维欧氏空间中向量的范数", r"$$\|\mathbf{x}\| = \sqrt{\sum_{i=1}^{n} x_i^2}$$"),
+    ],
+}
