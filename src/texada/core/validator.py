@@ -10,7 +10,53 @@ from texada.types import CheckResult, ValidationResult
 class LaTeXValidator:
     """Multi-layer LaTeX validation — brace balance, env balance, command check, KaTeX parse."""
 
+    # Known valid commands — replaces the old inline tuple + length heuristic
+    _KNOWN_COMMANDS: frozenset[str] = frozenset({
+        # Math operators
+        "frac", "dfrac", "tfrac", "sqrt", "binom",
+        "int", "iint", "iiint", "oint", "sum", "prod", "lim",
+        "sin", "cos", "tan", "log", "ln", "exp",
+        "partial", "nabla", "det",
+        # Text / font
+        "text", "mathrm", "mathbf", "mathcal", "mathbb", "mathscr",
+        "operatorname",
+        # Delimiters
+        "left", "right", "begin", "end",
+        # Decorations
+        "hat", "vec", "tilde", "dot", "bar", "ddot",
+        "overline", "underline", "overrightarrow", "overleftarrow",
+        "widehat", "widetilde", "overbrace", "underbrace",
+        # Environments
+        "cases", "pmatrix", "bmatrix", "vmatrix", "aligned", "array",
+        # Greek letters
+        "alpha", "beta", "gamma", "delta", "epsilon", "varepsilon",
+        "zeta", "eta", "theta", "vartheta", "iota", "kappa",
+        "lambda", "mu", "nu", "xi", "pi", "rho", "sigma",
+        "tau", "upsilon", "phi", "chi", "psi", "omega",
+        "Gamma", "Delta", "Theta", "Lambda", "Xi", "Pi",
+        "Sigma", "Upsilon", "Phi", "Psi", "Omega",
+        # Relations / symbols
+        "infty", "forall", "exists", "in", "notin", "subset",
+        "subsetneq", "supset", "cup", "cap", "emptyset",
+        "neq", "geq", "leq", "gg", "ll", "approx", "propto", "sim",
+        "Rightarrow", "Leftrightarrow", "rightarrow", "leftarrow",
+        "leftrightarrow", "mapsto", "implies",
+        "because", "therefore", "blacksquare", "placeholder",
+        "cdots", "vdots", "ddots", "ldots",
+        "quad", "qquad", "cdot", "times", "div",
+        # Long valid commands (> 8 chars)
+        "displaystyle", "phantom", "overleftrightarrow",
+        "stackrel", "substack", "overset", "underset",
+        "textbf", "textit", "textrm", "textsf", "texttt",
+    })
+
     def validate(self, latex: str) -> ValidationResult:
+        # Empty string is never valid LaTeX
+        if not latex.strip():
+            return ValidationResult(
+                valid=False,
+                errors=[CheckResult(ok=False, type="empty", detail="模型输出为空")],
+            )
         checks = [
             self._check_brace_balance(latex),
             self._check_env_balance(latex),
@@ -58,30 +104,15 @@ class LaTeXValidator:
 
     def _check_command_validity(self, latex: str) -> CheckResult:
         """Check that LaTeX commands are not obviously invalid."""
-        # Extract all \xxx commands
         commands = re.findall(r'\\(\w+)', latex)
         invalid = []
         for cmd in commands:
-            # Skip known valid commands (this is a fast heuristic, not exhaustive)
-            if cmd in ("frac", "int", "iint", "iiint", "oint", "sum", "prod",
-                       "lim", "sin", "cos", "tan", "log", "ln", "exp",
-                       "sqrt", "partial", "nabla", "det", "begin", "end",
-                       "text", "mathrm", "mathbf", "mathcal", "mathbb",
-                       "left", "right", "hat", "vec", "tilde", "dot", "bar",
-                       "overline", "underline", "frac", "dfrac", "tfrac",
-                       "binom", "cases", "pmatrix", "bmatrix", "vmatrix",
-                       "alpha", "beta", "gamma", "delta", "epsilon", "theta",
-                       "lambda", "mu", "sigma", "phi", "omega",
-                       "infty", "forall", "exists", "in", "notin", "subset",
-                       "cup", "cap", "emptyset", "neq", "geq", "leq",
-                       "Rightarrow", "Leftrightarrow", "rightarrow",
-                       "leftarrow", "leftrightarrow", "mapsto",
-                       "because", "therefore", "blacksquare", "placeholder"):
+            if cmd in self._KNOWN_COMMANDS:
                 continue
             # Single-letter commands are always valid (\x, \a, etc.)
             if len(cmd) == 1:
                 continue
-            # Longer unknown commands might be wrong
+            # Unknown multi-char commands might be wrong
             if len(cmd) > 8:
                 invalid.append(cmd)
         if invalid:

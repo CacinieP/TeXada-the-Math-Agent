@@ -1,0 +1,2013 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeXada — UI 模拟 · 菜单栏悬浮窗 · Raycast 暗色极简</title>
+
+<!-- KaTeX CDN — 与 VS Code Markdown Preview 同引擎 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+
+<style>
+/* ═══════════════════════════════════════════
+   设计令牌 — Raycast 暗色极简
+   ═══════════════════════════════════════════ */
+:root {
+  --bg-base:       #1a1b26;   /* 主背景 */
+  --bg-surface:    #24283b;   /* 面板/卡片 */
+  --bg-elevated:   #2f3349;   /* 悬浮/选中态 */
+  --bg-input:      #1f2335;   /* 输入框 */
+  --border:        #3b4261;   /* 边框 */
+  --border-focus:  #7aa2f7;   /* 聚焦边框 — 主强调蓝 */
+  --text-primary:  #c0caf5;   /* 主文字 */
+  --text-secondary:#a9b1d6;  /* 次文字 */
+  --text-muted:    #565f89;   /* 弱文字 */
+  --accent:        #7aa2f7;   /* 主强调蓝 */
+  --accent-green:  #9ece6a;   /* 成功/复制 */
+  --accent-orange: #ff9e64;   /* 警告/OCR */
+  --accent-red:    #f7768e;   /* 错误 */
+  --accent-cyan:   #7dcfff;   /* LaTeX 代码 */
+  --accent-purple: #bb9af7;   /* 缩写/模板 */
+  --radius:        10px;
+  --radius-sm:     6px;
+  --shadow:        0 8px 32px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
+  --transition:    .15s ease;
+  --font-ui:       -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  --font-mono:     'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: #0f0f1a;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 20px;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+
+/* ═══════════════════════════════════════════
+   场景标签 — 说明当前展示哪个界面
+   ═══════════════════════════════════════════ */
+.scene {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.scene-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+.scene-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  max-width: 420px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ═══════════════════════════════════════════
+   悬浮窗容器 — 模拟菜单栏弹窗
+   ═══════════════════════════════════════════ */
+.panel {
+  width: 520px;
+  background: var(--bg-surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* ── 顶栏 ── */
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-base);
+}
+.panel-logo {
+  font-size: 16px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--bg-base);
+  border-radius: 6px;
+  font-weight: 700;
+}
+.panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+.panel-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.panel-status .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent-green);
+}
+.panel-status .dot.offline { background: var(--accent-red); }
+.panel-kbd {
+  font-size: 9px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ── Tab 栏 ── */
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-base);
+}
+.tab-item {
+  flex: 1;
+  padding: 8px 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.tab-item:hover { color: var(--text-secondary); }
+.tab-item.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.tab-item .icon { font-size: 13px; }
+.tab-shortcut {
+  font-size: 9px;
+  background: var(--bg-elevated);
+  border-radius: 3px;
+  padding: 0 4px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-left: 2px;
+}
+
+/* ── 输入区 ── */
+.input-area {
+  padding: 12px 14px;
+  background: var(--bg-base);
+}
+.input-box {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  resize: none;
+  outline: none;
+  min-height: 42px;
+  max-height: 120px;
+  line-height: 1.5;
+  transition: border-color var(--transition);
+}
+.input-box:focus { border-color: var(--border-focus); }
+.input-box::placeholder { color: var(--text-muted); }
+
+.input-hint {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.input-hint .intent-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--bg-elevated);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-family: var(--font-mono);
+}
+.intent-tag .intent-icon { font-size: 10px; }
+
+/* ── 处理指示器 ── */
+.processing-bar {
+  height: 2px;
+  background: var(--bg-base);
+  position: relative;
+  overflow: hidden;
+}
+.processing-bar.active::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  width: 30%;
+  background: var(--accent);
+  border-radius: 2px;
+  animation: processing 1.2s ease-in-out infinite;
+}
+@keyframes processing {
+  0%   { left: -30%; }
+  100% { left: 100%; }
+}
+.processing-bar.done {
+  background: var(--accent-green);
+  transition: background .3s;
+}
+
+/* ── 结果区 ── */
+.result-area {
+  padding: 14px;
+}
+.result-section {
+  margin-bottom: 12px;
+}
+.result-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+/* KaTeX 渲染预览 */
+.render-preview {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  text-align: center;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.render-preview .katex { font-size: 1.4em; color: #fff; }
+.render-preview .katex .mord { color: #fff; }
+
+/* LaTeX 源码 */
+.latex-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+.latex-code {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent-cyan);
+  white-space: nowrap;
+  overflow-x: auto;
+}
+.latex-code::-webkit-scrollbar { height: 3px; }
+.latex-code::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── 操作按钮组 ── */
+.action-row {
+  display: flex;
+  gap: 6px;
+  padding: 0 14px 14px;
+}
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: var(--font-ui);
+}
+.action-btn:hover {
+  background: var(--bg-surface);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.action-btn.primary {
+  background: var(--accent);
+  color: var(--bg-base);
+  border-color: var(--accent);
+}
+.action-btn.primary:hover {
+  background: #5b8ce6;
+}
+.action-btn .icon { font-size: 13px; }
+
+/* ── 验证状态徽章 ── */
+.valid-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.valid-badge.ok {
+  background: rgba(158,206,106,.12);
+  color: var(--accent-green);
+}
+.valid-badge.err {
+  background: rgba(247,118,142,.12);
+  color: var(--accent-red);
+}
+.valid-badge.fix {
+  background: rgba(255,158,100,.12);
+  color: var(--accent-orange);
+}
+
+/* ── 来源徽章 ── */
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+.source-badge.model { background: rgba(122,162,247,.12); color: var(--accent); }
+.source-badge.shorthand { background: rgba(187,154,247,.12); color: var(--accent-purple); }
+.source-badge.template { background: rgba(125,207,255,.12); color: var(--accent-cyan); }
+.source-badge.fixed { background: rgba(255,158,100,.12); color: var(--accent-orange); }
+
+/* ── 渲染模式切换器 ── */
+.mode-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+.mode-switcher .mode-opt {
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: var(--transition);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  user-select: none;
+  border-right: 1px solid var(--border);
+}
+.mode-switcher .mode-opt:last-child { border-right: none; }
+.mode-switcher .mode-opt:hover { color: var(--text-secondary); }
+.mode-switcher .mode-opt.active {
+  background: var(--accent);
+  color: var(--bg-base);
+}
+.mode-switcher .mode-opt .mode-icon { font-size: 11px; }
+
+/* 纯 LaTeX 渲染预览 (非 KaTeX 模式) */
+.render-preview.pure-latex {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--accent-cyan);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  text-align: left;
+  padding: 14px 16px;
+}
+.render-preview.pure-latex .latex-structural {
+  color: var(--accent-purple);
+}
+.render-preview.pure-latex .latex-operator {
+  color: var(--accent-orange);
+}
+.render-preview.pure-latex .latex-frac {
+  color: var(--accent-green);
+}
+.render-preview.pure-latex .latex-delimiter {
+  color: var(--text-muted);
+}
+
+/* 模式切换提示条 */
+.mode-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px;
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+}
+.mode-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+.mode-banner-right {
+  color: var(--text-muted);
+}
+.mode-banner kbd {
+  font-size: 9px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: var(--font-mono);
+}
+
+/* ── 历史列表 ── */
+.history-list {
+  max-height: 340px;
+  overflow-y: auto;
+}
+.history-list::-webkit-scrollbar { width: 4px; }
+.history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.history-item:hover { background: var(--bg-elevated); }
+.history-item:last-child { border-bottom: none; }
+
+.history-input {
+  flex: 1;
+  min-width: 0;
+}
+.history-input-text {
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history-input-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.history-render {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ── 缩写库 ── */
+.shorthand-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 10px 14px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.shorthand-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.shorthand-card:hover {
+  border-color: var(--accent-purple);
+}
+.shorthand-key {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-purple);
+  font-family: var(--font-mono);
+  margin-bottom: 3px;
+}
+.shorthand-val {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 设置面板 ── */
+.settings-section {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-section:last-child { border-bottom: none; }
+.settings-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+}
+.setting-label {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+.setting-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+.setting-value {
+  font-size: 11px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+/* Toggle switch */
+.toggle {
+  width: 34px; height: 18px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.toggle.on { background: var(--accent); border-color: var(--accent); }
+.toggle::after {
+  content: '';
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  position: absolute;
+  top: 2px; left: 2px;
+  transition: var(--transition);
+}
+.toggle.on::after { left: 18px; }
+
+/* ── OCR 图片预览 ── */
+.ocr-preview {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ocr-thumb {
+  width: 80px; height: 60px;
+  background: var(--bg-input);
+  border-radius: 4px;
+  border: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.ocr-info {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.ocr-info .size { color: var(--text-muted); font-size: 10px; }
+
+/* ── 图片拖放区 ── */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 30px;
+  text-align: center;
+  transition: var(--transition);
+  cursor: pointer;
+  margin: 12px 14px;
+  background: var(--bg-input);
+}
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: var(--accent);
+  background: rgba(122,162,247,.05);
+}
+.drop-zone .icon { font-size: 28px; color: var(--text-muted); }
+.drop-zone .text { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+.drop-zone .hint { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+
+/* ── 补全模式输入 ── */
+.completion-input {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.completion-input .typed {
+  color: var(--accent-cyan);
+}
+.completion-input .cursor {
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  background: var(--accent);
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 1px;
+}
+.completion-input .ghost {
+  color: var(--text-muted);
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ── 错误状态 ── */
+.error-box {
+  background: rgba(247,118,142,.08);
+  border: 1px solid rgba(247,118,142,.25);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 11px;
+  color: var(--accent-red);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.error-box .icon { font-size: 14px; flex-shrink: 0; }
+
+/* ── 自动修复提示 ── */
+.fix-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255,158,100,.08);
+  border: 1px solid rgba(255,158,100,.2);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  color: var(--accent-orange);
+  margin: 0 14px 8px;
+}
+
+/* ── 空状态 ── */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+}
+.empty-state .icon { font-size: 32px; color: var(--text-muted); }
+.empty-state .text { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+
+/* ── 搜索框 ── */
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin: 10px 14px;
+}
+.search-box .icon { color: var(--text-muted); font-size: 13px; }
+.search-box input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-ui);
+}
+.search-box input::placeholder { color: var(--text-muted); }
+
+/* ── 页面标题 ── */
+.page-title {
+  text-align: center;
+  padding: 20px 0 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  width: 100%;
+}
+.page-title span {
+  color: var(--accent);
+}
+
+/* ═══════════════════════════════════════════
+   流程图说明区
+   ═══════════════════════════════════════════ */
+.flow-section {
+  width: 100%;
+  max-width: 1100px;
+  margin-top: 40px;
+  padding: 0 20px;
+}
+.flow-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  text-align: center;
+}
+.flow-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.flow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.flow-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.flow-card-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  background: var(--accent);
+  color: var(--bg-base);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.flow-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.flow-card-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.flow-card-keys {
+  margin-top: 8px;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.flow-card-keys kbd {
+  font-size: 9px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+</style>
+</head>
+<body>
+
+<div class="page-title">TeXada <span>UI</span> 全流程模拟 — 菜单栏悬浮窗 · Raycast 暗色极简 · KaTeX 渲染</div>
+
+<!-- ══════════════════════════════════════════
+     场景 1: 初始状态 — 空输入
+     用户操作: 点击菜单栏图标 / 快捷键唤醒
+     ══════════════════════════════════════════ -->
+<div class="scene">
+  <div class="scene-label">1 · 唤醒</div>
+  <div class="scene-desc">点击菜单栏图标或按 <kbd>⌥⌘T</kbd> 唤出面板，默认 NL→LaTeX 模式</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status">
+        <div class="dot"></div>
+        <span>E4B Ready</span>
+      </div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item active">
+        <span class="icon">✏️</span> NL <span class="tab-shortcut">1</span>
+      </div>
+      <div class="tab-item">
+        <span class="icon">📷</span> OCR <span class="tab-shortcut">2</span>
+      </div>
+      <div class="tab-item">
+        <span class="icon">{ }</span> 补全 <span class="tab-shortcut">3</span>
+      </div>
+      <div class="tab-item">
+        <span class="icon">⚡</span> 缩写 <span class="tab-shortcut">4</span>
+      </div>
+      <div class="tab-item">
+        <span class="icon">🕐</span> 历史 <span class="tab-shortcut">5</span>
+      </div>
+      <div class="tab-item">
+        <span class="icon">⚙️</span> <span class="tab-shortcut">6</span>
+      </div>
+    </div>
+    <div class="input-area">
+      <textarea class="input-box" placeholder="输入数学描述…  如: 二重积分 f(x,y) 在 D 上" rows="1"></textarea>
+      <div class="input-hint">
+        <span>Enter 发送 · Shift+Enter 换行 · Esc 关闭</span>
+        <span class="intent-tag"><span class="intent-icon">🔍</span> 等待输入</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     场景 2: NL 输入中 — 意图自动识别
+     用户操作: 输入 "二重积分 f(x,y) 在区域 D 上"
+     ══════════════════════════════════════════ -->
+<div class="scene">
+  <div class="scene-label">2 · 输入中</div>
+  <div class="scene-desc">输入时 Intent Classifier 实时识别意图，Symbol Engine 预翻译中文术语</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status">
+        <div class="dot"></div>
+        <span>E4B Ready</span>
+      </div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item active"><span class="icon">✏️</span> NL <span class="tab-shortcut">1</span></div>
+      <div class="tab-item"><span class="icon">📷</span> OCR <span class="tab-shortcut">2</span></div>
+      <div class="tab-item"><span class="icon">{ }</span> 补全 <span class="tab-shortcut">3</span></div>
+      <div class="tab-item"><span class="icon">⚡</span> 缩写 <span class="tab-shortcut">4</span></div>
+      <div class="tab-item"><span class="icon">🕐</span> 历史 <span class="tab-shortcut">5</span></div>
+      <div class="tab-item"><span class="icon">⚙️</span> <span class="tab-shortcut">6</span></div>
+    </div>
+    <div class="input-area">
+      <textarea class="input-box" rows="1">二重积分 f(x,y) 在区域 D 上</textarea>
+      <div class="input-hint">
+        <span>Enter 发送 · Shift+Enter 换行 · Esc 关闭</span>
+        <span class="intent-tag" style="color:var(--accent)">
+          <span class="intent-icon">∫</span> integral · Symbol: \iint
+        </span>
+      </div>
+    </div>
+    <div class="processing-bar active"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     场景 3: 结果输出 — NL→LaTeX 成功
+     用户操作: 按 Enter 后模型返回结果
+     ══════════════════════════════════════════ -->
+<div class="scene">
+  <div class="scene-label">3 · 结果</div>
+  <div class="scene-desc">KaTeX 渲染预览 + LaTeX 源码，一键复制到剪贴板，可直接粘贴到 VS Code Markdown</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status">
+        <div class="dot"></div>
+        <span>E4B Ready</span>
+      </div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item active"><span class="icon">✏️</span> NL <span class="tab-shortcut">1</span></div>
+      <div class="tab-item"><span class="icon">📷</span> OCR <span class="tab-shortcut">2</span></div>
+      <div class="tab-item"><span class="icon">{ }</span> 补全 <span class="tab-shortcut">3</span></div>
+      <div class="tab-item"><span class="icon">⚡</span> 缩写 <span class="tab-shortcut">4</span></div>
+      <div class="tab-item"><span class="icon">🕐</span> 历史 <span class="tab-shortcut">5</span></div>
+      <div class="tab-item"><span class="icon">⚙️</span> <span class="tab-shortcut">6</span></div>
+    </div>
+    <div class="input-area">
+      <textarea class="input-box" rows="1" style="color:var(--text-muted); font-size:12px;">二重积分 f(x,y) 在区域 D 上</textarea>
+      <div class="input-hint">
+        <span style="color:var(--accent-green)">✓ 0.8s · 67 tokens</span>
+        <span class="intent-tag"><span class="intent-icon">∫</span> integral</span>
+      </div>
+    </div>
+    <div class="processing-bar done"></div>
+    <!-- 模式切换条 -->
+    <div class="mode-banner">
+      <div class="mode-banner-left">
+        渲染模式：
+        <div class="mode-switcher">
+          <div class="mode-opt active" data-mode="katex"><span class="mode-icon">📐</span> KaTeX</div>
+          <div class="mode-opt" data-mode="latex"><span class="mode-icon">📜</span> 纯 LaTeX</div>
+        </div>
+      </div>
+      <div class="mode-banner-right">按 <kbd>⌘K</kbd> 切换模式</div>
+    </div>
+    <div class="result-area">
+      <!-- KaTeX 渲染预览 -->
+      <div class="result-section" id="katex-result1">
+        <div class="result-label">
+          渲染预览
+          <span class="valid-badge ok">✓ KaTeX Valid</span>
+          <span class="source-badge model">🤖 model</span>
+        </div>
+        <div class="render-preview" id="render1">
+          <!-- KaTeX will render here -->
+        </div>
+      </div>
+      <!-- 纯 LaTeX 预览 (切换后) -->
+      <div class="result-section" id="latex-result1" style="display:none">
+        <div class="result-label">
+          纯 LaTeX 结构预览
+          <span class="valid-badge ok">✓ LaTeX Valid</span>
+          <span class="source-badge model">🤖 model</span>
+        </div>
+        <div class="render-preview pure-latex">
+<span class="latex-structural">\iint</span><span class="latex-delimiter">_</span>{<span class="latex-delimiter">D</span>} <span class="latex-operator">f</span>(<span class="latex-delimiter">x,y</span>)<span class="latex-structural">\,</span><span class="latex-operator">dx</span><span class="latex-structural">\,</span><span class="latex-operator">dy</span>
+        </div>
+      </div>
+      <!-- LaTeX 源码 -->
+      <div class="result-section">
+        <div class="result-label">LaTeX 源码</div>
+        <div class="latex-source">
+          <code class="latex-code">\iint_D f(x,y)\,dx\,dy</code>
+          <div class="action-btn" title="复制"><span class="icon">📋</span></div>
+        </div>
+      </div>
+      <!-- VS Code 兼容格式 -->
+      <div class="result-section">
+        <div class="result-label">VS Code Markdown</div>
+        <div class="latex-source">
+          <code class="latex-code">$$\iint_D f(x,y)\,dx\,dy$$</code>
+          <div class="action-btn" title="复制"><span class="icon">📋</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="action-row">
+      <div class="action-btn primary"><span class="icon">📋</span> 复制 <span class="panel-kbd">⌘C</span></div>
+      <div class="action-btn"><span class="icon">📌</span> 收藏</div>
+      <div class="action-btn"><span class="icon">✏️</span> 编辑</div>
+      <div class="action-btn"><span class="icon">🔄</span> 重新生成</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     场景 4: 缩写展开 — 零模型
+     用户操作: 切到缩写 Tab 或输入已知 shorthand
+     ══════════════════════════════════════════ -->
+<div class="scene">
+  <div class="scene-label">4 · 缩写</div>
+  <div class="scene-desc">输入 shorthand 关键词如 "euler"、"bayes" 直接查表展开，零模型调用，<1ms 响应</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status"><div class="dot"></div><span>E4B Ready</span></div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item"><span class="icon">✏️</span> NL</div>
+      <div class="tab-item"><span class="icon">📷</span> OCR</div>
+      <div class="tab-item"><span class="icon">{ }</span> 补全</div>
+      <div class="tab-item active"><span class="icon">⚡</span> 缩写 <span class="tab-shortcut">4</span></div>
+      <div class="tab-item"><span class="icon">🕐</span> 历史</div>
+      <div class="tab-item"><span class="icon">⚙️</span></div>
+    </div>
+    <div class="input-area">
+      <textarea class="input-box" rows="1" style="color:var(--accent-purple);">euler</textarea>
+      <div class="input-hint">
+        <span style="color:var(--accent-purple)">⚡ Shorthand 命中 — 零模型调用</span>
+        <span class="source-badge shorthand">⚡ shorthand</span>
+      </div>
+    </div>
+    <div class="result-area">
+      <div class="result-section">
+        <div class="result-label">渲染预览 <span class="valid-badge ok">✓ KaTeX Valid</span></div>
+        <div class="render-preview" id="render2"></div>
+      </div>
+      <div class="result-section">
+        <div class="result-label">LaTeX 源码</div>
+        <div class="latex-source">
+          <code class="latex-code">e^{i\pi}+1=0</code>
+          <div class="action-btn"><span class="icon">📋</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="action-row">
+      <div class="action-btn primary"><span class="icon">📋</span> 复制 <span class="panel-kbd">⌘C</span></div>
+      <div class="action-btn"><span class="icon">📌</span> 收藏</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     场景 5: OCR 模式 — 图片输入
+     用户操作: 切到 OCR Tab → 拖入/粘贴/截图
+     ══════════════════════════════════════════ -->
+<div class="scene">
+  <div class="scene-label">5 · OCR 拖入</div>
+  <div class="scene-desc">拖入截图/照片，OpenCV 预处理后 E4B 多模态识别，输出 KaTeX 渲染结果</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status"><div class="dot"></div><span>E4B Ready</span></div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item"><span class="icon">✏️</span> NL</div>
+      <div class="tab-item active"><span class="icon">📷</span> OCR <span class="tab-shortcut">2</span></div>
+      <div class="tab-item"><span class="icon">{ }</span> 补全</div>
+      <div class="tab-item"><span class="icon">⚡</span> 缩写</div>
+      <div class="tab-item"><span class="icon">🕐</span> 历史</div>
+      <div class="tab-item"><span class="icon">⚙️</span></div>
+    </div>
+    <!-- 空状态：拖放区 -->
+    <div class="drop-zone">
+      <div class="icon">📷</div>
+      <div class="text">拖入图片 · 粘贴截图 · 或点击选择</div>
+      <div class="hint">支持 PNG/JPG · ⌘⇧4 截图后直接 ⌘V 粘贴</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     场景 5b: OCR 处理中
+     ══════════════════════════════════════════ -->
+<div class="scene">
+  <div class="scene-label">5b · OCR 识别中</div>
+  <div class="scene-desc">图片已加载，OpenCV 预处理完成，E4B 多模态推理中</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status"><div class="dot"></div><span>E4B Processing…</span></div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item"><span class="icon">✏️</span> NL</div>
+      <div class="tab-item active"><span class="icon">📷</span> OCR <span class="tab-shortcut">2</span></div>
+      <div class="tab-item"><span class="icon">{ }</span> 补全</div>
+      <div class="tab-item"><span class="icon">⚡</span> 缩写</div>
+      <div class="tab-item"><span class="icon">🕐</span> 历史</div>
+      <div class="tab-item"><span class="icon">⚙️</span></div>
+    </div>
+    <div class="input-area">
+      <div class="ocr-preview">
+        <div class="ocr-thumb">∑</div>
+        <div class="ocr-info">
+          <div>formula_screenshot.png</div>
+          <div class="size">620×180 · PNG · 预处理: ✅ 二值化+缩放</div>
+        </div>
+        <div class="action-btn"><span class="icon">✕</span></div>
+      </div>
+    </div>
+    <div class="processing-bar active"></div>
+    <div class="input-hint" style="padding:4px 14px;">
+      <span style="color:var(--accent-orange)">📷 E4B 多模态识别中… ~2-4s</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     场景 5c: OCR 结果
+     ══════════════════════════════════════════ -->
+<div class="scene">
+  <div class="scene-label">5c · OCR 结果</div>
+  <div class="scene-desc">图像识别完成，KaTeX 渲染 + LaTeX 源码 + VS Code 格式一键复制</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status"><div class="dot"></div><span>E4B Ready</span></div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item"><span class="icon">✏️</span> NL</div>
+      <div class="tab-item active"><span class="icon">📷</span> OCR <span class="tab-shortcut">2</span></div>
+      <div class="tab-item"><span class="icon">{ }</span> 补全</div>
+      <div class="tab-item"><span class="icon">⚡</span> 缩写</div>
+      <div class="tab-item"><span class="icon">🕐</span> 历史</div>
+      <div class="tab-item"><span class="icon">⚙️</span></div>
+    </div>
+    <div class="input-area">
+      <div class="ocr-preview">
+        <div class="ocr-thumb">∑</div>
+        <div class="ocr-info">
+          <div>formula_screenshot.png</div>
+          <div class="size">✅ 识别完成 · 3.2s</div>
+        </div>
+      </div>
+    </div>
+    <div class="processing-bar done"></div>
+    <!-- 模式切换条 -->
+    <div class="mode-banner">
+      <div class="mode-banner-left">
+        渲染模式：
+        <div class="mode-switcher">
+          <div class="mode-opt active" data-mode="katex"><span class="mode-icon">📐</span> KaTeX</div>
+          <div class="mode-opt" data-mode="latex"><span class="mode-icon">📜</span> 纯 LaTeX</div>
+        </div>
+      </div>
+      <div class="mode-banner-right">按 <kbd>⌘K</kbd> 切换模式</div>
+    </div>
+    <div class="result-area">
+      <!-- KaTeX 渲染 -->
+      <div class="result-section" id="katex-result3">
+        <div class="result-label">渲染预览 <span class="valid-badge ok">✓ KaTeX Valid</span> <span class="source-badge model">🤖 model</span></div>
+        <div class="render-preview" id="render3"></div>
+      </div>
+      <!-- 纯 LaTeX 结构 -->
+      <div class="result-section" id="latex-result3" style="display:none">
+        <div class="result-label">纯 LaTeX 结构预览 <span class="valid-badge ok">✓ LaTeX Valid</span> <span class="source-badge model">🤖 model</span></div>
+        <div class="render-preview pure-latex">
+<span class="latex-structural">\sum</span><span class="latex-delimiter">_</span>{<span class="latex-operator">n</span>=<span class="latex-structural">1</span>}^<span class="latex-delimiter">{</span><span class="latex-structural">\infty</span><span class="latex-delimiter">}</span> <span class="latex-frac">\frac</span>{<span class="latex-structural">1</span>}{<span class="latex-operator">n</span>^<span class="latex-structural">2</span>} = <span class="latex-frac">\frac</span>{<span class="latex-structural">\pi</span>^<span class="latex-structural">2</span>}{<span class="latex-structural">6</span>}
+        </div>
+      </div>
+      <div class="result-section">
+        <div class="result-label">LaTeX 源码</div>
+        <div class="latex-source">
+          <code class="latex-code">\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}</code>
+          <div class="action-btn"><span class="icon">📋</span></div>
+        </div>
+      </div>
+      <div class="result-section">
+        <div class="result-label">VS Code Markdown</div>
+        <div class="latex-source">
+          <code class="latex-code">$$\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}$$</code>
+          <div class="action-btn"><span class="icon">📋</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="action-row">
+      <div class="action-btn primary"><span class="icon">📋</span> 复制 <span class="panel-kbd">⌘C</span></div>
+      <div class="action-btn"><span class="icon">📌</span> 收藏</div>
+      <div class="action-btn"><span class="icon">✏️</span> 编辑</div>
+      <div class="action-btn"><span class="icon">🔄</span> 重新识别</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     场景 6: LaTeX 补全模式
+     用户操作: 切到补全 Tab → 输入不完整 LaTeX
+     ══════════════════════════════════════════ -->
+<div class="scene">
+  <div class="scene-label">6 · LaTeX 补全</div>
+  <div class="scene-desc">输入不完整 LaTeX 片段，E4B 基于上下文补全，适合写着写着忘了语法</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status"><div class="dot"></div><span>E4B Ready</span></div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item"><span class="icon">✏️</span> NL</div>
+      <div class="tab-item"><span class="icon">📷</span> OCR</div>
+      <div class="tab-item active"><span class="icon">{ }</span> 补全 <span class="tab-shortcut">3</span></div>
+      <div class="tab-item"><span class="icon">⚡</span> 缩写</div>
+      <div class="tab-item"><span class="icon">🕐</span> 历史</div>
+      <div class="tab-item"><span class="icon">⚙️</span></div>
+    </div>
+    <div class="input-area">
+      <textarea class="input-box" rows="1"><div class="completion-input"><span class="typed">\sum_{i=1}^{</span><span class="cursor"></span><span class="ghost">n} x_i</span></div></textarea>
+      <div class="input-hint">
+        <span>Tab 接受补全 · Esc 取消</span>
+        <span class="source-badge model">🤖 model</span>
+      </div>
+    </div>
+    <div class="processing-bar done"></div>
+    <div class="result-area">
+      <div class="result-section">
+        <div class="result-label">补全预览 <span class="valid-badge ok">✓ KaTeX Valid</span></div>
+        <div class="render-preview" id="render4"></div>
+      </div>
+      <div class="result-section">
+        <div class="result-label">完整 LaTeX</div>
+        <div class="latex-source">
+          <code class="latex-code">\sum_{i=1}^{n} x_i</code>
+          <div class="action-btn"><span class="icon">📋</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="action-row">
+      <div class="action-btn primary"><span class="icon">✓</span> 接受 <span class="panel-kbd">Tab</span></div>
+      <div class="action-btn"><span class="icon">📋</span> 复制</div>
+      <div class="action-btn"><span class="icon">🔄</span> 换一个</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     场景 7: 错误 + 自动修复
+     用户操作: 模型输出不合法 LaTeX → 自动修复
+     ══════════════════════════════════════════ -->
+<div class="scene">
+  <div class="scene-label">7 · 自动修复</div>
+  <div class="scene-desc">模型输出花括号不匹配等语法错误 → Validator 检测 → LaTeX Fixer 自动修复，无需重试模型</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status"><div class="dot"></div><span>E4B Ready</span></div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item active"><span class="icon">✏️</span> NL</div>
+      <div class="tab-item"><span class="icon">📷</span> OCR</div>
+      <div class="tab-item"><span class="icon">{ }</span> 补全</div>
+      <div class="tab-item"><span class="icon">⚡</span> 缩写</div>
+      <div class="tab-item"><span class="icon">🕐</span> 历史</div>
+      <div class="tab-item"><span class="icon">⚙️</span></div>
+    </div>
+    <div class="input-area">
+      <textarea class="input-box" rows="1" style="color:var(--text-muted); font-size:12px;">矩阵A的逆</textarea>
+    </div>
+    <div class="fix-banner">
+      <span>🔧</span> 自动修复: 花括号不匹配 → 已补全 1 个 <code>}</code>（无需重试模型）
+    </div>
+    <div class="result-area">
+      <div class="result-section">
+        <div class="result-label">
+          渲染预览
+          <span class="valid-badge fix">🔧 已修复</span>
+          <span class="source-badge fixed">🔧 fixed</span>
+        </div>
+        <div class="render-preview" id="render5"></div>
+      </div>
+      <div class="result-section">
+        <div class="result-label">修复详情</div>
+        <div class="latex-source" style="flex-direction:column; align-items:flex-start; gap:6px;">
+          <div style="font-size:10px; color:var(--accent-red); font-family:var(--font-mono);">
+            ✕ 原始: <code>A^{-1 = \frac{1}{\det(A)}</code>
+          </div>
+          <div style="font-size:10px; color:var(--accent-green); font-family:var(--font-mono);">
+            ✓ 修复: <code>A^{-1} = \frac{1}{\det(A)}</code>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="action-row">
+      <div class="action-btn primary"><span class="icon">📋</span> 复制修复版</div>
+      <div class="action-btn"><span class="icon">🔄</span> 让模型重新生成</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     场景 8: 历史面板
+     用户操作: 切到历史 Tab
+     ══════════════════════════════════════════ -->
+<div class="scene">
+  <div class="scene-label">8 · 历史</div>
+  <div class="scene-desc">所有生成记录，可搜索、点击回填、收藏。KaTeX 行内渲染预览</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status"><div class="dot"></div><span>E4B Ready</span></div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item"><span class="icon">✏️</span> NL</div>
+      <div class="tab-item"><span class="icon">📷</span> OCR</div>
+      <div class="tab-item"><span class="icon">{ }</span> 补全</div>
+      <div class="tab-item"><span class="icon">⚡</span> 缩写</div>
+      <div class="tab-item active"><span class="icon">🕐</span> 历史 <span class="tab-shortcut">5</span></div>
+      <div class="tab-item"><span class="icon">⚙️</span></div>
+    </div>
+    <div class="search-box">
+      <span class="icon">🔍</span>
+      <input type="text" placeholder="搜索历史…">
+    </div>
+    <div class="history-list">
+      <div class="history-item">
+        <div class="history-input">
+          <div class="history-input-text">二重积分 f(x,y) 在区域 D 上</div>
+          <div class="history-input-meta">
+            <span class="source-badge model">🤖 model</span>
+            <span>0.8s</span>
+            <span>2 min ago</span>
+          </div>
+        </div>
+        <div class="history-render" id="hist1"></div>
+      </div>
+      <div class="history-item">
+        <div class="history-input">
+          <div class="history-input-text">euler</div>
+          <div class="history-input-meta">
+            <span class="source-badge shorthand">⚡ shorthand</span>
+            <span>&lt;1ms</span>
+            <span>5 min ago</span>
+          </div>
+        </div>
+        <div class="history-render" id="hist2"></div>
+      </div>
+      <div class="history-item">
+        <div class="history-input">
+          <div class="history-input-text">正态分布 N(μ, σ²) 的概率密度函数</div>
+          <div class="history-input-meta">
+            <span class="source-badge model">🤖 model</span>
+            <span>1.2s</span>
+            <span>10 min ago</span>
+          </div>
+        </div>
+        <div class="history-render" id="hist3"></div>
+      </div>
+      <div class="history-item">
+        <div class="history-input">
+          <div class="history-input-text">bayes</div>
+          <div class="history-input-meta">
+            <span class="source-badge shorthand">⚡ shorthand</span>
+            <span>&lt;1ms</span>
+            <span>15 min ago</span>
+          </div>
+        </div>
+        <div class="history-render" id="hist4"></div>
+      </div>
+      <div class="history-item">
+        <div class="history-input">
+          <div class="history-input-text">📷 formula_hw.png</div>
+          <div class="history-input-meta">
+            <span class="source-badge model">🤖 model</span>
+            <span>3.2s</span>
+            <span>1 hr ago</span>
+          </div>
+        </div>
+        <div class="history-render" id="hist5"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     场景 9: 缩写库面板
+     用户操作: 切到缩写 Tab
+     ══════════════════════════════════════════ -->
+<div class="scene">
+  <div class="scene-label">9 · 缩写库</div>
+  <div class="scene-desc">浏览/搜索/添加自定义 shorthand 和模板。点击即复制，零模型</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status"><div class="dot"></div><span>E4B Ready</span></div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item"><span class="icon">✏️</span> NL</div>
+      <div class="tab-item"><span class="icon">📷</span> OCR</div>
+      <div class="tab-item"><span class="icon">{ }</span> 补全</div>
+      <div class="tab-item active"><span class="icon">⚡</span> 缩写 <span class="tab-shortcut">4</span></div>
+      <div class="tab-item"><span class="icon">🕐</span> 历史</div>
+      <div class="tab-item"><span class="icon">⚙️</span></div>
+    </div>
+    <div class="search-box">
+      <span class="icon">🔍</span>
+      <input type="text" placeholder="搜索缩写…">
+      <div class="action-btn" style="padding:3px 8px; font-size:10px;"><span class="icon">+</span> 添加</div>
+    </div>
+    <div class="shorthand-grid">
+      <div class="shorthand-card">
+        <div class="shorthand-key">euler</div>
+        <div class="shorthand-val">e^{i\pi}+1=0</div>
+      </div>
+      <div class="shorthand-card">
+        <div class="shorthand-key">euler-g</div>
+        <div class="shorthand-val">e^{i\theta}=...</div>
+      </div>
+      <div class="shorthand-card">
+        <div class="shorthand-key">pyth</div>
+        <div class="shorthand-val">a^2+b^2=c^2</div>
+      </div>
+      <div class="shorthand-card">
+        <div class="shorthand-key">quad</div>
+        <div class="shorthand-val">x=\frac{-b\pm...</div>
+      </div>
+      <div class="shorthand-card">
+        <div class="shorthand-key">binom</div>
+        <div class="shorthand-val">\binom{n}{k}=...</div>
+      </div>
+      <div class="shorthand-card">
+        <div class="shorthand-key">taylor</div>
+        <div class="shorthand-val">\sum_{n=0}...</div>
+      </div>
+      <div class="shorthand-card">
+        <div class="shorthand-key">normal</div>
+        <div class="shorthand-val">\frac{1}{\sigma}...</div>
+      </div>
+      <div class="shorthand-card">
+        <div class="shorthand-key">bayes</div>
+        <div class="shorthand-val">P(A|B)=...</div>
+      </div>
+      <div class="shorthand-card">
+        <div class="shorthand-key">gauss</div>
+        <div class="shorthand-val">\int e^{-x^2}...</div>
+      </div>
+      <div class="shorthand-card">
+        <div class="shorthand-key">fourier</div>
+        <div class="shorthand-val">\hat{f}(\xi)=...</div>
+      </div>
+      <div class="shorthand-card">
+        <div class="shorthand-key">stokes</div>
+        <div class="shorthand-val">\oint_C \mathbf{F}...</div>
+      </div>
+      <div class="shorthand-card">
+        <div class="shorthand-key">green</div>
+        <div class="shorthand-val">\oint_C (Pdx+Qdy)...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     场景 10: 设置面板
+     用户操作: 切到设置 Tab
+     ══════════════════════════════════════════ -->
+<div class="scene">
+  <div class="scene-label">10 · 设置</div>
+  <div class="scene-desc">模型配置、输出格式、快捷键、VS Code 集成</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status"><div class="dot"></div><span>E4B Ready</span></div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item"><span class="icon">✏️</span> NL</div>
+      <div class="tab-item"><span class="icon">📷</span> OCR</div>
+      <div class="tab-item"><span class="icon">{ }</span> 补全</div>
+      <div class="tab-item"><span class="icon">⚡</span> 缩写</div>
+      <div class="tab-item"><span class="icon">🕐</span> 历史</div>
+      <div class="tab-item active"><span class="icon">⚙️</span> <span class="tab-shortcut">6</span></div>
+    </div>
+
+    <!-- 模型配置 -->
+    <div class="settings-section">
+      <div class="settings-title">模型</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Ollama 模型</div>
+          <div class="setting-desc">当前加载的 Gemma 4 变体</div>
+        </div>
+        <div class="setting-value">gemma4:e4b-it-qat</div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">温度</div>
+          <div class="setting-desc">越低越确定性，越高越多样</div>
+        </div>
+        <div class="setting-value">0.1</div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">最大输出 Token</div>
+          <div class="setting-desc">公式通常 &lt;100 tokens</div>
+        </div>
+        <div class="setting-value">256</div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">自动重试</div>
+          <div class="setting-desc">LaTeX 验证失败时自动让模型重试</div>
+        </div>
+        <div class="toggle on"></div>
+      </div>
+    </div>
+
+    <!-- 输出格式 -->
+    <div class="settings-section">
+      <div class="settings-title">渲染与输出格式</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">默认渲染模式</div>
+          <div class="setting-desc">KaTeX = 视觉公式渲染 · 纯 LaTeX = 语法结构高亮。按 <kbd>⌘K</kbd> 即时切换</div>
+        </div>
+        <div class="mode-switcher">
+          <div class="mode-opt active"><span class="mode-icon">📐</span> KaTeX</div>
+          <div class="mode-opt"><span class="mode-icon">📜</span> 纯 LaTeX</div>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">KaTeX 模式复制格式</div>
+          <div class="setting-desc">KaTeX 模式下 ⌘C 复制的内容格式</div>
+        </div>
+        <div class="setting-value">$$...$$ (带定界符)</div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">纯 LaTeX 模式复制格式</div>
+          <div class="setting-desc">纯 LaTeX 模式下 ⌘C 复制的内容格式</div>
+        </div>
+        <div class="setting-value">无定界符 (裸 LaTeX)</div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">定界符类型</div>
+          <div class="setting-desc">KaTeX 模式下使用的定界符 · $$...$$ 兼容 VS Code · \[...\] 兼容纯 LaTeX 文档</div>
+        </div>
+        <div class="setting-value">$$...$$</div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">KaTeX 渲染引擎</div>
+          <div class="setting-desc">与 VS Code Markdown Preview 同引擎 · 纯 LaTeX 模式不依赖 KaTeX</div>
+        </div>
+        <div class="toggle on"></div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">纯 LaTeX 语法高亮</div>
+          <div class="setting-desc">结构命令紫色 · 变量橙色 · 分数绿色 · 定界符灰色</div>
+        </div>
+        <div class="toggle on"></div>
+      </div>
+    </div>
+
+    <!-- 快捷操作 -->
+    <div class="settings-section">
+      <div class="settings-title">快捷操作</div>
+      <div class="setting-row">
+        <div><div class="setting-label">唤醒 TeXada</div></div>
+        <div class="setting-value">⌥⌘T</div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">复制结果</div></div>
+        <div class="setting-value">⌘C</div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">发送/确认</div></div>
+        <div class="setting-value">Enter</div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">关闭面板</div></div>
+        <div class="setting-value">Esc</div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">切换 Tab</div></div>
+        <div class="setting-value">1-6</div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">切换渲染模式</div><div class="setting-desc">KaTeX ↔ 纯 LaTeX</div></div>
+        <div class="setting-value">⌘K</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     场景 11: 离线/错误状态
+     ══════════════════════════════════════════ -->
+<div class="scene">
+  <div class="scene-label">11 · 离线</div>
+  <div class="scene-desc">Ollama 未运行或模型未加载时，缩写/模板仍可用，模型功能降级提示</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo" style="background:var(--accent-red);">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status">
+        <div class="dot offline"></div>
+        <span style="color:var(--accent-red);">E4B Offline</span>
+      </div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item" style="opacity:.4"><span class="icon">✏️</span> NL</div>
+      <div class="tab-item" style="opacity:.4"><span class="icon">📷</span> OCR</div>
+      <div class="tab-item" style="opacity:.4"><span class="icon">{ }</span> 补全</div>
+      <div class="tab-item active"><span class="icon">⚡</span> 缩写</div>
+      <div class="tab-item"><span class="icon">🕐</span> 历史</div>
+      <div class="tab-item"><span class="icon">⚙️</span></div>
+    </div>
+    <div class="error-box" style="margin:10px 14px;">
+      <span class="icon">⚠️</span>
+      <div>
+        <strong>Ollama 未运行</strong><br>
+        <span style="color:var(--text-muted)">NL/OCR/补全需要模型，缩写和历史仍可用。运行 <code>ollama serve</code> 启动。</span>
+      </div>
+    </div>
+    <div class="shorthand-grid" style="padding-top:4px;">
+      <div class="shorthand-card">
+        <div class="shorthand-key">euler</div>
+        <div class="shorthand-val">e^{i\pi}+1=0</div>
+      </div>
+      <div class="shorthand-card">
+        <div class="shorthand-key">bayes</div>
+        <div class="shorthand-val">P(A|B)=...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     场景 12: KaTeX vs 纯 LaTeX 双模式对比
+     用户操作: ⌘K 切换渲染模式，或点击模式切换器
+     ══════════════════════════════════════════ -->
+<div class="scene">
+  <div class="scene-label">12 · 双模式对比</div>
+  <div class="scene-desc">⌘K 一键切换。KaTeX 模式渲染出视觉公式；纯 LaTeX 模式语法高亮结构拆解，适合编辑和调试 LaTeX 源码</div>
+
+  <!-- KaTeX 模式 -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status"><div class="dot"></div><span>E4B Ready</span></div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <!-- 模式切换条 — KaTeX 选中态 -->
+    <div class="mode-banner">
+      <div class="mode-banner-left">
+        渲染模式：
+        <div class="mode-switcher" id="demo-switcher-katex">
+          <div class="mode-opt active"><span class="mode-icon">📐</span> KaTeX</div>
+          <div class="mode-opt"><span class="mode-icon">📜</span> 纯 LaTeX</div>
+        </div>
+      </div>
+      <div class="mode-banner-right">按 <kbd>⌘K</kbd> 切换模式</div>
+    </div>
+    <div class="result-area">
+      <div class="result-section">
+        <div class="result-label">
+          KaTeX 渲染预览
+          <span class="valid-badge ok">✓ KaTeX Valid</span>
+          <span style="font-size:9px; color:var(--accent); font-family:var(--font-mono); background:rgba(122,162,247,.12); padding:2px 6px; border-radius:3px;">📐 KaTeX 模式</span>
+        </div>
+        <div class="render-preview" id="render_katex_demo"></div>
+      </div>
+      <div class="result-section">
+        <div class="result-label">复制内容 (KaTeX 模式下)</div>
+        <div class="latex-source">
+          <code class="latex-code">$$\frac{\partial^2 u}{\partial x^2} + \frac{\partial^2 u}{\partial y^2} = f(x,y)$$</code>
+          <div class="action-btn"><span class="icon">📋</span></div>
+        </div>
+      </div>
+      <div style="font-size:10px; color:var(--text-muted); padding:4px 14px;">
+        KaTeX 模式：渲染出视觉公式 → 适合 VS Code Markdown Preview / 文档阅读<br>
+        复制格式带 <code>$$...$$</code> 定界符，粘贴到 VS Code 即可渲染
+      </div>
+    </div>
+    <div class="action-row">
+      <div class="action-btn primary"><span class="icon">📋</span> 复制 (带定界符)</div>
+      <div class="action-btn"><span class="icon">🔄</span> ⌘K 切到纯 LaTeX</div>
+    </div>
+  </div>
+</div>
+
+<!-- 纯 LaTeX 模式 -->
+<div class="scene">
+  <div class="scene-label">12b · 纯 LaTeX 模式</div>
+  <div class="scene-desc">纯 LaTeX 模式：语法高亮结构拆解，命令/变量/运算符分色标注。适合编辑 .tex 文件 / 调试公式</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-logo">T</div>
+      <div class="panel-title">TeXada</div>
+      <div class="panel-status"><div class="dot"></div><span>E4B Ready</span></div>
+      <div class="panel-kbd">⌥⌘T</div>
+    </div>
+    <!-- 模式切换条 — 纯 LaTeX 选中态 -->
+    <div class="mode-banner">
+      <div class="mode-banner-left">
+        渲染模式：
+        <div class="mode-switcher" id="demo-switcher-latex">
+          <div class="mode-opt"><span class="mode-icon">📐</span> KaTeX</div>
+          <div class="mode-opt active"><span class="mode-icon">📜</span> 纯 LaTeX</div>
+        </div>
+      </div>
+      <div class="mode-banner-right">按 <kbd>⌘K</kbd> 切换模式</div>
+    </div>
+    <div class="result-area">
+      <div class="result-section">
+        <div class="result-label">
+          纯 LaTeX 结构预览
+          <span class="valid-badge ok">✓ LaTeX Valid</span>
+          <span style="font-size:9px; color:var(--accent-orange); font-family:var(--font-mono); background:rgba(255,158,100,.12); padding:2px 6px; border-radius:3px;">📜 纯 LaTeX 模式</span>
+        </div>
+        <div class="render-preview pure-latex">
+<span class="latex-frac">\frac</span><span class="latex-delimiter">{</span><span class="latex-structural">\partial</span>^<span class="latex-structural">2</span> <span class="latex-operator">u</span><span class="latex-delimiter">}</span><span class="latex-delimiter">{</span><span class="latex-structural">\partial</span> <span class="latex-operator">x</span>^<span class="latex-structural">2</span><span class="latex-delimiter">}</span> + <span class="latex-frac">\frac</span><span class="latex-delimiter">{</span><span class="latex-structural">\partial</span>^<span class="latex-structural">2</span> <span class="latex-operator">u</span><span class="latex-delimiter">}</span><span class="latex-delimiter">{</span><span class="latex-structural">\partial</span> <span class="latex-operator">y</span>^<span class="latex-structural">2</span><span class="latex-delimiter">}</span> = <span class="latex-operator">f</span>(<span class="latex-operator">x,y</span>)
+        </div>
+      </div>
+      <div class="result-section">
+        <div class="result-label">复制内容 (纯 LaTeX 模式下)</div>
+        <div class="latex-source">
+          <code class="latex-code" style="white-space:pre-wrap; word-break:break-all;">\frac{\partial^2 u}{\partial x^2} + \frac{\partial^2 u}{\partial y^2} = f(x,y)</code>
+          <div class="action-btn"><span class="icon">📋</span></div>
+        </div>
+      </div>
+      <div style="font-size:10px; color:var(--text-muted); padding:4px 14px;">
+        纯 LaTeX 模式：语法高亮结构拆解 → 适合编辑 .tex 文件 / 调试公式<br>
+        复制格式<strong>不带</strong>定界符，粘贴到 .tex 源码直接可用<br>
+        <span style="color:var(--accent-purple)">紫色</span>=结构命令 <span style="color:var(--accent-orange)">橙色</span>=变量 <span style="color:var(--accent-green)">绿色</span>=分数 <span style="color:var(--text-muted)">灰色</span>=定界符
+      </div>
+    </div>
+    <div class="action-row">
+      <div class="action-btn primary"><span class="icon">📋</span> 复制 (无定界符)</div>
+      <div class="action-btn"><span class="icon">🔄</span> ⌘K 切到 KaTeX</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     完整用户流程图
+     ══════════════════════════════════════════ -->
+<div class="flow-section">
+  <div class="flow-title">TeXada 完整用户流程</div>
+  <div class="flow-subtitle">6 种输入模式 · 4 种输出路径 · VS Code / 剪贴板 / TSF / API 全覆盖</div>
+
+  <div class="flow-grid">
+    <div class="flow-card">
+      <div class="flow-card-num">1</div>
+      <div class="flow-card-title">唤醒面板</div>
+      <div class="flow-card-desc">
+        点击菜单栏图标或按 <kbd>⌥⌘T</kbd> 弹出悬浮窗。<br>
+        自动聚焦输入框，保持上次的 Tab 状态。
+      </div>
+      <div class="flow-card-keys"><kbd>⌥⌘T</kbd></div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">2</div>
+      <div class="flow-card-title">选择模式</div>
+      <div class="flow-card-desc">
+        按 <kbd>1</kbd>-<kbd>6</kbd> 切换 Tab：<br>
+        ① NL→LaTeX · ② OCR · ③ 补全<br>
+        ④ 缩写 · ⑤ 历史 · ⑥ 设置
+      </div>
+      <div class="flow-card-keys"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>5</kbd><kbd>6</kbd></div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">3</div>
+      <div class="flow-card-title">输入 (NL 模式)</div>
+      <div class="flow-card-desc">
+        输入中文/英文数学描述。<br>
+        实时显示：Intent 分类 + Symbol 预翻译。<br>
+        按 <kbd>Enter</kbd> 发送到 E4B。
+      </div>
+      <div class="flow-card-keys"><kbd>Enter</kbd><kbd>Shift+Enter</kbd></div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">4</div>
+      <div class="flow-card-title">输入 (OCR 模式)</div>
+      <div class="flow-card-desc">
+        拖入图片 / <kbd>⌘V</kbd> 粘贴截图 / 点击选择。<br>
+        OpenCV 自动预处理(去噪+二值化)。<br>
+        按 <kbd>Enter</kbd> 或自动开始识别。
+      </div>
+      <div class="flow-card-keys"><kbd>⌘V</kbd><kbd>⌘⇧4</kbd></div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">5</div>
+      <div class="flow-card-title">输入 (补全模式)</div>
+      <div class="flow-card-desc">
+        输入不完整 LaTeX：<code>\sum_{i=1}^{</code><br>
+        灰色 ghost text 显示建议补全。<br>
+        <kbd>Tab</kbd> 接受 · <kbd>Esc</kbd> 取消。
+      </div>
+      <div class="flow-card-keys"><kbd>Tab</kbd><kbd>Esc</kbd></div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">6</div>
+      <div class="flow-card-title">输入 (缩写模式)</div>
+      <div class="flow-card-desc">
+        输入 shorthand 关键词如 <code>euler</code>。<br>
+        零模型调用，&lt;1ms 响应。<br>
+        支持浏览/搜索/添加自定义缩写。
+      </div>
+      <div class="flow-card-keys"><kbd>Enter</kbd></div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">7</div>
+      <div class="flow-card-title">推理 (E4B)</div>
+      <div class="flow-card-desc">
+        Symbol Engine 预翻译 → 构造 prompt →<br>
+        Ollama 调用 <code>gemma4:e4b-it-qat</code>。<br>
+        temperature=0.1 · max_tokens=256。<br>
+        ~0.5-2s 延迟，进度条可视化。
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">8</div>
+      <div class="flow-card-title">验证</div>
+      <div class="flow-card-desc">
+        KaTeX 解析 → 花括号/环境配对 →<br>
+        命令合法性检查。<br>
+        ✅ 通过 → 直接输出<br>
+        🔧 可修复 → LaTeX Fixer 自动修<br>
+        ❌ 不可修复 → 重新调用模型
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">9</div>
+      <div class="flow-card-title">结果展示 (双模式)</div>
+      <div class="flow-card-desc">
+        顶部模式切换器，⌘K 即时切换：<br>
+        📐 <strong>KaTeX 模式</strong>: 视觉公式渲染 → 复制带 <code>$$...$$</code><br>
+        📜 <strong>纯 LaTeX 模式</strong>: 语法结构高亮 → 复制裸 LaTeX<br>
+        两种模式共享同一 LaTeX 源码
+      </div>
+      <div class="flow-card-keys"><kbd>⌘K</kbd></div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">10</div>
+      <div class="flow-card-title">输出 — 剪贴板</div>
+      <div class="flow-card-desc">
+        <kbd>⌘C</kbd> 一键复制到剪贴板。<br>
+        默认格式 <code>$$\iint_D f(x,y)\,dx\,dy$$</code><br>
+        可在设置中切换为纯 LaTeX (无定界符)。<br>
+        粘贴到 VS Code → Markdown Preview 直接渲染。
+      </div>
+      <div class="flow-card-keys"><kbd>⌘C</kbd></div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">11</div>
+      <div class="flow-card-title">输出 — VS Code 集成</div>
+      <div class="flow-card-desc">
+        通过 TSF (Text Services Framework) 协议<br>
+        直接在光标位置插入 LaTeX。<br>
+        兼容 Markdown、.tex、Jupyter 等文件。<br>
+        KaTeX 引擎确保渲染一致。
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">12</div>
+      <div class="flow-card-title">输出 — HTTP API</div>
+      <div class="flow-card-desc">
+        FastAPI 后端 <code>POST /api/convert</code><br>
+        其他应用 (Obsidian/Notion 插件等)<br>
+        可通过本地 API 调用 TeXada。<br>
+        返回 JSON: {latex, valid, source, intent}
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">13</div>
+      <div class="flow-card-title">后续操作</div>
+      <div class="flow-card-desc">
+        复制后：<kbd>⌘V</kbd> 粘贴到目标应用<br>
+        点击「编辑」→ 手动修改 LaTeX 源码<br>
+        点击「重新生成」→ 换个结果<br>
+        点击「收藏」→ 保存到自定义缩写库<br>
+        <kbd>Esc</kbd> 关闭面板继续工作
+      </div>
+      <div class="flow-card-keys"><kbd>Esc</kbd><kbd>⌘V</kbd></div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">14</div>
+      <div class="flow-card-title">降级模式</div>
+      <div class="flow-card-desc">
+        Ollama 离线时：<br>
+        ✅ 缩写库 — 零模型可用<br>
+        ✅ 历史记录 — 可搜索回填<br>
+        ✅ LaTeX 验证 — 纯代码校验<br>
+        ❌ NL/OCR/补全 — 需模型，显示提示
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">15</div>
+      <div class="flow-card-title">双模式输出兼容</div>
+      <div class="flow-card-desc">
+        <strong>📐 KaTeX 模式 → VS Code / Markdown:</strong><br>
+        • KaTeX 引擎同源，渲染一致<br>
+        • 复制 <code>$$...$$</code> → Markdown Preview 直接渲染<br>
+        • 复制 <code>$...$</code> → 行内公式<br>
+        <strong>📜 纯 LaTeX 模式 → .tex / LaTeX 编译:</strong><br>
+        • 复制裸 LaTeX → 粘贴到 .tex 直接可用<br>
+        • 语法高亮辅助编辑与调试<br>
+        • 不含 KaTeX 不支持的宏包命令
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-num">16</div>
+      <div class="flow-card-title">持久化</div>
+      <div class="flow-card-desc">
+        所有数据本地存储：<br>
+        • 历史: SQLite (自动清理 >30天)<br>
+        • 缩写/模板: JSON 文件 (用户可编辑)<br>
+        • 设置: ~/.texada/config.json<br>
+        • 零云端 · 零追踪
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// KaTeX 渲染初始化
+document.addEventListener('DOMContentLoaded', () => {
+  const renderings = {
+    'render1': '\\iint_D f(x,y)\\,dx\\,dy',
+    'render2': 'e^{i\\pi}+1=0',
+    'render3': '\\sum_{n=1}^{\\infty} \\frac{1}{n^2} = \\frac{\\pi^2}{6}',
+    'render4': '\\sum_{i=1}^{n} x_i',
+    'render5': 'A^{-1} = \\frac{1}{\\det(A)}',
+    'render_katex_demo': '\\frac{\\partial^2 u}{\\partial x^2} + \\frac{\\partial^2 u}{\\partial y^2} = f(x,y)',
+    'hist1': '\\iint_D f\\,dx\\,dy',
+    'hist2': 'e^{i\\pi}+1=0',
+    'hist3': '\\mathcal{N}(\\mu,\\sigma^2)',
+    'hist4': 'P(A|B)=\\frac{P(B|A)P(A)}{P(B)}',
+    'hist5': '\\int e^{-x^2}dx',
+  };
+
+  for (const [id, tex] of Object.entries(renderings)) {
+    const el = document.getElementById(id);
+    if (el) {
+      try {
+        katex.render(tex, el, {
+          throwOnError: false,
+          displayMode: false,
+          output: 'html',  // 与 VS Code KaTeX 插件一致
+        });
+      } catch(e) { el.textContent = tex; }
+    }
+  }
+
+  // 模式切换交互 — 点击切换器切换 KaTeX/纯 LaTeX 显示
+  document.querySelectorAll('.mode-switcher').forEach(switcher => {
+    const opts = switcher.querySelectorAll('.mode-opt');
+    // 找到同一面板内的 katex-result 和 latex-result
+    const panel = switcher.closest('.panel');
+    const katexSections = panel.querySelectorAll('[id^="katex-result"]');
+    const latexSections = panel.querySelectorAll('[id^="latex-result"]');
+
+    opts.forEach(opt => {
+      opt.addEventListener('click', () => {
+        opts.forEach(o => o.classList.remove('active'));
+        opt.classList.add('active');
+
+        const mode = opt.textContent.trim().includes('KaTeX') ? 'katex' : 'latex';
+
+        if (mode === 'katex') {
+          katexSections.forEach(s => s.style.display = '');
+          latexSections.forEach(s => s.style.display = 'none');
+        } else {
+          katexSections.forEach(s => s.style.display = 'none');
+          latexSections.forEach(s => s.style.display = '');
+        }
+      });
+    });
+  });
+});
+</script>
+
+</body>
+</html>

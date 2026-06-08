@@ -29,7 +29,10 @@ class MacOSAdapter(PlatformAdapter):
         return None
 
     def show_notification(self, title: str, body: str) -> None:
-        script = f'display notification "{body}" with title "{title}"'
+        # Escape double quotes to prevent AppleScript injection
+        safe_title = title.replace('"', '\\"')
+        safe_body = body.replace('"', '\\"')
+        script = f'display notification "{safe_body}" with title "{safe_title}"'
         subprocess.run(["osascript", "-e", script], timeout=5)
 
     def get_platform_name(self) -> str:

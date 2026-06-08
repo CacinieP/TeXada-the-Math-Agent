@@ -27,8 +27,12 @@ class OllamaManager:
             await self._start_ollama()
 
         # Step 2: Check model is available
-        models = self.client.list()
-        model_names = [m.model for m in models.models] if hasattr(models, 'models') else []
+        try:
+            models = self.client.list()
+            model_names = [m.model for m in models.models] if hasattr(models, 'models') else []
+        except Exception:
+            self._ready = False
+            raise RuntimeError("Ollama 连接失败，请确认服务正在运行")
         if not any(self.config.model_name in n for n in model_names):
             raise RuntimeError(
                 f"模型 {self.config.model_name} 未安装。请运行: ollama pull {self.config.model_name}"
@@ -42,6 +46,7 @@ class OllamaManager:
             self.client.ps()
             return True
         except Exception:
+            self._ready = False  # Reset on failure
             return False
 
     async def _start_ollama(self) -> None:

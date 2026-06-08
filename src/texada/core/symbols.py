@@ -1,6 +1,8 @@
 """Symbol Engine — deterministic Chinese→LaTeX pre-translation, zero model."""
 from __future__ import annotations
 
+import re
+
 # Long match first — sorted by descending key length
 SYMBOL_MAP: dict[str, str] = {
     # 基础运算
@@ -129,14 +131,31 @@ SYMBOL_MAP: dict[str, str] = {
     "拉普拉斯": r"\Delta",
 }
 
+# Suffixes that indicate a word is used in a non-math compound (e.g. 积分学, 矩阵论)
+_COMPOUND_SUFFIXES = frozenset("学论法方程式表系理性质义题体器列种项")
+
 
 class SymbolEngine:
     """Deterministic pre-translation: Chinese math terms → LaTeX symbols."""
 
     def pre_translate(self, text: str) -> str:
-        """Replace Chinese terms with LaTeX, preserving unknown parts for the model."""
+        """Replace Chinese terms with LaTeX, preserving unknown parts for the model.
+
+        Uses regex with negative lookahead to avoid breaking compound words.
+        E.g. "积分学" stays intact, but "积分 f(x)" becomes "\\int f(x)".
+        Note: prefix protection is NOT used — it caused false negatives like
+        "高概率" failing to translate "概率". Compound suffix protection alone
+        is sufficient (e.g. "积分学" → suffix "学" blocks translation).
+        """
         result = text
         # Sort by descending key length so "三重积分" matches before "积分"
         for cn, latex in sorted(SYMBOL_MAP.items(), key=lambda x: -len(x[0])):
-            result = result.replace(cn, latex)
+            suffix_class = "".join(_COMPOUND_SUFFIXES)
+            # Negative lookahead only: not followed by compound suffix
+            pattern = f"{re.escape(cn)}(?![{suffix_class}])"
+            result = re.sub(pattern, lambda m: latex, result)
         return result
+
+    def translate(self, term: str) -> str | None:
+        """Look up a single term's LaTeX equivalent. Used by the lookup_symbol tool."""
+        return SYMBOL_MAP.get(term)

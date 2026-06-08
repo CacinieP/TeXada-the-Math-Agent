@@ -97,3 +97,28 @@ class HistoryEntry:
     tokens_used: int
     starred: bool
     created_at: str
+
+
+@dataclass
+class ToolCall:
+    """Native function call emitted by Gemma 4."""
+    id: str
+    name: str
+    arguments: dict
+
+
+@dataclass
+class ToolResult:
+    """Result returned to the model after executing a tool."""
+    tool_call_id: str
+    name: str
+    output: str
+
+
+@dataclass
+class ConversationTurn:
+    """Single turn stored in Agent Memory."""
+    role: str  # "user" | "assistant" | "tool"
+    content: str
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    tool_results: list[ToolResult] = field(default_factory=list)

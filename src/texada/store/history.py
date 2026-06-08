@@ -34,10 +34,14 @@ class HistoryStore:
         self.db_path = config.data_dir / "history.db"
         self.max_days = config.history_max_days
         self.max_items = config.history_max_items
+        self._initialized = False
 
     async def _get_conn(self) -> aiosqlite.Connection:
         conn = await aiosqlite.connect(self.db_path)
-        await conn.executescript(SCHEMA)
+        conn.row_factory = aiosqlite.Row
+        if not self._initialized:
+            await conn.executescript(SCHEMA)
+            self._initialized = True
         return conn
 
     async def add(self, entry: HistoryEntry) -> int:
@@ -52,7 +56,7 @@ class HistoryStore:
                  entry.tokens_used, entry.starred),
             )
             await conn.commit()
-            return cursor
+            return cursor[0]
         finally:
             await conn.close()
 
@@ -68,7 +72,23 @@ class HistoryStore:
                 rows = await conn.execute_fetchall(
                     "SELECT * FROM history ORDER BY created_at DESC LIMIT ?", (limit,),
                 )
-            return [HistoryEntry(**dict(row)) for row in rows]
+            return [
+                HistoryEntry(
+                    id=row["id"],
+                    input_text=row["input_text"],
+                    input_type=row["input_type"],
+                    latex=row["latex"],
+                    intent=row["intent"],
+                    source=row["source"],
+                    render_mode=row["render_mode"],
+                    valid=bool(row["valid"]),
+                    latency_ms=row["latency_ms"],
+                    tokens_used=row["tokens_used"],
+                    starred=bool(row["starred"]),
+                    created_at=row["created_at"],
+                )
+                for row in rows
+            ]
         finally:
             await conn.close()
 

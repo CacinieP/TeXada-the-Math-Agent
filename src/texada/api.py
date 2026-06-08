@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, UploadFile, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from texada.config import TeXadaConfig, load_config
@@ -10,7 +11,7 @@ from texada.core.ollama_manager import OllamaManager
 from texada.render.engine import RenderEngine
 from texada.store.shorthand import ShorthandStore
 from texada.store.history import HistoryStore
-from texada.types import ConvertResult, HistoryEntry, RenderMode
+from texada.types import ConvertResult, HistoryEntry, RenderMode, Route
 
 
 # ── Request / Response models ──
@@ -70,6 +71,15 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     app = FastAPI(title="TeXada", version="0.2.0")
 
+    # CORS — allow the shell UI (likely on a different port) to call the API
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     @app.get("/api/status", response_model=StatusResponse)
     async def get_status():
         info = ollama_mgr.get_status()
@@ -84,7 +94,14 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     @app.post("/api/convert", response_model=LaTeXResponse)
     async def convert_text(req: ConvertRequest):
         render_engine.mode = RenderMode(req.render_mode)
-        result: ConvertResult = await router.process_text(req.text)
+        try:
+            result: ConvertResult = await router.process_text(
+                req.text,
+                intent_override=req.intent_override,
+                context=req.context,
+            )
+        except RuntimeError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         return LaTeXResponse(
             latex=result.latex,
             katex_html=result.render.katex_html,
@@ -102,7 +119,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     async def convert_image(image: UploadFile, render_mode: str = "katex"):
         render_engine.mode = RenderMode(render_mode)
         data = await image.read()
-        result: ConvertResult = await router.process_image(data)
+        try:
+            result: ConvertResult = await router.process_image(data)
+        except RuntimeError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         return LaTeXResponse(
             latex=result.latex,
             katex_html=result.render.katex_html,
@@ -119,7 +139,12 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     @app.post("/api/complete", response_model=LaTeXResponse)
     async def complete_latex(req: ConvertRequest):
         render_engine.mode = RenderMode(req.render_mode)
-        result: ConvertResult = await router.process_text(req.text)
+        try:
+            result: ConvertResult = await router.process_text(
+                req.text, route_override=Route.COMPLETION,
+            )
+        except RuntimeError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         return LaTeXResponse(
             latex=result.latex,
             katex_html=result.render.katex_html,
@@ -145,7 +170,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.post("/api/render-mode")
     async def set_render_mode(mode: str):
-        render_engine.switch_mode(mode)
+        try:
+            render_engine.switch_mode(mode)
+        except ValueError:
+            raise HTTPException(400, f"Invalid render mode: {mode}. Use 'katex' or 'latex'.")
         return {"mode": render_engine.mode.value}
 
     @app.get("/api/shorthands")

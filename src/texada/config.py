@@ -2,7 +2,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    SettingsConfigDict,
+    PydanticBaseSettingsSource,
+    JsonConfigSettingsSource,
+)
 
 
 TEXADA_HOME = Path.home() / ".texada"
@@ -49,3 +54,25 @@ class TeXadaConfig(BaseSettings):
     def ensure_dirs(self) -> None:
         """Create ~/.texada and subdirs if they don't exist."""
         self.data_dir.mkdir(parents=True, exist_ok=True)
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            init_settings,
+            env_settings,
+            JsonConfigSettingsSource(settings_cls),
+        )
+
+
+def load_config() -> TeXadaConfig:
+    """Load configuration."""
+    config = TeXadaConfig()
+    config.ensure_dirs()
+    return config

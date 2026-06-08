@@ -10,6 +10,7 @@ class LaTeXHighlighter:
     Color mapping (matches ui-mockup.html):
       structural  → purple (\\frac, \\int, \\sum, \\partial, ...)
       operator    → orange (variables: x, y, f, ...)
+      number      → blue (0-9, decimals)
       frac        → green (\\frac, \\dfrac, \\tfrac)
       delimiter   → gray ({, }, _, ^, (, ))
     """
@@ -40,6 +41,8 @@ class LaTeXHighlighter:
                 parts.append(f'<span class="latex-structural">{escaped}</span>')
             elif role == "operator":
                 parts.append(f'<span class="latex-operator">{escaped}</span>')
+            elif role == "number":
+                parts.append(f'<span class="latex-number">{escaped}</span>')
             elif role == "delimiter":
                 parts.append(f'<span class="latex-delimiter">{escaped}</span>')
             else:
@@ -91,7 +94,7 @@ class LaTeXHighlighter:
                 j = i
                 while j < n and (latex[j].isdigit() or latex[j] == '.'):
                     j += 1
-                tokens.append(("operator", latex[i:j]))
+                tokens.append(("number", latex[i:j]))
                 i = j
 
             # ── Operators ──

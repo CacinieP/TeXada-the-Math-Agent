@@ -41,7 +41,7 @@ class LaTeXFixer:
         return FixResult(latex=fixed, fixed=bool(fix_log), log=fix_log)
 
     def _fix_braces(self, latex: str) -> tuple[str, str]:
-        """Auto-complete missing braces."""
+        """Auto-complete missing closing braces. Extra closing braces cannot be safely auto-fixed."""
         depth = 0
         for ch in latex:
             if ch == '{':
@@ -50,9 +50,8 @@ class LaTeXFixer:
                 depth -= 1
         if depth > 0:
             return latex + '}' * depth, f"补全 {depth} 个 }}"
-        if depth < 0:
-            # Add missing opening braces at the start
-            return '{' * abs(depth) + latex, f"补全 {abs(depth)} 个 {{"
+        # depth < 0: extra closing braces — cannot reliably determine where
+        # the missing opening brace should go. Better to leave for manual fix.
         return latex, ""
 
     def _fix_env(self, latex: str) -> tuple[str, str]:
