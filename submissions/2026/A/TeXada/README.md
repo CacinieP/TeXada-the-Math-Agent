@@ -68,7 +68,7 @@ We chose **E4B (Efficient 4 Billion)** over larger variants because:
 - **LLM:** Gemma 4 E4B via Ollama (local inference, offline)
 - **Backend:** Python 3.11+ + FastAPI + `ollama` Python SDK
 - **Agent features:** Native Function Calling (`tools` schema) + ConversationMemory
-- **LaTeX validation:** `sympy` structural parsing + `katex` CLI rendering
+- **LaTeX validation:** Structural parsing (brace/env/command checks) + `katex` CLI rendering
 - **Image preprocessing:** OpenCV (grayscale → denoise → multimodal input)
 - **Frontend:** Swift + WKWebView floating panel (menu-bar style, macOS)
 
