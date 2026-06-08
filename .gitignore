@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
+*.pyo
 .env
 .venv/
 venv/
@@ -9,3 +10,7 @@ build/
 .idea/
 .vscode/
 *.log
+.DS_Store
+*.swp
+*.swo
+node_modules/
