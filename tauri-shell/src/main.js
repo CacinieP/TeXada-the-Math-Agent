@@ -339,7 +339,10 @@
       if (file) handleOcrFile(file);
     });
 
-    document.addEventListener('paste', e => {
+    // Guard: only register paste listener once
+    if (!window._ocrPasteRegistered) {
+      window._ocrPasteRegistered = true;
+      document.addEventListener('paste', e => {
       if (currentTab !== 'ocr') return;
       const items = e.clipboardData.items;
       for (const item of items) {
@@ -350,6 +353,7 @@
         }
       }
     });
+    } // end guard
   }
 
   async function handleOcrFile(file) {

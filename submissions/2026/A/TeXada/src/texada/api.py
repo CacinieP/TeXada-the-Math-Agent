@@ -93,12 +93,13 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.post("/api/convert", response_model=LaTeXResponse)
     async def convert_text(req: ConvertRequest):
-        render_engine.mode = RenderMode(req.render_mode)
+        req_mode = RenderMode(req.render_mode)
         try:
             result: ConvertResult = await router.process_text(
                 req.text,
                 intent_override=req.intent_override,
                 context=req.context,
+                render_mode=req_mode,
             )
         except RuntimeError as e:
             raise HTTPException(status_code=503, detail=str(e))
@@ -117,10 +118,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.post("/api/ocr", response_model=LaTeXResponse)
     async def convert_image(image: UploadFile, render_mode: str = "katex"):
-        render_engine.mode = RenderMode(render_mode)
+        ocr_mode = RenderMode(render_mode)
         data = await image.read()
         try:
-            result: ConvertResult = await router.process_image(data)
+            result: ConvertResult = await router.process_image(data, render_mode=ocr_mode)
         except RuntimeError as e:
             raise HTTPException(status_code=503, detail=str(e))
         return LaTeXResponse(
@@ -138,10 +139,11 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.post("/api/complete", response_model=LaTeXResponse)
     async def complete_latex(req: ConvertRequest):
-        render_engine.mode = RenderMode(req.render_mode)
+        comp_mode = RenderMode(req.render_mode)
         try:
             result: ConvertResult = await router.process_text(
                 req.text, route_override=Route.COMPLETION,
+                render_mode=comp_mode,
             )
         except RuntimeError as e:
             raise HTTPException(status_code=503, detail=str(e))

@@ -113,7 +113,8 @@
   async function checkBackend() {
     try {
       const info = await invoke('get_status');
-      setStatus(info.status === 'ok', info.status === 'ok' ? (info.model || 'Ready') : 'Error');
+      const isOnline = info.status === 'ok' || info.status === 'ready';
+      setStatus(isOnline, isOnline ? (info.model || 'Ready') : 'Error');
     } catch (e) {
       setStatus(false, 'No API');
     }
