@@ -1,6 +1,7 @@
 """Render Engine — dual mode: KaTeX visual + pure LaTeX syntax highlight."""
 from __future__ import annotations
 
+import html
 import subprocess
 
 from texada.config import TeXadaConfig
@@ -25,11 +26,12 @@ class RenderEngine:
         "\\(": ("\\(", "\\)"),
     }
 
-    def render(self, latex: str) -> RenderResult:
-        """Render LaTeX in current mode."""
+    def render(self, latex: str, *, mode_override: RenderMode | None = None) -> RenderResult:
+        """Render LaTeX in current mode (or a per-request override)."""
         self._last_latex = latex  # Cache for ⌘K switch
+        mode = mode_override or self.mode
 
-        if self.mode == RenderMode.KATEX:
+        if mode == RenderMode.KATEX:
             katex_html = self._render_katex(latex)
             open_delim, close_delim = self.DELIMITER_PAIRS.get(
                 self.delimiter, (self.delimiter, self.delimiter)
@@ -65,7 +67,7 @@ class RenderEngine:
             )
             if result.returncode == 0:
                 return result.stdout
-            return f"<span class='katex-error'>KaTeX error: {result.stderr[:100]}</span>"
+            return f"<span class='katex-error'>KaTeX error: {html.escape(result.stderr[:100])}</span>"
         except FileNotFoundError:
             return f"<span class='katex-error'>npx katex not available</span>"
         except subprocess.TimeoutExpired:

@@ -6,18 +6,16 @@ from texada.platform.base import PlatformAdapter
 
 class WindowsAdapter(PlatformAdapter):
 
-    @property
-    def platform_name(self) -> str:
-        return "windows"
-
     def copy_to_clipboard(self, text: str) -> None:
         try:
             import win32clipboard
             import win32con
             win32clipboard.OpenClipboard()
-            win32clipboard.EmptyClipboard()
-            win32clipboard.SetClipboardData(win32con.CF_UNICODETEXT, text)
-            win32clipboard.CloseClipboard()
+            try:
+                win32clipboard.EmptyClipboard()
+                win32clipboard.SetClipboardData(win32con.CF_UNICODETEXT, text)
+            finally:
+                win32clipboard.CloseClipboard()
         except ImportError:
             # Fallback: use subprocess
             subprocess.run(["clip"], input=text.encode("utf-16le"), check=True)
@@ -27,8 +25,10 @@ class WindowsAdapter(PlatformAdapter):
             import win32clipboard
             import win32con
             win32clipboard.OpenClipboard()
-            data = win32clipboard.GetClipboardData(win32con.CF_UNICODETEXT)
-            win32clipboard.CloseClipboard()
+            try:
+                data = win32clipboard.GetClipboardData(win32con.CF_UNICODETEXT)
+            finally:
+                win32clipboard.CloseClipboard()
             return data
         except ImportError:
             return None
@@ -47,6 +47,9 @@ class WindowsAdapter(PlatformAdapter):
         return None
 
     def show_notification(self, title: str, body: str) -> None:
+        # Escape single quotes to prevent PowerShell injection
+        safe_title = title.replace("'", "''")
+        safe_body = body.replace("'", "''")
         try:
             from win10toast import ToastNotifier
             toaster = ToastNotifier()
@@ -54,14 +57,9 @@ class WindowsAdapter(PlatformAdapter):
         except ImportError:
             subprocess.run(
                 ["powershell", "-command",
-                 f"New-BurntToastNotification -Text '{title}', '{body}'"],
+                 f"New-BurntToastNotification -Text '{safe_title}', '{safe_body}'"],
                 timeout=5,
             )
 
-    def get_hotkey_manager(self):
-        from texada.platform.hotkey_win import WindowsHotkeyManager
-        return WindowsHotkeyManager()
-
-    def get_shell_provider(self):
-        from texada.platform.shell_win import WindowsShellProvider
-        return WindowsShellProvider()
+    def get_platform_name(self) -> str:
+        return "windows"

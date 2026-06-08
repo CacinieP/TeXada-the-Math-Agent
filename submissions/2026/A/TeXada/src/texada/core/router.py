@@ -80,6 +80,11 @@ class InputRouter:
         self.ollama_manager = OllamaManager(config)
         # Agent Memory — per-session conversation context
         self.memory = ConversationMemory(max_turns=6)
+        self._per_request_mode: RenderMode | None = None
+
+    def _render(self, latex: str) -> RenderResult:
+        """Render using per-request mode override if set, else default mode."""
+        return self._render(latex, mode_override=self._per_request_mode)
 
     def route(self, tab: Tab, content: str | bytes) -> Route:
         if tab == Tab.OCR:
@@ -107,6 +112,7 @@ class InputRouter:
         route_override: Route | None = None,
         intent_override: str | None = None,
         context: str = "",
+        render_mode: RenderMode | None = None,
     ) -> ConvertResult:
         """Main entry point for text input (NL tab).
 
@@ -115,8 +121,10 @@ class InputRouter:
             route_override: If set, force this route instead of auto-detecting.
             intent_override: If set, force this intent instead of auto-classifying.
             context: Extra context string (e.g. prior conversation) for the model.
+            render_mode: Per-request render mode override (avoids mutating shared state).
         """
         start = time.monotonic()
+        self._per_request_mode = render_mode  # Used by self._render()
 
         route = route_override or self.route(Tab.NL, text)
         text = text.strip()
@@ -130,9 +138,10 @@ class InputRouter:
         # NL→LaTeX
         return await self._process_nl2latex(text, start, intent_override=intent_override, context=context)
 
-    async def process_image(self, image: bytes) -> ConvertResult:
+    async def process_image(self, image: bytes, *, render_mode: RenderMode | None = None) -> ConvertResult:
         """Main entry point for image input (OCR tab)."""
         start = time.monotonic()
+        self._per_request_mode = render_mode
 
         await self.ollama_manager.ensure_ready()
 
@@ -141,7 +150,7 @@ class InputRouter:
         latex = await ocr.process(image)
 
         final_latex, valid_result, tokens = self._validate_and_fix(latex)
-        render = self.render_engine.render(final_latex)
+        render = self._render(final_latex)
         latency = (time.monotonic() - start) * 1000
 
         return ConvertResult(
@@ -219,7 +228,7 @@ class InputRouter:
         if any(tr.name == "validate_latex" and "Invalid" in tr.output for tr in tool_results):
             source = Source.FIXED
 
-        render = self.render_engine.render(final_latex)
+        render = self._render(final_latex)
         latency = (time.monotonic() - start) * 1000
 
         fix_log = [] if valid_result.valid else ["auto-fixed"]
@@ -243,7 +252,7 @@ class InputRouter:
         if result is None:
             return await self._process_nl2latex(text, start)
 
-        render = self.render_engine.render(result)
+        render = self._render(result)
         latency = (time.monotonic() - start) * 1000
 
         return ConvertResult(
@@ -263,7 +272,7 @@ class InputRouter:
         latex = await self.model.complete_latex(prompt)
 
         final_latex, valid_result, tokens = self._validate_and_fix(latex)
-        render = self.render_engine.render(final_latex)
+        render = self._render(final_latex)
         latency = (time.monotonic() - start) * 1000
 
         return ConvertResult(
