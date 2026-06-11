@@ -1,3 +1,7 @@
+# DEPRECATED: Use pyproject.toml for dependency management instead.
+# This file is kept for backward compatibility only.
+# To install: pip install -e ".[dev]"
+
 fastapi>=0.111
 uvicorn[standard]>=0.30
 ollama>=0.4
