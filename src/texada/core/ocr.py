@@ -1,11 +1,11 @@
-"""OCR Pipeline — OpenCV preprocessing + Gemma 4 E4B multimodal inference."""
+"""OCR Pipeline — OpenCV preprocessing + MiniCPM-V multimodal inference."""
 from __future__ import annotations
 
 import cv2
 import numpy as np
 
 from texada.config import TeXadaConfig
-from texada.core.model import Gemma4E4B
+from texada.core.model import MiniCPMModel
 
 
 class ImagePreprocessor:
@@ -33,9 +33,9 @@ class ImagePreprocessor:
 
 
 class OCRPipeline:
-    """OCR: preprocess → E4B multimodal → validate."""
+    """OCR: preprocess → MiniCPM-V multimodal → validate."""
 
-    def __init__(self, model: Gemma4E4B, config: TeXadaConfig):
+    def __init__(self, model: MiniCPMModel, config: TeXadaConfig):
         self.model = model
         self.config = config
         self.preprocessor = ImagePreprocessor()
@@ -43,6 +43,6 @@ class OCRPipeline:
     async def process(self, image: bytes) -> str:
         # Step 1: Preprocess (zero-model, ~10ms)
         processed = self.preprocessor.enhance(image)
-        # Step 2: E4B multimodal inference (~2-4s)
+        # Step 2: MiniCPM-V multimodal inference (~2-4s)
         latex = await self.model.ocr_latex(processed)
         return latex

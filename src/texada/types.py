@@ -101,7 +101,7 @@ class HistoryEntry:
 
 @dataclass
 class ToolCall:
-    """Native function call emitted by Gemma 4."""
+    """Native function call (legacy, kept for data compatibility)."""
     id: str
     name: str
     arguments: dict
@@ -109,7 +109,7 @@ class ToolCall:
 
 @dataclass
 class ToolResult:
-    """Result returned to the model after executing a tool."""
+    """Result returned to the model after executing a tool (legacy)."""
     tool_call_id: str
     name: str
     output: str

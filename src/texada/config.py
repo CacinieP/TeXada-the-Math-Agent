@@ -21,14 +21,16 @@ class TeXadaConfig(BaseSettings):
         json_file_encoding="utf-8",
         env_prefix="TEXADA_",
         extra="ignore",
+        protected_namespaces=("settings_",),
     )
 
-    # ── Model ──
-    ollama_host: str = "http://localhost:11434"
-    model_name: str = "gemma4:e4b-it-qat"
+    # ── Model (llama.cpp OpenAI-compatible) ──
+    llama_host: str = "http://localhost:8080"        # Text model (MiniCPM5-1B)
+    llama_vision_host: str = "http://localhost:8081"  # Vision model (MiniCPM-V 4.6)
+    model_name: str = "MiniCPM5-1B"
+    vision_model_name: str = "MiniCPM-V-4_6"
     temperature: float = 0.1
     max_tokens: int = 256
-    auto_retry: bool = True
 
     # ── Render ──
     default_render_mode: str = "katex"   # "katex" | "latex"

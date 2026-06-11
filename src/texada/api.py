@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from texada.config import TeXadaConfig, load_config
 from texada.core.router import InputRouter
-from texada.core.ollama_manager import OllamaManager
+from texada.core.llama_manager import LlamaCppManager
 from texada.render.engine import RenderEngine
 from texada.store.shorthand import ShorthandStore
 from texada.store.history import HistoryStore
@@ -67,7 +67,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     shorthand = ShorthandStore(config)
     history = HistoryStore(config)
     render_engine = RenderEngine(config)
-    ollama_mgr = OllamaManager(config)
+    llama_mgr = LlamaCppManager(config)
 
     app = FastAPI(title="TeXada", version="0.2.0")
 
@@ -82,7 +82,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.get("/api/status", response_model=StatusResponse)
     async def get_status():
-        info = ollama_mgr.get_status()
+        info = llama_mgr.get_status()
         return StatusResponse(
             status=info["status"],
             model=info.get("model"),
