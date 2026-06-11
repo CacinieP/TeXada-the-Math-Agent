@@ -1,67 +1,36 @@
-"""Gemma 4 E4B model wrapper — Ollama API calls with Native Function Calling."""
+"""MiniCPM model wrapper — llama.cpp OpenAI-compatible API."""
 from __future__ import annotations
 
 import asyncio
-import json
+import base64
 import re
 
-import ollama
+from openai import OpenAI
 
 from texada.config import TeXadaConfig
 from texada.core.prompts import (
     SYSTEM_PROMPT, COMPLETION_PROMPT, OCR_SYSTEM_PROMPT,
     FEW_SHOT_BY_INTENT,
 )
-from texada.types import ToolCall, ToolResult
 
 
-# ── Native Function Calling tool schemas ──
-LATEX_TOOLS: list[dict] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "validate_latex",
-            "description": "Validate generated LaTeX syntax. Returns errors if invalid.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "latex": {
-                        "type": "string",
-                        "description": "The LaTeX formula to validate",
-                    },
-                },
-                "required": ["latex"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "lookup_symbol",
-            "description": "Look up the correct LaTeX command for a Chinese mathematical term or symbol.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "term": {
-                        "type": "string",
-                        "description": "The Chinese term or symbol name to look up",
-                    },
-                },
-                "required": ["term"],
-            },
-        },
-    },
-]
-
-
-class Gemma4E4B:
-    """Wraps Ollama chat calls for Gemma 4 E4B with Native Function Calling."""
+class MiniCPMModel:
+    """Wraps llama.cpp OpenAI-compatible chat calls for MiniCPM models."""
 
     def __init__(self, config: TeXadaConfig):
-        self.client = ollama.Client(host=config.ollama_host)
+        self.client = OpenAI(
+            base_url=f"{config.llama_host}/v1",
+            api_key="sk-no-key",
+        )
         self.model = config.model_name
         self.temperature = config.temperature
         self.max_tokens = config.max_tokens
+        # Vision client for OCR (separate llama.cpp instance)
+        self._vision_client = OpenAI(
+            base_url=f"{config.llama_vision_host}/v1",
+            api_key="sk-no-key",
+        )
+        self._vision_model = config.vision_model_name
 
     # ── Public inference methods ──
 
@@ -70,11 +39,10 @@ class Gemma4E4B:
         preprocessed: str,
         intent: str,
         memory_messages: list[dict] | None = None,
-        tool_handlers: dict | None = None,
-    ) -> tuple[str, list[ToolCall], list[ToolResult]]:
-        """NL→LaTeX inference with optional Tool Calling loop.
+    ) -> str:
+        """NL→LaTeX inference — pure chat, no tool calling.
 
-        Returns (latex, tool_calls_executed, tool_results).
+        Returns the extracted LaTeX string.
         """
         messages: list[dict] = [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -84,90 +52,15 @@ class Gemma4E4B:
             messages.extend(memory_messages)
         messages.append({"role": "user", "content": preprocessed})
 
-        all_tool_calls: list[ToolCall] = []
-        all_tool_results: list[ToolResult] = []
-
-        # First call with tools enabled
         response = await asyncio.to_thread(
-            self.client.chat,
+            self.client.chat.completions.create,
             model=self.model,
             messages=messages,
-            tools=LATEX_TOOLS,
-            options={"temperature": self.temperature, "num_predict": self.max_tokens},
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
         )
-
-        # Tool Calling loop (max 2 iterations to keep latency low)
-        for _ in range(2):
-            msg = response.message
-            if not msg.tool_calls:
-                break
-
-            # Parse and execute all tool calls, then append ONE assistant message
-            ollama_tool_calls: list[dict] = []
-            tool_messages: list[dict] = []
-            for tc in msg.tool_calls:
-                # Bug 4 fix: arguments may already be a dict
-                raw_args = tc.function.arguments
-                args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
-
-                tool_call = ToolCall(
-                    id=getattr(tc, "id", ""),
-                    name=tc.function.name,
-                    arguments=args,
-                )
-                all_tool_calls.append(tool_call)
-
-                # Execute tool if handler provided
-                result_text = ""
-                if tool_handlers and tool_call.name in tool_handlers:
-                    result_text = tool_handlers[tool_call.name](**tool_call.arguments)
-                else:
-                    result_text = f"Error: no handler for {tool_call.name}"
-
-                tool_result = ToolResult(
-                    tool_call_id=tool_call.id,
-                    name=tool_call.name,
-                    output=result_text,
-                )
-                all_tool_results.append(tool_result)
-
-                # Collect tool call for single assistant message
-                ollama_tool_calls.append({
-                    "id": tool_call.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments,
-                    },
-                })
-
-                # Collect tool result (appended AFTER assistant message)
-                tool_messages.append({
-                    "role": "tool",
-                    "content": result_text,
-                    "name": tool_call.name,
-                })
-
-            # Bug 3 fix: ONE assistant message with ALL tool calls, BEFORE tool results
-            messages.append({
-                "role": "assistant",
-                "content": msg.content or "",
-                "tool_calls": ollama_tool_calls,
-            })
-            # Then append all tool result messages
-            messages.extend(tool_messages)
-
-            # Re-run model with tool results
-            response = await asyncio.to_thread(
-                self.client.chat,
-                model=self.model,
-                messages=messages,
-                tools=LATEX_TOOLS,
-                options={"temperature": self.temperature, "num_predict": self.max_tokens},
-            )
-
-        latex = self._extract_latex(response.message.content)
-        return latex, all_tool_calls, all_tool_results
+        raw = response.choices[0].message.content if response.choices else ""
+        return self._extract_latex(raw)
 
     async def complete_latex(self, partial: str) -> str:
         """LaTeX completion inference."""
@@ -176,26 +69,40 @@ class Gemma4E4B:
             {"role": "user", "content": partial},
         ]
         response = await asyncio.to_thread(
-            self.client.chat,
+            self.client.chat.completions.create,
             model=self.model,
             messages=messages,
-            options={"temperature": 0.05, "num_predict": 128},
+            temperature=0.05,
+            max_tokens=128,
         )
-        return self._extract_latex(response.message.content)
+        raw = response.choices[0].message.content if response.choices else ""
+        return self._extract_latex(raw)
 
     async def ocr_latex(self, image: bytes) -> str:
-        """OCR inference — multimodal input."""
+        """OCR inference — multimodal input via vision model."""
+        b64_image = base64.b64encode(image).decode("utf-8")
         messages = [
             {"role": "system", "content": OCR_SYSTEM_PROMPT},
-            {"role": "user", "content": "识别图片中的数学公式", "images": [image]},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "识别图片中的数学公式"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{b64_image}"},
+                    },
+                ],
+            },
         ]
         response = await asyncio.to_thread(
-            self.client.chat,
-            model=self.model,
+            self._vision_client.chat.completions.create,
+            model=self._vision_model,
             messages=messages,
-            options={"temperature": 0.05, "num_predict": 256},
+            temperature=0.05,
+            max_tokens=256,
         )
-        return self._extract_latex(response.message.content)
+        raw = response.choices[0].message.content if response.choices else ""
+        return self._extract_latex(raw)
 
     # ── Helpers ──
 

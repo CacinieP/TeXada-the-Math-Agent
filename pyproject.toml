@@ -1,12 +1,13 @@
 [project]
 name = "texada"
-version = "0.2.0"
-description = "Local math formula agent powered by Gemma 4 E4B"
+version = "0.3.0"
+description = "Local math formula agent powered by MiniCPM"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
-    "ollama>=0.4",
+    "openai>=1.30",
+    "httpx>=0.27",
     "opencv-python>=4.10",
     "pillow>=10.4",
     "pyperclip>=1.9",

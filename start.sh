@@ -17,18 +17,33 @@ cleanup() {
 }
 trap cleanup INT TERM
 
-# ── Check Ollama ──
-echo "🔍 Checking Ollama..."
-if ! curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
-    echo "⚠️  Ollama is not running. Please start it first:"
-    echo "   ollama serve"
-    exit 1
+# ── Check llama.cpp servers ──
+echo "🔍 Checking llama.cpp servers..."
+
+TEXT_OK=false
+VISION_OK=false
+
+if curl -s http://localhost:8080/health >/dev/null 2>&1; then
+    echo "  ✅ Text model (MiniCPM5-1B) on :8080"
+    TEXT_OK=true
+else
+    echo "  ❌ Text model not running on :8080"
 fi
 
-MODELS=$(curl -s http://localhost:11434/api/tags | grep -o 'gemma4' || true)
-if [[ -z "$MODELS" ]]; then
-    echo "⬇️  Pulling Gemma 4 E4B..."
-    ollama pull gemma4:e4b-it-qat
+if curl -s http://localhost:8081/health >/dev/null 2>&1; then
+    echo "  ✅ Vision model (MiniCPM-V 4.6) on :8081"
+    VISION_OK=true
+else
+    echo "  ⚠️  Vision model not running on :8081 (OCR disabled)"
+fi
+
+if [[ "$TEXT_OK" != "true" ]]; then
+    echo ""
+    echo "❌ Text model server is required. Please start llama.cpp first:"
+    echo "   ~/models/start-minicpm-dual-opencode.ps1"
+    echo "   # or manually:"
+    echo "   llama-server -m <model.gguf> --port 8080 -ngl 99 -c 4096"
+    exit 1
 fi
 
 # ── Check Python env ──
