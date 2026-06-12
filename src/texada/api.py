@@ -82,7 +82,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.get("/api/status", response_model=StatusResponse)
     async def get_status():
-        info = llama_mgr.get_status()
+        info = await llama_mgr.aget_status()
         return StatusResponse(
             status=info["status"],
             model=info.get("model"),

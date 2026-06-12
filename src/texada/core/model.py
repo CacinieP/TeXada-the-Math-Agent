@@ -62,6 +62,14 @@ class MiniCPMModel:
         raw = response.choices[0].message.content if response.choices else ""
         latex = self._extract_latex(raw)
 
+        # Reasoning models (e.g. MiniCPM5) often put the real answer in the
+        # `reasoning` field and leave `content` empty (especially when max_tokens
+        # is consumed by the chain-of-thought). Fall back to extracting from it.
+        if not latex and response.choices:
+            reasoning = getattr(response.choices[0].message, "reasoning", None)
+            if reasoning:
+                latex = self._extract_latex(reasoning)
+
         # Error recovery: the model occasionally returns empty content on
         # NL→LaTeX. Retry once with a stricter prompt (formula only, no prose,
         # no markdown). Retry failure falls through; validator marks invalid.
@@ -173,9 +181,10 @@ class MiniCPMModel:
         if m:
             return m.group(1).strip()
 
-        # 4. Fallback: last non-empty line, skipping pure fence-marker lines
+        # 4. Fallback: last non-empty line, skipping fence markers and
+        #    punctuation/ellipsis-only lines (reasoning trails often end with "…").
         for line in reversed(text.splitlines()):
             stripped = line.strip().strip('`').strip()
-            if stripped:
+            if stripped and not re.match(r'^[.\。，…\s]+$', stripped):
                 return stripped
         return text.strip('`').strip()
