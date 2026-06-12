@@ -17,6 +17,8 @@ class WebViewController: NSViewController, WKScriptMessageHandler, WKNavigationD
         let config = WKWebViewConfiguration()
         config.preferences.setValue(true, forKey: "developerExtrasEnabled")
         config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+        // Never cache local assets — always load the current main.js/style.css from disk
+        config.websiteDataStore = WKWebsiteDataStore.nonPersistent()
 
         let userContent = config.userContentController
         userContent.add(self, name: "texada")
@@ -24,6 +26,7 @@ class WebViewController: NSViewController, WKScriptMessageHandler, WKNavigationD
         webView = WKWebView(frame: .zero, configuration: config)
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.navigationDelegate = self
+        webView.underPageBackgroundColor = .clear
         view.addSubview(webView)
 
         NSLayoutConstraint.activate([

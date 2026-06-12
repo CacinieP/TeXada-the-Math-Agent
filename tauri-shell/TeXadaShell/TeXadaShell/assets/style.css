@@ -30,6 +30,7 @@ html, body {
   color: var(--text-primary);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  height: 100%;
 }
 
 #app {
@@ -39,7 +40,7 @@ html, body {
   box-shadow: var(--shadow);
   overflow: hidden;
   width: 520px;
-  max-height: 520px;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -134,7 +135,8 @@ html, body {
   display: none;
   flex-direction: column;
   overflow-y: auto;
-  max-height: 302px;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .tab-content.active { display: flex; }
 .tab-content::-webkit-scrollbar { width: 4px; }
