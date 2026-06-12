@@ -34,13 +34,21 @@ class LlamaCppManager:
         return True
 
     async def _check_health(self, host: str) -> bool:
-        """Check if a llama.cpp server is healthy."""
-        try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
-                resp = await client.get(f"{host}/health")
-                return resp.status_code == 200
-        except Exception:
-            return False
+        """Check if an OpenAI-compatible server is healthy.
+
+        Uses ``/v1/models`` (the standard OpenAI-compatible readiness endpoint)
+        so it works for llama.cpp's server, Ollama's OpenAI shim, and any other
+        compatible backend. Falls back to ``/health`` then ``/``.
+        """
+        for path in ("/v1/models", "/health", "/"):
+            try:
+                async with httpx.AsyncClient(timeout=3.0) as client:
+                    resp = await client.get(f"{host}{path}")
+                    if resp.status_code == 200:
+                        return True
+            except Exception:
+                continue
+        return False
 
     def get_status(self) -> dict:
         """Return current status for the UI."""
@@ -52,6 +60,26 @@ class LlamaCppManager:
         except RuntimeError:
             text_ok = False
 
+        if text_ok:
+            return {
+                "status": "ready",
+                "model": self.config.model_name,
+                "vision": self.config.llama_vision_host,
+            }
+        return {
+            "status": "not_running",
+            "message": (
+                f"llama.cpp 服务未运行。请先启动:\n"
+                f"  ~/models/start-minicpm-dual-opencode.ps1"
+            ),
+        }
+
+    async def aget_status(self) -> dict:
+        """Async version of get_status — safe to call from the running event loop
+        (e.g. a FastAPI endpoint). The sync get_status uses run_until_complete,
+        which raises inside an already-running loop and falsely reports not_running.
+        """
+        text_ok = await self._check_health(self.config.llama_host)
         if text_ok:
             return {
                 "status": "ready",
