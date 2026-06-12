@@ -155,7 +155,7 @@ class MiniCPMModel:
         ]
 
     def _extract_latex(self, raw: str | None) -> str:
-        """Strip markdown code fences, $ delimiters, and explanatory text."""
+        """Strip markdown code fences, math delimiters, and explanatory text."""
         if not raw:
             return ""
         text = raw.strip()
@@ -165,26 +165,31 @@ class MiniCPMModel:
         if fence:
             text = fence.group(1).strip()
 
+        result = ""
         # 2. $$ ... $$ display math
         m = re.search(r'\$\$(.+?)\$\$', text, re.DOTALL)
         if m:
-            return m.group(1).strip()
+            result = m.group(1).strip()
         # 3. $ ... $ inline math
-        m = re.search(r'\$(.+?)\$', text, re.DOTALL)
-        if m:
-            return m.group(1).strip()
+        elif (m := re.search(r'\$(.+?)\$', text, re.DOTALL)):
+            result = m.group(1).strip()
         # 3b. \( ... \) inline and \[ ... \] display (LaTeX delimiters)
-        m = re.search(r'\\\((.+?)\\\)', text, re.DOTALL)
-        if m:
-            return m.group(1).strip()
-        m = re.search(r'\\\[(.+?)\\\]', text, re.DOTALL)
-        if m:
-            return m.group(1).strip()
+        elif (m := re.search(r'\\\((.+?)\\\)', text, re.DOTALL)):
+            result = m.group(1).strip()
+        elif (m := re.search(r'\\\[(.+?)\\\]', text, re.DOTALL)):
+            result = m.group(1).strip()
+        else:
+            # 4. Fallback: last non-empty line, skipping fence markers and
+            #    punctuation/ellipsis-only lines (reasoning trails often end with "…").
+            for line in reversed(text.splitlines()):
+                stripped = line.strip().strip('`').strip()
+                if stripped and not re.match(r'^[.\。，…\s]+$', stripped):
+                    result = stripped
+                    break
+            if not result:
+                result = text.strip('`').strip()
 
-        # 4. Fallback: last non-empty line, skipping fence markers and
-        #    punctuation/ellipsis-only lines (reasoning trails often end with "…").
-        for line in reversed(text.splitlines()):
-            stripped = line.strip().strip('`').strip()
-            if stripped and not re.match(r'^[.\。，…\s]+$', stripped):
-                return stripped
-        return text.strip('`').strip()
+        # 5. Strip any residual unclosed math delimiters around the result.
+        result = re.sub(r'^(\$\$|\$|\\\[|\\\()\s*', '', result)
+        result = re.sub(r'\s*(\\\]|\\\)|\$\$|\$)$', '', result)
+        return result.strip()
