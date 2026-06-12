@@ -60,7 +60,35 @@ class MiniCPMModel:
             max_tokens=self.max_tokens,
         )
         raw = response.choices[0].message.content if response.choices else ""
-        return self._extract_latex(raw)
+        latex = self._extract_latex(raw)
+
+        # Error recovery: the model occasionally returns empty content on
+        # NL→LaTeX. Retry once with a stricter prompt (formula only, no prose,
+        # no markdown). Retry failure falls through; validator marks invalid.
+        if not latex:
+            try:
+                retry = await asyncio.to_thread(
+                    self.client.chat.completions.create,
+                    model=self.model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": SYSTEM_PROMPT
+                            + "\n\n重要：只输出最终的 LaTeX 公式本身，"
+                            "不要任何解释、自然语言或 markdown 代码块。",
+                        },
+                        *self._build_few_shot(intent),
+                        {"role": "user", "content": preprocessed},
+                    ],
+                    temperature=0.1,
+                    max_tokens=self.max_tokens,
+                )
+                rraw = retry.choices[0].message.content if retry.choices else ""
+                latex = self._extract_latex(rraw)
+            except Exception:
+                pass
+
+        return latex
 
     async def complete_latex(self, partial: str) -> str:
         """LaTeX completion inference."""
@@ -119,18 +147,35 @@ class MiniCPMModel:
         ]
 
     def _extract_latex(self, raw: str | None) -> str:
-        """Strip $ delimiters and explanatory text from model output."""
+        """Strip markdown code fences, $ delimiters, and explanatory text."""
         if not raw:
             return ""
-        match = re.search(r'\$\$(.+?)\$\$', raw, re.DOTALL)
-        if match:
-            return match.group(1).strip()
-        match = re.search(r'\$(.+?)\$', raw, re.DOTALL)
-        if match:
-            return match.group(1).strip()
-        lines = raw.strip().splitlines()
-        for line in reversed(lines):
-            stripped = line.strip()
+        text = raw.strip()
+
+        # 1. Markdown code fences: ```latex\n...\n``` (lang tag optional)
+        fence = re.search(r'```(?:[a-zA-Z]*)?\s*(.*?)```', text, re.DOTALL)
+        if fence:
+            text = fence.group(1).strip()
+
+        # 2. $$ ... $$ display math
+        m = re.search(r'\$\$(.+?)\$\$', text, re.DOTALL)
+        if m:
+            return m.group(1).strip()
+        # 3. $ ... $ inline math
+        m = re.search(r'\$(.+?)\$', text, re.DOTALL)
+        if m:
+            return m.group(1).strip()
+        # 3b. \( ... \) inline and \[ ... \] display (LaTeX delimiters)
+        m = re.search(r'\\\((.+?)\\\)', text, re.DOTALL)
+        if m:
+            return m.group(1).strip()
+        m = re.search(r'\\\[(.+?)\\\]', text, re.DOTALL)
+        if m:
+            return m.group(1).strip()
+
+        # 4. Fallback: last non-empty line, skipping pure fence-marker lines
+        for line in reversed(text.splitlines()):
+            stripped = line.strip().strip('`').strip()
             if stripped:
                 return stripped
-        return raw.strip()
+        return text.strip('`').strip()
