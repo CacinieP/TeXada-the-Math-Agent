@@ -1,6 +1,13 @@
 import Cocoa
 import WebKit
 
+// Borderless panels default canBecomeKey=false, which starves the WebView of
+// keyboard input. Force it on so the textarea can actually receive keystrokes.
+class KeyablePanel: NSPanel {
+    override var canBecomeKey: Bool { return true }
+    override var canBecomeMain: Bool { return true }
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var panel: NSPanel!
@@ -29,7 +36,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Floating panel
         let rect = NSRect(x: 0, y: 0, width: 520, height: 380)
-        panel = NSPanel(
+        panel = KeyablePanel(
             contentRect: rect,
             styleMask: [.borderless, .closable],
             backing: .buffered,
