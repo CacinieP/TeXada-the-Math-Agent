@@ -38,8 +38,8 @@ html, body {
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   overflow: hidden;
-  width: 560px;
-  max-height: 600px;
+  width: 520px;
+  max-height: 520px;
   display: flex;
   flex-direction: column;
 }
@@ -134,7 +134,7 @@ html, body {
   display: none;
   flex-direction: column;
   overflow-y: auto;
-  max-height: 480px;
+  max-height: 302px;
 }
 .tab-content.active { display: flex; }
 .tab-content::-webkit-scrollbar { width: 4px; }

@@ -7,6 +7,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var webViewController: WebViewController!
     var eventMonitor: Any?
 
+    // Drag state (JS-coordinated header drag)
+    private var dragStartMouseLoc = NSPoint.zero
+    private var dragStartPanelOrigin = NSPoint.zero
+    private var dragLocalMonitor: Any?
+    private var dragUpLocalMonitor: Any?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Status bar item
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -22,10 +28,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
 
         // Floating panel
-        let rect = NSRect(x: 0, y: 0, width: 560, height: 420)
+        let rect = NSRect(x: 0, y: 0, width: 520, height: 380)
         panel = NSPanel(
             contentRect: rect,
-            styleMask: [.nonactivatingPanel, .borderless, .closable],
+            styleMask: [.borderless, .closable],
             backing: .buffered,
             defer: false
         )
@@ -35,13 +41,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.isOpaque = false
         panel.hasShadow = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.isMovableByWindowBackground = true
+        panel.isMovableByWindowBackground = false
+        panel.becomesKeyOnlyIfNeeded = false
         panel.delegate = self
 
         // WebView
         webViewController = WebViewController()
         webViewController.view.frame = panel.contentView!.bounds
         webViewController.view.autoresizingMask = [.width, .height]
+        panel.contentView?.wantsLayer = true
         panel.contentView?.addSubview(webViewController.view)
 
         // Global shortcut ⌥⌘T
@@ -57,12 +65,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Hide on click outside (optional)
         eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             guard let self = self, self.panel.isVisible else { return }
-            if let window = event.window, window == self.panel { return }
+            let loc = NSEvent.mouseLocation
+            if self.panel.frame.contains(loc) { return }
             self.hidePanel()
         }
-
-        // Check backend on startup
-        webViewController.checkBackend()
     }
 
     @objc func togglePanel() {
@@ -75,9 +81,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showPanel() {
         positionPanelNearCursor()
-        panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        webViewController.onWindowShown()
+        panel.makeKeyAndOrderFront(nil)
+        // Ensure the WebView can receive keyboard / mouse events before notifying JS.
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let webView = self.webViewController.webView else { return }
+            self.panel.makeFirstResponder(webView)
+            webView.becomeFirstResponder()
+            self.webViewController.onWindowShown()
+        }
     }
 
     func hidePanel() {
@@ -86,6 +98,49 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func quit() {
         NSApp.terminate(nil)
+    }
+
+    // MARK: - JS-coordinated header drag
+    func startWindowDrag() {
+        guard panel.isVisible else { return }
+        dragStartMouseLoc = NSEvent.mouseLocation
+        dragStartPanelOrigin = panel.frame.origin
+
+        dragLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDragged) { [weak self] event in
+            guard let self = self else { return event }
+            let loc = NSEvent.mouseLocation
+            var newOrigin = NSPoint(
+                x: self.dragStartPanelOrigin.x + (loc.x - self.dragStartMouseLoc.x),
+                y: self.dragStartPanelOrigin.y + (loc.y - self.dragStartMouseLoc.y)
+            )
+            // Keep at least part of the header on screen
+            if let screen = NSScreen.screens.first(where: { $0.frame.contains(loc) }) ?? NSScreen.main {
+                let sf = screen.frame
+                let w = self.panel.frame.width
+                if newOrigin.x < sf.minX - w + 60 { newOrigin.x = sf.minX - w + 60 }
+                if newOrigin.x > sf.maxX - 60 { newOrigin.x = sf.maxX - 60 }
+                if newOrigin.y < sf.minY { newOrigin.y = sf.minY }
+                if newOrigin.y > sf.maxY - 20 { newOrigin.y = sf.maxY - 20 }
+            }
+            self.panel.setFrameOrigin(newOrigin)
+            return nil // consume event so WebView doesn't process it
+        }
+
+        dragUpLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
+            self?.endWindowDrag()
+            return event
+        }
+    }
+
+    func endWindowDrag() {
+        if let monitor = dragLocalMonitor {
+            NSEvent.removeMonitor(monitor)
+            dragLocalMonitor = nil
+        }
+        if let monitor = dragUpLocalMonitor {
+            NSEvent.removeMonitor(monitor)
+            dragUpLocalMonitor = nil
+        }
     }
 
     func positionPanelNearCursor() {
