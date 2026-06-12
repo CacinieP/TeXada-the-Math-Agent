@@ -1,14 +1,84 @@
-// TeXada Shell Frontend
-(async () => {
+// TeXada Shell Frontend — Swift WebView Edition
+(function() {
+  'use strict';
+
+  // ── Environment detection ──
   const isTauri = typeof window.__TAURI__ !== 'undefined';
-  const invoke = isTauri ? window.__TAURI__.core.invoke : null;
+  const isSwift = !isTauri && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.texada;
+
+  let reqId = 0;
+  const pending = new Map();
+
+  // ── Bridge ──
+  async function invoke(cmd, payload) {
+    if (isTauri) {
+      return window.__TAURI__.core.invoke(cmd, payload);
+    }
+    if (isSwift) {
+      return new Promise((resolve, reject) => {
+        const id = 'r' + (++reqId);
+        pending.set(id, { resolve, reject });
+        window.webkit.messageHandlers.texada.postMessage({ cmd, id, ...payload });
+      });
+    }
+    // Fallback for browser dev
+    if (cmd === 'convert_text') {
+      const res = await fetch('http://127.0.0.1:18732/api/convert', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: payload.text, render_mode: 'katex' })
+      });
+      return res.json();
+    }
+    if (cmd === 'get_status') {
+      const res = await fetch('http://127.0.0.1:18732/api/status');
+      return res.json();
+    }
+    throw new Error('No bridge available for ' + cmd);
+  }
+
+  function readClipboard() {
+    if (isSwift) return invoke('read_clipboard');
+    if (isTauri) return window.__TAURI__.core.invoke('read_clipboard');
+    return navigator.clipboard.readText().catch(() => '');
+  }
+
+  function writeClipboard(text) {
+    if (isSwift) return invoke('write_clipboard', { text });
+    if (isTauri) return window.__TAURI__.core.invoke('write_clipboard', { text });
+    return navigator.clipboard.writeText(text);
+  }
+
+  function hideWindow() {
+    if (isSwift) return invoke('hide_window');
+    if (isTauri) return window.__TAURI__.core.invoke('hide_window');
+  }
+
+  // ── Swift bridge callback ──
+  window.texadaSwiftBridge = {
+    onResult(id, result) {
+      const p = pending.get(id);
+      if (!p) return;
+      pending.delete(id);
+      if (result.ok === false) {
+        p.reject(new Error(result.error || 'Unknown error'));
+      } else if (result.ok === true && result.data !== undefined) {
+        p.resolve(result.data);
+      } else if (result.ok === true && result.text !== undefined) {
+        p.resolve(result.text);
+      } else {
+        p.resolve(result);
+      }
+    },
+    onWindowShown() {
+      onWindowShownHandler();
+    }
+  };
 
   // ── State ──
   let currentTab = 'nl';
-  let renderMode = 'katex'; // 'katex' | 'latex'
+  let renderMode = 'katex';
   let lastResult = null;
   let isProcessing = false;
-  const API_BASE = 'http://127.0.0.1:18732';
 
   // ── DOM refs ──
   const els = {
@@ -28,19 +98,8 @@
     tabBar: document.getElementById('tab-bar'),
     shorthandGrid: document.getElementById('shorthand-grid'),
     historyList: document.getElementById('history-list'),
-    ocrDrop: document.getElementById('ocr-drop'),
-    ocrPreview: document.getElementById('ocr-preview'),
-    ocrThumb: document.getElementById('ocr-thumb'),
-    ocrFilename: document.getElementById('ocr-filename'),
-    ocrSize: document.getElementById('ocr-size'),
-    ocrProcessing: document.getElementById('ocr-processing'),
-    ocrResult: document.getElementById('ocr-result'),
-    completeInput: document.getElementById('complete-input'),
-    completeProcessing: document.getElementById('complete-processing'),
-    completeResult: document.getElementById('complete-result'),
   };
 
-  // ── Helpers ──
   function $(sel) { return document.querySelector(sel); }
   function $$(sel) { return document.querySelectorAll(sel); }
 
@@ -53,20 +112,11 @@
 
   async function checkBackend() {
     try {
-      const res = await fetch(`${API_BASE}/api/status`);
-      const info = await res.json();
-      setStatus(info.status === 'ok' || info.status === 'ready', info.status === 'ok' || info.status === 'ready' ? info.model || 'Ready' : info.status);
+      const info = await invoke('get_status');
+      const isOnline = info.status === 'ok' || info.status === 'ready';
+      setStatus(isOnline, isOnline ? (info.model || 'Ready') : 'Error');
     } catch (e) {
-      if (isTauri) {
-        try {
-          const info = await invoke('get_status');
-          setStatus(info.status === 'ok', info.status === 'ok' ? info.model || 'Ready' : 'Error');
-        } catch (e2) {
-          setStatus(false, 'No API');
-        }
-      } else {
-        setStatus(false, 'No API');
-      }
+      setStatus(false, 'No API');
     }
   }
 
@@ -75,12 +125,9 @@
     currentTab = tab;
     $$('.tab-item').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
     $$('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
-
     if (tab === 'shorthand') loadShorthands();
     if (tab === 'history') loadHistory();
     if (tab === 'nl') setTimeout(() => els.nlInput.focus(), 50);
-    if (tab === 'complete') setTimeout(() => els.completeInput.focus(), 50);
-    if (tab === 'ocr') setupOcr();
   }
 
   els.tabBar.addEventListener('click', e => {
@@ -88,57 +135,17 @@
     if (item) switchTab(item.dataset.tab);
   });
 
-  // ── API helpers ──
-  async function apiConvert(text) {
-    if (isTauri) {
-      return await invoke('convert_text', { text });
-    }
-    const res = await fetch(`${API_BASE}/api/convert`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, render_mode: renderMode }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  }
-
-  async function apiComplete(text) {
-    if (isTauri) {
-      return await invoke('complete_latex', { text });
-    }
-    const res = await fetch(`${API_BASE}/api/complete`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, render_mode: renderMode }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  }
-
-  async function apiOcr(imageData) {
-    if (isTauri) {
-      return await invoke('convert_image', { image: imageData });
-    }
-    const form = new FormData();
-    form.append('image', new Blob([imageData], { type: 'image/png' }), 'upload.png');
-    form.append('render_mode', renderMode);
-    const res = await fetch(`${API_BASE}/api/ocr`, { method: 'POST', body: form });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  }
-
   // ── NL Convert ──
   async function doConvert() {
     const text = els.nlInput.value.trim();
     if (!text || isProcessing) return;
-
     isProcessing = true;
     els.nlProcessing.classList.add('active');
     els.nlResult.style.display = 'none';
     els.nlIntent.innerHTML = '<span class="intent-icon">⏳</span> 处理中…';
 
     try {
-      const res = await apiConvert(text);
+      const res = await invoke('convert_text', { text });
       lastResult = res;
       showResult(res);
       saveHistory(text, res.latex);
@@ -153,35 +160,31 @@
   function showResult(res) {
     els.nlResult.style.display = 'block';
     els.latexCode.textContent = res.latex;
-    els.markdownCode.textContent = `$$${res.latex}$$`;
-
+    els.markdownCode.textContent = '$$' + res.latex + '$$';
     els.resultValid.className = 'valid-badge ' + (res.valid ? 'ok' : 'err');
     els.resultValid.textContent = res.valid ? '✓ Valid' : '✗ Invalid';
     els.resultSource.className = 'source-badge ' + (res.source === 'shorthand' ? 'shorthand' : 'model');
     els.resultSource.textContent = res.source === 'shorthand' ? '⚡ shorthand' : '🤖 model';
-
-    els.nlIntent.innerHTML = `<span class="intent-icon">∫</span> ${res.intent} · ${res.latency_ms.toFixed(1)}ms`;
-
+    els.nlIntent.innerHTML = '<span class="intent-icon">∫</span> ' + res.intent + ' · ' + res.latency_ms.toFixed(1) + 'ms';
     updateRender();
   }
 
   function updateRender() {
     if (!lastResult) return;
-    if (renderMode === 'katex' && lastResult.katex_html) {
+    if (renderMode === 'katex') {
       els.katexSection.style.display = 'block';
       els.latexSection.style.display = 'none';
-      els.renderPreview.innerHTML = lastResult.katex_html;
-      // Re-render with KaTeX JS if needed
       if (window.katex) {
         try {
           els.renderPreview.innerHTML = '';
-          window.katex.render(lastResult.latex, els.renderPreview, {
-            throwOnError: false,
-            displayMode: true,
-          });
+          window.katex.render(lastResult.latex, els.renderPreview, { throwOnError: false, displayMode: true });
         } catch (e) {
           els.renderPreview.textContent = lastResult.latex;
         }
+      } else if (lastResult.katex_html) {
+        els.renderPreview.innerHTML = lastResult.katex_html;
+      } else {
+        els.renderPreview.textContent = lastResult.latex;
       }
     } else {
       els.katexSection.style.display = 'none';
@@ -191,81 +194,40 @@
   }
 
   function highlightLatex(latex) {
-    // Simple syntax highlighting for pure latex view
-    let html = latex
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/(\\[a-zA-Z]+)/g, '<span class="latex-structural">$1</span>')
-      .replace(/([{}])/g, '<span class="latex-delimiter">$1</span>')
-      .replace(/([～^])/g, '<span class="latex-operator">$1</span>');
-    return html;
+    return String(latex)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/(\\\\[a-zA-Z]+)/g, '<span style="color:#bb9af7">$1</span>')
+      .replace(/([{}])/g, '<span style="color:#565f89">$1</span>')
+      .replace(/([～^])/g, '<span style="color:#ff9e64">$1</span>');
   }
 
   function showError(msg) {
     els.nlResult.style.display = 'block';
-    els.nlResult.innerHTML = `<div class="error-box"><span class="icon">⚠️</span><div>${msg}</div></div>`;
-  }
-
-  // ── Clipboard ──
-  async function copyToClipboard(text) {
-    if (isTauri) {
-      await invoke('write_clipboard', { text });
-    } else {
-      await navigator.clipboard.writeText(text);
-    }
-  }
-
-  async function pasteFromClipboard() {
-    if (isTauri) {
-      try {
-        return await invoke('read_clipboard');
-      } catch (e) {
-        return '';
-      }
-    } else {
-      try {
-        return await navigator.clipboard.readText();
-      } catch (e) {
-        return '';
-      }
-    }
+    els.nlResult.innerHTML = '<div class="error-box"><span class="icon">⚠️</span><div>' + escapeHtml(msg) + '</div></div>';
   }
 
   async function copyMain() {
     if (!lastResult) return;
-    await copyToClipboard(lastResult.copy_text || lastResult.latex);
-    if (isTauri) await invoke('hide_window');
+    await writeClipboard(lastResult.copy_text || lastResult.latex);
+    await hideWindow();
   }
 
   // ── Keyboard ──
   document.addEventListener('keydown', e => {
-    // Esc → hide
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      if (isTauri) invoke('hide_window');
-      return;
-    }
-
-    // Cmd/Ctrl + K → toggle render mode
+    if (e.key === 'Escape') { e.preventDefault(); hideWindow(); return; }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      toggleRenderMode();
-      return;
+      e.preventDefault(); toggleRenderMode(); return;
     }
-
-    // Number keys → switch tab
     if (!e.metaKey && !e.ctrlKey && !e.altKey && /^[1-6]$/.test(e.key)) {
       const tabs = ['nl', 'ocr', 'complete', 'shorthand', 'history', 'settings'];
       switchTab(tabs[parseInt(e.key) - 1]);
       return;
     }
-
-    // Enter in input → submit (unless shift)
     const activeInput = document.activeElement;
     if (activeInput && activeInput.classList.contains('input-box')) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         if (currentTab === 'nl') doConvert();
-        if (currentTab === 'complete') doComplete();
       }
     }
   });
@@ -284,142 +246,49 @@
     });
   });
 
+  // ── Header drag (JS-coordinated) ──
+  const header = document.querySelector('.panel-header');
+  if (header) {
+    header.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      // Let clicks on interactive children behave normally
+      if (e.target.closest('.panel-kbd, .panel-status')) return;
+      invoke('start_window_drag', { x: e.screenX, y: e.screenY });
+    });
+    window.addEventListener('mouseup', e => {
+      if (e.button === 0) invoke('end_window_drag', {});
+    });
+  }
+
   // ── Buttons ──
   $('#btn-copy-main').addEventListener('click', copyMain);
-  $('#btn-copy-src').addEventListener('click', () => {
-    if (lastResult) copyToClipboard(lastResult.latex);
-  });
-  $('#btn-copy-md').addEventListener('click', () => {
-    if (lastResult) copyToClipboard(`$$${lastResult.latex}$$`);
-  });
+  $('#btn-copy-src').addEventListener('click', () => { if (lastResult) writeClipboard(lastResult.latex); });
+  $('#btn-copy-md').addEventListener('click', () => { if (lastResult) writeClipboard('$$' + lastResult.latex + '$$'); });
   $('#btn-retry').addEventListener('click', doConvert);
-
-  // ── OCR ──
-  function setupOcr() {
-    const dropZone = els.ocrDrop;
-    if (!dropZone) return;
-
-    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-    dropZone.addEventListener('drop', e => {
-      e.preventDefault();
-      dropZone.classList.remove('drag-over');
-      const file = e.dataTransfer.files[0];
-      if (file) handleOcrFile(file);
-    });
-
-    document.addEventListener('paste', e => {
-      if (currentTab !== 'ocr') return;
-      const items = e.clipboardData.items;
-      for (const item of items) {
-        if (item.type.startsWith('image/')) {
-          const file = item.getAsFile();
-          if (file) handleOcrFile(file);
-          break;
-        }
-      }
-    });
-  }
-
-  async function handleOcrFile(file) {
-    els.ocrDrop.style.display = 'none';
-    els.ocrPreview.style.display = 'flex';
-    els.ocrFilename.textContent = file.name;
-    els.ocrSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
-    els.ocrProcessing.classList.add('active');
-    els.ocrResult.style.display = 'none';
-
-    const buf = await file.arrayBuffer();
-    try {
-      const res = await apiOcr(new Uint8Array(buf));
-      lastResult = res;
-      showOcrResult(res);
-      saveHistory('[OCR] ' + file.name, res.latex);
-    } catch (e) {
-      showErrorIn(els.ocrResult, String(e));
-    } finally {
-      els.ocrProcessing.classList.remove('active');
-    }
-  }
-
-  function showOcrResult(res) {
-    els.ocrResult.style.display = 'block';
-    els.ocrResult.innerHTML = `
-      <div class="result-section">
-        <div class="result-label">识别结果 <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? '✓ Valid' : '✗ Invalid'}</span></div>
-        <div class="render-preview">${escapeHtml(res.latex)}</div>
-      </div>
-      <div class="action-row">
-        <button class="action-btn primary" onclick="copyToClipboard('${escapeHtml(res.copy_text || res.latex)}')">📋 复制结果</button>
-      </div>
-    `;
-  }
-
-  // ── Completion ──
-  async function doComplete() {
-    const text = els.completeInput.value.trim();
-    if (!text || isProcessing) return;
-    isProcessing = true;
-    els.completeProcessing.classList.add('active');
-    els.completeResult.style.display = 'none';
-    try {
-      const res = await apiComplete(text);
-      lastResult = res;
-      showCompleteResult(res);
-      saveHistory('[补全] ' + text, res.latex);
-    } catch (e) {
-      showErrorIn(els.completeResult, String(e));
-    } finally {
-      isProcessing = false;
-      els.completeProcessing.classList.remove('active');
-    }
-  }
-
-  function showCompleteResult(res) {
-    els.completeResult.style.display = 'block';
-    els.completeResult.innerHTML = `
-      <div class="result-section">
-        <div class="result-label">补全结果 <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? '✓ Valid' : '✗ Invalid'}</span></div>
-        <div class="render-preview">${escapeHtml(res.latex)}</div>
-      </div>
-      <div class="action-row">
-        <button class="action-btn primary" onclick="copyToClipboard('${escapeHtml(res.copy_text || res.latex)}')">📋 复制结果</button>
-      </div>
-    `;
-  }
-
-  function showErrorIn(el, msg) {
-    el.style.display = 'block';
-    el.innerHTML = `<div class="error-box"><span class="icon">⚠️</span><div>${escapeHtml(msg)}</div></div>`;
-  }
 
   // ── Shorthand ──
   async function loadShorthands() {
     try {
-      const res = await fetch(`${API_BASE}/api/shorthands`);
+      const res = await fetch('http://127.0.0.1:18732/api/shorthands');
       const items = await res.json();
       renderShorthands(items);
     } catch (e) {
       els.shorthandGrid.innerHTML = '<div class="empty-state"><div class="text">无法加载缩写库</div></div>';
     }
   }
-
   function renderShorthands(items) {
     if (!items || !items.length) {
       els.shorthandGrid.innerHTML = '<div class="empty-state"><div class="text">暂无自定义缩写</div></div>';
       return;
     }
-    els.shorthandGrid.innerHTML = items.map(i => `
-      <div class="shorthand-card" data-key="${escapeHtml(i.key)}">
-        <div class="shorthand-key">${escapeHtml(i.key)}</div>
-        <div class="shorthand-val">${escapeHtml(i.value)}</div>
-      </div>
-    `).join('');
-
+    els.shorthandGrid.innerHTML = items.map(i =>
+      '<div class="shorthand-card" data-key="' + escapeHtml(i.key) + '">' +
+      '<div class="shorthand-key">' + escapeHtml(i.key) + '</div>' +
+      '<div class="shorthand-val">' + escapeHtml(i.value) + '</div></div>'
+    ).join('');
     els.shorthandGrid.querySelectorAll('.shorthand-card').forEach(c => {
       c.addEventListener('click', () => {
-        const key = c.dataset.key;
-        els.nlInput.value = key;
+        els.nlInput.value = c.dataset.key;
         switchTab('nl');
         doConvert();
       });
@@ -431,49 +300,28 @@
   function saveHistory(input, latex) {
     historyData.unshift({ input, latex, time: Date.now() });
     if (historyData.length > 100) historyData.pop();
-    localStorage.setItem('texada-history', JSON.stringify(historyData.slice(0, 50)));
+    try { localStorage.setItem('texada-history', JSON.stringify(historyData.slice(0, 50))); } catch(e){}
   }
-
   function loadHistoryLocal() {
-    try {
-      historyData = JSON.parse(localStorage.getItem('texada-history') || '[]');
-    } catch (e) {
-      historyData = [];
-    }
+    try { historyData = JSON.parse(localStorage.getItem('texada-history') || '[]'); } catch(e){ historyData = []; }
   }
-
   async function loadHistory() {
-    try {
-      const res = await fetch(`${API_BASE}/api/history?limit=50`);
-      const items = await res.json();
-      renderHistory(items.map(h => ({ input: h.input_text || h.input, latex: h.latex, time: h.created_at })));
-    } catch (e) {
-      loadHistoryLocal();
-      renderHistory(historyData);
-    }
+    loadHistoryLocal();
+    renderHistory(historyData);
   }
-
   function renderHistory(items) {
     if (!items.length) {
       els.historyList.innerHTML = '<div class="empty-state"><div class="text">暂无历史记录</div></div>';
       return;
     }
-    els.historyList.innerHTML = items.slice(0, 50).map(h => `
-      <div class="history-item" data-latex="${escapeHtml(h.latex)}">
-        <div class="history-input">
-          <div class="history-input-text">${escapeHtml(h.input)}</div>
-          <div class="history-input-meta">
-            <span>${escapeHtml(h.latex.substring(0, 40))}${h.latex.length > 40 ? '…' : ''}</span>
-          </div>
-        </div>
-        <div class="history-render">📋</div>
-      </div>
-    `).join('');
-
+    els.historyList.innerHTML = items.slice(0, 50).map(h =>
+      '<div class="history-item" data-latex="' + escapeHtml(h.latex) + '">' +
+      '<div class="history-input"><div class="history-input-text">' + escapeHtml(h.input) + '</div>' +
+      '<div class="history-input-meta"><span>' + escapeHtml(h.latex.substring(0,40)) + (h.latex.length>40?'…':'') + '</span></div></div>' +
+      '<div class="history-render">📋</div></div>'
+    ).join('');
     els.historyList.querySelectorAll('.history-item').forEach(item => {
-      item.addEventListener('click', () => {
-        copyToClipboard(item.dataset.latex);
-      });
+      item.addEventListener('click', () => { writeClipboard(item.dataset.latex); });
     });
   }
 
@@ -482,36 +330,28 @@
   }
 
   // ── Auto-focus & clipboard on show ──
-  async function onWindowShown() {
-    await checkBackend();
+  async function onWindowShownHandler() {
+    try { await checkBackend(); } catch (e) { console.warn('checkBackend failed', e); }
     if (currentTab === 'nl') {
-      const clip = await pasteFromClipboard();
-      // Only auto-fill if clipboard looks like a math description (heuristic)
+      let clip = '';
+      try { clip = await readClipboard(); } catch (e) { console.warn('readClipboard failed', e); }
       if (clip && clip.length > 0 && clip.length < 500 && !els.nlInput.value) {
         els.nlInput.value = clip;
       }
-      els.nlInput.focus();
+      // Delay focus so the WebView / window can finish becoming key.
+      setTimeout(() => {
+        if (els.nlInput) {
+          els.nlInput.focus();
+          els.nlInput.click();
+        }
+      }, 50);
     }
   }
 
-  // Listen for Tauri window show events
-  if (isTauri && window.__TAURI__.event) {
-    window.__TAURI__.event.listen('tauri://focus', onWindowShown);
+  // Also run on load for browser dev mode
+  if (!isSwift && !isTauri) {
+    onWindowShownHandler();
   }
 
-  // Also run on load
-  onWindowShown();
-
-  // ── Blur hide ──
-  if (isTauri) {
-    window.addEventListener('blur', () => {
-      // Optional: auto-hide when focus leaves the window
-      // invoke('hide_window');
-    });
-  }
-
-  // ── Drag support on header ──
-  // Tauri with -webkit-app-region: drag handles this automatically
-
-  console.log('TeXada Shell loaded. Tauri:', isTauri);
+  console.log('TeXada Shell loaded. Tauri:', isTauri, 'Swift:', isSwift);
 })();

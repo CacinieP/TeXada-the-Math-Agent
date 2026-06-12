@@ -246,6 +246,20 @@
     });
   });
 
+  // ── Header drag (JS-coordinated) ──
+  const header = document.querySelector('.panel-header');
+  if (header) {
+    header.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      // Let clicks on interactive children behave normally
+      if (e.target.closest('.panel-kbd, .panel-status')) return;
+      invoke('start_window_drag', { x: e.screenX, y: e.screenY });
+    });
+    window.addEventListener('mouseup', e => {
+      if (e.button === 0) invoke('end_window_drag', {});
+    });
+  }
+
   // ── Buttons ──
   $('#btn-copy-main').addEventListener('click', copyMain);
   $('#btn-copy-src').addEventListener('click', () => { if (lastResult) writeClipboard(lastResult.latex); });
@@ -317,13 +331,20 @@
 
   // ── Auto-focus & clipboard on show ──
   async function onWindowShownHandler() {
-    await checkBackend();
+    try { await checkBackend(); } catch (e) { console.warn('checkBackend failed', e); }
     if (currentTab === 'nl') {
-      const clip = await readClipboard();
+      let clip = '';
+      try { clip = await readClipboard(); } catch (e) { console.warn('readClipboard failed', e); }
       if (clip && clip.length > 0 && clip.length < 500 && !els.nlInput.value) {
         els.nlInput.value = clip;
       }
-      els.nlInput.focus();
+      // Delay focus so the WebView / window can finish becoming key.
+      setTimeout(() => {
+        if (els.nlInput) {
+          els.nlInput.focus();
+          els.nlInput.click();
+        }
+      }, 50);
     }
   }
 

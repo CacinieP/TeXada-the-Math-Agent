@@ -1,10 +1,11 @@
 import Cocoa
 import WebKit
 
-class WebViewController: NSViewController, WKScriptMessageHandler {
+class WebViewController: NSViewController, WKScriptMessageHandler, WKNavigationDelegate {
     var webView: WKWebView!
     let apiBase = "http://127.0.0.1:18732"
     var pendingRequests: [String: (Data) -> Void] = [:]
+    private var isPageLoaded = false
 
     override func loadView() {
         view = NSView()
@@ -22,6 +23,7 @@ class WebViewController: NSViewController, WKScriptMessageHandler {
 
         webView = WKWebView(frame: .zero, configuration: config)
         webView.translatesAutoresizingMaskIntoConstraints = false
+        webView.navigationDelegate = self
         view.addSubview(webView)
 
         NSLayoutConstraint.activate([
@@ -32,6 +34,15 @@ class WebViewController: NSViewController, WKScriptMessageHandler {
         ])
 
         loadLocalHTML()
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        isPageLoaded = true
+        checkBackend()
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        print("WebView failed to load: \(error.localizedDescription)")
     }
 
     func loadLocalHTML() {
@@ -80,17 +91,32 @@ class WebViewController: NSViewController, WKScriptMessageHandler {
                 DispatchQueue.main.async { app.showPanel() }
             }
             sendToJS(id: reqId, result: ["ok": true])
+        case "start_window_drag":
+            if let app = NSApp.delegate as? AppDelegate {
+                DispatchQueue.main.async { app.startWindowDrag() }
+            }
+            sendToJS(id: reqId, result: ["ok": true])
+        case "end_window_drag":
+            if let app = NSApp.delegate as? AppDelegate {
+                DispatchQueue.main.async { app.endWindowDrag() }
+            }
+            sendToJS(id: reqId, result: ["ok": true])
         default:
             break
         }
     }
 
     func sendToJS(id: String, result: Any) {
+        guard isPageLoaded else { return }
         let data = try! JSONSerialization.data(withJSONObject: result)
         let json = String(data: data, encoding: .utf8)!
         let js = "window.texadaSwiftBridge.onResult('\(id)', \(json))"
         DispatchQueue.main.async {
-            self.webView.evaluateJavaScript(js, completionHandler: nil)
+            self.webView.evaluateJavaScript(js) { _, error in
+                if let error = error {
+                    print("JS evaluation error: \(error.localizedDescription)")
+                }
+            }
         }
     }
 
@@ -149,6 +175,11 @@ class WebViewController: NSViewController, WKScriptMessageHandler {
     }
 
     func onWindowShown() {
-        webView.evaluateJavaScript("window.texadaSwiftBridge.onWindowShown()", completionHandler: nil)
+        guard isPageLoaded else { return }
+        webView.evaluateJavaScript("window.texadaSwiftBridge.onWindowShown()") { _, error in
+            if let error = error {
+                print("onWindowShown JS error: \(error.localizedDescription)")
+            }
+        }
     }
 }
