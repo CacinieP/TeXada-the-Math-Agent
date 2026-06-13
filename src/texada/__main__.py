@@ -28,23 +28,23 @@ def convert(text: str):
 
 @app.command()
 def check():
-    """Check system readiness — llama.cpp servers, model, dependencies."""
+    """Check system readiness — Ollama daemon, model, dependencies."""
     import asyncio
-    from texada.core.llama_manager import LlamaCppManager
+    from texada.core.backend import BackendManager
     from texada.config import load_config
 
     config = load_config()
-    mgr = LlamaCppManager(config)
+    mgr = BackendManager(config)
 
     typer.echo("TeXada v0.2.0 — System Check")
-    typer.echo(f"  Text host:    {config.llama_host}")
-    typer.echo(f"  Vision host:  {config.llama_vision_host}")
+    typer.echo(f"  Ollama host:  {config.ollama_host}")
+    typer.echo(f"  Backend:      ollama")
     typer.echo(f"  Model:        {config.model_name}")
     typer.echo(f"  Vision model: {config.vision_model_name}")
 
     try:
         asyncio.run(mgr.ensure_ready())
-        typer.echo(f"  Text server:  ✅ running")
+        typer.echo(f"  Ollama:       ✅ running")
     except Exception as e:
         typer.echo(f"  Text server:  ❌ {e}")
 

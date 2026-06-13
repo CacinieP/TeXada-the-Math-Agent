@@ -61,12 +61,12 @@ async def test_router_process_text_nl2latex_mocked():
     router = InputRouter(config)
 
     # Mock the model call to avoid needing Ollama service during tests
-    mock_generate = AsyncMock(return_value=("\\int_0^1 f(x) dx", [], []))
+    mock_generate = AsyncMock(return_value="\\int_0^1 f(x) dx")
     router.model.generate_latex = mock_generate
 
-    # Mock ollama manager ensure_ready to return True
+    # Mock backend ensure_ready to return True
     mock_ready = AsyncMock(return_value=True)
-    router.ollama_manager.ensure_ready = mock_ready
+    router.backend.ensure_ready = mock_ready
 
     result = await router.process_text("f(x)的积分从0到1", route_override=Route.NL2LATEX)
     assert result.latex == "\\int_0^1 f(x) dx"
