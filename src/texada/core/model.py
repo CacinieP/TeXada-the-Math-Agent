@@ -110,7 +110,7 @@ class MiniCPMModel:
             model=self.model,
             messages=messages,
             temperature=0.05,
-            max_tokens=256,
+            max_tokens=self.max_tokens,
         )
         raw = response.choices[0].message.content if response.choices else ""
         latex = self._extract_latex(raw)

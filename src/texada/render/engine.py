@@ -62,7 +62,7 @@ class RenderEngine:
         """KaTeX rendering via npx subprocess."""
         try:
             result = subprocess.run(
-                ["npx", "katex", "-f", "tex"],
+                ["npx", "katex"],
                 input=latex, capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0:
