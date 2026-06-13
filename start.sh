@@ -17,32 +17,33 @@ cleanup() {
 }
 trap cleanup INT TERM
 
-# ── Check llama.cpp servers ──
-echo "🔍 Checking llama.cpp servers..."
+# ── Check Ollama daemon ──
+echo "🔍 Checking Ollama daemon..."
 
-TEXT_OK=false
-VISION_OK=false
-
-if curl -s http://localhost:8080/health >/dev/null 2>&1; then
-    echo "  ✅ Text model (MiniCPM5-1B) on :8080"
-    TEXT_OK=true
+OLLAMA_OK=false
+if curl -s http://localhost:11434/v1/models >/dev/null 2>&1; then
+    echo "  ✅ Ollama running on :11434 (MiniCPM5-1B + MiniCPM-V 4.6)"
+    OLLAMA_OK=true
 else
-    echo "  ❌ Text model not running on :8080"
+    echo "  ⚠️  Ollama not running on :11434 — attempting 'ollama serve'..."
+    ollama serve >/dev/null 2>&1 &
+    for _ in {1..10}; do
+        sleep 0.5
+        if curl -s http://localhost:11434/v1/models >/dev/null 2>&1; then
+            echo "  ✅ Ollama started"
+            OLLAMA_OK=true
+            break
+        fi
+    done
 fi
 
-if curl -s http://localhost:8081/health >/dev/null 2>&1; then
-    echo "  ✅ Vision model (MiniCPM-V 4.6) on :8081"
-    VISION_OK=true
-else
-    echo "  ⚠️  Vision model not running on :8081 (OCR disabled)"
-fi
-
-if [[ "$TEXT_OK" != "true" ]]; then
+if [[ "$OLLAMA_OK" != "true" ]]; then
     echo ""
-    echo "❌ Text model server is required. Please start llama.cpp first:"
-    echo "   ~/models/start-minicpm-dual-opencode.ps1"
-    echo "   # or manually:"
-    echo "   llama-server -m <model.gguf> --port 8080 -ngl 99 -c 4096"
+    echo "❌ Ollama is required. Please install & start it:"
+    echo "   https://ollama.com  →  ollama serve"
+    echo "   Then pull the MiniCPM models:"
+    echo "   ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M"
+    echo "   ollama pull openbmb/minicpm-v4.6:latest"
     exit 1
 fi
 

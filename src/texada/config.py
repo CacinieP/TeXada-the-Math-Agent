@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 from pydantic_settings import (
     BaseSettings,
     SettingsConfigDict,
@@ -14,7 +15,13 @@ TEXADA_HOME = Path.home() / ".texada"
 
 
 class TeXadaConfig(BaseSettings):
-    """All TeXada settings, loaded from ~/.texada/config.json + env vars."""
+    """All TeXada settings, loaded from ~/.texada/config.json + env vars.
+
+    TeXada runs fully offline on a local Ollama daemon, loading MiniCPM
+    models by tag. Ollama exposes an OpenAI-compatible ``/v1`` endpoint, so
+    inference (``texada.core.model``) speaks the standard OpenAI chat API;
+    text and vision (OCR) requests hit the same daemon with different tags.
+    """
 
     model_config = SettingsConfigDict(
         json_file=str(TEXADA_HOME / "config.json"),
@@ -24,13 +31,12 @@ class TeXadaConfig(BaseSettings):
         protected_namespaces=("settings_",),
     )
 
-    # ── Model (llama.cpp OpenAI-compatible) ──
-    llama_host: str = "http://localhost:8080"        # Text model (MiniCPM5-1B)
-    llama_vision_host: str = "http://localhost:8081"  # Vision model (MiniCPM-V 4.6)
-    model_name: str = "MiniCPM5-1B"
-    vision_model_name: str = "MiniCPM-V-4_6"
+    # ── Ollama backend (MiniCPM) ──
+    ollama_host: str = "http://localhost:11434"
+    model_name: str = "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M"  # Text: MiniCPM5-1B
+    vision_model_name: str = "openbmb/minicpm-v4.6:latest"     # Vision: MiniCPM-V 4.6 (OCR)
     temperature: float = 0.1
-    max_tokens: int = 256
+    max_tokens: int = 2048  # MiniCPM5 is a reasoning model — CoT needs headroom
 
     # ── Render ──
     default_render_mode: str = "katex"   # "katex" | "latex"

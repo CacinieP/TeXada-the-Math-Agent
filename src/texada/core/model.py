@@ -1,4 +1,4 @@
-"""MiniCPM model wrapper — llama.cpp OpenAI-compatible API."""
+"""MiniCPM model wrapper — Ollama OpenAI-compatible API."""
 from __future__ import annotations
 
 import asyncio
@@ -15,21 +15,20 @@ from texada.core.prompts import (
 
 
 class MiniCPMModel:
-    """Wraps llama.cpp OpenAI-compatible chat calls for MiniCPM models."""
+    """Wraps Ollama's OpenAI-compatible chat API for MiniCPM models."""
 
     def __init__(self, config: TeXadaConfig):
+        # Ollama exposes an OpenAI-compatible /v1 endpoint; text and vision
+        # share the same daemon, distinguished by model tag.
         self.client = OpenAI(
-            base_url=f"{config.llama_host}/v1",
-            api_key="sk-no-key",
+            base_url=f"{config.ollama_host}/v1",
+            api_key="ollama",  # Ollama ignores the key; SDK requires a non-empty value
         )
         self.model = config.model_name
         self.temperature = config.temperature
         self.max_tokens = config.max_tokens
-        # Vision client for OCR (separate llama.cpp instance)
-        self._vision_client = OpenAI(
-            base_url=f"{config.llama_vision_host}/v1",
-            api_key="sk-no-key",
-        )
+        # Vision (OCR) uses the same daemon, just a different model tag.
+        self._vision_client = self.client
         self._vision_model = config.vision_model_name
 
     # ── Public inference methods ──

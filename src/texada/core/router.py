@@ -9,7 +9,7 @@ import time
 from texada.config import TeXadaConfig
 from texada.core.intent import IntentClassifier
 from texada.core.model import MiniCPMModel
-from texada.core.llama_manager import LlamaCppManager
+from texada.core.backend import BackendManager
 from texada.core.symbols import SymbolEngine
 from texada.core.validator import LaTeXValidator
 from texada.core.fixer import LaTeXFixer
@@ -56,7 +56,7 @@ class InputRouter:
         self.fixer = LaTeXFixer()
         self.render_engine = RenderEngine(config)
         self.shorthand_store = ShorthandStore(config)
-        self.llama_manager = LlamaCppManager(config)
+        self.backend = BackendManager(config)
         # Agent Memory — per-session conversation context
         self.memory = ConversationMemory(max_turns=6)
         self._per_request_mode: RenderMode | None = None
@@ -122,7 +122,7 @@ class InputRouter:
         start = time.monotonic()
         self._per_request_mode = render_mode
 
-        await self.llama_manager.ensure_ready()
+        await self.backend.ensure_ready()
 
         from texada.core.ocr import OCRPipeline
         ocr = OCRPipeline(self.model, self.config)
@@ -158,7 +158,7 @@ class InputRouter:
         if context:
             preprocessed = f"[上下文: {context}]\n{preprocessed}"
 
-        await self.llama_manager.ensure_ready()
+        await self.backend.ensure_ready()
 
         # Pure chat inference — no tool calling
         latex = await self.model.generate_latex(
@@ -212,7 +212,7 @@ class InputRouter:
         )
 
     async def _process_completion(self, text: str, start: float, *, context: str = "") -> ConvertResult:
-        await self.llama_manager.ensure_ready()
+        await self.backend.ensure_ready()
         prompt = f"{context}\n{text}" if context else text
         latex = await self.model.complete_latex(prompt)
 
