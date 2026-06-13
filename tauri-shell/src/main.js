@@ -8,6 +8,7 @@
   let renderMode = 'katex'; // 'katex' | 'latex'
   let lastResult = null;
   let isProcessing = false;
+  let allShorthands = [];
   const API_BASE = 'http://127.0.0.1:18732';
 
   // ── DOM refs ──
@@ -27,6 +28,7 @@
     statusDot: document.getElementById('status-dot'),
     tabBar: document.getElementById('tab-bar'),
     shorthandGrid: document.getElementById('shorthand-grid'),
+    shorthandSearch: document.getElementById('shorthand-search'),
     historyList: document.getElementById('history-list'),
     ocrDrop: document.getElementById('ocr-drop'),
     ocrPreview: document.getElementById('ocr-preview'),
@@ -433,7 +435,8 @@
     try {
       const res = await fetch(`${API_BASE}/api/shorthands`);
       const items = await res.json();
-      renderShorthands(items);
+      allShorthands = items || [];
+      renderShorthands(allShorthands);
     } catch (e) {
       els.shorthandGrid.innerHTML = '<div class="empty-state"><div class="text">无法加载缩写库</div></div>';
     }
@@ -441,7 +444,8 @@
 
   function renderShorthands(items) {
     if (!items || !items.length) {
-      els.shorthandGrid.innerHTML = '<div class="empty-state"><div class="text">暂无自定义缩写</div></div>';
+      const msg = allShorthands.length ? '无匹配的缩写' : '暂无自定义缩写';
+      els.shorthandGrid.innerHTML = `<div class="empty-state"><div class="text">${msg}</div></div>`;
       return;
     }
     els.shorthandGrid.innerHTML = items.map(i => `
@@ -458,6 +462,17 @@
         switchTab('nl');
         doConvert();
       });
+    });
+  }
+
+  // Client-side shorthand search filter (data already fully loaded)
+  if (els.shorthandSearch) {
+    els.shorthandSearch.addEventListener('input', () => {
+      const q = els.shorthandSearch.value.trim().toLowerCase();
+      const filtered = !q ? allShorthands : allShorthands.filter(i =>
+        (i.key || '').toLowerCase().includes(q) || (i.value || '').toLowerCase().includes(q)
+      );
+      renderShorthands(filtered);
     });
   }
 

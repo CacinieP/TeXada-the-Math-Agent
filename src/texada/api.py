@@ -103,6 +103,15 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             )
         except RuntimeError as e:
             raise HTTPException(status_code=503, detail=str(e))
+        try:
+            await history.add(HistoryEntry(
+                input_text=req.text, input_type="nl", latex=result.latex,
+                intent=result.intent, source=result.source.value,
+                render_mode=req_mode.value, valid=result.valid,
+                latency_ms=result.latency_ms, tokens_used=result.tokens_used,
+            ))
+        except Exception:
+            pass  # history is best-effort; never fail the conversion
         return LaTeXResponse(
             latex=result.latex,
             katex_html=result.render.katex_html,
@@ -124,6 +133,15 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             result: ConvertResult = await router.process_image(data, render_mode=ocr_mode)
         except RuntimeError as e:
             raise HTTPException(status_code=503, detail=str(e))
+        try:
+            await history.add(HistoryEntry(
+                input_text=image.filename or "[image]", input_type="ocr",
+                latex=result.latex, intent=result.intent, source=result.source.value,
+                render_mode=ocr_mode.value, valid=result.valid,
+                latency_ms=result.latency_ms, tokens_used=result.tokens_used,
+            ))
+        except Exception:
+            pass  # history is best-effort; never fail the conversion
         return LaTeXResponse(
             latex=result.latex,
             katex_html=result.render.katex_html,
@@ -147,6 +165,15 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             )
         except RuntimeError as e:
             raise HTTPException(status_code=503, detail=str(e))
+        try:
+            await history.add(HistoryEntry(
+                input_text=req.text, input_type="completion", latex=result.latex,
+                intent=result.intent, source=result.source.value,
+                render_mode=comp_mode.value, valid=result.valid,
+                latency_ms=result.latency_ms, tokens_used=result.tokens_used,
+            ))
+        except Exception:
+            pass  # history is best-effort; never fail the conversion
         return LaTeXResponse(
             latex=result.latex,
             katex_html=result.render.katex_html,

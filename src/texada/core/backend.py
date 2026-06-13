@@ -49,7 +49,7 @@ class BackendManager:
     async def _is_running(self) -> bool:
         """True if the daemon answers on /v1/models."""
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
+            async with httpx.AsyncClient(timeout=3.0, trust_env=False) as client:
                 resp = await client.get(f"{self.base_url}/v1/models")
                 return resp.status_code == 200
         except Exception:
@@ -58,7 +58,7 @@ class BackendManager:
     async def _list_models(self) -> list[str]:
         """List pulled model ids via the OpenAI-compatible endpoint."""
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=5.0, trust_env=False) as client:
                 resp = await client.get(f"{self.base_url}/v1/models")
                 if resp.status_code != 200:
                     return []
