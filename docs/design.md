@@ -1,3 +1,7 @@
+> ⚠️ **历史设计稿**(v0.1–0.2 早期设计,含 4B / Gemma 时代的能力分析与架构推演)。
+> 当前实现架构以 [`architecture.md`](architecture.md) 与 [`../TECHNICAL_REPORT.md`](../TECHNICAL_REPORT.md) 为准。
+> 本文档保留作设计思路参考,部分内容(模型能力分析、双平台菜单栏等)已不反映现状。
+
 # TeXada — MiniCPM5-1B 端侧数学 Agent 设计文档
 
 > **版本**: v2.0 (全面重设计)
