@@ -11,6 +11,10 @@ TeXada 把自然语言、LaTeX 片段、手写公式图片统一转换成 LaTeX�
 
 两个模型都跑在同一个本地 **Ollama** daemon 上（Ollama 提供 OpenAI 兼容的 `/v1` 端点，推理层直接复用标准 OpenAI Chat API）。
 
+## 截图
+
+![TeXada 运行截图](assets/clipboard-screenshot.png)
+
 ## 特性
 
 - 🧮 **自然语言 → LaTeX**：「二重积分 f(x,y) 在区域 D 上」→ `\iint_D f(x,y)\,dx\,dy`
