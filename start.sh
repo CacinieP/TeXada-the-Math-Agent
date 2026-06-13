@@ -69,10 +69,19 @@ for i in {1..30}; do
     sleep 0.5
 done
 
-# ── Start Swift shell (macOS only) ──
-if [[ "$OSTYPE" == "darwin"* ]] && [[ -d "tauri-shell/TeXadaShell/TeXadaShell.app" ]]; then
-    echo "🖥️  Starting Swift floating shell..."
-    open tauri-shell/TeXadaShell/TeXadaShell.app
+# ── Start native desktop shell (macOS only) ──
+DESKTOP_APP=""
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    if [[ -d "TeXada Desktop.app" ]]; then
+        DESKTOP_APP="TeXada Desktop.app"
+    elif [[ -d "tauri-shell/TeXadaShell/TeXadaShell.app" ]]; then
+        DESKTOP_APP="tauri-shell/TeXadaShell/TeXadaShell.app"
+    fi
+fi
+
+if [[ -n "$DESKTOP_APP" ]]; then
+    echo "🖥️  Starting native desktop shell..."
+    open "$DESKTOP_APP"
     echo ""
     echo "✨ TeXada is running!"
     echo "   • API:     http://127.0.0.1:$API_PORT"
@@ -83,7 +92,8 @@ if [[ "$OSTYPE" == "darwin"* ]] && [[ -d "tauri-shell/TeXadaShell/TeXadaShell.ap
 else
     echo ""
     echo "✨ API server is running at http://127.0.0.1:$API_PORT"
-    echo "   (Swift shell only available on macOS with compiled .app)"
+    echo "   (Native desktop shell only available on macOS with compiled .app)"
+    echo "   Build it with: ./scripts/build-desktop-app.sh"
     echo ""
     echo "Press Ctrl+C to stop."
     wait "$API_PID"

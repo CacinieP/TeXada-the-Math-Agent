@@ -16,6 +16,10 @@ logs/
 *.swo
 node_modules/
 
+# Generated macOS app bundles (use build scripts to regenerate)
+*.app
+build/
+
 # Competition submission snapshots (use git tag/archive instead)
 submissions/
 
