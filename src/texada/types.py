@@ -85,18 +85,18 @@ class ConvertResult:
 
 @dataclass
 class HistoryEntry:
-    id: int
-    input_text: str
-    input_type: str
-    latex: str
-    intent: str
-    source: str
-    render_mode: str
-    valid: bool
-    latency_ms: float
-    tokens_used: int
-    starred: bool
-    created_at: str
+    id: int = 0
+    input_text: str = ""
+    input_type: str = ""
+    latex: str = ""
+    intent: str = ""
+    source: str = ""
+    render_mode: str = ""
+    valid: bool = False
+    latency_ms: float = 0.0
+    tokens_used: int = 0
+    starred: bool = False
+    created_at: str = ""
 
 
 @dataclass

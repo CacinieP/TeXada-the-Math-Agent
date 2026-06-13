@@ -5,6 +5,7 @@ import asyncio
 import base64
 import re
 
+import httpx
 from openai import OpenAI
 
 from texada.config import TeXadaConfig
@@ -23,6 +24,7 @@ class MiniCPMModel:
         self.client = OpenAI(
             base_url=f"{config.ollama_host}/v1",
             api_key="ollama",  # Ollama ignores the key; SDK requires a non-empty value
+            http_client=httpx.Client(trust_env=False),  # local Ollama: never use system proxy
         )
         self.model = config.model_name
         self.temperature = config.temperature
@@ -108,10 +110,17 @@ class MiniCPMModel:
             model=self.model,
             messages=messages,
             temperature=0.05,
-            max_tokens=128,
+            max_tokens=256,
         )
         raw = response.choices[0].message.content if response.choices else ""
-        return self._extract_latex(raw)
+        latex = self._extract_latex(raw)
+        # Reasoning models (e.g. MiniCPM5) may leave `content` empty and put the
+        # answer in `reasoning`. Fall back to it before giving up.
+        if not latex and response.choices:
+            reasoning = getattr(response.choices[0].message, "reasoning", None)
+            if reasoning:
+                latex = self._extract_latex(reasoning)
+        return latex
 
     async def ocr_latex(self, image: bytes) -> str:
         """OCR inference — multimodal input via vision model."""
