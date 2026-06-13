@@ -17,3 +17,6 @@ node_modules/
 
 # Competition submission snapshots (use git tag/archive instead)
 submissions/
+
+# macOS app code-signing artifacts (build output, machine-specific)
+**/_CodeSignature/
