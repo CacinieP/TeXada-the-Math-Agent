@@ -15,6 +15,31 @@ from texada.core.prompts import (
 )
 
 
+# Rule-based completions for high-frequency LaTeX fragments. Matched against
+# the stripped input's tail (first match wins). MiniCPM5-1B is unreliable on
+# these common patterns (it tends to emit empty braces), so rules take
+# precedence and are instant; the model only handles fragments no rule
+# recognises.
+_RULE_COMPLETIONS: list[tuple[str, str]] = [
+    (r"\\sum_\{i=1\}\^\{$", "n} x_i"),
+    (r"\\sum_\{$", "i=1}^{n} x_i"),
+    (r"\\sum$", "_{i=1}^{n} x_i"),
+    (r"\\prod_\{$", "i=1}^{n} x_i"),
+    (r"\\prod$", "_{i=1}^{n} x_i"),
+    (r"\\frac\{$", "}{}"),
+    (r"\\sqrt\{$", "}"),
+    (r"\\int$", "_{0}^{1} f(x)\\,dx"),
+    (r"\\int_\{$", "0}^{1} f(x)\\,dx"),
+    (r"\\lim$", "_{x \\to 0}"),
+    (r"\\lim_\{$", "x \\to 0}"),
+    (r"\\mathbb\{$", "R}"),
+    (r"\\mathcal\{$", "L}"),
+    (r"\^\{$", "n}"),
+    (r"_\{$", "}"),
+    (r"\{$", "}"),
+]
+
+
 class MiniCPMModel:
     """Wraps Ollama's OpenAI-compatible chat API for MiniCPM models."""
 
@@ -100,7 +125,16 @@ class MiniCPMModel:
         return latex
 
     async def complete_latex(self, partial: str) -> str:
-        """LaTeX completion inference."""
+        """LaTeX completion — rules first for common patterns, model otherwise.
+
+        MiniCPM5-1B is unreliable at completing arbitrary fragments (it tends
+        to emit empty braces), so high-frequency patterns are matched by rule
+        first (accurate, zero latency); the model handles the rest.
+        """
+        ruled = self._rule_complete(partial)
+        if ruled:
+            return ruled
+
         messages = [
             {"role": "system", "content": COMPLETION_PROMPT},
             {"role": "user", "content": partial},
@@ -149,6 +183,14 @@ class MiniCPMModel:
         return self._extract_latex(raw)
 
     # ── Helpers ──
+
+    def _rule_complete(self, partial: str) -> str | None:
+        """Complete a fragment by exact tail-match against common patterns."""
+        s = partial.strip()
+        for pattern, suffix in _RULE_COMPLETIONS:
+            if re.search(pattern + r"\s*$", s):
+                return s + suffix
+        return None
 
     def _build_few_shot(self, intent: str) -> list[dict]:
         """Select intent-specific few-shot examples."""

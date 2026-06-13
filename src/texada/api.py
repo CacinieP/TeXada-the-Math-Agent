@@ -64,7 +64,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     config.ensure_dirs()
 
     router = InputRouter(config)
-    shorthand = ShorthandStore(config)
+    shorthand = router.shorthand_store  # share router's store so /convert sees /api/shorthands adds
     history = HistoryStore(config)
     render_engine = RenderEngine(config)
     backend_mgr = BackendManager(config)

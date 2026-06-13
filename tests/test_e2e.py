@@ -36,7 +36,7 @@ async def test_e2e_status(client):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ready"
-    assert data["model"] == "openbmb/minicpm-v4.6"
+    assert "minicpm" in data["model"].lower()  # text model tag (config.model_name)
     assert data["render_mode"] == "katex"
 
 
