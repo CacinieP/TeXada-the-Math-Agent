@@ -10,6 +10,7 @@ build/
 .idea/
 .vscode/
 *.log
+logs/
 .DS_Store
 *.swp
 *.swo
@@ -20,3 +21,6 @@ submissions/
 
 # macOS app code-signing artifacts (build output, machine-specific)
 **/_CodeSignature/
+
+# Intermediate iconset sources (the compiled .icns is kept)
+assets/TeXada.iconset/

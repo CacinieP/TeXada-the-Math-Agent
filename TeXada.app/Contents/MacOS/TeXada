@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# TeXada macOS App Launcher
+# This executable is invoked when the user double-clicks TeXada.app.
+# It starts the API and frontend in the background (unless already running),
+# then opens the browser.
+set -uo pipefail
+
+# Resolve project root: TeXada.app is expected to sit at the project root.
+APP_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+PROJECT_ROOT="$(dirname "$APP_DIR")"
+
+API_PORT=18732
+WEB_PORT=5173
+LOG_DIR="$PROJECT_ROOT/logs"
+mkdir -p "$LOG_DIR"
+
+API_LOG="$LOG_DIR/api.log"
+WEB_LOG="$LOG_DIR/web.log"
+LAUNCHER_LOG="$LOG_DIR/launcher.log"
+
+# Redirect all launcher output to log file for debugging.
+exec >> "$LAUNCHER_LOG" 2>&1
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] TeXada.app launched"
+echo "  Project root: $PROJECT_ROOT"
+
+cd "$PROJECT_ROOT" || exit 1
+
+API_ALREADY_RUNNING=false
+WEB_ALREADY_RUNNING=false
+
+if curl -sf "http://127.0.0.1:$API_PORT/api/status" >/dev/null 2>&1; then
+    API_ALREADY_RUNNING=true
+fi
+if curl -sf "http://127.0.0.1:$WEB_PORT/" >/dev/null 2>&1; then
+    WEB_ALREADY_RUNNING=true
+fi
+
+if [ "$API_ALREADY_RUNNING" = true ] && [ "$WEB_ALREADY_RUNNING" = true ]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Services already running, opening browser"
+    open "http://127.0.0.1:$WEB_PORT/"
+    osascript -e 'display notification "TeXada 服务已在运行，正在打开浏览器" with title "TeXada"'
+    exit 0
+fi
+
+# ── Check Python environment ──
+PYTHON="$PROJECT_ROOT/.venv/bin/python"
+if [ ! -x "$PYTHON" ]; then
+    osascript -e 'display notification "未找到 .venv，请先完成安装" with title "TeXada 启动失败"'
+    exit 1
+fi
+
+# ── Check Ollama ──
+if ! curl -sf http://localhost:11434/v1/models >/dev/null 2>&1; then
+    if command -v ollama >/dev/null 2>&1; then
+        nohup ollama serve >> "$LOG_DIR/ollama.log" 2>&1 &
+        disown
+        for _ in $(seq 1 20); do
+            curl -sf http://localhost:11434/v1/models >/dev/null 2>&1 && break
+            sleep 0.5
+        done
+    fi
+fi
+
+if ! curl -sf http://localhost:11434/v1/models >/dev/null 2>&1; then
+    osascript -e 'display notification "Ollama 未运行，请先安装并启动" with title "TeXada 启动失败"'
+    exit 1
+fi
+
+# ── Clean up stale logs ──
+> "$API_LOG"
+> "$WEB_LOG"
+
+# ── Start API in background ──
+nohup "$PYTHON" -m texada serve >> "$API_LOG" 2>&1 &
+API_PID=$!
+disown "$API_PID"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] API started (PID $API_PID)"
+
+# ── Start frontend static server in background ──
+nohup "$PYTHON" -m http.server "$WEB_PORT" --bind 127.0.0.1 --directory "$PROJECT_ROOT/tauri-shell/src" >> "$WEB_LOG" 2>&1 &
+WEB_PID=$!
+disown "$WEB_PID"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Web server started (PID $WEB_PID)"
+
+# ── Wait for API ready ──
+READY=false
+for _ in $(seq 1 60); do
+    if curl -sf "http://127.0.0.1:$API_PORT/api/status" >/dev/null 2>&1; then
+        READY=true
+        break
+    fi
+    sleep 0.5
+done
+
+if [ "$READY" != true ]; then
+    osascript -e 'display notification "API 启动超时，请检查日志" with title "TeXada 启动失败"'
+    exit 1
+fi
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] API ready"
+
+# ── Open browser ──
+sleep 0.5
+open "http://127.0.0.1:$WEB_PORT/"
+
+osascript -e 'display notification "TeXada 已启动，浏览器正在打开" with title "TeXada"'
+
+# Keep launcher alive briefly so macOS registers the app launch,
+# then exit cleanly. Background services continue running.
+sleep 2
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Launcher exiting, services remain in background"
+exit 0
