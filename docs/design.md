@@ -1,8 +1,8 @@
-# TeXada — Gemma 4 E4B 端侧数学 Agent 设计文档
+# TeXada — MiniCPM5-1B 端侧数学 Agent 设计文档
 
 > **版本**: v2.0 (全面重设计)
 > **日期**: 2026-06-08
-> **核心约束**: 必须端侧运行 Gemma 4 E4B，零云端依赖
+> **核心约束**: 必须端侧运行 MiniCPM5-1B，零云端依赖
 
 ---
 
@@ -17,7 +17,7 @@
 
 ---
 
-## 1. Gemma 4 E4B 能力边界分析
+## 1. MiniCPM5-1B 能力边界分析
 
 ### 1.1 模型规格
 
@@ -33,7 +33,7 @@
 
 ### 1.2 数学能力预估
 
-基于 Gemma 系列历史数据与架构推演：
+基于 MiniCPM 系列历史数据与架构推演：
 
 | 任务类型 | E4B 预期表现 | 设计应对 |
 |----------|-------------|---------|
@@ -53,11 +53,11 @@
 brew install ollama
 
 # 拉取 QAT 优化模型 (4-bit, ~5.5GB 显存)
-ollama pull gemma4:e4b-it-qat
+ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
 
 # 验证
 ollama list
-ollama run gemma4:e4b-it-qat "将二重积分f(x,y)在D上转为LaTeX"
+ollama run hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M "将二重积分f(x,y)在D上转为LaTeX"
 ```
 
 | 方案 | 格式 | 显存占用 | 推理速度 (M4 Pro) | 推荐度 |
@@ -67,7 +67,7 @@ ollama run gemma4:e4b-it-qat "将二重积分f(x,y)在D上转为LaTeX"
 | MLX-LM | safetensors | ~5-8 GB | ~50-70 tok/s | ⭐⭐ (需手动配置) |
 | LiteRT-LM | .litertlm | ~3.4 GB | ~30-45 tok/s | ⭐ (移动端优先) |
 
-**本机现状**: 已有 `gemma-4-E4B-it.litertlm` (3.4GB, LiteRT 格式，手机用)，需额外拉取 Ollama QAT 版本用于 Mac 端侧推理。
+**本机现状**: 已迁移至 MiniCPM 系列（MiniCPM5-1B 文本 + MiniCPM-V 4.6 视觉），经 Ollama 本地推理。（历史：早期曾评估 `gemma-4-E4B-it.litertlm` 3.4GB LiteRT 手机版。）
 
 ---
 
@@ -119,7 +119,7 @@ ollama run gemma4:e4b-it-qat "将二重积分f(x,y)在D上转为LaTeX"
 │                    ┌─────────────────────────┼────┐     │
 │                    │                         │    │     │
 │              ┌─────▼─────┐  ┌───────────────▼──┐ │     │
-│              │  Symbol   │  │   Gemma 4 E4B    │ │     │
+│              │  Symbol   │  │   MiniCPM5-1B    │ │     │
 │              │  Engine   │  │   (Ollama API)   │ │     │
 │              │  (零模型) │  │                  │ │     │
 │              └─────┬─────┘  └────────┬────────┘ │     │
@@ -223,7 +223,7 @@ class SymbolEngine:
         return result
 ```
 
-#### 3.2.4 Gemma 4 E4B 推理层
+#### 3.2.4 MiniCPM5-1B 推理层
 
 **核心设计：用 System Prompt 强约束 + Few-shot 示例 + 预处理降复杂度，让 E4B 一次出对。**
 
@@ -262,8 +262,8 @@ FEW_SHOT_EXAMPLES = [
 **Ollama 调用封装：**
 
 ```python
-class Gemma4E4B:
-    def __init__(self, model: str = "gemma4:e4b-it-qat"):
+class MiniCPMModel:
+    def __init__(self, model: str = "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M"):
         self.client = ollama.Client()
         self.model = model
 
@@ -347,7 +347,7 @@ class LaTeXValidator:
 
 ```python
 class OCRPipeline:
-    def __init__(self, model: Gemma4E4B):
+    def __init__(self, model: MiniCPMModel):
         self.model = model
         self.preprocessor = ImagePreprocessor()
 
@@ -405,7 +405,7 @@ class ImagePreprocessor:
 [Symbol Engine] → "\\iint f(x,y) 在区域 D 上"
     │               (中文术语已替换，保留 "在区域 D 上" 给模型)
     ▼
-[Gemma 4 E4B] → system prompt + few-shot(integral) + preprocessed input
+[MiniCPM5-1B] → system prompt + few-shot(integral) + preprocessed input
     │
     ▼
 模型输出: "$$\\iint_D f(x,y)\\,dx\\,dy$$"
@@ -447,7 +447,7 @@ class ImagePreprocessor:
 [ImagePreprocessor] → 去噪 + 二值化 + 超分辨率
     │
     ▼
-[Gemma 4 E4B] → 多模态输入 (image + OCR prompt)
+[MiniCPM5-1B] → 多模态输入 (image + OCR prompt)
     │
     ▼
 [Validation] → 校验 + 自动修复
@@ -638,7 +638,7 @@ echo "正态分布 N(μ,σ²)" | texada --pipe
 
 | 层 | 技术 | 说明 |
 |----|------|------|
-| LLM 推理 | Ollama (gemma4:e4b-it-qat) | QAT 4-bit 量化，~5.5GB 显存 |
+| LLM 推理 | Ollama (hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M) | QAT 4-bit 量化，~5.5GB 显存 |
 | 后端 | Python 3.12 + FastAPI | 异步，轻量 |
 | LaTeX 校验 | KaTeX (Node.js) + sympy | 双重校验 |
 | 图像预处理 | OpenCV + Pillow | 去噪/二值化/缩放 |
@@ -661,7 +661,7 @@ TeXada-the-Math-Agent/
 │       ├── router.py            # Input Router
 │       ├── intent.py            # Intent Classifier (零模型)
 │       ├── symbols.py           # Symbol Engine (零模型)
-│       ├── model.py             # Gemma4E4B 推理封装
+│       ├── model.py             # MiniCPMModel 推理封装
 │       ├── prompts.py           # System prompt + Few-shot 库
 │       ├── composer.py          # LaTeX Composer (模板填充)
 │       ├── validator.py         # Validation Layer
@@ -715,7 +715,7 @@ TeXada-the-Math-Agent/
 |------|------|------|
 | `gemma-agent` (Developer/) | 兄弟项目 — 通用 coding agent | 复用 Orchestrator 状态机思路、Ollama 封装模式 |
 | `gemma-cace` (Developer/) | 兄弟项目 — coding agent 另一实现 | 参考 tool calling 格式、policy 层 |
-| `Gemma` (Developer/) | 调研仓库 — Gemma 4 工具调用报告 | 参考 function calling token 格式 |
+| `Gemma` (Developer/) | 调研仓库 — Gemma 4 工具调用报告（历史参考） | 参考 function calling token 格式 |
 | `TeXWizard-VSCode` (GitHub) | 互补 — VS Code 端公式提取 | 未来可做 TeXada ↔ TeXWizard 集成 |
 | `MathConnect` (GitHub) | 互补 — 数学教育游戏 | 无直接复用 |
 
@@ -726,42 +726,42 @@ TeXada-the-Math-Agent/
 ## 12. 里程碑
 
 ### M0: 环境搭建 (Day 1)
-- [ ] 安装 Ollama
-- [ ] 拉取 `gemma4:e4b-it-qat`
-- [ ] 验证模型可用性
-- [ ] 项目骨架 (pyproject.toml, 目录结构)
+- [x] 安装 Ollama
+- [x] 拉取 `hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M`
+- [x] 验证模型可用性
+- [x] 项目骨架 (pyproject.toml, 目录结构)
 
 ### M1: 确定性管线 (Day 2-3)
-- [ ] Symbol Engine
-- [ ] Intent Classifier
-- [ ] Shorthand Store
-- [ ] LaTeX Validator
-- [ ] 单元测试 (零模型，快速验证)
+- [x] Symbol Engine
+- [x] Intent Classifier
+- [x] Shorthand Store
+- [x] LaTeX Validator
+- [x] 单元测试 (零模型，快速验证)
 
 ### M2: 模型集成 (Day 4-5)
-- [ ] Gemma4E4B 推理封装
-- [ ] Prompt 工程 (system + few-shot)
-- [ ] NL→LaTeX 端到端
-- [ ] LaTeX 补全
-- [ ] 错误恢复管线
+- [x] MiniCPMModel 推理封装
+- [x] Prompt 工程 (system + few-shot)
+- [x] NL→LaTeX 端到端
+- [x] LaTeX 补全
+- [x] 错误恢复管线
 
 ### M3: 图像 & 输出 (Day 6-7)
-- [ ] OCR Pipeline (OpenCV + 多模态)
-- [ ] 剪贴板输出
-- [ ] FastAPI 服务
-- [ ] CLI 入口
+- [x] OCR Pipeline (OpenCV + 多模态)
+- [x] 剪贴板输出
+- [x] FastAPI 服务
+- [x] CLI 入口
 
 ### M4: 打磨 & 发布 (Day 8-10)
-- [ ] 端到端测试套件
+- [x] 端到端测试套件
 - [ ] 性能基准测试
-- [ ] README + 使用文档
+- [x] README + 使用文档
 - [ ] GitHub push + v0.1.0 tag
 
 ---
 
-## 附录 A: Gemma 4 Function Calling 集成 (可选)
+## 附录 A: MiniCPM Function Calling 集成 (可选)
 
-如果未来需要让 TeXada 支持 tool calling（如自动调用 sympy 化简、调用 WolframAlpha 验证等），Gemma 4 的原生格式：
+如果未来需要让 TeXada 支持 tool calling（如自动调用 sympy 化简、调用 WolframAlpha 验证等），MiniCPM 的原生格式：
 
 ```
 工具声明: <|tool|>declaration:FUNC_NAME{description:<|"|>...<|"|>,parameters:{...}}<|tool|>
@@ -783,15 +783,15 @@ brew install ollama
 ollama serve
 
 # 3. 拉取 QAT 模型
-ollama pull gemma4:e4b-it-qat
+ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
 
 # 4. 验证
-ollama list          # 应看到 gemma4:e4b-it-qat
+ollama list          # 应看到 hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
 ollama ps            # 确认可运行
 
 # 5. 快速测试
-ollama run gemma4:e4b-it-qat "Convert to LaTeX: double integral of f(x,y) over domain D"
+ollama run hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M "Convert to LaTeX: double integral of f(x,y) over domain D"
 
 # 6. (可选) 已有 LiteRT 模型用于手机端
-ls -lh ~/models/gemma-4-E4B-it.litertlm   # 3.4GB, 已存在
+# 模型经 Ollama 拉取，无需手动管理 GGUF 文件
 ```

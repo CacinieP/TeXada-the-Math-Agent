@@ -1494,9 +1494,9 @@ body {
       <div class="setting-row">
         <div>
           <div class="setting-label">Ollama 模型</div>
-          <div class="setting-desc">当前加载的 Gemma 4 变体</div>
+          <div class="setting-desc">当前加载的 MiniCPM 文本模型</div>
         </div>
-        <div class="setting-value">gemma4:e4b-it-qat</div>
+        <div class="setting-value">hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M</div>
       </div>
       <div class="setting-row">
         <div>
@@ -1833,7 +1833,7 @@ body {
       <div class="flow-card-title">推理 (E4B)</div>
       <div class="flow-card-desc">
         Symbol Engine 预翻译 → 构造 prompt →<br>
-        Ollama 调用 <code>gemma4:e4b-it-qat</code>。<br>
+        Ollama 调用 <code>hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M</code>。<br>
         temperature=0.1 · max_tokens=256。<br>
         ~0.5-2s 延迟，进度条可视化。
       </div>
