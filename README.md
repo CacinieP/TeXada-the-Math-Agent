@@ -20,15 +20,21 @@ TeXada 把自然语言、LaTeX 片段、手写公式图片统一转换成 LaTeX�
 - ✅ **自动校验 + 修复**：LaTeX 语法检查，错误自动尝试修复
 - 🔒 **完全离线**：本地 Ollama，无任何云端调用
 
-## 快速启动（macOS 双击）
+## 快速启动（macOS 双击 App）
 
-完成下方「快速开始」的安装后，项目根的 **`TeXada.command`** 可双击一键启动 —— 自动拉起 API + 前端并打开浏览器：
+完成下方「快速开始」的安装后，项目根会生成 **`TeXada.app`**，可以像普通桌面应用一样双击启动：
 
-1. 在 Finder 双击 `TeXada.command`（首次运行可能需 **右键 → 打开** 以绕过 Gatekeeper）。
-2. 终端窗口显示启动日志，浏览器自动打开 http://127.0.0.1:5173/。
-3. 关闭终端窗口或按 `Ctrl+C` 即停止全部服务。
+1. 在 Finder 双击 `TeXada.app`（首次运行可能需 **右键 → 打开** 以绕过 Gatekeeper）。
+2. 通知栏提示启动进度，浏览器自动打开 http://127.0.0.1:5173/。
+3. 服务在后台运行；关闭浏览器不会停止服务，需手动结束 `texada serve` 与 `http.server` 进程。
 
 > 脚本会自动检测并尝试启动 Ollama（若未运行）。
+
+如果更喜欢看到终端日志，也可以使用项目根下的 **`TeXada.command`**：
+
+1. 在 Finder 双击 `TeXada.command`（首次运行可能需 **右键 → 打开**）。
+2. 终端窗口显示启动日志，浏览器自动打开 http://127.0.0.1:5173/。
+3. 关闭终端窗口或按 `Ctrl+C` 即停止全部服务。
 
 ## 快速开始
 
@@ -74,6 +80,52 @@ texada serve          # 启动 FastAPI 后端 (http://127.0.0.1:18732)
 # 或一键启动（含 macOS Swift 浮窗）：
 ./start.sh
 ```
+
+桌面端启动：
+- 双击 `TeXada.app`：无终端窗口，自动打开浏览器
+- 双击 `TeXada Desktop.app`：原生菜单栏浮窗（需先 `./scripts/build-desktop-app.sh` 构建）
+
+### 后台服务（开机自启）
+
+如果希望 API 和前端在登录后自动后台运行、崩溃后自动重启，可安装 macOS LaunchAgent：
+
+```bash
+./scripts/install-service.sh
+```
+
+安装后：
+- 服务会立即启动，并在每次登录时自动启动
+- API: http://127.0.0.1:18732
+- Web UI: http://127.0.0.1:5173/
+- 日志：`logs/api-service.log`、`logs/web-service.log`
+
+卸载服务：
+
+```bash
+./scripts/uninstall-service.sh
+```
+
+### 原生桌面浮窗（macOS）
+
+项目内置了一个基于 Swift + WKWebView 的菜单栏浮窗应用 **`TeXada Desktop.app`**：
+
+- 常驻菜单栏，点击 𝑇 图标或使用全局快捷键 **⌥⌘T** 唤出
+- 内置 Web UI，无需打开浏览器
+- 支持拖拽浮窗、读写剪贴板、隐藏/显示窗口
+
+**构建**（需要 Xcode Command Line Tools）：
+
+```bash
+./scripts/build-desktop-app.sh
+```
+
+构建完成后项目根会出现 `TeXada Desktop.app`。
+
+**使用**：
+
+1. 先启动后端（或安装后台服务 `./scripts/install-service.sh`）
+2. 双击 `TeXada Desktop.app`（首次运行需 **右键 → 打开**）
+3. 点击菜单栏 𝑇 图标即可使用
 
 ## 配置
 
