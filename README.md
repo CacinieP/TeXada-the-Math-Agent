@@ -1,70 +1,102 @@
-# TeXada 运行日志
+# TeXada — Math Formula Agent
 
-此目录存放 TeXada 的运行截图和日志，供评审复现参考。
+> 端侧数学公式 Agent，基于 **MiniCPM** 系模型，通过 **Ollama** 本地推理，零云端依赖。
 
-## 示例运行日志
+TeXada 把自然语言、LaTeX 片段、手写公式图片统一转换成 LaTeX，并即时渲染（KaTeX / LaTeX 高亮）、校验、自动修复。双模型各司其职：
 
-### 系统检查
+| 角色 | 模型 | 用途 |
+|------|------|------|
+| 文本推理 | **MiniCPM5-1B** (`hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M`) | 自然语言 → LaTeX、LaTeX 补全 |
+| 视觉 OCR | **MiniCPM-V 4.6** (`openbmb/minicpm-v4.6:latest`) | 手写 / 截图公式识别 |
+
+两个模型都跑在同一个本地 **Ollama** daemon 上（Ollama 提供 OpenAI 兼容的 `/v1` 端点，推理层直接复用标准 OpenAI Chat API）。
+
+## 特性
+
+- 🧮 **自然语言 → LaTeX**：「二重积分 f(x,y) 在区域 D 上」→ `\iint_D f(x,y)\,dx\,dy`
+- ✍️ **LaTeX 补全**：`\sum_{i=1}^{` → `\sum_{i=1}^{n} x_i`
+- 📷 **OCR 图片识别**：MiniCPM-V 多模态识别手写 / 截图公式
+- ⚡ **快捷公式**：输入 `euler` → `e^{i\pi}+1=0`（可自定义）
+- ✅ **自动校验 + 修复**：LaTeX 语法检查，错误自动尝试修复
+- 🔒 **完全离线**：本地 Ollama，无任何云端调用
+
+## 快速开始
+
+### 1. 安装 Ollama 并拉取 MiniCPM 模型
+
+```bash
+# 安装 Ollama: https://ollama.com
+ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M   # 文本
+ollama pull openbmb/minicpm-v4.6:latest             # 视觉 OCR
+```
+
+### 2. 安装 TeXada
+
+```bash
+git clone <repo>
+cd TeXada-the-Math-Agent
+pip install -e ".[dev]"
+```
+
+### 3. 检查就绪
+
+```bash
+texada check
+```
+
+预期输出：
 
 ```
-$ texada check
 TeXada v0.2.0 — System Check
   Ollama host:  http://localhost:11434
-  Model:        gemma4:e4b-it-qat
+  Backend:      ollama
+  Model:        hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
+  Vision model: openbmb/minicpm-v4.6:latest
   Ollama:       ✅ running
-  Model loaded: ✅ gemma4:e4b-it-qat
   Render mode:  katex
   Delimiter:    $$
 ```
 
-### NL→LaTeX 转换（含 Tool Calling）
+### 4. 启动
 
-```
-Input:  "二重积分 f(x,y) 在区域 D 上"
-Route:  nl2latex
-Intent: integral (confidence: 0.9)
-Pre-translate: "\iint f(x,y) 在区域 D 上"
-
-[Tool Calling Loop]
-  → Tool: lookup_symbol("区域") → "No exact match for '区域'. Use standard LaTeX command."
-  → Tool: validate_latex("\iint_D f(x,y)\,dx\,dy") → "Valid LaTeX."
-
-Output: \iint_D f(x,y)\,dx\,dy
-Valid:  ✅
-Source: model
-Latency: 1842ms
+```bash
+texada serve          # 启动 FastAPI 后端 (http://127.0.0.1:18732)
+# 或一键启动（含 macOS Swift 浮窗）：
+./start.sh
 ```
 
-### LaTeX 补全
+## 配置
 
-```
-Input:  "\sum_{i=1}^{"
-Route:  completion (auto-detected: contains \command)
-Output: \sum_{i=1}^{n} x_i
-Valid:  ✅
-Latency: 892ms
-```
+配置从 `~/.texada/config.json` 读取（也可用 `TEXADA_` 前缀环境变量覆盖）：
 
-### 快捷公式
-
-```
-Input:  "euler"
-Route:  shorthand (exact match)
-Output: e^{i\pi}+1=0
-Valid:  ✅
-Latency: <1ms
+```json
+{
+  "ollama_host": "http://localhost:11434",
+  "model_name": "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M",
+  "vision_model_name": "openbmb/minicpm-v4.6:latest",
+  "max_tokens": 2048,
+  "default_render_mode": "katex"
+}
 ```
 
-### OCR 图片识别
+> `max_tokens` 建议 ≥ 2048 —— MiniCPM5 是推理模型，思维链需要空间。
+
+## 架构
 
 ```
-Input:  [手写积分公式图片]
-Route:  ocr
-Output: \int_0^1 x^2\,dx
-Valid:  ✅
-Latency: 3241ms
+用户输入 (NL / LaTeX 片段 / 图片)
+        │
+   InputRouter ── 路由 ──┐
+        │                │
+   NL→LaTeX           OCR 图片
+   MiniCPM5-1B        MiniCPM-V 4.6 (多模态)
+   (Ollama /v1)       (Ollama /v1)
+        │                │
+        └── 校验 + 自动修复 + 渲染 (KaTeX) ──→ 输出
 ```
 
----
+详见 [TECHNICAL_REPORT.md](TECHNICAL_REPORT.md)。
 
-*截图待补充：运行时将终端输出截图放入此目录。*
+## License
+
+见 [LICENSE](LICENSE)。

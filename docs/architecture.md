@@ -2,7 +2,7 @@
 
 > **版本**: v2.0
 > **日期**: 2026-06-08
-> **核心约束**: 端侧运行 Gemma 4 E4B，零云端依赖
+> **核心约束**: 端侧运行 MiniCPM5-1B，零云端依赖
 > **目标平台**: macOS (Apple Silicon) + Windows (x64/ARM64)
 
 ---
@@ -52,7 +52,7 @@
 │  │            ┌──────────────────────────┼────────────┐          │ │
 │  │            │                          │            │          │ │
 │  │      ┌─────▼──────┐  ┌───────────────▼─────┐  ┌──▼────────┐ │ │
-│  │      │  Symbol    │  │   Gemma 4 E4B      │  │  Shorthand │ │ │
+│  │      │  Symbol    │  │   MiniCPM5-1B      │  │  Shorthand │ │ │
 │  │      │  Engine    │  │   (Ollama API)      │  │  Store     │ │ │
 │  │      │  (零模型)  │  │                     │  │  (零模型)  │ │ │
 │  │      └─────┬──────┘  └─────────┬───────────┘  └──┬────────┘ │ │
@@ -87,7 +87,7 @@
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐ │
 │  │                    Ollama Runtime                             │ │
-│  │              gemma4:e4b-it-qat (QAT 4-bit)                   │ │
+│  │              hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M (QAT 4-bit)                   │ │
 │  │              macOS: Metal GPU · Windows: CUDA/CPU            │ │
 │  └──────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────────┘
@@ -110,7 +110,7 @@
          ▼
 ┌─────────────────────┐
 │  Ollama Server      │  ← 独立进程，TeXada 管理生命周期
-│  (gemma4:e4b-qat)   │  ← 首次调用自动拉起
+│  (hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M)   │  ← 首次调用自动拉起
 └─────────────────────┘
 ```
 
@@ -282,7 +282,7 @@ async def set_render_mode(mode: str): ...
 E4B 是端侧模型，不存在"离线"概念。唯一异常是 Ollama 服务未运行：
 
 ```python
-class OllamaManager:
+class BackendManager:
     """管理 Ollama 生命周期 — 不存在"离线降级"，只有"服务未启动""""
 
     def __init__(self, config: Config):
@@ -297,8 +297,8 @@ class OllamaManager:
 
         # 2. 检测模型是否已拉取
         models = self.client.list()
-        if not any(m.name.startswith("gemma4:e4b") for m in models):
-            raise HTTPException(503, "模型未安装，请运行: ollama pull gemma4:e4b-it-qat")
+        if not any(m.name.startswith("hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M") for m in models):
+            raise HTTPException(503, "模型未安装，请运行: ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M")
 
         return True
 
@@ -421,13 +421,13 @@ class SymbolEngine:
 
 ## 5. 推理层
 
-### 5.1 Gemma 4 E4B 封装
+### 5.1 MiniCPM5-1B 封装
 
 ```python
-class Gemma4E4B:
+class MiniCPMModel:
     def __init__(self, config: Config):
         self.client = ollama.Client(host=config.ollama_host)
-        self.model = config.model_name  # "gemma4:e4b-it-qat"
+        self.model = config.model_name  # "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M"
 
     async def generate_latex(self,
                              preprocessed: str,
@@ -866,7 +866,7 @@ class ImagePreprocessor:
 [ImagePreprocessor] → 去噪 + 二值化 + 2x 缩放 (~10ms)
     │
     ▼
-[Gemma4E4B.ocr_latex()] → 多模态推理 (~2-4s)
+[MiniCPMModel.ocr_latex()] → 多模态推理 (~2-4s)
     │
     ▼
 [Validation] → 校验 + 自动修复
@@ -920,7 +920,7 @@ CREATE INDEX idx_history_input ON history(input_text);
 class TeXadaConfig(BaseModel):
     # 模型
     ollama_host: str = "http://localhost:11434"
-    model_name: str = "gemma4:e4b-it-qat"
+    model_name: str = "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M"
     temperature: float = 0.1
     max_tokens: int = 256
     auto_retry: bool = True
@@ -1043,7 +1043,7 @@ UI 中 12 个场景对应的后端状态转换：
 [SymbolEngine] → "\\iint f(x,y) 在区域 D 上"
     │               (中文术语已替换，"在区域 D 上" 保留给模型)
     ▼
-[Gemma4E4B] → system + few_shot(integral) + preprocessed
+[MiniCPMModel] → system + few_shot(integral) + preprocessed
     │              temperature=0.1, max_tokens=256
     ▼
 模型输出: "$$\\iint_D f(x,y)\\,dx\\,dy$$"
@@ -1092,7 +1092,7 @@ UI 中 12 个场景对应的后端状态转换：
 [ImagePreprocessor] → 去噪 + 二值化 + 2x (~10ms)
     │
     ▼
-[Gemma4E4B.ocr_latex()] → 多模态推理 (~2-4s)
+[MiniCPMModel.ocr_latex()] → 多模态推理 (~2-4s)
     │
     ▼
 [Validation] → 校验 + 自动修复
@@ -1113,7 +1113,7 @@ UI 中 12 个场景对应的后端状态转换：
 [InputRouter] → is_partial_latex() = True → Route.COMPLETION
     │
     ▼
-[Gemma4E4B.complete_latex()] → 补全推理 (~0.3-0.8s)
+[MiniCPMModel.complete_latex()] → 补全推理 (~0.3-0.8s)
     │
     ▼
 模型输出: "\sum_{i=1}^{n} x_i"
@@ -1170,13 +1170,13 @@ TeXada-the-Math-Agent/
 │       │   ├── router.py         # InputRouter
 │       │   ├── intent.py         # IntentClassifier
 │       │   ├── symbols.py        # SymbolEngine
-│       │   ├── model.py          # Gemma4E4B
+│       │   ├── model.py          # MiniCPMModel
 │       │   ├── prompts.py        # System prompt + Few-shot
 │       │   ├── composer.py       # LaTeXComposer (模板)
 │       │   ├── validator.py      # Validation Layer
 │       │   ├── fixer.py          # LaTeXFixer
 │       │   ├── ocr.py            # OCR Pipeline
-│       │   └── ollama_manager.py # Ollama 生命周期
+│       │   └── backend.py # Ollama 生命周期
 │       ├── render/               # 渲染引擎
 │       │   ├── __init__.py
 │       │   ├── engine.py         # RenderEngine
@@ -1225,7 +1225,7 @@ TeXada-the-Math-Agent/
 
 | 层 | 技术 | macOS | Windows |
 |----|------|-------|---------|
-| LLM 推理 | Ollama (gemma4:e4b-it-qat) | Metal GPU | CUDA / CPU |
+| LLM 推理 | Ollama (hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M) | Metal GPU | CUDA / CPU |
 | 后端 | Python 3.12 + FastAPI | ✅ | ✅ |
 | KaTeX 渲染 | KaTeX (Node.js subprocess) | ✅ | ✅ |
 | LaTeX 高亮 | 自研词法分析器 | ✅ | ✅ |
@@ -1249,41 +1249,41 @@ TeXada-the-Math-Agent/
 ## 16. 里程碑
 
 ### M0: 环境搭建 (Day 1)
-- [ ] 安装 Ollama，拉取 gemma4:e4b-it-qat
-- [ ] 验证模型可运行
-- [ ] 项目骨架，目录结构
+- [x] 安装 Ollama，拉取 hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
+- [x] 验证模型可运行
+- [x] 项目骨架，目录结构
 
 ### M1: 核心管线 — 零模型 (Day 2-3)
-- [ ] PlatformAdapter 接口 + macOS 实现
-- [ ] IntentClassifier
-- [ ] SymbolEngine
-- [ ] ShorthandStore
-- [ ] LaTeXValidator
-- [ ] LaTeXFixer
-- [ ] 单元测试 (全部零模型)
+- [x] PlatformAdapter 接口 + macOS 实现
+- [x] IntentClassifier
+- [x] SymbolEngine
+- [x] ShorthandStore
+- [x] LaTeXValidator
+- [x] LaTeXFixer
+- [x] 单元测试 (全部零模型)
 
 ### M2: 推理集成 (Day 4-5)
-- [ ] Gemma4E4B 封装
-- [ ] OllamaManager (就绪检测 + 自动启动)
-- [ ] Prompt 系统 (system + few-shot)
-- [ ] NL→LaTeX 端到端
-- [ ] LaTeX 补全
-- [ ] OCR Pipeline
+- [x] MiniCPMModel 封装
+- [x] BackendManager (就绪检测 + 自动启动)
+- [x] Prompt 系统 (system + few-shot)
+- [x] NL→LaTeX 端到端
+- [x] LaTeX 补全
+- [x] OCR Pipeline
 
 ### M3: 双渲染模式 (Day 6-7)
-- [ ] RenderEngine
-- [ ] KaTeX Renderer
-- [ ] LaTeX Syntax Highlighter
+- [x] RenderEngine
+- [x] KaTeX Renderer
+- [x] LaTeX Syntax Highlighter
 - [ ] ⌘K 模式切换
-- [ ] 双模式复制格式
+- [x] 双模式复制格式
 
 ### M4: Shell + 输出 (Day 8-10)
-- [ ] macOS 菜单栏 + NSPopover (或 tkinter 替代)
+- [x] macOS 菜单栏 + NSPopover (或 tkinter 替代)
 - [ ] Windows pystray + tkinter 面板
-- [ ] 剪贴板输出
-- [ ] 历史记录 (SQLite)
+- [x] 剪贴板输出
+- [x] 历史记录 (SQLite)
 - [ ] 设置面板
-- [ ] 全局快捷键
+- [x] 全局快捷键
 
 ### M5: 打磨 (Day 11-14)
 - [ ] WindowsAdapter 实现
