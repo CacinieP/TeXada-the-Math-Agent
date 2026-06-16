@@ -172,6 +172,24 @@ class InputRouter:
             memory_messages=self.memory.to_messages(),
         )
 
+        # Operator-drift guard: if the small model downgraded or dropped the
+        # operator the symbol engine pre-translated, retry once with the
+        # required operators pinned in the prompt. Catches the "answered the
+        # wrong question" failure mode (e.g. input \iint → output \int).
+        if self._check_operator_drift(preprocessed, latex):
+            forced = self._forced_operators(preprocessed)
+            retried = await self.model.generate_latex(
+                preprocessed,
+                intent_result.intent,
+                memory_messages=self.memory.to_messages(),
+                force_operators=forced,
+            )
+            # Only adopt the retry if it actually still contains the forced
+            # operators; otherwise keep the first answer for the validator to
+            # flag rather than silently swap in another wrong answer.
+            if retried and not self._check_operator_drift(preprocessed, retried):
+                latex = retried
+
         # Store turn in Agent Memory
         self.memory.add(ConversationTurn(role="user", content=text))
         self.memory.add(ConversationTurn(role="assistant", content=latex))
@@ -253,6 +271,76 @@ class InputRouter:
                 return fix.latex, re_validated, 0
         return latex, result, 0
 
+    # ── Operator-drift guard (anti "answered the wrong question") ──
+    #
+    # MiniCPM5-1B occasionally ignores the operator the symbol engine
+    # pre-translated into the prompt (e.g. input carried `\\iint` but the
+    # model emitted `\\int`, mimicking an unrelated few-shot). This compares
+    # the stronger operators present in the preprocessed input against the
+    # model output and flags a downgrade or outright loss, so the router can
+    # trigger one constrained retry.
+    #
+    # Integral operators form an ordered ladder; standalone operators only
+    # care about presence (lost = drift, kept/same = fine). Upgrading the
+    # operator (e.g. `\\int` -> `\\iint`) is NOT drift — that's the model
+    # helping.
+
+    # Ordered weakest→strongest within the integral family.
+    _INTEGRAL_LADDER: tuple[str, ...] = (r"\int", r"\oint", r"\iint", r"\iiint")
+    # Standalone operators whose outright loss (or swap to a different one)
+    # signals drift. Each is its own family, so only presence matters.
+    _STANDALONE_OPS: tuple[str, ...] = (r"\sum", r"\prod", r"\lim", r"\frac", r"\partial")
+
+    def _integral_rank(self, text: str) -> int:
+        """Highest integral operator rank present in text (0 = none)."""
+        rank = 0
+        for i, op in enumerate(self._INTEGRAL_LADDER, start=1):
+            if op in text:
+                rank = i  # keep the max (ladder is weakest→strongest)
+        return rank
+
+    def _check_operator_drift(self, preprocessed: str, model_output: str) -> bool:
+        r"""True if the model downgraded or dropped a stronger operator.
+
+        Detection is deliberately narrow to avoid false positives:
+          - integral downgrade: input rank > output rank (e.g. \iint -> \int)
+          - integral lost:     input has integrals, output has none
+          - standalone lost:   a standalone op in input is absent in output
+        Upgrades and same-level retention are NOT drift. Empty output is not
+        drift (handled by the model's empty-output retry instead).
+        """
+        if not model_output:
+            return False
+
+        # Integral ladder: a downgrade or total loss is drift.
+        in_rank = self._integral_rank(preprocessed)
+        out_rank = self._integral_rank(model_output)
+        if in_rank > 0 and out_rank < in_rank:
+            return True
+
+        # Standalone operators: outright loss is drift.
+        for op in self._STANDALONE_OPS:
+            if op in preprocessed and op not in model_output:
+                return True
+
+        return False
+
+    def _forced_operators(self, preprocessed: str) -> list[str]:
+        """Operators the output must contain — extracted from the preprocessed input.
+
+        Used to build the constrained-retry instruction. Returns the strongest
+        integral present (if any) plus any standalone operators present.
+        """
+        forced: list[str] = []
+        # Strongest integral only — a ladder member implies the weaker ones.
+        in_rank = self._integral_rank(preprocessed)
+        if in_rank > 0:
+            forced.append(self._INTEGRAL_LADDER[in_rank - 1])
+        for op in self._STANDALONE_OPS:
+            if op in preprocessed:
+                forced.append(op)
+        return forced
+
     def _is_partial_latex(self, text: str) -> bool:
         """Detect if text is an incomplete LaTeX fragment.
 
@@ -264,3 +352,4 @@ class InputRouter:
             return False
         # Must contain at least one LaTeX command (\frac, \int, \sum, etc.)
         return bool(re.search(r"\\[a-zA-Z]+", text))
+

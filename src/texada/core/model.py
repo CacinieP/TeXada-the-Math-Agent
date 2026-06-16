@@ -66,10 +66,17 @@ class MiniCPMModel:
         preprocessed: str,
         intent: str,
         memory_messages: list[dict] | None = None,
+        force_operators: list[str] | None = None,
     ) -> str:
         """NL→LaTeX inference — pure chat, no tool calling.
 
         Returns the extracted LaTeX string.
+
+        ``force_operators``: operators (e.g. ``r"\\iint"``) that the output
+        MUST contain. When provided, a missing operator triggers one
+        constrained retry (in addition to the existing empty-output retry),
+        so the small model can't silently downgrade the operator the symbol
+        engine pre-translated into the prompt.
         """
         messages: list[dict] = [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -97,10 +104,12 @@ class MiniCPMModel:
             if reasoning:
                 latex = self._extract_latex(reasoning)
 
-        # Error recovery: the model occasionally returns empty content on
-        # NL→LaTeX. Retry once with a stricter prompt (formula only, no prose,
-        # no markdown). Retry failure falls through; validator marks invalid.
-        if not latex:
+        # Retry once when the answer is missing OR drifted (dropped a forced
+        # operator). The stricter prompt pins the required operators so the
+        # small model can't mimic an unrelated few-shot and downgrade them.
+        missing = self._missing_operators(latex, force_operators)
+        if not latex or missing:
+            constraint = self._operator_constraint(missing or force_operators)
             try:
                 retry = await asyncio.to_thread(
                     self.client.chat.completions.create,
@@ -110,7 +119,8 @@ class MiniCPMModel:
                             "role": "system",
                             "content": SYSTEM_PROMPT
                             + "\n\n重要：只输出最终的 LaTeX 公式本身，"
-                            "不要任何解释、自然语言或 markdown 代码块。",
+                            "不要任何解释、自然语言或 markdown 代码块。"
+                            + constraint,
                         },
                         *self._build_few_shot(intent),
                         {"role": "user", "content": preprocessed},
@@ -119,7 +129,12 @@ class MiniCPMModel:
                     max_tokens=self.max_tokens,
                 )
                 rraw = retry.choices[0].message.content if retry.choices else ""
-                latex = self._extract_latex(rraw)
+                retry_latex = self._extract_latex(rraw)
+                # Only adopt the retry if it actually fixed the problem;
+                # otherwise keep the (possibly drifted) first answer and let
+                # the validator flag it. Never regress to empty.
+                if retry_latex and not self._missing_operators(retry_latex, force_operators):
+                    latex = retry_latex
             except Exception:
                 pass
 
@@ -204,6 +219,26 @@ class MiniCPMModel:
                 {"role": "assistant", "content": ex[1]},
             )
         ]
+
+    def _missing_operators(self, latex: str, ops: list[str] | None) -> list[str]:
+        """Which required operators are absent from the model output."""
+        if not ops:
+            return []
+        return [op for op in ops if op not in latex]
+
+    def _operator_constraint(self, ops: list[str] | None) -> str:
+        """Build a Chinese instruction pinning the required operators.
+
+        e.g. for [r'\\iint', r'\\sum'] → a sentence telling the model the
+        output must contain both, verbatim, with no downgrade.
+        """
+        if not ops:
+            return ""
+        joined = "、".join(ops)
+        return (
+            f"\n\n硬性要求：输出公式必须原样包含算符 {joined}，"
+            "不得降级（例如把 \\iint 改成 \\int）或省略。"
+        )
 
     def _extract_latex(self, raw: str | None) -> str:
         """Strip markdown code fences, math delimiters, and explanatory text."""
