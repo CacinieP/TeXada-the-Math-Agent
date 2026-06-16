@@ -67,7 +67,7 @@ texada check
 预期输出：
 
 ```
-TeXada v0.2.0 — System Check
+TeXada v0.3.0 — System Check
   Ollama host:  http://localhost:11434
   Backend:      ollama
   Model:        hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M

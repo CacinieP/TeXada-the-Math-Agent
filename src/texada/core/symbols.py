@@ -148,12 +148,14 @@ class SymbolEngine:
         is sufficient (e.g. "积分学" → suffix "学" blocks translation).
         """
         result = text
-        # Sort by descending key length so "三重积分" matches before "积分"
+        suffix_class = "".join(_COMPOUND_SUFFIXES)
+        # Sort by descending key length so "三重积分" matches before "积分".
+        # Bind `latex` as the lambda default arg so the closure captures the
+        # current value rather than the loop variable (avoids late-binding bugs).
         for cn, latex in sorted(SYMBOL_MAP.items(), key=lambda x: -len(x[0])):
-            suffix_class = "".join(_COMPOUND_SUFFIXES)
             # Negative lookahead only: not followed by compound suffix
             pattern = f"{re.escape(cn)}(?![{suffix_class}])"
-            result = re.sub(pattern, lambda m: latex, result)
+            result = re.sub(pattern, lambda m, repl=latex: repl, result)
         return result
 
     def translate(self, term: str) -> str | None:

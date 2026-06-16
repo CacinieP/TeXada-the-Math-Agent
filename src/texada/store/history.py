@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import aiosqlite
-from pathlib import Path
 
 from texada.config import TeXadaConfig
 from texada.types import HistoryEntry

@@ -3,6 +3,8 @@
 # To install: pip install -e ".[dev]"
 
 fastapi>=0.111
+# FastAPI UploadFile (/api/ocr) needs python-multipart; without it create_app() crashes
+python-multipart>=0.0.9
 uvicorn[standard]>=0.30
 openai>=1.30
 httpx>=0.27

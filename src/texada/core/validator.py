@@ -96,7 +96,6 @@ class LaTeXValidator:
         ends = re.findall(r'\\end\{(\w+)\}', latex)
         for env in set(begins):
             if begins.count(env) != ends.count(env):
-                missing = begins.count(env) - ends.count(env)
                 return CheckResult(ok=False, type="env_unbalanced",
                                    detail=f"\\begin{{{env}}} 有 {begins.count(env)} 个但 "
                                           f"\\end{{{env}}} 只有 {ends.count(env)} 个")
@@ -104,7 +103,11 @@ class LaTeXValidator:
 
     def _check_command_validity(self, latex: str) -> CheckResult:
         """Check that LaTeX commands are not obviously invalid."""
-        commands = re.findall(r'\\(\w+)', latex)
+        # LaTeX command names are letters only: `\` followed by `[A-Za-z]+`.
+        # Using `\w` would wrongly include `_` and swallow the subscript,
+        # e.g. matching `\partial_i` as command name "partial_i", or `\int_0`
+        # as "int_0" — flagging perfectly valid LaTeX as unknown commands.
+        commands = re.findall(r'\\([A-Za-z]+)', latex)
         invalid = []
         for cmd in commands:
             if cmd in self._KNOWN_COMMANDS:

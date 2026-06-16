@@ -32,3 +32,16 @@ def test_brace_balanced():
     v = LaTeXValidator()
     r = v.validate("\\int_0^1 f(x) dx")
     assert r.valid
+
+
+def test_command_with_subscript_not_swallowed():
+    """Command regex must not treat `_` as part of the command name.
+
+    Regression: `\\w` included `_`, so `\\partial_i` was read as the command
+    "partial_i" and flagged as unknown. LaTeX command names are letters only.
+    """
+    v = LaTeXValidator()
+    for latex in [r"\partial_i", r"\sum_{i=1}^{n}", r"\int_0^1", r"\alpha_n"]:
+        r = v.validate(latex)
+        assert r.valid, f"{latex!r} should be valid, got errors: {r.errors}"
+        assert not any(e.type == "unknown_command" for e in r.errors)

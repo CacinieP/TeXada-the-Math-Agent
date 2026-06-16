@@ -5,11 +5,10 @@ from pathlib import Path
 
 from pydantic_settings import (
     BaseSettings,
-    SettingsConfigDict,
-    PydanticBaseSettingsSource,
     JsonConfigSettingsSource,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
 )
-
 
 TEXADA_HOME = Path.home() / ".texada"
 

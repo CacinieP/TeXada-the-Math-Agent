@@ -1,9 +1,11 @@
 """Test InputRouter — routing, rendering, and pipeline dispatch."""
+from unittest.mock import AsyncMock
+
 import pytest
-from unittest.mock import AsyncMock, patch
+
 from texada.config import TeXadaConfig
 from texada.core.router import InputRouter
-from texada.types import Tab, Route, RenderResult, RenderMode, ToolCall, ToolResult
+from texada.types import RenderMode, RenderResult, Route, Tab
 
 
 def test_router_routing():

@@ -69,6 +69,6 @@ class RenderEngine:
                 return result.stdout
             return f"<span class='katex-error'>KaTeX error: {html.escape(result.stderr[:100])}</span>"
         except FileNotFoundError:
-            return f"<span class='katex-error'>npx katex not available</span>"
+            return "<span class='katex-error'>npx katex not available</span>"
         except subprocess.TimeoutExpired:
-            return f"<span class='katex-error'>KaTeX timeout</span>"
+            return "<span class='katex-error'>KaTeX timeout</span>"

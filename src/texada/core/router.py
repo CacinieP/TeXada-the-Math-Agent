@@ -1,23 +1,28 @@
 """Input Router — unified entry point, dispatches to the correct pipeline."""
 from __future__ import annotations
 
-import asyncio
-import json
 import re
 import time
 
 from texada.config import TeXadaConfig
+from texada.core.backend import BackendManager
+from texada.core.fixer import LaTeXFixer
 from texada.core.intent import IntentClassifier
 from texada.core.model import MiniCPMModel
-from texada.core.backend import BackendManager
 from texada.core.symbols import SymbolEngine
 from texada.core.validator import LaTeXValidator
-from texada.core.fixer import LaTeXFixer
 from texada.render.engine import RenderEngine
 from texada.store.shorthand import ShorthandStore
 from texada.types import (
-    ConvertResult, IntentResult, Route, Tab, Source, RenderMode, RenderResult,
-    ConversationTurn, ValidationResult,
+    ConversationTurn,
+    ConvertResult,
+    IntentResult,
+    RenderMode,
+    RenderResult,
+    Route,
+    Source,
+    Tab,
+    ValidationResult,
 )
 
 

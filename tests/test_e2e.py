@@ -1,7 +1,8 @@
 """End-to-End integration tests for TeXada API server."""
 import io
-import pytest
+
 import httpx
+import pytest
 from PIL import Image
 
 BASE_URL = "http://127.0.0.1:18732"

@@ -1,18 +1,16 @@
 """FastAPI backend — HTTP API for the shell UI."""
 from __future__ import annotations
 
-from fastapi import FastAPI, UploadFile, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from texada.config import TeXadaConfig, load_config
-from texada.core.router import InputRouter
 from texada.core.backend import BackendManager
+from texada.core.router import InputRouter
 from texada.render.engine import RenderEngine
-from texada.store.shorthand import ShorthandStore
 from texada.store.history import HistoryStore
 from texada.types import ConvertResult, HistoryEntry, RenderMode, Route
-
 
 # ── Request / Response models ──
 
@@ -69,7 +67,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     render_engine = RenderEngine(config)
     backend_mgr = BackendManager(config)
 
-    app = FastAPI(title="TeXada", version="0.2.0")
+    app = FastAPI(title="TeXada", version="0.3.0")
 
     # CORS — allow the shell UI (likely on a different port) to call the API
     app.add_middleware(
@@ -102,7 +100,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 render_mode=req_mode,
             )
         except RuntimeError as e:
-            raise HTTPException(status_code=503, detail=str(e))
+            raise HTTPException(status_code=503, detail=str(e)) from e
         try:
             await history.add(HistoryEntry(
                 input_text=req.text, input_type="nl", latex=result.latex,
@@ -132,7 +130,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         try:
             result: ConvertResult = await router.process_image(data, render_mode=ocr_mode)
         except RuntimeError as e:
-            raise HTTPException(status_code=503, detail=str(e))
+            raise HTTPException(status_code=503, detail=str(e)) from e
         try:
             await history.add(HistoryEntry(
                 input_text=image.filename or "[image]", input_type="ocr",
@@ -164,7 +162,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 render_mode=comp_mode,
             )
         except RuntimeError as e:
-            raise HTTPException(status_code=503, detail=str(e))
+            raise HTTPException(status_code=503, detail=str(e)) from e
         try:
             await history.add(HistoryEntry(
                 input_text=req.text, input_type="completion", latex=result.latex,
@@ -202,7 +200,9 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         try:
             render_engine.switch_mode(mode)
         except ValueError:
-            raise HTTPException(400, f"Invalid render mode: {mode}. Use 'katex' or 'latex'.")
+            raise HTTPException(
+                400, f"Invalid render mode: {mode}. Use 'katex' or 'latex'."
+            ) from None
         return {"mode": render_engine.mode.value}
 
     @app.get("/api/shorthands")

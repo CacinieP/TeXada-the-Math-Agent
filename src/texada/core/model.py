@@ -10,10 +10,11 @@ from openai import OpenAI
 
 from texada.config import TeXadaConfig
 from texada.core.prompts import (
-    SYSTEM_PROMPT, COMPLETION_PROMPT, OCR_SYSTEM_PROMPT,
+    COMPLETION_PROMPT,
     FEW_SHOT_BY_INTENT,
+    OCR_SYSTEM_PROMPT,
+    SYSTEM_PROMPT,
 )
-
 
 # Rule-based completions for high-frequency LaTeX fragments. Matched against
 # the stripped input's tail (first match wins). MiniCPM5-1B is unreliable on

@@ -1,5 +1,6 @@
 """Test HistoryStore — SQLite database operations."""
 import pytest
+
 from texada.config import TeXadaConfig
 from texada.store.history import HistoryStore
 from texada.types import HistoryEntry
