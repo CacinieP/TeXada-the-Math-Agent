@@ -7,14 +7,20 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>{{PROJECT_ROOT}}/.venv/bin/python</string>
-        <string>-m</string>
-        <string>texada</string>
-        <string>serve</string>
+        <!-- Three launchd-specific workarounds, all required:
+             1. `cd /; cd PROJECT` — launchd starts the process with a cwd
+                the agent can't access, so the first getcwd fails and any
+                single `cd` chains that failure. Resetting to `/` first
+                breaks the chain, then we enter the project dir.
+             2. Direct `uvicorn --factory`, bypassing the `texada` typer CLI
+                — typer/click blocks on terminal init with no TTY under launchd.
+             3. `--loop asyncio` — uvicorn[standard]'s default uvloop deadlocks
+                under launchd's background session.
+             PYTHONUNBUFFERED + python -u flush logs in real time. -->
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>cd /; cd "{{PROJECT_ROOT}}"; PYTHONUNBUFFERED=1 "{{PROJECT_ROOT}}/.venv/bin/python" -u -m uvicorn texada.api:create_app --factory --host 127.0.0.1 --port 18732 --loop asyncio</string>
     </array>
-
-    <key>WorkingDirectory</key>
-    <string>{{PROJECT_ROOT}}</string>
 
     <key>EnvironmentVariables</key>
     <dict>
@@ -25,10 +31,10 @@
     </dict>
 
     <key>StandardOutPath</key>
-    <string>{{PROJECT_ROOT}}/logs/api-service.log</string>
+    <string>{{LOG_DIR}}/api-service.log</string>
 
     <key>StandardErrorPath</key>
-    <string>{{PROJECT_ROOT}}/logs/api-service.log</string>
+    <string>{{LOG_DIR}}/api-service.log</string>
 
     <key>KeepAlive</key>
     <dict>
@@ -43,8 +49,5 @@
 
     <key>ThrottleInterval</key>
     <integer>10</integer>
-
-    <key>ProcessType</key>
-    <string>Background</string>
 </dict>
 </plist>

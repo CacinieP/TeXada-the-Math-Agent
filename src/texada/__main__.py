@@ -11,7 +11,12 @@ def serve():
 
     from texada.api import create_app
 
-    uvicorn.run(create_app(), host="127.0.0.1", port=18732)
+    # Force the asyncio event loop (not uvloop). uvicorn[standard] pulls in
+    # uvloop by default, which deadlocks when launched as a background
+    # LaunchAgent (no TTY, Aqua session) — the server process stays alive
+    # but never finishes startup and never binds the port. asyncio works
+    # identically under both an interactive shell and launchd.
+    uvicorn.run(create_app(), host="127.0.0.1", port=18732, loop="asyncio")
 
 
 @app.command()

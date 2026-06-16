@@ -7,18 +7,13 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>{{PROJECT_ROOT}}/.venv/bin/python</string>
-        <string>-m</string>
-        <string>http.server</string>
-        <string>5173</string>
-        <string>--bind</string>
-        <string>127.0.0.1</string>
-        <string>--directory</string>
-        <string>{{PROJECT_ROOT}}/tauri-shell/src</string>
+        <!-- `cd /; cd PROJECT` breaks launchd's getcwd failure chain (the
+             initial cwd is inaccessible, so a single `cd` inherits the
+             failure). http.server serves from --directory regardless of cwd. -->
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>cd /; cd "{{PROJECT_ROOT}}"; PYTHONUNBUFFERED=1 "{{PROJECT_ROOT}}/.venv/bin/python" -u -m http.server 5173 --bind 127.0.0.1 --directory "{{PROJECT_ROOT}}/tauri-shell/src"</string>
     </array>
-
-    <key>WorkingDirectory</key>
-    <string>{{PROJECT_ROOT}}</string>
 
     <key>EnvironmentVariables</key>
     <dict>
@@ -29,10 +24,10 @@
     </dict>
 
     <key>StandardOutPath</key>
-    <string>{{PROJECT_ROOT}}/logs/web-service.log</string>
+    <string>{{LOG_DIR}}/web-service.log</string>
 
     <key>StandardErrorPath</key>
-    <string>{{PROJECT_ROOT}}/logs/web-service.log</string>
+    <string>{{LOG_DIR}}/web-service.log</string>
 
     <key>KeepAlive</key>
     <dict>
@@ -47,8 +42,5 @@
 
     <key>ThrottleInterval</key>
     <integer>10</integer>
-
-    <key>ProcessType</key>
-    <string>Background</string>
 </dict>
 </plist>

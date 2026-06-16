@@ -8,10 +8,11 @@ uninstall_plist() {
     local name="$1"
     local dest="$LAUNCH_AGENTS_DIR/$name.plist"
 
-    if launchctl list | grep -q "^$name\$"; then
-        launchctl unload "$dest" 2>/dev/null || true
-        echo "✅ 已停止 $name"
-    fi
+    # bootout is the modern, reliable counterpart to the legacy `unload`.
+    launchctl bootout "gui/$(id -u)/$name" 2>/dev/null || true
+    # Fall back to unload in case the service was loaded via the legacy API.
+    launchctl unload "$dest" 2>/dev/null || true
+    echo "✅ 已停止 $name"
 
     if [ -f "$dest" ]; then
         rm "$dest"

@@ -6,7 +6,12 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
 mkdir -p "$LAUNCH_AGENTS_DIR"
-mkdir -p "$PROJECT_ROOT/logs"
+# Logs live under ~/.texada, NOT the project dir. If the project is cloned
+# into a TCC-protected location (~/Desktop, ~/Documents, ~/Downloads), the
+# background LaunchAgent cannot write logs there and exits with code 78
+# (EX_CONFIG). ~/.texada is outside TCC scope and always writable.
+LOG_DIR="$HOME/.texada/logs"
+mkdir -p "$LOG_DIR"
 
 if [ ! -x "$PROJECT_ROOT/.venv/bin/python" ]; then
     echo "❌ 未找到 $PROJECT_ROOT/.venv/bin/python"
@@ -24,13 +29,18 @@ install_plist() {
         exit 1
     fi
 
-    sed -e "s|{{PROJECT_ROOT}}|$PROJECT_ROOT|g" "$src" > "$dest"
+    sed -e "s|{{PROJECT_ROOT}}|$PROJECT_ROOT|g" -e "s|{{LOG_DIR}}|$LOG_DIR|g" "$src" > "$dest"
     chmod 644 "$dest"
     echo "✅ 已生成 $dest"
 
-    # Unload first in case an older version is loaded.
-    launchctl unload "$dest" 2>/dev/null || true
-    launchctl load "$dest"
+    # Use the modern bootstrap/bootout API. The legacy `launchctl load`/`unload`
+    # misbehave on recent macOS for agents that were previously unloaded:
+    # the service loads but the process never actually starts (stuck at the
+    # last exit code). `bootout` then `bootstrap` into the user GUI domain is
+    # reliable. Label equals the plist filename (e.g. com.texada.api).
+    local domain="gui/$(id -u)"
+    launchctl bootout "$domain/$name" 2>/dev/null || true
+    launchctl bootstrap "$domain" "$dest"
     echo "✅ 已加载 $name"
 }
 
@@ -49,5 +59,5 @@ echo "查看状态："
 echo "   launchctl list | grep com.texada"
 echo ""
 echo "查看日志："
-echo "   tail -f $PROJECT_ROOT/logs/api-service.log"
-echo "   tail -f $PROJECT_ROOT/logs/web-service.log"
+echo "   tail -f $LOG_DIR/api-service.log"
+echo "   tail -f $LOG_DIR/web-service.log"
