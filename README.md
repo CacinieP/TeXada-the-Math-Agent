@@ -101,7 +101,11 @@ texada serve          # 启动 FastAPI 后端 (http://127.0.0.1:18732)
 - 服务会立即启动，并在每次登录时自动启动
 - API: http://127.0.0.1:18732
 - Web UI: http://127.0.0.1:5173/
-- 日志：`logs/api-service.log`、`logs/web-service.log`
+- 日志：`~/.texada/logs/api-service.log`、`~/.texada/logs/web-service.log`
+
+> ⚠️ **不要把项目克隆到 `~/Desktop`、`~/Documents`、`~/Downloads`**。
+> 这三个是 macOS 的 **TCC 隐私保护位置**，后台 LaunchAgent 默认无权写入其中的文件 —— 服务会因无法写日志而以退出码 78（`EX_CONFIG`）反复崩溃、永远起不来。
+> 推荐克隆到 `~/Projects/`、`~/Code/` 或家目录下任意非保护位置；日志已固定写到 `~/.texada/logs/`（非保护位置），不受项目目录影响。
 
 卸载服务：
 
