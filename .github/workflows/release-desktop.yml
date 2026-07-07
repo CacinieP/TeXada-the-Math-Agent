@@ -101,10 +101,12 @@ jobs:
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
           set -euo pipefail
           test -n "$APPLE_CERTIFICATE" || { echo "::error::Missing APPLE_CERTIFICATE secret (base64 .p12)."; exit 1; }
           test -n "$APPLE_CERTIFICATE_PASSWORD" || { echo "::error::Missing APPLE_CERTIFICATE_PASSWORD secret."; exit 1; }
+          test -n "$APPLE_SIGNING_IDENTITY" || { echo "::error::Missing APPLE_SIGNING_IDENTITY secret."; exit 1; }
 
       - name: Build desktop bundle
         uses: tauri-apps/tauri-action@v1
@@ -112,7 +114,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || 'Yichun Deng' }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: tauri-shell/src-tauri
@@ -127,13 +129,13 @@ jobs:
             - Local-first math formula agent powered by MiniCPM and Ollama.
             - Supports natural language to LaTeX, formula OCR, completion, snippets, history and desktop insertion.
             - Supports OpenAI API-compatible cloud text and vision models.
-            - Includes signed macOS DMGs and Windows x64 NSIS installer.
+            - Includes macOS DMGs and Windows x64 NSIS installer.
 
             中文：
             - 端侧优先的数学公式 Agent，默认使用 MiniCPM 和 Ollama。
             - 支持自然语言转 LaTeX、公式 OCR、补全、缩写、历史记录和桌面光标处键入。
             - 支持 OpenAI API 兼容的云侧文本和视觉模型。
-            - 提供已签名 macOS DMG 和 Windows x64 NSIS 安装包。
+            - 提供 macOS DMG 和 Windows x64 NSIS 安装包。
 
             Author: CacinieP
           releaseDraft: true
@@ -148,7 +150,7 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         env:
-          EXPECTED_SIGNER: ${{ secrets.APPLE_SIGNING_IDENTITY || 'Yichun Deng' }}
+          EXPECTED_SIGNER: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
           set -euo pipefail
           dmg="$(find tauri-shell/src-tauri/target -path '*/bundle/dmg/*.dmg' -print -quit)"

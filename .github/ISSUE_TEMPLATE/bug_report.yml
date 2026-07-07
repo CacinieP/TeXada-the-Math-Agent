@@ -1,0 +1,74 @@
+name: Bug report / Bug 反馈
+description: Report a reproducible TeXada problem / 报告可复现问题
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Do not paste API keys, signing certificates, private tokens, or personal data.
+
+        感谢反馈。请不要粘贴 API key、签名证书、私有 token 或个人数据。
+  - type: input
+    id: version
+    attributes:
+      label: TeXada version / TeXada 版本
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Platform / 平台
+      options:
+        - macOS Apple Silicon
+        - macOS Intel
+        - Windows x64
+        - Browser development
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend / 后端
+      options:
+        - Local Ollama default port
+        - Local Ollama custom port
+        - OpenAI-compatible cloud endpoint
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: models
+    attributes:
+      label: Models / 模型
+      placeholder: "text: hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M; vision: openbmb/minicpm-v4.6:latest"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 复现步骤
+      description: Include exact input text or image type when relevant. / 请尽量包含输入文本或图片类型。
+      placeholder: |
+        1. Open TeXada
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior / 预期行为
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior / 实际行为
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots / 日志或截图
+      description: Remove secrets before uploading. / 上传前请移除密钥。

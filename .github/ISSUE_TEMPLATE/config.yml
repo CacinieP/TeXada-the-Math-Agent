@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability / 安全漏洞
+    url: https://github.com/CacinieP/TeXada-the-Math-Agent/security/advisories/new
+    about: Please report security issues privately. / 请私密报告安全问题。
+  - name: README / 使用文档
+    url: https://github.com/CacinieP/TeXada-the-Math-Agent#readme
+    about: Installation, Ollama quick start, cloud mode, shortcuts, and hardware notes. / 安装、Ollama 快速启动、云侧模式、快捷键和硬件说明。

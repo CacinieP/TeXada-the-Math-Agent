@@ -9,9 +9,9 @@ Scope: `/Users/caciniep/Desktop/TeXada-the-Math-Agent` only.
 | Python backend | `src/texada/` | Current FastAPI API, routing, model client, rendering and stores |
 | Desktop UI | `tauri-shell/src/` | Current static UI used by Tauri and browser development |
 | Tauri shell | `tauri-shell/src-tauri/` | Current macOS/Windows desktop shell, tray, shortcut, signing and bundling config |
-| Build/ops | `scripts/`, `.github/workflows/`, `TeXada.command`, `start.sh` | Current launch, service and CI entrypoints |
+| Build/ops | `scripts/`, `.github/workflows/` | Current icon generation, Windows helper and CI/release entrypoints |
 | Tests | `tests/` | Unit/API/E2E coverage |
-| Docs | `README.md`, `TECHNICAL_REPORT.md`, `docs/architecture.md` | Current documentation |
+| Docs | `README.md`, root community files, `CHANGELOG.md`, `docs/` | Current user, community and technical documentation |
 
 Excluded from source: `.venv/`, `node_modules/`, `target/`, `.ruff_cache/`, `.pytest_cache/`, generated app bundles, `.dmg`/`.exe` artifacts, runtime logs, and user data under `~/.texada`.
 
@@ -22,7 +22,7 @@ Excluded from source: `.venv/`, `node_modules/`, `target/`, `.ruff_cache/`, `.py
 3. `requirements.txt` duplicated `pyproject.toml` dependency declarations.
 4. CI still syntax-checked the deleted legacy Swift shell assets.
 5. `package.json` and `package-lock.json` still declared MIT while the repository license is GPL.
-6. `start.sh` and `TeXada.command` assumed Ollama always lived on `localhost:11434`.
+6. `start.sh`, `TeXada.command`, and LaunchAgent scripts were source-run service paths that conflicted with the distribution-package-first release direction.
 7. The UI persisted language but not zoom, and desktop drag relied only on CSS drag regions.
 8. The Python `platform/` and `output/clipboard.py` adapters were leftovers from a pre-Tauri desktop path; current macOS/Windows clipboard and paste behavior lives in the Tauri shell.
 9. `assets/TeXada.icns` duplicated `tauri-shell/src-tauri/icons/icon.icns` byte-for-byte and was not referenced by the release workflow.
@@ -33,7 +33,7 @@ Excluded from source: `.venv/`, `node_modules/`, `target/`, `.ruff_cache/`, `.py
 2. Kept the release surface to one desktop implementation: Tauri shell plus static frontend.
 3. Updated GitHub Actions to audit only current frontend sources.
 4. Aligned npm metadata with `GPL-3.0-or-later`.
-5. Made launcher scripts read `TEXADA_OLLAMA_HOST`, `TEXADA_API_*`, `TEXADA_WEB_*`, and `~/.texada/config.json`.
+5. Removed source-run launcher and LaunchAgent scripts; the release surface is now the packaged Tauri app plus GitHub Actions installers.
 6. Added persisted UI zoom (`80%` to `140%`) and keyboard zoom shortcuts.
 7. Added a Tauri `start_dragging` command so the header can move the window reliably.
 8. Removed unused Python platform/output clipboard adapters and their stale dependencies.
@@ -43,4 +43,4 @@ Excluded from source: `.venv/`, `node_modules/`, `target/`, `.ruff_cache/`, `.py
 
 - `http://localhost:11434` is only the default Ollama endpoint. Users can change it in Settings, `~/.texada/config.json`, or `TEXADA_OLLAMA_HOST`.
 - `127.0.0.1:18732` and `127.0.0.1:5173` are default local API/web ports, not fixed cloud or model endpoints.
-- macOS release packages are signed with the configured Apple certificate. Notarization is separate and requires Developer ID/notary credentials.
+- macOS release package signing, when enabled, is driven only by repository secrets; no personal certificate details are stored in the docs.

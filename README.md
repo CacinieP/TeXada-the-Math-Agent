@@ -34,7 +34,7 @@ TeXada is a desktop math formula agent for converting natural language, partial 
 | Snippets and history | Keep reusable formula shortcuts and recent conversions |
 | Desktop insertion | Click a formula block to type it at the system cursor |
 | UI controls | Switch language, zoom from 80% to 140%, and drag the floating window |
-| Release packages | Signed macOS DMGs and Windows x64 NSIS installers from GitHub Actions |
+| Release packages | macOS DMGs and Windows x64 NSIS installers from GitHub Actions |
 
 The Ollama port is configurable. The default is `http://localhost:11434`, but Settings, `~/.texada/config.json`, and `TEXADA_OLLAMA_HOST` can point TeXada at any host or port.
 
@@ -44,20 +44,32 @@ Version `0.1.0` is released from the `main` branch.
 
 | Platform | Package |
 |----------|---------|
-| macOS Apple Silicon | signed `.dmg` |
-| macOS Intel | signed `.dmg` |
+| macOS Apple Silicon | `.dmg` |
+| macOS Intel | `.dmg` |
 | Windows x64 | NSIS `.exe` installer |
 
 Release page: [github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
-### Model Setup
+### Quick Start With Ollama
 
-Local Ollama models:
+1. Install Ollama from [ollama.com/download](https://ollama.com/download).
+   - macOS: use the official download app.
+   - Windows: use the official Windows installer, then launch Ollama once from the Start menu.
+
+2. Pull the default local models:
 
 ```bash
 ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
 ollama pull openbmb/minicpm-v4.6:latest
 ```
+
+3. Open TeXada from the downloaded `.dmg` or `.exe`.
+
+4. Check the status in the title bar.
+   - `Ready`: text conversion and OCR are available.
+   - `Text ready · OCR missing`: text conversion works; pull the vision model shown in the status tooltip.
+   - `Model missing`: pull the text model shown in the status tooltip.
+   - `Disconnected`: start Ollama or check the configured port.
 
 | Role | Default | Notes |
 |------|---------|-------|
@@ -67,7 +79,18 @@ ollama pull openbmb/minicpm-v4.6:latest
 
 The vision slot supports MiniCPM-V 4.6, MiniCPM 5 1B compatible vision endpoints, and OpenAI API-compatible cloud vision models.
 
-OpenAI-compatible example:
+Ollama does not have to run on port `11434`. In Settings → Backend → Ollama address, use any reachable endpoint:
+
+```text
+http://localhost:11435
+http://192.168.1.20:11434
+```
+
+Do not add `/v1`; TeXada adds the OpenAI-compatible suffix internally.
+
+### Cloud Mode
+
+OpenAI-compatible models can be configured from Settings. Example:
 
 ```json
 {
@@ -75,6 +98,18 @@ OpenAI-compatible example:
   "openai_base_url": "https://your-provider.example/v1",
   "openai_model_name": "your-text-model",
   "openai_vision_model_name": "your-vision-model",
+  "openai_api_key": "your-api-key"
+}
+```
+
+StepFun Step Plan example:
+
+```json
+{
+  "backend": "openai_compatible",
+  "openai_base_url": "https://api.stepfun.com/step_plan/v1",
+  "openai_model_name": "step-3.7-flash",
+  "openai_vision_model_name": "step-3.7-flash",
   "openai_api_key": "your-api-key"
 }
 ```
@@ -105,46 +140,14 @@ Persistent config lives at `~/.texada/config.json`.
 | `TEXADA_API_BASE` | Explicit desktop shell API base |
 | `TEXADA_API_TIMEOUT_SECS` | Desktop API request timeout |
 
-### Run From Source
-
-```bash
-git clone https://github.com/CacinieP/TeXada-the-Math-Agent.git
-cd TeXada-the-Math-Agent
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -e ".[dev]"
-texada check
-./start.sh
-```
-
-On macOS, `TeXada.command` launches the same local API and web UI.
-
-### Desktop Build
+### Release CI
 
 GitHub Actions builds release installers from `main` and version tags.
 
 | Workflow | Checks |
 |----------|--------|
 | `Audit` | Ruff, pytest, pip-audit, npm audit, JS syntax check, Tauri cargo check on macOS and Windows |
-| `Desktop Release` | Pre-release audit, signed macOS arm64/Intel DMG, Windows x64 NSIS installer |
-
-Local Windows helper:
-
-```powershell
-cargo install tauri-cli --version "^2" --locked
-.\scripts\build-windows-app.ps1
-```
-
-macOS release signing expects:
-
-| Secret | Purpose |
-|--------|---------|
-| `APPLE_CERTIFICATE` | base64-encoded `.p12` certificate |
-| `APPLE_CERTIFICATE_PASSWORD` | `.p12` export password |
-| `APPLE_SIGNING_IDENTITY` | signing identity, for example `Yichun Deng` |
-| `APPLE_TEAM_ID` | Apple Team ID |
-
-The workflow signs and verifies DMGs. Notarization is separate and requires Developer ID/notary credentials.
+| `Desktop Release` | Pre-release audit, macOS arm64/Intel DMG, Windows x64 NSIS installer |
 
 ### Shortcuts
 
@@ -194,7 +197,13 @@ cd tauri-shell/src-tauri && cargo check
 
 - [Architecture](docs/architecture.md)
 - [Source audit](docs/audit.md)
-- [Technical report](TECHNICAL_REPORT.md)
+- [File inventory](docs/file-inventory.md)
+- [Technical report](docs/technical-report.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security](SECURITY.md)
+- [Support](SUPPORT.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Changelog](CHANGELOG.md)
 
 ### License
 
@@ -222,7 +231,7 @@ TeXada 是一个面向数学写作、公式整理和截图识别的桌面公式 
 | 缩写与历史 | 保存常用公式缩写和最近转换记录 |
 | 桌面键入 | 点击公式块即可在系统当前光标处键入公式 |
 | 界面控制 | 设置页切换中英文、80% 到 140% 缩放、拖动浮窗 |
-| 安装包发布 | GitHub Actions 构建签名 macOS DMG 和 Windows x64 NSIS 安装包 |
+| 安装包发布 | GitHub Actions 构建 macOS DMG 和 Windows x64 NSIS 安装包 |
 
 Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可以在设置页、`~/.texada/config.json` 或 `TEXADA_OLLAMA_HOST` 中改为任意主机和端口。
 
@@ -232,20 +241,32 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 
 | 平台 | 安装包 |
 |------|--------|
-| macOS Apple Silicon | 已签名 `.dmg` |
-| macOS Intel | 已签名 `.dmg` |
+| macOS Apple Silicon | `.dmg` |
+| macOS Intel | `.dmg` |
 | Windows x64 | NSIS `.exe` 安装器 |
 
 Release 页面：[github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
-### 模型配置
+### Ollama 快速启动
 
-本地 Ollama 模型：
+1. 从 [ollama.com/download](https://ollama.com/download) 安装 Ollama。
+   - macOS：使用官方下载版应用。
+   - Windows：使用官方 Windows 安装器，安装后先从开始菜单启动一次 Ollama。
+
+2. 拉取默认本地模型：
 
 ```bash
 ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
 ollama pull openbmb/minicpm-v4.6:latest
 ```
+
+3. 打开下载好的 TeXada `.dmg` 或 `.exe` 安装包。
+
+4. 看标题栏状态。
+   - `Ready`：文本转换和 OCR 都可用。
+   - `文本可用 · OCR 缺模型`：文本可用，按状态 tooltip 里的命令拉取视觉模型。
+   - `模型缺失`：按状态 tooltip 里的命令拉取文本模型。
+   - `未连接`：启动 Ollama，或检查配置的端口。
 
 | 角色 | 默认模型 | 说明 |
 |------|----------|------|
@@ -255,7 +276,18 @@ ollama pull openbmb/minicpm-v4.6:latest
 
 视觉模型位支持 MiniCPM-V 4.6、MiniCPM 5 1B 兼容视觉端点，以及 OpenAI API 兼容的云侧视觉模型。
 
-OpenAI API 兼容配置示例：
+Ollama 不必固定在 `11434`。在设置页 → 后端连接 → Ollama 地址里，可以填任意可访问地址：
+
+```text
+http://localhost:11435
+http://192.168.1.20:11434
+```
+
+不用加 `/v1`，TeXada 会在内部自动拼接 OpenAI-compatible 后缀。
+
+### 云侧模式
+
+OpenAI API 兼容模型可以在设置页配置。示例：
 
 ```json
 {
@@ -263,6 +295,18 @@ OpenAI API 兼容配置示例：
   "openai_base_url": "https://your-provider.example/v1",
   "openai_model_name": "your-text-model",
   "openai_vision_model_name": "your-vision-model",
+  "openai_api_key": "your-api-key"
+}
+```
+
+StepFun Step Plan 示例：
+
+```json
+{
+  "backend": "openai_compatible",
+  "openai_base_url": "https://api.stepfun.com/step_plan/v1",
+  "openai_model_name": "step-3.7-flash",
+  "openai_vision_model_name": "step-3.7-flash",
   "openai_api_key": "your-api-key"
 }
 ```
@@ -293,46 +337,14 @@ OpenAI API 兼容配置示例：
 | `TEXADA_API_BASE` | 桌面壳使用的完整 API 地址 |
 | `TEXADA_API_TIMEOUT_SECS` | 桌面端 API 请求超时时间 |
 
-### 从源码运行
-
-```bash
-git clone https://github.com/CacinieP/TeXada-the-Math-Agent.git
-cd TeXada-the-Math-Agent
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -e ".[dev]"
-texada check
-./start.sh
-```
-
-macOS 上也可以双击 `TeXada.command`，它会启动同一套本地 API 和 Web UI。
-
-### 桌面端构建
+### Release CI
 
 GitHub Actions 会从 `main` 和版本 tag 构建安装包。
 
 | Workflow | 检查内容 |
 |----------|----------|
 | `Audit` | Ruff、pytest、pip-audit、npm audit、JS 语法检查、macOS/Windows Tauri cargo check |
-| `Desktop Release` | 预发布审计、签名 macOS arm64/Intel DMG、Windows x64 NSIS 安装器 |
-
-Windows 本地构建辅助脚本：
-
-```powershell
-cargo install tauri-cli --version "^2" --locked
-.\scripts\build-windows-app.ps1
-```
-
-macOS release 签名需要以下 GitHub Secrets：
-
-| Secret | 用途 |
-|--------|------|
-| `APPLE_CERTIFICATE` | base64 编码的 `.p12` 证书 |
-| `APPLE_CERTIFICATE_PASSWORD` | `.p12` 导出密码 |
-| `APPLE_SIGNING_IDENTITY` | 签名身份，例如 `Yichun Deng` |
-| `APPLE_TEAM_ID` | Apple Team ID |
-
-workflow 会签名并验证 DMG。Notarization 是单独步骤，需要 Developer ID/notary 凭据。
+| `Desktop Release` | 预发布审计、macOS arm64/Intel DMG、Windows x64 NSIS 安装器 |
 
 ### 快捷键
 
@@ -382,7 +394,13 @@ cd tauri-shell/src-tauri && cargo check
 
 - [架构文档](docs/architecture.md)
 - [源码审计](docs/audit.md)
-- [技术报告](TECHNICAL_REPORT.md)
+- [文件清单](docs/file-inventory.md)
+- [技术报告](docs/technical-report.md)
+- [贡献指南](CONTRIBUTING.md)
+- [安全策略](SECURITY.md)
+- [支持说明](SUPPORT.md)
+- [行为准则](CODE_OF_CONDUCT.md)
+- [变更记录](CHANGELOG.md)
 
 ### 开源协议
 

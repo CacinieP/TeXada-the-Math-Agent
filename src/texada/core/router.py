@@ -140,7 +140,7 @@ class InputRouter:
         """Main entry point for image input (OCR tab)."""
         start = time.monotonic()
 
-        await self.backend.ensure_ready()
+        await self.backend.ensure_vision_ready()
 
         from texada.core.ocr import OCRPipeline
         ocr = OCRPipeline(self.model, self.config)

@@ -66,6 +66,7 @@ The release desktop shell is Tauri only:
 | `tauri-shell/src-tauri/` | Rust shell, tray icon, global shortcut, native clipboard, window drag and bundle config |
 | `tauri-shell/src/` | Static frontend bundled into the Tauri app |
 | `scripts/build-windows-app.ps1` | Windows local NSIS build helper |
+| `scripts/generate-app-icons.py` | Rebuilds the source PNG, macOS ICNS, Windows ICO and Tauri PNG icons |
 | `.github/workflows/release-desktop.yml` | macOS arm64 DMG, macOS Intel DMG and Windows x64 NSIS release build |
 
 The old Swift WKWebView shell and v1 prototype archive were removed because they were not part of the release build and duplicated current code paths.
@@ -87,8 +88,9 @@ Important variables:
 ## CI And Release
 
 - `Audit`: Ruff, pytest, pip-audit, npm audit, JS syntax check and Tauri `cargo check` on macOS and Windows.
-- `Desktop Release`: runs pre-release audit, builds signed macOS DMGs and Windows NSIS EXE, and uploads draft release assets.
-- macOS signing requires `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY` and `APPLE_TEAM_ID` secrets.
+- `Desktop Release`: runs pre-release audit, builds macOS DMGs and Windows NSIS EXE, and uploads draft release assets.
+- macOS signing, when enabled, is controlled by repository secrets only; personal certificate details are not documented in the repo.
+- Source-run shell launchers and macOS LaunchAgent templates are intentionally not kept; packaged desktop releases are the supported user path.
 
 ## Current Cleanup Policy
 

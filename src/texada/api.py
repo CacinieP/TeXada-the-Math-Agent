@@ -53,9 +53,18 @@ class ShorthandResponse(BaseModel):
 
 class StatusResponse(BaseModel):
     status: str
+    ready: bool = False
     backend: str
+    endpoint: str | None = None
     model: str | None = None
+    vision: str | None = None
     message: str | None = None
+    missing_models: list[str] = Field(default_factory=list)
+    text_model_installed: bool | None = None
+    vision_model_installed: bool | None = None
+    installed_model_count: int | None = None
+    ollama_cli_available: bool | None = None
+    next_action: str | None = None
     render_mode: str
     delimiter: str
 
@@ -106,7 +115,7 @@ def _app_version() -> str:
     try:
         return version("texada")
     except PackageNotFoundError:
-        return "0.3.0"
+        return "0.1.0"
 
 
 def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
@@ -184,9 +193,18 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         info = await backend_mgr.aget_status()
         return StatusResponse(
             status=info["status"],
+            ready=info.get("ready", info["status"] in {"ready", "ok"}),
             backend=info.get("backend", config.backend),
+            endpoint=info.get("endpoint"),
             model=info.get("model"),
+            vision=info.get("vision"),
             message=info.get("message"),
+            missing_models=info.get("missing_models", []),
+            text_model_installed=info.get("text_model_installed"),
+            vision_model_installed=info.get("vision_model_installed"),
+            installed_model_count=info.get("installed_model_count"),
+            ollama_cli_available=info.get("ollama_cli_available"),
+            next_action=info.get("next_action"),
             render_mode=render_engine.mode.value,
             delimiter=render_engine.delimiter,
         )

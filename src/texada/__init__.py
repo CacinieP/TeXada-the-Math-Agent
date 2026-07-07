@@ -1,2 +1,7 @@
 """TeXada — Math Formula Agent powered by MiniCPM."""
-__version__ = "0.3.0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("texada")
+except PackageNotFoundError:
+    __version__ = "0.1.0"

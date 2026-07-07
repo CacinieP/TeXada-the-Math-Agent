@@ -97,14 +97,21 @@ body {
   gap: 5px;
   font-size: 10px;
   color: var(--text-muted);
-  pointer-events: none;
+  max-width: 150px;
+}
+.panel-status span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .panel-status .dot {
   width: 6px; height: 6px;
   border-radius: 50%;
+  flex: 0 0 auto;
   background: var(--accent-green);
 }
 .panel-status .dot.offline { background: var(--accent-red); }
+.panel-status .dot.warning { background: var(--accent-orange); }
 .panel-kbd {
   font-size: 9px;
   background: var(--bg-elevated);

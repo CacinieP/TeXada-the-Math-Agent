@@ -1,6 +1,8 @@
 """TeXada CLI + API entry point."""
 import typer
 
+from texada import __version__
+
 app = typer.Typer(help="TeXada — Math Formula Agent")
 
 
@@ -18,10 +20,8 @@ def serve(
     config = load_config()
 
     # Force the asyncio event loop (not uvloop). uvicorn[standard] pulls in
-    # uvloop by default, which deadlocks when launched as a background
-    # LaunchAgent (no TTY, Aqua session) — the server process stays alive
-    # but never finishes startup and never binds the port. asyncio works
-    # identically under both an interactive shell and launchd.
+    # uvloop by default, which has caused startup hangs in headless/background
+    # macOS sessions. asyncio keeps the CLI path predictable.
     uvicorn.run(
         create_app(config),
         host=host or config.api_host,
@@ -55,7 +55,7 @@ def check():
     config = load_config()
     mgr = BackendManager(config)
 
-    typer.echo("TeXada v0.3.0 — System Check")
+    typer.echo(f"TeXada v{__version__} — System Check")
     typer.echo(f"  Backend:      {config.backend}")
     typer.echo(f"  Endpoint:     {config.active_base_url}")
     typer.echo(f"  Model:        {config.active_model_name}")

@@ -1,0 +1,47 @@
+name: Feature request / 功能请求
+description: Suggest a focused improvement / 提出聚焦改进
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / 问题
+      description: What workflow is blocked or inefficient? / 哪个工作流被阻塞或不够顺手？
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal / 方案
+      description: Describe the desired behavior. / 描述你希望的行为。
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / 范围
+      options:
+        - Natural language to LaTeX
+        - OCR
+        - Completion
+        - Snippets or history
+        - Desktop insertion
+        - Settings or model configuration
+        - Installer or release
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives / 替代方案
+      description: What have you tried? / 你试过什么替代方式？
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints / 约束
+      options:
+        - label: This should keep endpoints, model names, ports, and credentials configurable.
+        - label: This should not add production mock data or hard-code a provider-specific interface.

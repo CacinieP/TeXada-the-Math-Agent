@@ -220,17 +220,25 @@ class MiniCPMModel:
                     {"type": "text", "text": "识别图片中的数学公式"},
                     {
                         "type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{b64_image}"},
+                        "image_url": {
+                            "url": f"data:image/png;base64,{b64_image}",
+                            "detail": "high",
+                        },
                     },
                 ],
             },
         ]
+        kwargs = {
+            "model": self._vision_model_name(),
+            "messages": messages,
+            "temperature": 0.05,
+            "max_tokens": 512,
+        }
+        if self.config.uses_openai_compatible:
+            kwargs["reasoning_effort"] = "low"
         response = await asyncio.to_thread(
             self._completion_create,
-            model=self._vision_model_name(),
-            messages=messages,
-            temperature=0.05,
-            max_tokens=256,
+            **kwargs,
         )
         raw = response.choices[0].message.content if response.choices else ""
         return self._extract_latex(raw)

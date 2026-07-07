@@ -111,6 +111,10 @@
       'status.error': 'Error',
       'status.offline': 'Offline',
       'status.online': 'Online',
+      'status.partialReady': '文本可用 · OCR 缺模型',
+      'status.missingModel': '模型缺失',
+      'status.notConfigured': '未配置',
+      'status.notRunning': '未连接',
       'insert.fallbackCopied': '浏览器模式已复制；桌面端可直接键入',
       'insert.failed': '插入失败，已复制到剪贴板'
     },
@@ -201,6 +205,10 @@
       'status.error': 'Error',
       'status.offline': 'Offline',
       'status.online': 'Online',
+      'status.partialReady': 'Text ready · OCR missing',
+      'status.missingModel': 'Model missing',
+      'status.notConfigured': 'Not configured',
+      'status.notRunning': 'Disconnected',
       'insert.fallbackCopied': 'Copied in browser mode; desktop mode types directly',
       'insert.failed': 'Insert failed; copied to clipboard'
     }
@@ -312,7 +320,16 @@
   }
 
   function isEditableTarget(target) {
-    return !!target?.closest?.('input, textarea, select, [contenteditable="true"]');
+    if (!target || target === document || target === window) return false;
+    if (target.isContentEditable) return true;
+    const editable = target.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="searchbox"]');
+    return !!editable && !editable.disabled;
+  }
+
+  function isTextEntryEvent(e) {
+    if (isEditableTarget(e.target) || isEditableTarget(document.activeElement)) return true;
+    if (typeof e.composedPath !== 'function') return false;
+    return e.composedPath().some(node => isEditableTarget(node));
   }
 
   function isImeComposing(e) {
@@ -405,11 +422,39 @@
     els.nlIntent.append(iconEl, ' ' + message);
   }
 
-  function setStatus(online, text) {
+  function backendStatusText(info) {
+    if (!info) return t('status.offline');
+    if (info.status === 'partial_ready') return t('status.partialReady');
+    if (info.status === 'missing_model') return t('status.missingModel');
+    if (info.status === 'not_configured') return t('status.notConfigured');
+    if (info.status === 'not_running') return t('status.notRunning');
+    if (info.status === 'ready' || info.status === 'ok') {
+      return info.model || t('status.ready');
+    }
+    return info.message || info.status || t('status.error');
+  }
+
+  function backendStatusTitle(info) {
+    if (!info) return '';
+    const parts = [];
+    if (info.endpoint) parts.push(`Endpoint: ${info.endpoint}`);
+    if (info.model) parts.push(`Text: ${info.model}`);
+    if (info.vision) parts.push(`Vision: ${info.vision}`);
+    if (info.missing_models && info.missing_models.length) {
+      parts.push(`Missing: ${info.missing_models.join(', ')}`);
+    }
+    if (info.next_action) parts.push(`Next: ${info.next_action}`);
+    return parts.join('\n');
+  }
+
+  function setStatus(online, text, state = '', details = null) {
     const dot = els.statusDot.querySelector('.dot');
     const span = els.statusDot.querySelector('span');
-    dot.className = 'dot' + (online ? '' : ' offline');
+    dot.className = 'dot';
+    if (!online) dot.classList.add('offline');
+    if (online && state === 'partial_ready') dot.classList.add('warning');
     span.textContent = text || (online ? t('status.online') : t('status.offline'));
+    els.statusDot.title = backendStatusTitle(details);
   }
 
   async function apiJson(path, options = {}) {
@@ -470,16 +515,14 @@
   async function checkBackend() {
     try {
       const info = isTauri ? await invoke('get_status') : await apiJson('/api/status');
-      const isOnline = info.status === 'ok' || info.status === 'ready' || info.status === 'no_model';
-      const text = info.status === 'ready' || info.status === 'ok'
-        ? (info.model || t('status.ready'))
-        : (info.message || info.status);
-      setStatus(isOnline, text);
+      const isOnline = Boolean(info.ready) || info.status === 'ok' || info.status === 'ready' || info.status === 'partial_ready';
+      setStatus(isOnline, backendStatusText(info), info.status, info);
     } catch (e) {
       if (isTauri) {
         try {
           const info = await invoke('get_status');
-          setStatus(info.status === 'ok', info.status === 'ok' ? info.model || t('status.ready') : t('status.error'));
+          const isOnline = Boolean(info.ready) || info.status === 'ok' || info.status === 'ready' || info.status === 'partial_ready';
+          setStatus(isOnline, backendStatusText(info), info.status, info);
         } catch (e2) {
           setStatus(false, t('status.noApi'));
         }
@@ -805,7 +848,7 @@
     }
 
     // Number keys → switch tab
-    if (!isEditableTarget(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey && /^[1-6]$/.test(e.key)) {
+    if (!isTextEntryEvent(e) && !e.metaKey && !e.ctrlKey && !e.altKey && /^[1-6]$/.test(e.key)) {
       const tabs = ['nl', 'ocr', 'complete', 'shorthand', 'history', 'settings'];
       switchTab(tabs[parseInt(e.key) - 1]);
       return;
