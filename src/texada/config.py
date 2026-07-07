@@ -187,6 +187,7 @@ class TeXadaConfig(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
+        _ = (dotenv_settings, file_secret_settings)
         return (
             init_settings,
             env_settings,
