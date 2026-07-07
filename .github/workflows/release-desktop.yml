@@ -110,11 +110,17 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
         run: |
           set -euo pipefail
           test -n "$APPLE_CERTIFICATE" || { echo "::error::Missing APPLE_CERTIFICATE secret (base64 .p12)."; exit 1; }
           test -n "$APPLE_CERTIFICATE_PASSWORD" || { echo "::error::Missing APPLE_CERTIFICATE_PASSWORD secret."; exit 1; }
           test -n "$APPLE_SIGNING_IDENTITY" || { echo "::error::Missing APPLE_SIGNING_IDENTITY secret."; exit 1; }
+          test -n "$APPLE_NOTARY_KEY_ID" || { echo "::error::Missing APPLE_NOTARY_KEY_ID secret."; exit 1; }
+          test -n "$APPLE_NOTARY_ISSUER_ID" || { echo "::error::Missing APPLE_NOTARY_ISSUER_ID secret."; exit 1; }
+          test -n "$APPLE_NOTARY_KEY" || { echo "::error::Missing APPLE_NOTARY_KEY secret (raw .p8 text or base64 .p8)."; exit 1; }
 
       - name: Import macOS signing certificate for sidecar
         if: runner.os == 'macOS'
@@ -153,33 +159,6 @@ jobs:
           projectPath: tauri-shell/src-tauri
           tauriScript: cargo tauri
           args: ${{ matrix.tauri-args }}
-          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'desktop-v__VERSION__' }}
-          releaseName: TeXada Desktop v__VERSION__
-          releaseBody: |
-            TeXada Desktop 0.1.0
-
-            English:
-            - Local-first math formula agent powered by MiniCPM and Ollama.
-            - Supports natural language to LaTeX, formula OCR, completion, snippets, history and desktop insertion.
-            - Supports OpenAI API-compatible cloud text and vision models.
-            - Includes and auto-starts the TeXada FastAPI backend; Ollama or cloud model runtime remains configurable.
-            - Includes macOS DMGs and Windows x64 NSIS installer.
-
-            中文：
-            - 端侧优先的数学公式 Agent，默认使用 MiniCPM 和 Ollama。
-            - 支持自然语言转 LaTeX、公式 OCR、补全、缩写、历史记录和桌面光标处键入。
-            - 支持 OpenAI API 兼容的云侧文本和视觉模型。
-            - 安装包内置并自动启动 TeXada FastAPI 后端；Ollama 或云侧模型运行时仍可配置。
-            - 提供 macOS DMG 和 Windows x64 NSIS 安装包。
-
-            Author: CacinieP
-          releaseDraft: true
-          prerelease: false
-          uploadUpdaterJson: false
-          uploadUpdaterSignatures: false
-          uploadWorkflowArtifacts: true
-          workflowArtifactNamePattern: ${{ matrix.name }}
-          releaseAssetNamePattern: TeXada-[version]-[platform]-[arch]-[bundle][setup][ext]
 
       - name: Verify macOS package signature
         if: runner.os == 'macOS'
@@ -209,6 +188,51 @@ jobs:
             rm -rf "$mount_dir"
             echo "::warning::Signed DMG verified, but CI could not mount it for inner app verification."
           fi
+
+      - name: Notarize and staple macOS DMG
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+        run: |
+          set -euo pipefail
+          dmg="$(find tauri-shell/src-tauri/target -path '*/bundle/dmg/*.dmg' -print -quit)"
+          test -n "$dmg" || { echo "::error::DMG artifact not found."; exit 1; }
+
+          key_path="$RUNNER_TEMP/AuthKey_${APPLE_NOTARY_KEY_ID}.p8"
+          KEY_PATH="$key_path" python - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+
+          raw = os.environ["APPLE_NOTARY_KEY"].strip()
+          path = Path(os.environ["KEY_PATH"])
+          if "BEGIN PRIVATE KEY" in raw:
+              path.write_text(raw + "\n", encoding="utf-8")
+          else:
+              path.write_bytes(base64.b64decode(raw))
+          PY
+          chmod 600 "$key_path"
+
+          xcrun notarytool submit "$dmg" \
+            --key "$key_path" \
+            --key-id "$APPLE_NOTARY_KEY_ID" \
+            --issuer "$APPLE_NOTARY_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "$dmg"
+          xcrun stapler validate "$dmg"
+          spctl -a -t open --context context:primary-signature -v "$dmg"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          if-no-files-found: error
+          path: |
+            tauri-shell/src-tauri/target/**/bundle/dmg/*.dmg
+            tauri-shell/src-tauri/target/**/bundle/nsis/*.exe
 
   publish:
     name: Publish v0.1.0 release
@@ -257,14 +281,14 @@ jobs:
           - Supports natural language to LaTeX, formula OCR, completion, snippets, history and desktop insertion.
           - Supports OpenAI API-compatible cloud text and vision models.
           - Includes and auto-starts the TeXada FastAPI backend; Ollama or cloud model runtime remains configurable.
-          - Includes macOS DMGs and Windows x64 NSIS installer.
+          - Includes signed and notarized macOS DMGs and Windows x64 NSIS installer.
 
           中文：
           - 端侧优先的数学公式 Agent，默认使用 MiniCPM 和 Ollama。
           - 支持自然语言转 LaTeX、公式 OCR、补全、缩写、历史记录和桌面光标处键入。
           - 支持 OpenAI API 兼容的云侧文本和视觉模型。
           - 安装包内置并自动启动 TeXada FastAPI 后端；Ollama 或云侧模型运行时仍可配置。
-          - 提供 macOS DMG 和 Windows x64 NSIS 安装包。
+          - 提供已签名并完成 Apple notarization 的 macOS DMG，以及 Windows x64 NSIS 安装包。
 
           Author: CacinieP
           EOF

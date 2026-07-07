@@ -99,8 +99,8 @@ Important variables:
 ## CI And Release
 
 - `Audit`: Ruff, pytest, pip-audit, npm audit, JS syntax check and Tauri `cargo check` on macOS and Windows. The Rust check creates a generated backend stub only to satisfy Tauri `externalBin` resolution.
-- `Desktop Release`: runs pre-release audit, builds the real PyInstaller FastAPI sidecar, builds macOS DMGs and Windows NSIS EXE, verifies macOS signatures, and publishes the official release assets.
-- macOS signing, when enabled, is controlled by repository secrets only; personal certificate details are not documented in the repo.
+- `Desktop Release`: runs pre-release audit, builds the real PyInstaller FastAPI sidecar, builds signed and notarized macOS DMGs plus the Windows NSIS EXE, and publishes the official release assets.
+- macOS signing and notarization are controlled by repository secrets only. The workflow expects `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_TEAM_ID`, `APPLE_NOTARY_KEY_ID`, `APPLE_NOTARY_ISSUER_ID`, and `APPLE_NOTARY_KEY`; personal certificate contents are not documented in the repo.
 - Source-run shell launchers and macOS LaunchAgent templates are intentionally not kept; packaged desktop releases are the supported user path.
 
 ## Current Cleanup Policy

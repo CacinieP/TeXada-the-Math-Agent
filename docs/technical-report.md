@@ -178,7 +178,7 @@ TeXada 的核心设计原则：**能用确定性代码解决的问题，绝不�
 | 1B 模型在复杂矩阵推导上偶有错误 | 可选切换更大 OpenAI-compatible 模型 |
 | OCR 对手写体识别率有限 | 增加手写体训练数据微调 |
 | macOS 点击公式插入需要辅助功能权限 | 首次使用时在系统设置授权 TeXada |
-| 未接入 Apple notarization | release 签名由仓库 secrets 控制，后续可按需补 notarization 流程 |
+| Apple notarization 依赖仓库 secrets | macOS release 通过 Developer ID 签名、notarytool 公证并 staple DMG；浏览器下载仍会带 quarantine 元数据，但 Gatekeeper 可用公证票据验证 |
 
 ---
 

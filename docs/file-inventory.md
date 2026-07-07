@@ -106,7 +106,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `scripts/build-windows-app.ps1` | Windows helper for local Tauri NSIS installer builds. |
 | `scripts/generate-app-icons.py` | Generates source PNG, Tauri PNGs, macOS ICNS, and Windows ICO icons. |
 | `.github/workflows/audit.yml` | CI audit workflow for Python, npm, JS syntax, generated sidecar stubs, and cross-platform Tauri `cargo check`. |
-| `.github/workflows/release-desktop.yml` | Official release workflow for audited macOS DMG and Windows NSIS installer builds with bundled FastAPI sidecars. |
+| `.github/workflows/release-desktop.yml` | Official release workflow for audited Windows NSIS and signed/notarized macOS DMG builds with bundled FastAPI sidecars. |
 
 ## Tests / 测试
 

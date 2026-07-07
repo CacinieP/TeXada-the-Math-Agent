@@ -221,7 +221,7 @@ GitHub Actions builds release installers manually from `main` and automatically 
 | Workflow | Checks |
 |----------|--------|
 | `Audit` | Ruff, pytest, pip-audit, npm audit, JS syntax check, Tauri cargo check on macOS and Windows |
-| `Desktop Release` | Pre-release audit, PyInstaller FastAPI sidecar, macOS arm64/Intel DMG, Windows x64 NSIS installer, official release publishing |
+| `Desktop Release` | Pre-release audit, PyInstaller FastAPI sidecar, signed and notarized macOS arm64/Intel DMG, Windows x64 NSIS installer, official release publishing |
 
 ### Shortcuts
 
@@ -477,7 +477,7 @@ GitHub Actions 可以手动从 `main` 构建安装包，也会在版本 tag 上�
 | Workflow | 检查内容 |
 |----------|----------|
 | `Audit` | Ruff、pytest、pip-audit、npm audit、JS 语法检查、macOS/Windows Tauri cargo check |
-| `Desktop Release` | 预发布审计、PyInstaller FastAPI sidecar、macOS arm64/Intel DMG、Windows x64 NSIS 安装器、正式 release 发布 |
+| `Desktop Release` | 预发布审计、PyInstaller FastAPI sidecar、已签名并公证的 macOS arm64/Intel DMG、Windows x64 NSIS 安装器、正式 release 发布 |
 
 ### 快捷键
 
