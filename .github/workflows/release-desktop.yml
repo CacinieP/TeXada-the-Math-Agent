@@ -170,11 +170,13 @@ jobs:
           dmg="$(find tauri-shell/src-tauri/target -path '*/bundle/dmg/*.dmg' -print -quit)"
           test -n "$dmg" || { echo "::error::DMG artifact not found."; exit 1; }
           app="$(find tauri-shell/src-tauri/target -path '*/bundle/macos/*.app' -print -quit)"
-          test -n "$app" || { echo "::error::macOS app bundle not found."; exit 1; }
-
-          codesign --verify --deep --strict --verbose=2 "$app"
-          codesign -dv --verbose=4 "$app" 2> /tmp/texada-app-codesign.txt
-          grep -F "$EXPECTED_SIGNER" /tmp/texada-app-codesign.txt
+          if [ -n "$app" ]; then
+            codesign --verify --deep --strict --verbose=2 "$app"
+            codesign -dv --verbose=4 "$app" 2> /tmp/texada-app-codesign.txt
+            grep -F "$EXPECTED_SIGNER" /tmp/texada-app-codesign.txt
+          else
+            echo "::notice::Standalone .app bundle not found; verifying signed DMG and mounted app instead."
+          fi
 
           codesign --verify --verbose=2 "$dmg"
           codesign -dv --verbose=4 "$dmg" 2> /tmp/texada-dmg-codesign.txt
