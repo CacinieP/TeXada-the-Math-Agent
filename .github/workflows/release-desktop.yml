@@ -118,6 +118,14 @@ jobs:
           test -n "$APPLE_CERTIFICATE" || { echo "::error::Missing signing secret APPLE_CERTIFICATE (base64 .p12)."; exit 1; }
           test -n "$APPLE_CERTIFICATE_PASSWORD" || { echo "::error::Missing signing secret APPLE_CERTIFICATE_PASSWORD."; exit 1; }
           test -n "$APPLE_SIGNING_IDENTITY" || { echo "::error::Missing signing secret APPLE_SIGNING_IDENTITY."; exit 1; }
+          case "$APPLE_SIGNING_IDENTITY" in
+            Developer\ ID\ Application:*) ;;
+            *)
+              echo "::error::APPLE_SIGNING_IDENTITY must be a Developer ID Application identity for notarized macOS distribution."
+              echo "::error::Apple Development identities can run local builds but Apple notarization rejects them."
+              exit 1
+              ;;
+          esac
           test -n "$APPLE_NOTARY_KEY_ID" || { echo "::error::Missing notarization secret APPLE_NOTARY_KEY_ID."; exit 1; }
           test -n "$APPLE_NOTARY_ISSUER_ID" || { echo "::error::Missing notarization secret APPLE_NOTARY_ISSUER_ID."; exit 1; }
           test -n "$APPLE_NOTARY_KEY" || { echo "::error::Missing notarization secret APPLE_NOTARY_KEY (raw .p8 text or base64 .p8)."; exit 1; }
@@ -140,7 +148,12 @@ jobs:
           security import "$cert_path" -k "$keychain_path" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$APPLE_CERTIFICATE_PASSWORD" "$keychain_path"
           security list-keychains -d user -s "$keychain_path"
-          security find-identity -v -p codesigning "$keychain_path" | grep -F "$APPLE_SIGNING_IDENTITY"
+          security find-identity -v -p codesigning "$keychain_path" > "$RUNNER_TEMP/codesign-identities.txt"
+          grep -F "$APPLE_SIGNING_IDENTITY" "$RUNNER_TEMP/codesign-identities.txt"
+          grep -F "Developer ID Application:" "$RUNNER_TEMP/codesign-identities.txt" || {
+            echo "::error::APPLE_CERTIFICATE must contain a Developer ID Application private key."
+            exit 1
+          }
 
       - name: Build bundled FastAPI backend sidecar
         env:
@@ -174,6 +187,7 @@ jobs:
             codesign --verify --deep --strict --verbose=2 "$app"
             codesign -dv --verbose=4 "$app" 2> /tmp/texada-app-codesign.txt
             grep -F "$EXPECTED_SIGNER" /tmp/texada-app-codesign.txt
+            grep -F "Developer ID Application:" /tmp/texada-app-codesign.txt
           else
             echo "::notice::Standalone .app bundle not found; verifying signed DMG and mounted app instead."
           fi
@@ -181,6 +195,7 @@ jobs:
           codesign --verify --verbose=2 "$dmg"
           codesign -dv --verbose=4 "$dmg" 2> /tmp/texada-dmg-codesign.txt
           grep -F "$EXPECTED_SIGNER" /tmp/texada-dmg-codesign.txt
+          grep -F "Developer ID Application:" /tmp/texada-dmg-codesign.txt
 
           mount_dir="$(mktemp -d)"
           if hdiutil attach "$dmg" -mountpoint "$mount_dir" -nobrowse -quiet; then
@@ -190,6 +205,7 @@ jobs:
               codesign --verify --deep --strict --verbose=2 "$app"
               codesign -dv --verbose=4 "$app" 2> /tmp/texada-app-codesign.txt
               grep -F "$EXPECTED_SIGNER" /tmp/texada-app-codesign.txt
+              grep -F "Developer ID Application:" /tmp/texada-app-codesign.txt
             else
               echo "::warning::Signed DMG verified, but no .app was found after mounting."
             fi
