@@ -213,4 +213,5 @@ macOS release 产物使用 ad-hoc signing；正式分发前仍建议接入 Devel
 
 ## License
 
-见 [LICENSE](LICENSE)。
+TeXada-the-Math-Agent 以 GNU General Public License v3.0 or later
+(`GPL-3.0-or-later`) 发布，详见 [LICENSE](LICENSE)。
