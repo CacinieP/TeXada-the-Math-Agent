@@ -59,11 +59,26 @@ def codesign_macos_tree(path: Path) -> None:
     if sys.platform != "darwin":
         return
     identity = os.environ.get("PYINSTALLER_CODESIGN_IDENTITY", "-")
+    frameworks = sorted(
+        (candidate for candidate in path.rglob("*.framework") if candidate.is_dir()),
+        key=lambda item: len(item.parts),
+        reverse=True,
+    )
     for candidate in sorted(path.rglob("*"), key=lambda item: len(item.parts), reverse=True):
-        if not candidate.is_file() or not is_macho(candidate):
+        if (
+            not candidate.is_file()
+            or not is_macho(candidate)
+            or any(part.endswith(".framework") for part in candidate.parts)
+        ):
             continue
         subprocess.run(
             ["codesign", "--force", "--sign", identity, str(candidate)],
+            cwd=ROOT,
+            check=True,
+        )
+    for framework in frameworks:
+        subprocess.run(
+            ["codesign", "--force", "--sign", identity, str(framework)],
             cwd=ROOT,
             check=True,
         )
