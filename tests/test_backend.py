@@ -75,3 +75,55 @@ async def test_ollama_status_reports_missing_text_model(monkeypatch, tmp_path):
     assert status["ready"] is False
     assert status["missing_models"] == ["text-model"]
     assert status["next_action"] == "ollama pull text-model"
+
+
+@pytest.mark.asyncio
+async def test_remote_ollama_endpoint_does_not_autostart_local_daemon(monkeypatch, tmp_path):
+    config = TeXadaConfig(
+        data_dir=tmp_path,
+        ollama_host="http://192.168.1.20:11434",
+        model_name="text-model",
+    )
+    manager = BackendManager(config)
+    started = False
+
+    async def is_running():
+        return False
+
+    async def start_ollama():
+        nonlocal started
+        started = True
+
+    monkeypatch.setattr(manager, "_is_running", is_running)
+    monkeypatch.setattr(manager, "_start_ollama", start_ollama)
+
+    with pytest.raises(RuntimeError) as exc:
+        await manager.ensure_ready()
+
+    assert started is False
+    assert "Ollama endpoint 不可达" in str(exc.value)
+    assert "192.168.1.20:11434" in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_remote_ollama_status_points_to_remote_endpoint_check(monkeypatch, tmp_path):
+    config = TeXadaConfig(
+        data_dir=tmp_path,
+        ollama_host="http://192.168.1.20:11434",
+        model_name="text-model",
+        vision_model_name="vision-model",
+    )
+    manager = BackendManager(config)
+
+    async def is_running():
+        return False
+
+    monkeypatch.setattr(manager, "_is_running", is_running)
+    monkeypatch.setattr("texada.core.backend.shutil.which", lambda _: "/usr/bin/ollama")
+
+    status = await manager.aget_status()
+
+    assert status["status"] == "not_running"
+    assert status["ready"] is False
+    assert status["message"] == "Ollama endpoint 不可达"
+    assert status["next_action"] == "启动远端 Ollama，或检查 Ollama 地址和端口"

@@ -130,6 +130,7 @@ http://192.168.1.20:11434
 ```
 
 Do not add `/v1`; TeXada adds the OpenAI-compatible suffix internally.
+For local loopback endpoints, TeXada can try to start `ollama serve` if the Ollama CLI is installed. Remote Ollama endpoints must already be running and reachable.
 
 ### Cloud Mode
 
@@ -385,6 +386,7 @@ http://192.168.1.20:11434
 ```
 
 不用加 `/v1`，TeXada 会在内部自动拼接 OpenAI-compatible 后缀。
+对于本机 loopback 地址，如果已安装 Ollama CLI，TeXada 可以尝试启动 `ollama serve`；远端 Ollama 地址需要你先在远端启动并保证网络可达。
 
 ### 云侧模式
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import os
 import shutil
 from urllib.parse import urlparse
@@ -50,9 +51,9 @@ class BackendManager:
             self._ready = True
             return True
 
-        # Local Ollama: daemon running? auto-start once if not.
+        # Local Ollama: daemon running? auto-start once if this is a local endpoint.
         if not await self._is_running():
-            await self._start_ollama()
+            await self._ensure_ollama_running_or_startable()
 
         models = await self._list_models()
         if not any(self.config.model_name in m for m in models):
@@ -70,7 +71,7 @@ class BackendManager:
             return await self.ensure_ready()
 
         if not await self._is_running():
-            await self._start_ollama()
+            await self._ensure_ollama_running_or_startable()
 
         models = await self._list_models()
         missing = self._missing_local_models(models, include_vision=True)
@@ -140,6 +141,26 @@ class BackendManager:
 
     def _pull_command(self, model: str) -> str:
         return f"ollama pull {model}"
+
+    def _ollama_host_is_local(self) -> bool:
+        parsed = urlparse(self.config.ollama_host)
+        hostname = parsed.hostname or parsed.path.split(":", 1)[0]
+        hostname = hostname.strip("[]").lower()
+        if hostname in {"", "localhost"}:
+            return True
+        try:
+            ip = ipaddress.ip_address(hostname)
+        except ValueError:
+            return False
+        return ip.is_loopback or ip.is_unspecified
+
+    async def _ensure_ollama_running_or_startable(self) -> None:
+        if not self._ollama_host_is_local():
+            raise RuntimeError(
+                f"Ollama endpoint 不可达: {self.config.ollama_host}。"
+                "请启动远端 Ollama，或检查设置页中的 Ollama 地址和端口。"
+            )
+        await self._start_ollama()
 
     def _ollama_server_env(self) -> dict[str, str]:
         env = os.environ.copy()
@@ -248,6 +269,7 @@ class BackendManager:
                     "missing_models": [],
                 }
             cli_available = bool(shutil.which("ollama"))
+            local_endpoint = self._ollama_host_is_local()
             return {
                 "status": "not_running",
                 "ready": False,
@@ -255,10 +277,18 @@ class BackendManager:
                 "endpoint": self.base_url,
                 "model": self.config.active_model_name,
                 "vision": self.config.active_vision_model_name,
-                "message": "Ollama 未运行" if cli_available else "Ollama 未安装或未在 PATH 中",
+                "message": (
+                    "Ollama 未运行" if local_endpoint and cli_available
+                    else "Ollama 未安装或未在 PATH 中" if local_endpoint
+                    else "Ollama endpoint 不可达"
+                ),
                 "missing_models": [self.config.model_name, self.config.vision_model_name],
                 "ollama_cli_available": cli_available,
-                "next_action": "ollama serve" if cli_available else "安装 Ollama: https://ollama.com",
+                "next_action": (
+                    "ollama serve" if local_endpoint and cli_available
+                    else "安装 Ollama: https://ollama.com" if local_endpoint
+                    else "启动远端 Ollama，或检查 Ollama 地址和端口"
+                ),
             }
         return {
             "status": "ready",
