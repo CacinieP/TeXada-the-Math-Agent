@@ -209,3 +209,76 @@ jobs:
             rm -rf "$mount_dir"
             echo "::warning::Signed DMG verified, but CI could not mount it for inner app verification."
           fi
+
+  publish:
+    name: Publish v0.1.0 release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download installer artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          version="0.1.0"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            release_tag="${GITHUB_REF_NAME}"
+            version="${release_tag#v}"
+          else
+            release_tag="v${version}"
+          fi
+
+          mapfile -t assets < <(find release-assets -type f \( -name '*.dmg' -o -name '*.exe' \) | sort)
+          if [ "${#assets[@]}" -ne 3 ]; then
+            echo "::error::Expected 3 installer assets, found ${#assets[@]}."
+            find release-assets -type f -print
+            exit 1
+          fi
+
+          cat > /tmp/texada-release-notes.md <<'EOF'
+          TeXada Desktop 0.1.0
+
+          English:
+          - Local-first math formula agent powered by MiniCPM and Ollama.
+          - Supports natural language to LaTeX, formula OCR, completion, snippets, history and desktop insertion.
+          - Supports OpenAI API-compatible cloud text and vision models.
+          - Includes and auto-starts the TeXada FastAPI backend; Ollama or cloud model runtime remains configurable.
+          - Includes macOS DMGs and Windows x64 NSIS installer.
+
+          中文：
+          - 端侧优先的数学公式 Agent，默认使用 MiniCPM 和 Ollama。
+          - 支持自然语言转 LaTeX、公式 OCR、补全、缩写、历史记录和桌面光标处键入。
+          - 支持 OpenAI API 兼容的云侧文本和视觉模型。
+          - 安装包内置并自动启动 TeXada FastAPI 后端；Ollama 或云侧模型运行时仍可配置。
+          - 提供 macOS DMG 和 Windows x64 NSIS 安装包。
+
+          Author: CacinieP
+          EOF
+
+          gh release delete "$release_tag" --cleanup-tag -y || true
+          gh release delete "desktop-v${version}" --cleanup-tag -y || true
+
+          git config user.name "CacinieP"
+          git config user.email "129482851+CacinieP@users.noreply.github.com"
+          git tag -f "$release_tag" "$GITHUB_SHA"
+          git push origin "refs/tags/$release_tag" --force
+
+          gh release create "$release_tag" "${assets[@]}" \
+            --title "TeXada Desktop v${version}" \
+            --notes-file /tmp/texada-release-notes.md \
+            --target "$GITHUB_SHA" \
+            --latest
