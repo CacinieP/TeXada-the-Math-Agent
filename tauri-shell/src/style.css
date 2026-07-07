@@ -14,7 +14,7 @@
   --accent-red:    #f7768e;
   --accent-cyan:   #7dcfff;
   --accent-purple: #bb9af7;
-  --radius:        10px;
+  --radius:        8px;
   --radius-sm:     6px;
   --ui-zoom:       1;
   --shadow:        0 8px 32px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
@@ -31,12 +31,16 @@ html, body {
   color: var(--text-primary);
   overflow: hidden;
   width: 100%;
+  height: 100%;
   min-height: 100%;
   -webkit-font-smoothing: antialiased;
 }
 
 body {
   min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
 }
 
 @media (min-width: 561px) and (min-height: 601px) {
@@ -51,8 +55,8 @@ body {
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   overflow: hidden;
-  width: min(560px, 100vw);
-  height: min(600px, 100vh);
+  width: 100vw;
+  height: 100vh;
   max-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -66,8 +70,13 @@ body {
   gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-base);
-  -webkit-app-region: drag;
+  background: linear-gradient(180deg, rgba(47,51,73,.98), var(--bg-base));
+  cursor: grab;
+  flex: 0 0 auto;
+  user-select: none;
+}
+.panel-header:active {
+  cursor: grabbing;
 }
 .panel-logo {
   width: 24px;
@@ -88,6 +97,7 @@ body {
   gap: 5px;
   font-size: 10px;
   color: var(--text-muted);
+  pointer-events: none;
 }
 .panel-status .dot {
   width: 6px; height: 6px;
@@ -103,6 +113,7 @@ body {
   padding: 1px 5px;
   color: var(--text-muted);
   font-family: var(--font-mono);
+  pointer-events: none;
 }
 
 /* Tabs */
@@ -110,6 +121,7 @@ body {
   display: flex;
   border-bottom: 1px solid var(--border);
   background: var(--bg-base);
+  flex: 0 0 auto;
 }
 .tab-item {
   flex: 1;
@@ -150,8 +162,9 @@ body {
   flex-direction: column;
   min-height: 0;
   overflow-y: auto;
-  max-height: 480px;
+  max-height: none;
   background: var(--bg-base);
+  overscroll-behavior: contain;
 }
 .tab-content.active { display: flex; }
 .tab-content::-webkit-scrollbar { width: 4px; }
@@ -161,6 +174,9 @@ body {
 .input-area {
   padding: 12px 14px;
   background: var(--bg-base);
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
 }
 .input-box {
   width: 100%;
@@ -178,7 +194,10 @@ body {
   line-height: 1.5;
   transition: border-color var(--transition);
 }
-.input-box:focus { border-color: var(--border-focus); }
+.input-box:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(122,162,247,.12);
+}
 .input-box::placeholder { color: var(--text-muted); }
 
 .input-hint {
@@ -284,6 +303,10 @@ body {
 /* Results */
 .result-area {
   padding: 14px;
+  min-height: 0;
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
 }
 .result-section { margin-bottom: 12px; }
 .result-label {
@@ -373,6 +396,9 @@ body {
   display: flex;
   gap: 6px;
   padding: 0 14px 14px;
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
 }
 .action-btn {
   display: inline-flex;
@@ -394,6 +420,12 @@ body {
   border-color: var(--accent);
   color: var(--accent);
 }
+.action-btn:focus-visible,
+.setting-control:focus-visible,
+.tab-item:focus-visible {
+  outline: 2px solid rgba(122,162,247,.45);
+  outline-offset: 2px;
+}
 .action-btn.primary {
   background: var(--accent);
   color: var(--bg-base);
@@ -412,6 +444,8 @@ body {
   cursor: pointer;
   margin: 12px 14px;
   background: var(--bg-input);
+  width: min(920px, calc(100% - 28px));
+  align-self: center;
 }
 .drop-zone:hover, .drop-zone.drag-over {
   border-color: var(--accent);
@@ -431,6 +465,8 @@ body {
   align-items: center;
   gap: 12px;
   margin: 0 14px;
+  width: min(920px, calc(100% - 28px));
+  align-self: center;
 }
 .ocr-thumb {
   width: 80px; height: 60px;
@@ -457,6 +493,8 @@ body {
   border-radius: var(--radius-sm);
   padding: 8px 12px;
   margin: 10px 14px;
+  width: min(920px, calc(100% - 28px));
+  align-self: center;
 }
 .search-box .icon { color: var(--text-muted); font-size: 13px; }
 .search-box input {
@@ -476,6 +514,9 @@ body {
   grid-template-columns: minmax(76px, .8fr) minmax(150px, 1.4fr) 34px;
   gap: 8px;
   padding: 10px 14px 0;
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
 }
 .shorthand-editor input {
   width: 100%;
@@ -507,8 +548,11 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 6px;
   padding: 0 14px 14px;
-  max-height: 300px;
+  max-height: none;
   overflow-y: auto;
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
 }
 .shorthand-card {
   background: var(--bg-elevated);
@@ -555,9 +599,12 @@ body {
 
 /* History list */
 .history-list {
-  max-height: 340px;
+  max-height: none;
   overflow-y: auto;
   padding: 0 14px 14px;
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
 }
 .history-item {
   display: flex;
@@ -594,8 +641,16 @@ body {
 
 /* Settings */
 .settings-section {
-  padding: 12px 14px;
+  padding: 14px;
   border-bottom: 1px solid var(--border);
+}
+.settings-section > .settings-title,
+.settings-section > .setting-row,
+.settings-section > .settings-actions {
+  width: 100%;
+  max-width: 920px;
+  margin-left: auto;
+  margin-right: auto;
 }
 .settings-section:last-child { border-bottom: none; }
 .settings-title {
@@ -607,10 +662,12 @@ body {
   margin-bottom: 10px;
 }
 .setting-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(160px, 240px) minmax(220px, 1fr);
   align-items: center;
   justify-content: space-between;
-  padding: 6px 0;
+  padding: 7px 0;
+  gap: 14px;
 }
 .setting-label {
   font-size: 12px;
@@ -630,8 +687,11 @@ body {
   align-items: center;
   gap: 12px;
 }
+.setting-row.form-row > div {
+  min-width: 0;
+}
 .setting-control {
-  width: min(260px, 58%);
+  width: 100%;
   min-height: 28px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -643,6 +703,7 @@ body {
 .setting-control:focus {
   outline: none;
   border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(122,162,247,.12);
 }
 .setting-control::placeholder {
   color: var(--text-muted);
@@ -656,7 +717,7 @@ body {
 }
 
 .zoom-control {
-  width: min(260px, 58%);
+  width: 100%;
   min-height: 30px;
   display: grid;
   grid-template-columns: 30px minmax(78px, 1fr) 30px 30px 44px;
@@ -706,4 +767,32 @@ body {
   word-break: break-all;
   text-align: left;
   padding: 14px 16px;
+}
+
+@media (max-width: 480px) {
+  .panel-header {
+    padding-inline: 12px;
+  }
+  .tab-item {
+    font-size: 10px;
+    gap: 3px;
+  }
+  .tab-shortcut {
+    display: none;
+  }
+  .input-hint,
+  .mode-banner,
+  .setting-row,
+  .setting-row.form-row {
+    align-items: flex-start;
+    flex-direction: column;
+    display: flex;
+  }
+  .setting-control,
+  .zoom-control {
+    width: 100%;
+  }
+  .shorthand-grid {
+    grid-template-columns: 1fr;
+  }
 }

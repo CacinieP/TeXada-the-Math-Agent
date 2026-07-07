@@ -203,3 +203,10 @@ async def test_ollama_host_accepts_custom_port_without_scheme(tmp_path):
 
     assert config.ollama_host == "http://localhost:11435"
     assert config.active_base_url == "http://localhost:11435/v1"
+
+
+async def test_ollama_host_strips_openai_suffix(tmp_path):
+    config = TeXadaConfig(data_dir=tmp_path, ollama_host="http://localhost:11435/v1")
+
+    assert config.ollama_host == "http://localhost:11435"
+    assert config.active_base_url == "http://localhost:11435/v1"

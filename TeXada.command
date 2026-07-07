@@ -37,6 +37,19 @@ API_PORT="${TEXADA_API_PORT:-${TEXADA_CONFIG_API_PORT:-18732}}"
 WEB_HOST="${TEXADA_WEB_HOST:-${TEXADA_CONFIG_WEB_HOST:-127.0.0.1}}"
 WEB_PORT="${TEXADA_WEB_PORT:-${TEXADA_CONFIG_WEB_PORT:-5173}}"
 
+normalize_ollama_host() {
+    local value="${1:-http://localhost:11434}"
+    value="${value%/}"
+    value="${value%/v1}"
+    case "$value" in
+        http://*|https://*) ;;
+        *) value="http://$value" ;;
+    esac
+    printf '%s' "$value"
+}
+
+OLLAMA_HOST="$(normalize_ollama_host "$OLLAMA_HOST")"
+
 export TEXADA_BACKEND="$BACKEND"
 export TEXADA_OLLAMA_HOST="$OLLAMA_HOST"
 export TEXADA_API_HOST="$API_HOST"
@@ -55,8 +68,7 @@ cleanup() {
 trap cleanup INT TERM
 
 if [ "$BACKEND" = "ollama" ]; then
-    OLLAMA_BASE="${OLLAMA_HOST%/}"
-    OLLAMA_BASE="${OLLAMA_BASE%/v1}"
+    OLLAMA_BASE="$OLLAMA_HOST"
     OLLAMA_MODELS_URL="$OLLAMA_BASE/v1/models"
     echo "检查 Ollama: $OLLAMA_BASE"
     if ! curl -sf "$OLLAMA_MODELS_URL" >/dev/null 2>&1; then

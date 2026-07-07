@@ -26,8 +26,8 @@
 | 本地视觉 / Local vision | `openbmb/minicpm-v4.6:latest` | OCR for handwritten or screenshot formulas |
 | 云侧文本/视觉 / Cloud text/vision | Any OpenAI-compatible model | User-configured endpoint, model, vision model and API key |
 
-中文：本地 Ollama 默认地址是 `http://localhost:11434`，但这不是硬编码要求。可以在设置页、`~/.texada/config.json` 或 `TEXADA_OLLAMA_HOST` 改成任意端口/主机。
-English: The local Ollama default is `http://localhost:11434`, but it is not fixed. Change it in Settings, `~/.texada/config.json`, or `TEXADA_OLLAMA_HOST`.
+中文：本地 Ollama 默认地址是 `http://localhost:11434`，但这不是硬编码要求。可以在设置页、`~/.texada/config.json` 或 `TEXADA_OLLAMA_HOST` 改成任意端口/主机；`localhost:11435` 和 `http://localhost:11435/v1` 都会被自动规范化。
+English: The local Ollama default is `http://localhost:11434`, but it is not fixed. Change it in Settings, `~/.texada/config.json`, or `TEXADA_OLLAMA_HOST`; both `localhost:11435` and `http://localhost:11435/v1` are normalized automatically.
 
 ## 快速开始 / Quick Start
 

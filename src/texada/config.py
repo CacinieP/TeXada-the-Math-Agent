@@ -105,15 +105,27 @@ class TeXadaConfig(BaseSettings):
     # ── Paths ──
     data_dir: Path = TEXADA_HOME
 
-    @field_validator("ollama_host", "openai_base_url", mode="before")
-    @classmethod
-    def normalize_base_url(cls, value: object) -> str:
+    @staticmethod
+    def _normalize_url(value: object) -> str:
         raw = str(value or "").strip().rstrip("/")
         if not raw:
             return ""
         if "://" not in raw:
             raw = f"http://{raw}"
         return raw
+
+    @field_validator("ollama_host", mode="before")
+    @classmethod
+    def normalize_ollama_host(cls, value: object) -> str:
+        raw = cls._normalize_url(value)
+        if raw.endswith("/v1"):
+            raw = raw[:-3].rstrip("/")
+        return raw
+
+    @field_validator("openai_base_url", mode="before")
+    @classmethod
+    def normalize_base_url(cls, value: object) -> str:
+        return cls._normalize_url(value)
 
     @field_validator("ui_zoom", mode="before")
     @classmethod

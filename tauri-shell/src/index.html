@@ -6,19 +6,19 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:* http://localhost:* http://[::1]:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
 <title>TeXada</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<link rel="stylesheet" href="style.css?v=0.3.0-20260707-5">
+<link rel="stylesheet" href="style.css?v=0.3.0-20260707-6">
 </head>
 <body>
 <div id="app">
   <!-- Header -->
-  <div class="panel-header">
-    <img class="panel-logo" src="app-icon.png?v=0.3.0-20260707-5" alt="TeXada">
-    <div class="panel-title">TeXada</div>
-    <div class="panel-status" id="status-dot">
+  <div class="panel-header" data-tauri-drag-region>
+    <img class="panel-logo" src="app-icon.png?v=0.3.0-20260707-6" alt="TeXada" data-tauri-drag-region>
+    <div class="panel-title" data-tauri-drag-region>TeXada</div>
+    <div class="panel-status" id="status-dot" data-tauri-drag-region>
       <div class="dot offline"></div>
       <span>Offline</span>
     </div>
-    <div class="panel-kbd" data-shortcut="wake">⌥⌘T</div>
+    <div class="panel-kbd" data-shortcut="wake" data-tauri-drag-region>⌥⌘T</div>
   </div>
 
   <!-- Tabs -->
@@ -182,8 +182,11 @@
         </select>
       </div>
       <div class="setting-row form-row">
-        <label class="setting-label" for="ollama-host-input">Ollama Host</label>
-        <input class="setting-control" id="ollama-host-input" type="url" autocomplete="off">
+        <div>
+          <label class="setting-label" for="ollama-host-input" data-i18n="settings.ollamaHost">Ollama 地址</label>
+          <div class="setting-desc" data-i18n="settings.ollamaHostDesc">默认 http://localhost:11434，可改任意端口</div>
+        </div>
+        <input class="setting-control" id="ollama-host-input" type="text" data-i18n-placeholder="settings.ollamaHostPlaceholder" placeholder="http://localhost:11434" autocomplete="off">
       </div>
       <div class="setting-row form-row">
         <label class="setting-label" for="local-model-input" data-i18n="settings.localTextModel">本地文本模型</label>
@@ -235,7 +238,7 @@
   </div>
 </div>
 
-<script src="api-config.js?v=0.3.0-20260707-5"></script>
-<script src="main.js?v=0.3.0-20260707-5"></script>
+<script src="api-config.js?v=0.3.0-20260707-6"></script>
+<script src="main.js?v=0.3.0-20260707-6"></script>
 </body>
 </html>

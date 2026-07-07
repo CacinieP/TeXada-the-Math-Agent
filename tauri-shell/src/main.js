@@ -83,6 +83,9 @@
       'settings.apiAddress': 'API 地址',
       'settings.apiDesc': 'TeXada FastAPI 服务地址',
       'settings.backend': '模型后端',
+      'settings.ollamaHost': 'Ollama 地址',
+      'settings.ollamaHostDesc': '默认 http://localhost:11434，可改任意端口',
+      'settings.ollamaHostPlaceholder': '例如 http://localhost:11435',
       'settings.localTextModel': '本地文本模型',
       'settings.localVisionModel': '本地视觉模型',
       'settings.cloudEndpoint': '云端 Endpoint',
@@ -170,6 +173,9 @@
       'settings.apiAddress': 'API address',
       'settings.apiDesc': 'TeXada FastAPI service address',
       'settings.backend': 'Model backend',
+      'settings.ollamaHost': 'Ollama address',
+      'settings.ollamaHostDesc': 'Default http://localhost:11434; any port is allowed',
+      'settings.ollamaHostPlaceholder': 'e.g. http://localhost:11435',
       'settings.localTextModel': 'Local text model',
       'settings.localVisionModel': 'Local vision model',
       'settings.cloudEndpoint': 'Cloud endpoint',
@@ -307,11 +313,22 @@
   function bindWindowDrag() {
     const header = document.querySelector('.panel-header');
     if (!header) return;
-    header.addEventListener('pointerdown', e => {
-      if (e.button !== 0 || e.target.closest('button, input, select, textarea, a')) return;
-      if (isTauri) {
-        invoke('start_dragging').catch(() => {});
+    const startDrag = () => {
+      if (!isTauri) return;
+      try {
+        const currentWindow = window.__TAURI__?.window?.getCurrentWindow?.();
+        if (currentWindow?.startDragging) {
+          currentWindow.startDragging().catch(() => invoke('start_dragging').catch(() => {}));
+          return;
+        }
+      } catch (_) {
+        // Fall through to the Rust command wrapper below.
       }
+      invoke('start_dragging').catch(() => {});
+    };
+    header.addEventListener('mousedown', e => {
+      if (e.button !== 0 || e.target.closest('button, input, select, textarea, a')) return;
+      startDrag();
     });
   }
 
@@ -320,8 +337,8 @@
     if (!app) return;
     const viewportWidth = window.innerWidth || 560;
     const viewportHeight = window.innerHeight || 600;
-    app.style.width = `${Math.min(560, viewportWidth) / uiZoom}px`;
-    app.style.height = `${Math.min(600, viewportHeight) / uiZoom}px`;
+    app.style.width = `${viewportWidth / uiZoom}px`;
+    app.style.height = `${viewportHeight / uiZoom}px`;
   }
 
   function updateZoomControl() {
