@@ -103,7 +103,7 @@ jobs:
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2" --locked
 
-      - name: Require macOS signing secrets
+      - name: Require macOS signing and notarization secrets
         if: runner.os == 'macOS'
         shell: bash
         env:
@@ -115,12 +115,12 @@ jobs:
           APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
         run: |
           set -euo pipefail
-          test -n "$APPLE_CERTIFICATE" || { echo "::error::Missing APPLE_CERTIFICATE secret (base64 .p12)."; exit 1; }
-          test -n "$APPLE_CERTIFICATE_PASSWORD" || { echo "::error::Missing APPLE_CERTIFICATE_PASSWORD secret."; exit 1; }
-          test -n "$APPLE_SIGNING_IDENTITY" || { echo "::error::Missing APPLE_SIGNING_IDENTITY secret."; exit 1; }
-          test -n "$APPLE_NOTARY_KEY_ID" || { echo "::error::Missing APPLE_NOTARY_KEY_ID secret."; exit 1; }
-          test -n "$APPLE_NOTARY_ISSUER_ID" || { echo "::error::Missing APPLE_NOTARY_ISSUER_ID secret."; exit 1; }
-          test -n "$APPLE_NOTARY_KEY" || { echo "::error::Missing APPLE_NOTARY_KEY secret (raw .p8 text or base64 .p8)."; exit 1; }
+          test -n "$APPLE_CERTIFICATE" || { echo "::error::Missing signing secret APPLE_CERTIFICATE (base64 .p12)."; exit 1; }
+          test -n "$APPLE_CERTIFICATE_PASSWORD" || { echo "::error::Missing signing secret APPLE_CERTIFICATE_PASSWORD."; exit 1; }
+          test -n "$APPLE_SIGNING_IDENTITY" || { echo "::error::Missing signing secret APPLE_SIGNING_IDENTITY."; exit 1; }
+          test -n "$APPLE_NOTARY_KEY_ID" || { echo "::error::Missing notarization secret APPLE_NOTARY_KEY_ID."; exit 1; }
+          test -n "$APPLE_NOTARY_ISSUER_ID" || { echo "::error::Missing notarization secret APPLE_NOTARY_ISSUER_ID."; exit 1; }
+          test -n "$APPLE_NOTARY_KEY" || { echo "::error::Missing notarization secret APPLE_NOTARY_KEY (raw .p8 text or base64 .p8)."; exit 1; }
 
       - name: Import macOS signing certificate for sidecar
         if: runner.os == 'macOS'
