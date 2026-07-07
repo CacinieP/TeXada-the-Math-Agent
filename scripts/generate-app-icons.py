@@ -10,7 +10,6 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSET_SOURCE = ROOT / "assets" / "TeXada-icon-source.png"
-ASSET_ICNS = ROOT / "assets" / "TeXada.icns"
 TAURI_ICONS = ROOT / "tauri-shell" / "src-tauri" / "icons"
 
 SIZE = 1024
@@ -245,7 +244,6 @@ def save_icns(source: Image.Image) -> None:
             source.resize((size, size), Image.Resampling.LANCZOS).save(iconset / name)
         output = Path(tmpdir) / "TeXada.icns"
         subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(output)], check=True)
-        shutil.copyfile(output, ASSET_ICNS)
         shutil.copyfile(output, TAURI_ICONS / "icon.icns")
 
 

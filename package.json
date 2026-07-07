@@ -2,20 +2,10 @@
   "name": "texada-the-math-agent",
   "version": "0.3.0",
   "description": "Local math formula agent powered by MiniCPM",
-  "main": "index.js",
-  "directories": {
-    "doc": "docs",
-    "test": "tests"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/CacinieP/TeXada-the-Math-Agent.git"
   },
-  "keywords": [],
-  "author": "",
   "license": "GPL-3.0-or-later",
   "type": "commonjs",
   "bugs": {

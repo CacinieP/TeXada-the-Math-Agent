@@ -1,1 +1,0 @@
-"""Platform abstraction layer."""

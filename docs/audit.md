@@ -6,7 +6,7 @@ Scope: `/Users/caciniep/Desktop/TeXada-the-Math-Agent` only.
 
 | Area | Paths | Status |
 |------|-------|--------|
-| Python backend | `src/texada/` | Current FastAPI API, routing, model client, rendering, stores, platform adapters |
+| Python backend | `src/texada/` | Current FastAPI API, routing, model client, rendering and stores |
 | Desktop UI | `tauri-shell/src/` | Current static UI used by Tauri and browser development |
 | Tauri shell | `tauri-shell/src-tauri/` | Current macOS/Windows desktop shell, tray, shortcut, signing and bundling config |
 | Build/ops | `scripts/`, `.github/workflows/`, `TeXada.command`, `start.sh` | Current launch, service and CI entrypoints |
@@ -24,6 +24,8 @@ Excluded from source: `.venv/`, `node_modules/`, `target/`, `.ruff_cache/`, `.py
 5. `package.json` and `package-lock.json` still declared MIT while the repository license is GPL.
 6. `start.sh` and `TeXada.command` assumed Ollama always lived on `localhost:11434`.
 7. The UI persisted language but not zoom, and desktop drag relied only on CSS drag regions.
+8. The Python `platform/` and `output/clipboard.py` adapters were leftovers from a pre-Tauri desktop path; current macOS/Windows clipboard and paste behavior lives in the Tauri shell.
+9. `assets/TeXada.icns` duplicated `tauri-shell/src-tauri/icons/icon.icns` byte-for-byte and was not referenced by the release workflow.
 
 ## Remediation
 
@@ -34,6 +36,8 @@ Excluded from source: `.venv/`, `node_modules/`, `target/`, `.ruff_cache/`, `.py
 5. Made launcher scripts read `TEXADA_OLLAMA_HOST`, `TEXADA_API_*`, `TEXADA_WEB_*`, and `~/.texada/config.json`.
 6. Added persisted UI zoom (`80%` to `140%`) and keyboard zoom shortcuts.
 7. Added a Tauri `start_dragging` command so the header can move the window reliably.
+8. Removed unused Python platform/output clipboard adapters and their stale dependencies.
+9. Removed the duplicate root `.icns` artifact; `scripts/generate-app-icons.py` now writes only the Tauri bundle icons plus the source PNG.
 
 ## Remaining Intentional Defaults
 

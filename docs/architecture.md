@@ -35,6 +35,8 @@ The local Ollama port is not fixed. The default is `http://localhost:11434`, but
 | `render/engine.py` | KaTeX and LaTeX highlighting |
 | `store/` | SQLite history and shorthand storage |
 
+Clipboard, paste and notifications are handled in the Tauri shell for desktop builds. The old Python platform adapter layer was removed because it was no longer used by the API or installer builds.
+
 ## Models
 
 | Role | Default | Notes |
