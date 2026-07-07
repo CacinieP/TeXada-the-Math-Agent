@@ -70,12 +70,15 @@ class ShorthandStore:
             items = [(k, v) for k, v in items if query in k or query in v]
         return sorted(items)
 
+    def can_delete(self, key: str) -> bool:
+        return key in self._shorthands and key not in DEFAULT_SHORTHANDS
+
     def add(self, key: str, value: str) -> None:
         self._shorthands[key] = value
         self._save()
 
     def delete(self, key: str) -> bool:
-        if key in self._shorthands and key not in DEFAULT_SHORTHANDS:
+        if self.can_delete(key):
             del self._shorthands[key]
             self._save()
             return True

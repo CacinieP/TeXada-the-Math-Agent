@@ -3,6 +3,7 @@
   const isTauri = typeof window.__TAURI__ !== 'undefined';
   const invoke = isTauri ? window.__TAURI__.core.invoke : null;
   const API_BASE = await window.TeXadaRuntime.resolveApiBase({ invoke });
+  const DEFAULT_REQUEST_TIMEOUT_MS = 120000;
 
   // ── State ──
   let currentTab = 'nl';
@@ -14,6 +15,7 @@
     maxOcrBytes: null,
     allowedImageTypes: new Set(),
   };
+  let requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS;
 
   // ── DOM refs ──
   const els = {
@@ -33,6 +35,9 @@
     tabBar: document.getElementById('tab-bar'),
     shorthandGrid: document.getElementById('shorthand-grid'),
     shorthandSearch: document.getElementById('shorthand-search'),
+    shorthandKeyInput: document.getElementById('shorthand-key-input'),
+    shorthandValueInput: document.getElementById('shorthand-value-input'),
+    shorthandSaveStatus: document.getElementById('shorthand-save-status'),
     historyList: document.getElementById('history-list'),
     ocrDrop: document.getElementById('ocr-drop'),
     ocrPreview: document.getElementById('ocr-preview'),
@@ -103,16 +108,31 @@
     }
 
     const fetchOptions = { method };
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    let timer = null;
+    if (controller) {
+      fetchOptions.signal = controller.signal;
+      timer = setTimeout(() => controller.abort(), requestTimeoutMs);
+    }
     if (body !== undefined) {
       fetchOptions.headers = { 'Content-Type': 'application/json' };
       fetchOptions.body = JSON.stringify(body);
     }
-    const res = await fetch(`${API_BASE}${path}`, fetchOptions);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.detail || `HTTP ${res.status}`);
+    try {
+      const res = await fetch(`${API_BASE}${path}`, fetchOptions);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || `HTTP ${res.status}`);
+      }
+      return data;
+    } catch (e) {
+      if (e && e.name === 'AbortError') {
+        throw new Error(`请求超时（${Math.round(requestTimeoutMs / 1000)}s）`);
+      }
+      throw e;
+    } finally {
+      if (timer) clearTimeout(timer);
     }
-    return data;
   }
 
   async function loadRuntimeConfig() {
@@ -123,6 +143,7 @@
         maxOcrBytes: Number(cfg.max_ocr_bytes) || null,
         allowedImageTypes: new Set(cfg.allowed_image_mime_types || []),
       };
+      requestTimeoutMs = Number(cfg.request_timeout_ms) || DEFAULT_REQUEST_TIMEOUT_MS;
       if (els.apiBaseValue) els.apiBaseValue.textContent = cfg.api_base_url || API_BASE;
     } catch (e) {
       runtimeConfig = { maxOcrBytes: null, allowedImageTypes: new Set() };
@@ -197,10 +218,24 @@
     }
     const form = new FormData();
     form.append('image', new Blob([imageData], { type: 'image/png' }), 'upload.png');
-    const res = await fetch(`${API_BASE}/api/ocr?render_mode=${encodeURIComponent(renderMode)}`, {
-      method: 'POST',
-      body: form,
-    });
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    let timer = null;
+    if (controller) timer = setTimeout(() => controller.abort(), requestTimeoutMs);
+    let res;
+    try {
+      res = await fetch(`${API_BASE}/api/ocr?render_mode=${encodeURIComponent(renderMode)}`, {
+        method: 'POST',
+        body: form,
+        signal: controller ? controller.signal : undefined,
+      });
+    } catch (e) {
+      if (e && e.name === 'AbortError') {
+        throw new Error(`请求超时（${Math.round(requestTimeoutMs / 1000)}s）`);
+      }
+      throw e;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.detail || `HTTP ${res.status}`);
@@ -216,6 +251,19 @@
     return await apiJson('/api/settings/backend', {
       method: 'POST',
       body: payload,
+    });
+  }
+
+  async function apiAddShorthand(key, value) {
+    return await apiJson('/api/shorthands', {
+      method: 'POST',
+      body: { key, value },
+    });
+  }
+
+  async function apiDeleteShorthand(key) {
+    return await apiJson(`/api/shorthands/${encodeURIComponent(key)}`, {
+      method: 'DELETE',
     });
   }
 
@@ -408,6 +456,10 @@
     $('#btn-save-backend').addEventListener('click', saveBackendSettings);
   }
 
+  if ($('#btn-add-shorthand')) {
+    $('#btn-add-shorthand').addEventListener('click', addShorthandFromForm);
+  }
+
   async function loadBackendSettings() {
     if (!els.backendSelect) return;
     try {
@@ -592,7 +644,10 @@
     }
     els.shorthandGrid.innerHTML = items.map(i => `
       <div class="shorthand-card" data-key="${escapeHtml(i.key)}">
-        <div class="shorthand-key">${escapeHtml(i.key)}</div>
+        <div class="shorthand-card-head">
+          <div class="shorthand-key">${escapeHtml(i.key)}</div>
+          ${i.editable ? `<button class="action-btn shorthand-delete" title="删除缩写" data-delete-key="${escapeHtml(i.key)}">×</button>` : ''}
+        </div>
         <div class="shorthand-val">${escapeHtml(i.value)}</div>
       </div>
     `).join('');
@@ -605,6 +660,42 @@
         doConvert();
       });
     });
+    els.shorthandGrid.querySelectorAll('[data-delete-key]').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        e.stopPropagation();
+        await deleteShorthand(e.currentTarget.dataset.deleteKey);
+      });
+    });
+  }
+
+  async function addShorthandFromForm() {
+    const key = (els.shorthandKeyInput.value || '').trim();
+    const value = (els.shorthandValueInput.value || '').trim();
+    if (!key || !value) {
+      els.shorthandSaveStatus.textContent = '请填写缩写键和 LaTeX';
+      return;
+    }
+    els.shorthandSaveStatus.textContent = '保存中...';
+    try {
+      await apiAddShorthand(key, value);
+      els.shorthandKeyInput.value = '';
+      els.shorthandValueInput.value = '';
+      els.shorthandSaveStatus.textContent = '已保存';
+      await loadShorthands();
+    } catch (e) {
+      els.shorthandSaveStatus.textContent = String(e).replace(/^Error:\s*/, '');
+    }
+  }
+
+  async function deleteShorthand(key) {
+    els.shorthandSaveStatus.textContent = '删除中...';
+    try {
+      await apiDeleteShorthand(key);
+      els.shorthandSaveStatus.textContent = '已删除';
+      await loadShorthands();
+    } catch (e) {
+      els.shorthandSaveStatus.textContent = String(e).replace(/^Error:\s*/, '');
+    }
   }
 
   // Client-side shorthand search filter (data already fully loaded)

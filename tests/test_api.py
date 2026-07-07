@@ -104,6 +104,21 @@ async def test_ocr_upload_size_limit(tmp_path):
     assert response.status_code == 413
 
 
+async def test_shorthand_list_marks_editable_items(tmp_path):
+    from texada.api import create_app
+
+    app = create_app(TeXadaConfig(data_dir=tmp_path))
+    client = TestClient(app)
+
+    client.post("/api/shorthands", json={"key": "custom", "value": "x^2"})
+    response = client.get("/api/shorthands")
+
+    assert response.status_code == 200
+    items = {item["key"]: item for item in response.json()}
+    assert items["euler"]["editable"] is False
+    assert items["custom"]["editable"] is True
+
+
 async def test_backend_settings_do_not_echo_key(tmp_path):
     from texada.api import create_app
 

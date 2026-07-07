@@ -9,8 +9,8 @@ from texada.core.router import InputRouter
 from texada.types import RenderMode, RenderResult, Route, Tab
 
 
-def test_router_routing():
-    config = TeXadaConfig()
+def test_router_routing(tmp_path):
+    config = TeXadaConfig(data_dir=tmp_path)
     router = InputRouter(config)
 
     # 1. OCR tab always routes to OCR
@@ -46,8 +46,8 @@ def test_router_render_no_recursion():
 
 
 @pytest.mark.asyncio
-async def test_router_process_text_shorthand():
-    config = TeXadaConfig()
+async def test_router_process_text_shorthand(tmp_path):
+    config = TeXadaConfig(data_dir=tmp_path)
     router = InputRouter(config)
     router.shorthand_store.add("t_shorthand", "x_i^2")
 

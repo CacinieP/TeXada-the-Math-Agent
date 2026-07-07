@@ -29,7 +29,13 @@ html, body {
   font-family: var(--font-ui);
   color: var(--text-primary);
   overflow: hidden;
+  width: 100%;
+  min-height: 100%;
   -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
 }
 
 #app {
@@ -38,8 +44,9 @@ html, body {
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   overflow: hidden;
-  width: 560px;
-  max-height: 600px;
+  width: min(560px, 100vw);
+  height: min(600px, 100vh);
+  max-height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -132,9 +139,12 @@ html, body {
 /* Tab Content */
 .tab-content {
   display: none;
+  flex: 1 1 auto;
   flex-direction: column;
+  min-height: 0;
   overflow-y: auto;
   max-height: 480px;
+  background: var(--bg-base);
 }
 .tab-content.active { display: flex; }
 .tab-content::-webkit-scrollbar { width: 4px; }
@@ -442,6 +452,37 @@ html, body {
 .search-box input::placeholder { color: var(--text-muted); }
 
 /* Shorthand grid */
+.shorthand-editor {
+  display: grid;
+  grid-template-columns: minmax(76px, .8fr) minmax(150px, 1.4fr) 34px;
+  gap: 8px;
+  padding: 10px 14px 0;
+}
+.shorthand-editor input {
+  width: 100%;
+  min-width: 0;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font: 11px var(--font-mono);
+  padding: 7px 9px;
+}
+.shorthand-editor input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+.shorthand-editor input::placeholder { color: var(--text-muted); }
+.icon-only {
+  width: 34px;
+  height: 30px;
+  padding: 0;
+  justify-content: center;
+}
+#shorthand-save-status {
+  min-height: 12px;
+  padding: 4px 14px 0;
+}
 .shorthand-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -459,12 +500,30 @@ html, body {
   transition: var(--transition);
 }
 .shorthand-card:hover { border-color: var(--accent-purple); }
+.shorthand-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
 .shorthand-key {
   font-size: 11px;
   font-weight: 600;
   color: var(--accent-purple);
   font-family: var(--font-mono);
   margin-bottom: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shorthand-delete {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  justify-content: center;
+  color: var(--text-muted);
 }
 .shorthand-val {
   font-size: 10px;

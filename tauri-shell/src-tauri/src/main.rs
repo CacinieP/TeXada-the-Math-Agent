@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::env;
+use std::time::Duration;
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -15,6 +16,8 @@ use tauri_plugin_global_shortcut::ShortcutState;
 const SHORTCUT: &str = "Option+Command+T";
 #[cfg(not(target_os = "macos"))]
 const SHORTCUT: &str = "Ctrl+Alt+T";
+
+const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 120;
 
 fn normalize_api_base(value: String) -> String {
     value.trim().trim_end_matches('/').to_string()
@@ -46,6 +49,22 @@ fn api_url(path: &str) -> Result<String, String> {
         return Err("Invalid API path".to_string());
     }
     Ok(format!("{}{}", configured_api_base(), trimmed))
+}
+
+fn request_timeout() -> Duration {
+    let secs = env::var("TEXADA_API_TIMEOUT_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_REQUEST_TIMEOUT_SECS);
+    Duration::from_secs(secs)
+}
+
+fn http_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .timeout(request_timeout())
+        .build()
+        .map_err(|e| format!("HTTP client setup failed: {}", e))
 }
 
 fn http_error(status: reqwest::StatusCode, body: &str) -> String {
@@ -87,7 +106,7 @@ async fn api_json(
     body: Option<serde_json::Value>,
 ) -> Result<serde_json::Value, String> {
     let url = api_url(&path)?;
-    let client = reqwest::Client::new();
+    let client = http_client()?;
     let request = match method.to_uppercase().as_str() {
         "GET" => client.get(url),
         "POST" => client.post(url),
@@ -121,7 +140,7 @@ async fn post_text(
     text: String,
     render_mode: Option<String>,
 ) -> Result<ConvertResponse, String> {
-    let client = reqwest::Client::new();
+    let client = http_client()?;
     let payload = ConvertPayload {
         text,
         render_mode: render_mode.unwrap_or_else(|| "katex".to_string()),
@@ -169,7 +188,7 @@ async fn convert_image(
         Some("latex") => "latex",
         _ => "katex",
     };
-    let client = reqwest::Client::new();
+    let client = http_client()?;
     let part = reqwest::multipart::Part::bytes(image)
         .file_name("upload.png")
         .mime_str("image/png")
@@ -196,7 +215,7 @@ async fn convert_image(
 
 #[tauri::command]
 async fn get_status() -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = http_client()?;
     let res = client
         .get(api_url("/api/status")?)
         .send()

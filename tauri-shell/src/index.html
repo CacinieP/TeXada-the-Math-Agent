@@ -6,7 +6,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:* http://localhost:* http://[::1]:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
 <title>TeXada</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=0.3.0-20260707-2">
 </head>
 <body>
 <div id="app">
@@ -118,6 +118,12 @@
 
   <!-- Shorthand Tab -->
   <div class="tab-content" id="tab-shorthand">
+    <div class="shorthand-editor">
+      <input type="text" id="shorthand-key-input" placeholder="缩写键…">
+      <input type="text" id="shorthand-value-input" placeholder="LaTeX…">
+      <button class="action-btn primary icon-only" id="btn-add-shorthand" title="添加缩写">+</button>
+    </div>
+    <div class="setting-desc" id="shorthand-save-status"></div>
     <div class="search-box">
       <span class="icon">🔍</span>
       <input type="text" id="shorthand-search" placeholder="搜索缩写…">
@@ -206,7 +212,7 @@
   </div>
 </div>
 
-<script src="api-config.js"></script>
-<script src="main.js"></script>
+<script src="api-config.js?v=0.3.0-20260707-2"></script>
+<script src="main.js?v=0.3.0-20260707-2"></script>
 </body>
 </html>

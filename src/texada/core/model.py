@@ -6,7 +6,7 @@ import base64
 import re
 
 import httpx
-from openai import OpenAI
+from openai import APITimeoutError, OpenAI
 
 from texada.config import TeXadaConfig
 from texada.core.prompts import (
@@ -62,12 +62,29 @@ class MiniCPMModel:
                 raise RuntimeError("Inference endpoint is not configured")
             if not api_key:
                 raise RuntimeError("Inference API key is not configured")
+            timeout = httpx.Timeout(
+                self.config.inference_timeout_seconds,
+                connect=min(10.0, self.config.inference_timeout_seconds),
+            )
             self._client = OpenAI(
                 base_url=base_url,
                 api_key=api_key,
-                http_client=httpx.Client(trust_env=self.config.uses_openai_compatible),
+                timeout=self.config.inference_timeout_seconds,
+                http_client=httpx.Client(
+                    timeout=timeout,
+                    trust_env=self.config.uses_openai_compatible,
+                ),
             )
         return self._client
+
+    def _completion_create(self, **kwargs):
+        try:
+            return self.client.chat.completions.create(**kwargs)
+        except (APITimeoutError, httpx.TimeoutException) as exc:
+            raise RuntimeError(
+                f"模型请求超时（{self.config.inference_timeout_seconds:.0f}s），"
+                "请检查 Ollama/endpoint 是否响应，或在配置中调高 inference_timeout_seconds。"
+            ) from exc
 
     def _text_model_name(self) -> str:
         if not self.model:
@@ -107,7 +124,7 @@ class MiniCPMModel:
         messages.append({"role": "user", "content": preprocessed})
 
         response = await asyncio.to_thread(
-            self.client.chat.completions.create,
+            self._completion_create,
             model=self._text_model_name(),
             messages=messages,
             temperature=self.temperature,
@@ -132,7 +149,7 @@ class MiniCPMModel:
             constraint = self._operator_constraint(missing or force_operators)
             try:
                 retry = await asyncio.to_thread(
-                    self.client.chat.completions.create,
+                    self._completion_create,
                     model=self._text_model_name(),
                     messages=[
                         {
@@ -176,7 +193,7 @@ class MiniCPMModel:
             {"role": "user", "content": partial},
         ]
         response = await asyncio.to_thread(
-            self.client.chat.completions.create,
+            self._completion_create,
             model=self._text_model_name(),
             messages=messages,
             temperature=0.05,
@@ -209,7 +226,7 @@ class MiniCPMModel:
             },
         ]
         response = await asyncio.to_thread(
-            self.client.chat.completions.create,
+            self._completion_create,
             model=self._vision_model_name(),
             messages=messages,
             temperature=0.05,

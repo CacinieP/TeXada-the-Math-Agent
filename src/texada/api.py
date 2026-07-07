@@ -85,6 +85,7 @@ class RuntimeConfigResponse(BaseModel):
     api_base_url: str
     api_host: str
     api_port: int
+    request_timeout_ms: int
     max_ocr_bytes: int
     allowed_image_mime_types: list[str]
 
@@ -191,6 +192,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             api_base_url=config.api_base_url,
             api_host=config.api_host,
             api_port=config.api_port,
+            request_timeout_ms=int(config.api_request_timeout_seconds * 1000),
             max_ocr_bytes=config.max_ocr_bytes,
             allowed_image_mime_types=config.allowed_image_mime_types,
         )
@@ -325,7 +327,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     @app.get("/api/shorthands")
     async def list_shorthands(q: str = Query(default="", max_length=200)):
         items = shorthand.list_all(q)
-        return [{"key": k, "value": v} for k, v in items]
+        return [{"key": k, "value": v, "editable": shorthand.can_delete(k)} for k, v in items]
 
     @app.post("/api/shorthands", response_model=ShorthandResponse)
     async def add_shorthand(req: ShorthandAddRequest):

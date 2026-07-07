@@ -28,6 +28,8 @@ SAVED_CONFIG_FIELDS = frozenset({
     "max_tokens",
     "default_render_mode",
     "delimiter",
+    "inference_timeout_seconds",
+    "api_request_timeout_seconds",
 })
 
 
@@ -59,6 +61,8 @@ class TeXadaConfig(BaseSettings):
     openai_vision_model_name: str = ""
     temperature: float = 0.1
     max_tokens: int = 2048  # MiniCPM5 is a reasoning model — CoT needs headroom
+    inference_timeout_seconds: float = 45.0
+    api_request_timeout_seconds: float = 120.0
 
     # ── Render ──
     default_render_mode: str = "katex"   # "katex" | "latex"
