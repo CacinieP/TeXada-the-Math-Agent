@@ -1,11 +1,15 @@
 """End-to-End integration tests for TeXada API server."""
 import io
+import os
 
 import httpx
 import pytest
 from PIL import Image
 
-BASE_URL = "http://127.0.0.1:18732"
+_API_HOST = os.getenv("TEXADA_API_HOST", "127.0.0.1")
+_API_PORT = os.getenv("TEXADA_API_PORT", "18732")
+BASE_URL = os.getenv("TEXADA_E2E_BASE_URL", f"http://{_API_HOST}:{_API_PORT}").rstrip("/")
+RUN_E2E = os.getenv("TEXADA_RUN_E2E") == "1"
 
 
 def _server_is_running() -> bool:
@@ -18,8 +22,8 @@ def _server_is_running() -> bool:
 
 
 pytestmark = pytest.mark.skipif(
-    not _server_is_running(),
-    reason="TeXada API server not running at {BASE_URL}",
+    not RUN_E2E or not _server_is_running(),
+    reason=f"Set TEXADA_RUN_E2E=1 with TeXada API server running at {BASE_URL}",
 )
 
 

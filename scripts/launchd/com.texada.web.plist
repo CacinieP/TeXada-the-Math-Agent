@@ -12,7 +12,7 @@
              failure). http.server serves from --directory regardless of cwd. -->
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>cd /; cd "{{PROJECT_ROOT}}"; PYTHONUNBUFFERED=1 "{{PROJECT_ROOT}}/.venv/bin/python" -u -m http.server 5173 --bind 127.0.0.1 --directory "{{PROJECT_ROOT}}/tauri-shell/src"</string>
+        <string>cd /; cd "{{PROJECT_ROOT}}"; PYTHONUNBUFFERED=1 "{{PROJECT_ROOT}}/.venv/bin/python" -u -m http.server "{{WEB_PORT}}" --bind "{{WEB_HOST}}" --directory "{{PROJECT_ROOT}}/tauri-shell/src"</string>
     </array>
 
     <key>EnvironmentVariables</key>

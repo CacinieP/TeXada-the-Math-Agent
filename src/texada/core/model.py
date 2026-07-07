@@ -1,4 +1,4 @@
-"""MiniCPM model wrapper — Ollama OpenAI-compatible API."""
+"""Model wrapper — OpenAI-compatible chat API."""
 from __future__ import annotations
 
 import asyncio
@@ -42,22 +42,42 @@ _RULE_COMPLETIONS: list[tuple[str, str]] = [
 
 
 class MiniCPMModel:
-    """Wraps Ollama's OpenAI-compatible chat API for MiniCPM models."""
+    """Wraps a local Ollama or custom OpenAI-compatible chat API."""
 
     def __init__(self, config: TeXadaConfig):
-        # Ollama exposes an OpenAI-compatible /v1 endpoint; text and vision
-        # share the same daemon, distinguished by model tag.
-        self.client = OpenAI(
-            base_url=f"{config.ollama_host}/v1",
-            api_key="ollama",  # Ollama ignores the key; SDK requires a non-empty value
-            http_client=httpx.Client(trust_env=False),  # local Ollama: never use system proxy
-        )
-        self.model = config.model_name
+        self.config = config
+        self._client: OpenAI | None = None
+        self.model = config.active_model_name
         self.temperature = config.temperature
         self.max_tokens = config.max_tokens
-        # Vision (OCR) uses the same daemon, just a different model tag.
-        self._vision_client = self.client
-        self._vision_model = config.vision_model_name
+        # Vision (OCR) uses the same endpoint, with an optional separate model name.
+        self._vision_model = config.active_vision_model_name
+
+    @property
+    def client(self) -> OpenAI:
+        if self._client is None:
+            base_url = self.config.active_base_url
+            api_key = self.config.active_api_key
+            if not base_url:
+                raise RuntimeError("Inference endpoint is not configured")
+            if not api_key:
+                raise RuntimeError("Inference API key is not configured")
+            self._client = OpenAI(
+                base_url=base_url,
+                api_key=api_key,
+                http_client=httpx.Client(trust_env=self.config.uses_openai_compatible),
+            )
+        return self._client
+
+    def _text_model_name(self) -> str:
+        if not self.model:
+            raise RuntimeError("Text model name is not configured")
+        return self.model
+
+    def _vision_model_name(self) -> str:
+        if not self._vision_model:
+            raise RuntimeError("Vision model name is not configured")
+        return self._vision_model
 
     # ── Public inference methods ──
 
@@ -88,7 +108,7 @@ class MiniCPMModel:
 
         response = await asyncio.to_thread(
             self.client.chat.completions.create,
-            model=self.model,
+            model=self._text_model_name(),
             messages=messages,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
@@ -113,7 +133,7 @@ class MiniCPMModel:
             try:
                 retry = await asyncio.to_thread(
                     self.client.chat.completions.create,
-                    model=self.model,
+                    model=self._text_model_name(),
                     messages=[
                         {
                             "role": "system",
@@ -157,7 +177,7 @@ class MiniCPMModel:
         ]
         response = await asyncio.to_thread(
             self.client.chat.completions.create,
-            model=self.model,
+            model=self._text_model_name(),
             messages=messages,
             temperature=0.05,
             max_tokens=self.max_tokens,
@@ -189,8 +209,8 @@ class MiniCPMModel:
             },
         ]
         response = await asyncio.to_thread(
-            self._vision_client.chat.completions.create,
-            model=self._vision_model,
+            self.client.chat.completions.create,
+            model=self._vision_model_name(),
             messages=messages,
             temperature=0.05,
             max_tokens=256,

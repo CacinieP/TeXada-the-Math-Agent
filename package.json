@@ -1,6 +1,6 @@
 {
   "name": "texada-the-math-agent",
-  "version": "1.0.0",
+  "version": "0.3.0",
   "description": "> Local math formula agent powered by **MiniCPM** — boost your note-taking speed.",
   "main": "index.js",
   "directories": {
@@ -16,7 +16,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/CacinieP/TeXada-the-Math-Agent/issues"

@@ -1,5 +1,5 @@
 // TeXada Shell Frontend — Swift WebView Edition
-(function() {
+(async function() {
   'use strict';
 
   // ── Environment detection ──
@@ -23,18 +23,20 @@
     }
     // Fallback for browser dev
     if (cmd === 'convert_text') {
-      const res = await fetch('http://127.0.0.1:18732/api/convert', {
+      const res = await fetch(API_BASE + '/api/convert', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: payload.text, render_mode: 'katex' })
       });
       return res.json();
     }
     if (cmd === 'get_status') {
-      const res = await fetch('http://127.0.0.1:18732/api/status');
+      const res = await fetch(API_BASE + '/api/status');
       return res.json();
     }
     throw new Error('No bridge available for ' + cmd);
   }
+
+  const API_BASE = await window.TeXadaRuntime.resolveApiBase({ invoke });
 
   function readClipboard() {
     if (isSwift) return invoke('read_clipboard');
@@ -98,10 +100,45 @@
     tabBar: document.getElementById('tab-bar'),
     shorthandGrid: document.getElementById('shorthand-grid'),
     historyList: document.getElementById('history-list'),
+    backendSelect: document.getElementById('backend-select'),
+    ollamaHostInput: document.getElementById('ollama-host-input'),
+    localModelInput: document.getElementById('local-model-input'),
+    localVisionModelInput: document.getElementById('local-vision-model-input'),
+    openaiEndpointInput: document.getElementById('openai-endpoint-input'),
+    openaiModelInput: document.getElementById('openai-model-input'),
+    openaiVisionModelInput: document.getElementById('openai-vision-model-input'),
+    openaiKeyInput: document.getElementById('openai-key-input'),
+    backendSaveStatus: document.getElementById('backend-save-status'),
+    apiBaseValue: document.getElementById('api-base-value'),
   };
+
+  if (els.apiBaseValue) els.apiBaseValue.textContent = API_BASE;
 
   function $(sel) { return document.querySelector(sel); }
   function $$(sel) { return document.querySelectorAll(sel); }
+
+  function isMacPlatform() {
+    return /Mac|iPhone|iPad|iPod/.test(navigator.platform || '');
+  }
+
+  function applyPlatformLabels() {
+    const shortcuts = {
+      wake: isMacPlatform() ? '⌥⌘T' : 'Ctrl+Alt+T',
+      mode: isMacPlatform() ? '⌘K' : 'Ctrl+K',
+    };
+    document.querySelectorAll('[data-shortcut]').forEach(el => {
+      const value = shortcuts[el.dataset.shortcut];
+      if (value) el.textContent = value;
+    });
+  }
+
+  function setIntent(icon, message) {
+    els.nlIntent.textContent = '';
+    const iconEl = document.createElement('span');
+    iconEl.className = 'intent-icon';
+    iconEl.textContent = icon;
+    els.nlIntent.append(iconEl, ' ' + message);
+  }
 
   function setStatus(online, text) {
     const dot = els.statusDot.querySelector('.dot');
@@ -128,6 +165,7 @@
     if (tab === 'shorthand') loadShorthands();
     if (tab === 'history') loadHistory();
     if (tab === 'nl') setTimeout(() => els.nlInput.focus(), 50);
+    if (tab === 'settings') loadBackendSettings();
   }
 
   els.tabBar.addEventListener('click', e => {
@@ -142,7 +180,7 @@
     isProcessing = true;
     els.nlProcessing.classList.add('active');
     els.nlResult.style.display = 'none';
-    els.nlIntent.innerHTML = '<span class="intent-icon">⏳</span> 处理中…';
+    setIntent('⏳', '处理中…');
 
     try {
       const res = await invoke('convert_text', { text });
@@ -165,7 +203,7 @@
     els.resultValid.textContent = res.valid ? '✓ Valid' : '✗ Invalid';
     els.resultSource.className = 'source-badge ' + (res.source === 'shorthand' ? 'shorthand' : 'model');
     els.resultSource.textContent = res.source === 'shorthand' ? '⚡ shorthand' : '🤖 model';
-    els.nlIntent.innerHTML = '<span class="intent-icon">∫</span> ' + res.intent + ' · ' + res.latency_ms.toFixed(1) + 'ms';
+    setIntent('∫', (res.intent || 'unknown') + ' · ' + Number(res.latency_ms || 0).toFixed(1) + 'ms');
     updateRender();
   }
 
@@ -265,12 +303,58 @@
   $('#btn-copy-src').addEventListener('click', () => { if (lastResult) writeClipboard(lastResult.latex); });
   $('#btn-copy-md').addEventListener('click', () => { if (lastResult) writeClipboard('$$' + lastResult.latex + '$$'); });
   $('#btn-retry').addEventListener('click', doConvert);
+  if ($('#btn-save-backend')) {
+    $('#btn-save-backend').addEventListener('click', saveBackendSettings);
+  }
+
+  async function loadBackendSettings() {
+    if (!els.backendSelect) return;
+    try {
+      const cfg = await invoke('get_backend_settings', {});
+      els.backendSelect.value = cfg.backend || 'ollama';
+      els.ollamaHostInput.value = cfg.ollama_host || '';
+      els.localModelInput.value = cfg.model_name || '';
+      els.localVisionModelInput.value = cfg.vision_model_name || '';
+      els.openaiEndpointInput.value = cfg.openai_base_url || '';
+      els.openaiModelInput.value = cfg.openai_model_name || '';
+      els.openaiVisionModelInput.value = cfg.openai_vision_model_name || '';
+      els.openaiKeyInput.value = '';
+      els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? '已保存，留空则保持不变' : '请输入 API Key';
+      els.backendSaveStatus.textContent = '';
+    } catch (e) {
+      els.backendSaveStatus.textContent = '无法加载设置';
+    }
+  }
+
+  async function saveBackendSettings() {
+    if (!els.backendSelect) return;
+    const payload = {
+      backend: els.backendSelect.value,
+      ollama_host: els.ollamaHostInput.value.trim(),
+      model_name: els.localModelInput.value.trim(),
+      vision_model_name: els.localVisionModelInput.value.trim(),
+      openai_base_url: els.openaiEndpointInput.value.trim(),
+      openai_model_name: els.openaiModelInput.value.trim(),
+      openai_vision_model_name: els.openaiVisionModelInput.value.trim(),
+    };
+    const key = els.openaiKeyInput.value.trim();
+    if (key) payload.openai_api_key = key;
+    els.backendSaveStatus.textContent = '保存中...';
+    try {
+      const cfg = await invoke('save_backend_settings', { settings: payload });
+      els.openaiKeyInput.value = '';
+      els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? '已保存，留空则保持不变' : '请输入 API Key';
+      els.backendSaveStatus.textContent = '已保存';
+      await checkBackend();
+    } catch (e) {
+      els.backendSaveStatus.textContent = String(e).replace(/^Error:\s*/, '');
+    }
+  }
 
   // ── Shorthand ──
   async function loadShorthands() {
     try {
-      const res = await fetch('http://127.0.0.1:18732/api/shorthands');
-      const items = await res.json();
+      const items = await invoke('list_shorthands', {});
       renderShorthands(items);
     } catch (e) {
       els.shorthandGrid.innerHTML = '<div class="empty-state"><div class="text">无法加载缩写库</div></div>';
@@ -328,6 +412,8 @@
   function escapeHtml(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+  applyPlatformLabels();
 
   // ── Auto-focus & clipboard on show ──
   async function onWindowShownHandler() {

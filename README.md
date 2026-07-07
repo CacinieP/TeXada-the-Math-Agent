@@ -80,7 +80,7 @@ TeXada v0.3.0 — System Check
 ### 4. 启动
 
 ```bash
-texada serve          # 启动 FastAPI 后端 (http://127.0.0.1:18732)
+texada serve          # 启动 FastAPI 后端，默认监听 TEXADA_API_HOST/TEXADA_API_PORT
 # 或一键启动（含 macOS Swift 浮窗）：
 ./start.sh
 ```
@@ -99,8 +99,8 @@ texada serve          # 启动 FastAPI 后端 (http://127.0.0.1:18732)
 
 安装后：
 - 服务会立即启动，并在每次登录时自动启动
-- API: http://127.0.0.1:18732
-- Web UI: http://127.0.0.1:5173/
+- API: `http://${TEXADA_API_HOST:-127.0.0.1}:${TEXADA_API_PORT:-18732}`
+- Web UI: `http://${TEXADA_WEB_HOST:-127.0.0.1}:${TEXADA_WEB_PORT:-5173}/`
 - 日志：`~/.texada/logs/api-service.log`、`~/.texada/logs/web-service.log`
 
 > ⚠️ **不要把项目克隆到 `~/Desktop`、`~/Documents`、`~/Downloads`**。
@@ -135,21 +135,65 @@ texada serve          # 启动 FastAPI 后端 (http://127.0.0.1:18732)
 2. 双击 `TeXada Desktop.app`（首次运行需 **右键 → 打开**）
 3. 点击菜单栏 𝑇 图标即可使用
 
+### 原生桌面浮窗（Windows）
+
+Windows 版走 Tauri shell，界面复用 `tauri-shell/src/` 的静态前端，后端地址由运行时配置解析（`TEXADA_API_BASE` 优先，其次是 `TEXADA_API_HOST` / `TEXADA_API_PORT`）。
+
+- 常驻系统托盘，点击托盘图标或使用全局快捷键 **Ctrl+Alt+T** 唤出
+- 支持读写剪贴板、隐藏/显示窗口、文本补全与图片 OCR 桥接
+- 支持云侧 OpenAI-compatible 后端配置，endpoint/model/key 由用户在界面中填写
+
+**构建**（需要 Windows 主机、Rust、Microsoft C++ Build Tools、WebView2 Runtime、tauri-cli）：
+
+```powershell
+cargo install tauri-cli --version "^2" --locked
+.\scripts\build-windows-app.ps1
+```
+
+构建完成后安装包位于 `tauri-shell\src-tauri\target\release\bundle\nsis\`。macOS 主机不直接产出 Windows 安装包；如需自动化产物，建议在 Windows CI runner 上执行该脚本。
+
+### GitHub Actions 构建
+
+仓库内置两个 workflow：
+
+- `Audit`：push / PR / 手动触发，运行 Ruff、pytest、pip-audit、npm audit、JS 语法检查，以及 macOS/Windows Tauri `cargo check`
+- `Desktop Release`：推送 `v*` tag 或手动触发；先跑预发布审计，通过后构建 macOS arm64 `.dmg`、macOS Intel `.dmg` 和 Windows x64 NSIS `.exe`，并上传到 draft release 与 workflow artifacts
+
+macOS release 产物使用 ad-hoc signing；正式分发前仍建议接入 Developer ID 签名与 notarization。
+
 ## 配置
 
 配置从 `~/.texada/config.json` 读取（也可用 `TEXADA_` 前缀环境变量覆盖）：
 
 ```json
 {
+  "backend": "ollama",
   "ollama_host": "http://localhost:11434",
   "model_name": "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M",
   "vision_model_name": "openbmb/minicpm-v4.6:latest",
+  "api_host": "127.0.0.1",
+  "api_port": 18732,
   "max_tokens": 2048,
   "default_render_mode": "katex"
 }
 ```
 
 > `max_tokens` 建议 ≥ 2048 —— MiniCPM5 是推理模型，思维链需要空间。
+
+如果要改用自定义 OpenAI-compatible 云端模型，在设置页选择
+`OpenAI-compatible` 后填写 endpoint、模型名和 API key；也可以直接写入：
+
+```json
+{
+  "backend": "openai_compatible",
+  "openai_base_url": "https://your-provider.example/v1",
+  "openai_model_name": "your-text-or-vision-model",
+  "openai_vision_model_name": "",
+  "openai_api_key": "your-api-key"
+}
+```
+
+`openai_vision_model_name` 留空时，OCR 会复用 `openai_model_name`。
 
 ## 架构
 

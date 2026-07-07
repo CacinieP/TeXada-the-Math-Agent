@@ -1,5 +1,5 @@
 // TeXada Shell Frontend — Swift WebView Edition
-(function() {
+(async function() {
   'use strict';
 
   // ── Environment detection ──
@@ -8,6 +8,7 @@
 
   let reqId = 0;
   const pending = new Map();
+  let API_BASE = '';
 
   // ── Bridge ──
   async function invoke(cmd, payload) {
@@ -23,18 +24,49 @@
     }
     // Fallback for browser dev
     if (cmd === 'convert_text') {
-      const res = await fetch('http://127.0.0.1:18732/api/convert', {
+      const res = await fetch(API_BASE + '/api/convert', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: payload.text, render_mode: 'katex' })
       });
       return res.json();
     }
     if (cmd === 'get_status') {
-      const res = await fetch('http://127.0.0.1:18732/api/status');
+      const res = await fetch(API_BASE + '/api/status');
       return res.json();
     }
     throw new Error('No bridge available for ' + cmd);
   }
+
+  function normalizeApiBase(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    try {
+      return new URL(raw, window.location.href).origin;
+    } catch (e) {
+      return raw.replace(/\/+$/, '');
+    }
+  }
+
+  function browserApiBase() {
+    const cfg = window.__TEXADA_CONFIG__ || {};
+    const explicit = normalizeApiBase(cfg.apiBase || cfg.api_base);
+    if (explicit) return explicit;
+    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    const host = window.location.hostname || '127.0.0.1';
+    return `${protocol}//${host}:18732`;
+  }
+
+  async function resolveApiBase() {
+    try {
+      const bridged = normalizeApiBase(await invoke('get_api_base'));
+      if (bridged) return bridged;
+    } catch (e) {
+      // Browser development can run without a native bridge.
+    }
+    return browserApiBase();
+  }
+
+  API_BASE = await resolveApiBase();
 
   function readClipboard() {
     if (isSwift) return invoke('read_clipboard');
@@ -103,6 +135,29 @@
   function $(sel) { return document.querySelector(sel); }
   function $$(sel) { return document.querySelectorAll(sel); }
 
+  function isMacPlatform() {
+    return /Mac|iPhone|iPad|iPod/.test(navigator.platform || '');
+  }
+
+  function applyPlatformLabels() {
+    const shortcuts = {
+      wake: isMacPlatform() ? '⌥⌘T' : 'Ctrl+Alt+T',
+      mode: isMacPlatform() ? '⌘K' : 'Ctrl+K',
+    };
+    document.querySelectorAll('[data-shortcut]').forEach(el => {
+      const value = shortcuts[el.dataset.shortcut];
+      if (value) el.textContent = value;
+    });
+  }
+
+  function setIntent(icon, message) {
+    els.nlIntent.textContent = '';
+    const iconEl = document.createElement('span');
+    iconEl.className = 'intent-icon';
+    iconEl.textContent = icon;
+    els.nlIntent.append(iconEl, ' ' + message);
+  }
+
   function setStatus(online, text) {
     const dot = els.statusDot.querySelector('.dot');
     const span = els.statusDot.querySelector('span');
@@ -142,7 +197,7 @@
     isProcessing = true;
     els.nlProcessing.classList.add('active');
     els.nlResult.style.display = 'none';
-    els.nlIntent.innerHTML = '<span class="intent-icon">⏳</span> 处理中…';
+    setIntent('⏳', '处理中…');
 
     try {
       const res = await invoke('convert_text', { text });
@@ -165,7 +220,7 @@
     els.resultValid.textContent = res.valid ? '✓ Valid' : '✗ Invalid';
     els.resultSource.className = 'source-badge ' + (res.source === 'shorthand' ? 'shorthand' : 'model');
     els.resultSource.textContent = res.source === 'shorthand' ? '⚡ shorthand' : '🤖 model';
-    els.nlIntent.innerHTML = '<span class="intent-icon">∫</span> ' + res.intent + ' · ' + res.latency_ms.toFixed(1) + 'ms';
+    setIntent('∫', (res.intent || 'unknown') + ' · ' + Number(res.latency_ms || 0).toFixed(1) + 'ms');
     updateRender();
   }
 
@@ -269,7 +324,7 @@
   // ── Shorthand ──
   async function loadShorthands() {
     try {
-      const res = await fetch('http://127.0.0.1:18732/api/shorthands');
+      const res = await fetch(API_BASE + '/api/shorthands');
       const items = await res.json();
       renderShorthands(items);
     } catch (e) {
@@ -328,6 +383,8 @@
   function escapeHtml(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+  applyPlatformLabels();
 
   // ── Auto-focus & clipboard on show ──
   async function onWindowShownHandler() {

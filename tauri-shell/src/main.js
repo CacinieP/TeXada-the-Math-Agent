@@ -2,6 +2,7 @@
 (async () => {
   const isTauri = typeof window.__TAURI__ !== 'undefined';
   const invoke = isTauri ? window.__TAURI__.core.invoke : null;
+  const API_BASE = await window.TeXadaRuntime.resolveApiBase({ invoke });
 
   // ── State ──
   let currentTab = 'nl';
@@ -9,7 +10,10 @@
   let lastResult = null;
   let isProcessing = false;
   let allShorthands = [];
-  const API_BASE = 'http://127.0.0.1:18732';
+  let runtimeConfig = {
+    maxOcrBytes: null,
+    allowedImageTypes: new Set(),
+  };
 
   // ── DOM refs ──
   const els = {
@@ -40,11 +44,44 @@
     completeInput: document.getElementById('complete-input'),
     completeProcessing: document.getElementById('complete-processing'),
     completeResult: document.getElementById('complete-result'),
+    backendSelect: document.getElementById('backend-select'),
+    ollamaHostInput: document.getElementById('ollama-host-input'),
+    localModelInput: document.getElementById('local-model-input'),
+    localVisionModelInput: document.getElementById('local-vision-model-input'),
+    openaiEndpointInput: document.getElementById('openai-endpoint-input'),
+    openaiModelInput: document.getElementById('openai-model-input'),
+    openaiVisionModelInput: document.getElementById('openai-vision-model-input'),
+    openaiKeyInput: document.getElementById('openai-key-input'),
+    backendSaveStatus: document.getElementById('backend-save-status'),
+    apiBaseValue: document.getElementById('api-base-value'),
   };
 
   // ── Helpers ──
   function $(sel) { return document.querySelector(sel); }
   function $$(sel) { return document.querySelectorAll(sel); }
+
+  function isMacPlatform() {
+    return /Mac|iPhone|iPad|iPod/.test(navigator.platform || '');
+  }
+
+  function applyPlatformLabels() {
+    const shortcuts = {
+      wake: isMacPlatform() ? '⌥⌘T' : 'Ctrl+Alt+T',
+      mode: isMacPlatform() ? '⌘K' : 'Ctrl+K',
+    };
+    document.querySelectorAll('[data-shortcut]').forEach(el => {
+      const value = shortcuts[el.dataset.shortcut];
+      if (value) el.textContent = value;
+    });
+  }
+
+  function setIntent(icon, message) {
+    els.nlIntent.textContent = '';
+    const iconEl = document.createElement('span');
+    iconEl.className = 'intent-icon';
+    iconEl.textContent = icon;
+    els.nlIntent.append(iconEl, ' ' + message);
+  }
 
   function setStatus(online, text) {
     const dot = els.statusDot.querySelector('.dot');
@@ -53,10 +90,48 @@
     span.textContent = text || (online ? 'Online' : 'Offline');
   }
 
+  async function apiJson(path, options = {}) {
+    const method = options.method || 'GET';
+    const body = options.body;
+
+    if (isTauri) {
+      return await invoke('api_json', {
+        method,
+        path,
+        body: body === undefined ? null : body,
+      });
+    }
+
+    const fetchOptions = { method };
+    if (body !== undefined) {
+      fetchOptions.headers = { 'Content-Type': 'application/json' };
+      fetchOptions.body = JSON.stringify(body);
+    }
+    const res = await fetch(`${API_BASE}${path}`, fetchOptions);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.detail || `HTTP ${res.status}`);
+    }
+    return data;
+  }
+
+  async function loadRuntimeConfig() {
+    if (els.apiBaseValue) els.apiBaseValue.textContent = API_BASE;
+    try {
+      const cfg = await apiJson('/api/runtime');
+      runtimeConfig = {
+        maxOcrBytes: Number(cfg.max_ocr_bytes) || null,
+        allowedImageTypes: new Set(cfg.allowed_image_mime_types || []),
+      };
+      if (els.apiBaseValue) els.apiBaseValue.textContent = cfg.api_base_url || API_BASE;
+    } catch (e) {
+      runtimeConfig = { maxOcrBytes: null, allowedImageTypes: new Set() };
+    }
+  }
+
   async function checkBackend() {
     try {
-      const res = await fetch(`${API_BASE}/api/status`);
-      const info = await res.json();
+      const info = isTauri ? await invoke('get_status') : await apiJson('/api/status');
       const isOnline = info.status === 'ok' || info.status === 'ready' || info.status === 'no_model';
       const text = info.status === 'ready' || info.status === 'ok'
         ? (info.model || 'Ready')
@@ -87,6 +162,7 @@
     if (tab === 'nl') setTimeout(() => els.nlInput.focus(), 50);
     if (tab === 'complete') setTimeout(() => els.completeInput.focus(), 50);
     if (tab === 'ocr') setupOcr();
+    if (tab === 'settings') loadBackendSettings();
   }
 
   els.tabBar.addEventListener('click', e => {
@@ -97,28 +173,33 @@
   // ── API helpers ──
   async function apiConvert(text) {
     if (isTauri) {
-      return await invoke('convert_text', { text });
+      return await invoke('convert_text', { text, renderMode });
     }
-    const res = await fetch(`${API_BASE}/api/convert`, {
+    return await apiJson('/api/convert', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, render_mode: renderMode }),
+      body: { text, render_mode: renderMode },
     });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail || `HTTP ${res.status}`);
-    }
-    return await res.json();
   }
 
   async function apiComplete(text) {
     if (isTauri) {
-      return await invoke('complete_latex', { text });
+      return await invoke('complete_latex', { text, renderMode });
     }
-    const res = await fetch(`${API_BASE}/api/complete`, {
+    return await apiJson('/api/complete', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, render_mode: renderMode }),
+      body: { text, render_mode: renderMode },
+    });
+  }
+
+  async function apiOcr(imageData) {
+    if (isTauri) {
+      return await invoke('convert_image', { image: imageData, renderMode });
+    }
+    const form = new FormData();
+    form.append('image', new Blob([imageData], { type: 'image/png' }), 'upload.png');
+    const res = await fetch(`${API_BASE}/api/ocr?render_mode=${encodeURIComponent(renderMode)}`, {
+      method: 'POST',
+      body: form,
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -127,19 +208,15 @@
     return await res.json();
   }
 
-  async function apiOcr(imageData) {
-    if (isTauri) {
-      return await invoke('convert_image', { image: imageData });
-    }
-    const form = new FormData();
-    form.append('image', new Blob([imageData], { type: 'image/png' }), 'upload.png');
-    form.append('render_mode', renderMode);
-    const res = await fetch(`${API_BASE}/api/ocr`, { method: 'POST', body: form });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail || `HTTP ${res.status}`);
-    }
-    return await res.json();
+  async function apiGetBackendSettings() {
+    return await apiJson('/api/settings/backend');
+  }
+
+  async function apiSaveBackendSettings(payload) {
+    return await apiJson('/api/settings/backend', {
+      method: 'POST',
+      body: payload,
+    });
   }
 
   // ── NL Convert ──
@@ -150,7 +227,7 @@
     isProcessing = true;
     els.nlProcessing.classList.add('active');
     els.nlResult.style.display = 'none';
-    els.nlIntent.innerHTML = '<span class="intent-icon">⏳</span> 处理中…';
+    setIntent('⏳', '处理中…');
 
     try {
       const res = await apiConvert(text);
@@ -189,7 +266,7 @@
     els.resultSource.className = 'source-badge ' + (res.source === 'shorthand' ? 'shorthand' : 'model');
     els.resultSource.textContent = res.source === 'shorthand' ? '⚡ shorthand' : '🤖 model';
 
-    els.nlIntent.innerHTML = `<span class="intent-icon">∫</span> ${res.intent} · ${res.latency_ms.toFixed(1)}ms`;
+    setIntent('∫', `${res.intent || 'unknown'} · ${Number(res.latency_ms || 0).toFixed(1)}ms`);
 
     updateRender();
   }
@@ -327,6 +404,55 @@
   });
   $('#btn-retry').addEventListener('click', doConvert);
 
+  if ($('#btn-save-backend')) {
+    $('#btn-save-backend').addEventListener('click', saveBackendSettings);
+  }
+
+  async function loadBackendSettings() {
+    if (!els.backendSelect) return;
+    try {
+      const cfg = await apiGetBackendSettings();
+      els.backendSelect.value = cfg.backend || 'ollama';
+      els.ollamaHostInput.value = cfg.ollama_host || '';
+      els.localModelInput.value = cfg.model_name || '';
+      els.localVisionModelInput.value = cfg.vision_model_name || '';
+      els.openaiEndpointInput.value = cfg.openai_base_url || '';
+      els.openaiModelInput.value = cfg.openai_model_name || '';
+      els.openaiVisionModelInput.value = cfg.openai_vision_model_name || '';
+      els.openaiKeyInput.value = '';
+      els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? '已保存，留空则保持不变' : '请输入 API Key';
+      els.backendSaveStatus.textContent = '';
+    } catch (e) {
+      els.backendSaveStatus.textContent = '无法加载设置';
+    }
+  }
+
+  async function saveBackendSettings() {
+    if (!els.backendSelect) return;
+    const payload = {
+      backend: els.backendSelect.value,
+      ollama_host: els.ollamaHostInput.value.trim(),
+      model_name: els.localModelInput.value.trim(),
+      vision_model_name: els.localVisionModelInput.value.trim(),
+      openai_base_url: els.openaiEndpointInput.value.trim(),
+      openai_model_name: els.openaiModelInput.value.trim(),
+      openai_vision_model_name: els.openaiVisionModelInput.value.trim(),
+    };
+    const key = els.openaiKeyInput.value.trim();
+    if (key) payload.openai_api_key = key;
+
+    els.backendSaveStatus.textContent = '保存中...';
+    try {
+      const cfg = await apiSaveBackendSettings(payload);
+      els.openaiKeyInput.value = '';
+      els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? '已保存，留空则保持不变' : '请输入 API Key';
+      els.backendSaveStatus.textContent = '已保存';
+      await checkBackend();
+    } catch (e) {
+      els.backendSaveStatus.textContent = String(e).replace(/^Error:\s*/, '');
+    }
+  }
+
   // ── OCR ──
   function setupOcr() {
     const dropZone = els.ocrDrop;
@@ -359,6 +485,17 @@
   }
 
   async function handleOcrFile(file) {
+    const allowedTypes = runtimeConfig.allowedImageTypes;
+    if (allowedTypes.size && !allowedTypes.has(file.type)) {
+      showErrorIn(els.ocrResult, `不支持的图片类型: ${file.type || 'unknown'}`);
+      return;
+    }
+    if (runtimeConfig.maxOcrBytes && file.size > runtimeConfig.maxOcrBytes) {
+      const limitMb = (runtimeConfig.maxOcrBytes / (1024 * 1024)).toFixed(1);
+      showErrorIn(els.ocrResult, `图片过大，请使用 ${limitMb} MB 以内的图片`);
+      return;
+    }
+
     els.ocrDrop.style.display = 'none';
     els.ocrPreview.style.display = 'flex';
     els.ocrFilename.textContent = file.name;
@@ -387,9 +524,12 @@
         <div class="render-preview">${escapeHtml(res.latex)}</div>
       </div>
       <div class="action-row">
-        <button class="action-btn primary" onclick="copyToClipboard('${escapeHtml(res.copy_text || res.latex)}')">📋 复制结果</button>
+        <button class="action-btn primary" data-copy-result="${escapeHtml(res.copy_text || res.latex)}">📋 复制结果</button>
       </div>
     `;
+    els.ocrResult.querySelector('[data-copy-result]').addEventListener('click', e => {
+      copyToClipboard(e.currentTarget.dataset.copyResult);
+    });
   }
 
   // ── Completion ──
@@ -420,9 +560,12 @@
         <div class="render-preview">${escapeHtml(res.latex)}</div>
       </div>
       <div class="action-row">
-        <button class="action-btn primary" onclick="copyToClipboard('${escapeHtml(res.copy_text || res.latex)}')">📋 复制结果</button>
+        <button class="action-btn primary" data-copy-result="${escapeHtml(res.copy_text || res.latex)}">📋 复制结果</button>
       </div>
     `;
+    els.completeResult.querySelector('[data-copy-result]').addEventListener('click', e => {
+      copyToClipboard(e.currentTarget.dataset.copyResult);
+    });
   }
 
   function showErrorIn(el, msg) {
@@ -433,8 +576,7 @@
   // ── Shorthand ──
   async function loadShorthands() {
     try {
-      const res = await fetch(`${API_BASE}/api/shorthands`);
-      const items = await res.json();
+      const items = await apiJson('/api/shorthands');
       allShorthands = items || [];
       renderShorthands(allShorthands);
     } catch (e) {
@@ -494,8 +636,7 @@
 
   async function loadHistory() {
     try {
-      const res = await fetch(`${API_BASE}/api/history?limit=50`);
-      const items = await res.json();
+      const items = await apiJson('/api/history?limit=50');
       renderHistory(items.map(h => ({ input: h.input_text || h.input, latex: h.latex, time: h.created_at })));
     } catch (e) {
       loadHistoryLocal();
@@ -535,6 +676,9 @@
       .replace(/"/g,'&quot;')
       .replace(/'/g,'&#39;');
   }
+
+  applyPlatformLabels();
+  await loadRuntimeConfig();
 
   // ── Auto-focus & clipboard on show ──
   async function onWindowShown() {

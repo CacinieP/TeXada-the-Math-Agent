@@ -1,16 +1,61 @@
 // TeXada Tauri Shell — Floating input method style UI
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::env;
+
 use tauri::{
     menu::{Menu, MenuItem},
-    tray::{TrayIconBuilder, MouseButton, MouseButtonState},
-    Manager, WebviewUrl, WebviewWindowBuilder,
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder},
+    Manager,
 };
 use tauri_plugin_clipboard_manager::ClipboardExt;
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+use tauri_plugin_global_shortcut::ShortcutState;
 
-const API_BASE: &str = "http://127.0.0.1:18732";
+#[cfg(target_os = "macos")]
 const SHORTCUT: &str = "Option+Command+T";
+#[cfg(not(target_os = "macos"))]
+const SHORTCUT: &str = "Ctrl+Alt+T";
+
+fn normalize_api_base(value: String) -> String {
+    value.trim().trim_end_matches('/').to_string()
+}
+
+fn configured_api_base() -> String {
+    if let Ok(base) = env::var("TEXADA_API_BASE") {
+        let normalized = normalize_api_base(base);
+        if !normalized.is_empty() {
+            return normalized;
+        }
+    }
+
+    let host = env::var("TEXADA_API_HOST")
+        .unwrap_or_else(|_| "127.0.0.1".to_string())
+        .trim()
+        .to_string();
+    let port = env::var("TEXADA_API_PORT")
+        .ok()
+        .and_then(|value| value.parse::<u16>().ok())
+        .unwrap_or(18732);
+
+    format!("http://{}:{}", host, port)
+}
+
+fn api_url(path: &str) -> Result<String, String> {
+    let trimmed = path.trim();
+    if !trimmed.starts_with("/api/") || trimmed.starts_with("//") || trimmed.contains("://") {
+        return Err("Invalid API path".to_string());
+    }
+    Ok(format!("{}{}", configured_api_base(), trimmed))
+}
+
+fn http_error(status: reqwest::StatusCode, body: &str) -> String {
+    if let Ok(json) = serde_json::from_str::<serde_json::Value>(body) {
+        if let Some(detail) = json.get("detail").and_then(|value| value.as_str()) {
+            return format!("API error {}: {}", status, detail);
+        }
+    }
+    format!("API error {}", status)
+}
 
 #[derive(serde::Serialize)]
 struct ConvertPayload {
@@ -18,7 +63,7 @@ struct ConvertPayload {
     render_mode: String,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 struct ConvertResponse {
     latex: String,
     katex_html: Option<String>,
@@ -31,21 +76,117 @@ struct ConvertResponse {
 }
 
 #[tauri::command]
-async fn convert_text(text: String) -> Result<ConvertResponse, String> {
+fn get_api_base() -> String {
+    configured_api_base()
+}
+
+#[tauri::command]
+async fn api_json(
+    method: String,
+    path: String,
+    body: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    let url = api_url(&path)?;
+    let client = reqwest::Client::new();
+    let request = match method.to_uppercase().as_str() {
+        "GET" => client.get(url),
+        "POST" => client.post(url),
+        "DELETE" => client.delete(url),
+        _ => return Err("Unsupported API method".to_string()),
+    };
+    let request = match body {
+        Some(payload) => request.json(&payload),
+        None => request,
+    };
+    let res = request
+        .send()
+        .await
+        .map_err(|e| format!("Network error: {}", e))?;
+    let status = res.status();
+    let text = res
+        .text()
+        .await
+        .map_err(|e| format!("Response read error: {}", e))?;
+    if !status.is_success() {
+        return Err(http_error(status, &text));
+    }
+    if text.trim().is_empty() {
+        return Ok(serde_json::json!({}));
+    }
+    serde_json::from_str::<serde_json::Value>(&text).map_err(|e| format!("Parse error: {}", e))
+}
+
+async fn post_text(
+    endpoint: &str,
+    text: String,
+    render_mode: Option<String>,
+) -> Result<ConvertResponse, String> {
     let client = reqwest::Client::new();
     let payload = ConvertPayload {
         text,
-        render_mode: "katex".to_string(),
+        render_mode: render_mode.unwrap_or_else(|| "katex".to_string()),
     };
     let res = client
-        .post(format!("{}/api/convert", API_BASE))
+        .post(api_url(endpoint)?)
         .json(&payload)
         .send()
         .await
         .map_err(|e| format!("Network error: {}", e))?;
 
     if !res.status().is_success() {
-        return Err(format!("API error: {}", res.status()));
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        return Err(http_error(status, &body));
+    }
+
+    res.json::<ConvertResponse>()
+        .await
+        .map_err(|e| format!("Parse error: {}", e))
+}
+
+#[tauri::command]
+async fn convert_text(
+    text: String,
+    render_mode: Option<String>,
+) -> Result<ConvertResponse, String> {
+    post_text("/api/convert", text, render_mode).await
+}
+
+#[tauri::command]
+async fn complete_latex(
+    text: String,
+    render_mode: Option<String>,
+) -> Result<ConvertResponse, String> {
+    post_text("/api/complete", text, render_mode).await
+}
+
+#[tauri::command]
+async fn convert_image(
+    image: Vec<u8>,
+    render_mode: Option<String>,
+) -> Result<ConvertResponse, String> {
+    let render_mode = match render_mode.as_deref() {
+        Some("latex") => "latex",
+        _ => "katex",
+    };
+    let client = reqwest::Client::new();
+    let part = reqwest::multipart::Part::bytes(image)
+        .file_name("upload.png")
+        .mime_str("image/png")
+        .map_err(|e| format!("Image payload error: {}", e))?;
+    let form = reqwest::multipart::Form::new().part("image", part);
+
+    let res = client
+        .post(api_url(&format!("/api/ocr?render_mode={}", render_mode))?)
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|e| format!("Network error: {}", e))?;
+
+    if !res.status().is_success() {
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        return Err(http_error(status, &body));
     }
 
     res.json::<ConvertResponse>()
@@ -57,7 +198,7 @@ async fn convert_text(text: String) -> Result<ConvertResponse, String> {
 async fn get_status() -> Result<serde_json::Value, String> {
     let client = reqwest::Client::new();
     let res = client
-        .get(format!("{}/api/status", API_BASE))
+        .get(api_url("/api/status")?)
         .send()
         .await
         .map_err(|e| format!("Network error: {}", e))?;
@@ -108,16 +249,15 @@ fn toggle_window(app: &tauri::AppHandle) {
 fn position_window_near_cursor(window: &tauri::WebviewWindow) {
     use cocoa::appkit::NSScreen;
     use cocoa::base::nil;
-    use cocoa::foundation::{NSArray, NSString};
     use objc::runtime::Object;
-    use objc::{msg_send, sel, sel_impl};
+    use objc::{class, msg_send, sel, sel_impl};
     use tauri::PhysicalPosition;
 
     unsafe {
-        let ns_window: *mut Object = window.ns_window().unwrap_or(nil) as *mut Object;
-        if ns_window.is_null() {
+        let Ok(ns_window_ptr) = window.ns_window() else {
             return;
-        }
+        };
+        let ns_window = ns_window_ptr as *mut Object;
 
         // Get mouse location in screen coordinates (bottom-left origin)
         let mouse_location: cocoa::foundation::NSPoint = msg_send![class!(NSEvent), mouseLocation];
@@ -129,7 +269,11 @@ fn position_window_near_cursor(window: &tauri::WebviewWindow) {
         for i in 0..count {
             let screen: *mut Object = msg_send![screens, objectAtIndex:i];
             let frame: cocoa::foundation::NSRect = msg_send![screen, frame];
-            if cocoa::foundation::NSPointInRect(mouse_location, frame) {
+            let contains_mouse = mouse_location.x >= frame.origin.x
+                && mouse_location.x <= frame.origin.x + frame.size.width
+                && mouse_location.y >= frame.origin.y
+                && mouse_location.y <= frame.origin.y + frame.size.height;
+            if contains_mouse {
                 target_screen = screen;
                 break;
             }
@@ -166,8 +310,30 @@ fn position_window_near_cursor(window: &tauri::WebviewWindow) {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn position_window_near_cursor(_window: &tauri::WebviewWindow) {
-    // TODO: implement for Windows/Linux
+fn position_window_near_cursor(window: &tauri::WebviewWindow) {
+    use tauri::PhysicalPosition;
+
+    let Ok(Some(monitor)) = window.current_monitor() else {
+        return;
+    };
+    let Ok(window_size) = window.outer_size() else {
+        return;
+    };
+
+    let work_area = monitor.work_area();
+    let width = window_size.width as i32;
+    let height = window_size.height as i32;
+    let left = work_area.position.x;
+    let top = work_area.position.y;
+    let right = left + work_area.size.width as i32;
+    let bottom = top + work_area.size.height as i32;
+
+    let centered_x = left + ((work_area.size.width as i32 - width) / 2).max(8);
+    let y = top + 72;
+    let x = centered_x.clamp(left + 8, (right - width - 8).max(left + 8));
+    let y = y.clamp(top + 8, (bottom - height - 8).max(top + 8));
+
+    let _ = window.set_position(PhysicalPosition::new(x, y));
 }
 
 fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
@@ -207,15 +373,15 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 fn setup_shortcut(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.handle().plugin(
         tauri_plugin_global_shortcut::Builder::new()
+            .with_shortcut(SHORTCUT)?
             .with_handler(|app, shortcut, event| {
-                if event.state == ShortcutState::Pressed && shortcut.matches("Option+Command+T") {
+                let _ = shortcut;
+                if event.state == ShortcutState::Pressed {
                     toggle_window(app);
                 }
             })
             .build(),
     )?;
-
-    app.global_shortcut().register(SHORTCUT)?;
     Ok(())
 }
 
@@ -223,10 +389,13 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_global_shortcut::init())
         .plugin(tauri_plugin_os::init())
         .invoke_handler(tauri::generate_handler![
+            get_api_base,
+            api_json,
             convert_text,
+            complete_latex,
+            convert_image,
             get_status,
             read_clipboard,
             write_clipboard,

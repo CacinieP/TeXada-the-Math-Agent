@@ -19,7 +19,7 @@
              PYTHONUNBUFFERED + python -u flush logs in real time. -->
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>cd /; cd "{{PROJECT_ROOT}}"; PYTHONUNBUFFERED=1 "{{PROJECT_ROOT}}/.venv/bin/python" -u -m uvicorn texada.api:create_app --factory --host 127.0.0.1 --port 18732 --loop asyncio</string>
+        <string>cd /; cd "{{PROJECT_ROOT}}"; TEXADA_API_HOST="{{API_HOST}}" TEXADA_API_PORT="{{API_PORT}}" PYTHONUNBUFFERED=1 "{{PROJECT_ROOT}}/.venv/bin/python" -u -m uvicorn texada.api:create_app --factory --host "{{API_HOST}}" --port "{{API_PORT}}" --loop asyncio</string>
     </array>
 
     <key>EnvironmentVariables</key>

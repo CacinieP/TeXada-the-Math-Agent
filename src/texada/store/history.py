@@ -64,7 +64,9 @@ class HistoryStore:
         try:
             if query:
                 rows = await conn.execute_fetchall(
-                    "SELECT * FROM history WHERE input_text LIKE ? ORDER BY created_at DESC LIMIT ?",
+                    "SELECT * FROM history "
+                    "WHERE input_text LIKE ? "
+                    "ORDER BY created_at DESC LIMIT ?",
                     (f"%{query}%", limit),
                 )
             else:

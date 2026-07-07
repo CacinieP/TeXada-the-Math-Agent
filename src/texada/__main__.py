@@ -5,18 +5,29 @@ app = typer.Typer(help="TeXada — Math Formula Agent")
 
 
 @app.command()
-def serve():
+def serve(
+    host: str | None = typer.Option(None, help="Bind host. Defaults to TEXADA_API_HOST/config."),
+    port: int | None = typer.Option(None, help="Bind port. Defaults to TEXADA_API_PORT/config."),
+):
     """Start the FastAPI backend server."""
     import uvicorn
 
     from texada.api import create_app
+    from texada.config import load_config
+
+    config = load_config()
 
     # Force the asyncio event loop (not uvloop). uvicorn[standard] pulls in
     # uvloop by default, which deadlocks when launched as a background
     # LaunchAgent (no TTY, Aqua session) — the server process stays alive
     # but never finishes startup and never binds the port. asyncio works
     # identically under both an interactive shell and launchd.
-    uvicorn.run(create_app(), host="127.0.0.1", port=18732, loop="asyncio")
+    uvicorn.run(
+        create_app(config),
+        host=host or config.api_host,
+        port=port or config.api_port,
+        loop="asyncio",
+    )
 
 
 @app.command()
@@ -45,16 +56,16 @@ def check():
     mgr = BackendManager(config)
 
     typer.echo("TeXada v0.3.0 — System Check")
-    typer.echo(f"  Ollama host:  {config.ollama_host}")
-    typer.echo("  Backend:      ollama")
-    typer.echo(f"  Model:        {config.model_name}")
-    typer.echo(f"  Vision model: {config.vision_model_name}")
+    typer.echo(f"  Backend:      {config.backend}")
+    typer.echo(f"  Endpoint:     {config.active_base_url}")
+    typer.echo(f"  Model:        {config.active_model_name}")
+    typer.echo(f"  Vision model: {config.active_vision_model_name}")
 
     try:
         asyncio.run(mgr.ensure_ready())
-        typer.echo("  Ollama:       ✅ running")
+        typer.echo("  Status:       ✅ ready")
     except Exception as e:
-        typer.echo(f"  Text server:  ❌ {e}")
+        typer.echo(f"  Status:       ❌ {e}")
 
     typer.echo(f"  Render mode:  {config.default_render_mode}")
     typer.echo(f"  Delimiter:    {config.delimiter}")

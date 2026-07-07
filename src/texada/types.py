@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 
-class Tab(str, Enum):
+class Tab(StrEnum):
     NL = "nl"
     OCR = "ocr"
     COMPLETION = "completion"
@@ -14,19 +14,19 @@ class Tab(str, Enum):
     SETTINGS = "settings"
 
 
-class Route(str, Enum):
+class Route(StrEnum):
     NL2LATEX = "nl2latex"
     OCR = "ocr"
     COMPLETION = "completion"
     SHORTHAND = "shorthand"
 
 
-class RenderMode(str, Enum):
+class RenderMode(StrEnum):
     KATEX = "katex"
     LATEX = "latex"
 
 
-class Source(str, Enum):
+class Source(StrEnum):
     MODEL = "model"
     SHORTHAND = "shorthand"
     TEMPLATE = "template"

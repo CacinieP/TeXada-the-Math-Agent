@@ -136,6 +136,10 @@ class LaTeXValidator:
                                error=result.stderr.strip()[:200])
         except FileNotFoundError:
             # npx/katex not available — skip this check
-            return CheckResult(ok=True, type="katex_render", detail="npx katex not available, skipped")
+            return CheckResult(
+                ok=True,
+                type="katex_render",
+                detail="npx katex not available, skipped",
+            )
         except subprocess.TimeoutExpired:
             return CheckResult(ok=False, type="katex_render", error="KaTeX render timeout")

@@ -64,11 +64,10 @@ class InputRouter:
         self.backend = BackendManager(config)
         # Agent Memory — per-session conversation context
         self.memory = ConversationMemory(max_turns=6)
-        self._per_request_mode: RenderMode | None = None
 
-    def _render(self, latex: str) -> RenderResult:
-        """Render using per-request mode override if set, else default mode."""
-        return self.render_engine.render(latex, mode_override=self._per_request_mode)
+    def _render(self, latex: str, render_mode: RenderMode | None) -> RenderResult:
+        """Render using the request's mode override if one was supplied."""
+        return self.render_engine.render(latex, mode_override=render_mode)
 
     def route(self, tab: Tab, content: str | bytes) -> Route:
         if tab == Tab.OCR:
@@ -105,27 +104,41 @@ class InputRouter:
             route_override: If set, force this route instead of auto-detecting.
             intent_override: If set, force this intent instead of auto-classifying.
             context: Extra context string (e.g. prior conversation) for the model.
-            render_mode: Per-request render mode override (avoids mutating shared state).
+            render_mode: Per-request render mode override.
         """
         start = time.monotonic()
-        self._per_request_mode = render_mode  # Used by self._render()
 
         route = route_override or self.route(Tab.NL, text)
         text = text.strip()
 
         if route == Route.SHORTHAND:
-            return await self._process_shorthand(text, start)
+            return await self._process_shorthand(text, start, render_mode=render_mode)
 
         if route == Route.COMPLETION:
-            return await self._process_completion(text, start, context=context)
+            return await self._process_completion(
+                text,
+                start,
+                context=context,
+                render_mode=render_mode,
+            )
 
         # NL→LaTeX
-        return await self._process_nl2latex(text, start, intent_override=intent_override, context=context)
+        return await self._process_nl2latex(
+            text,
+            start,
+            intent_override=intent_override,
+            context=context,
+            render_mode=render_mode,
+        )
 
-    async def process_image(self, image: bytes, *, render_mode: RenderMode | None = None) -> ConvertResult:
+    async def process_image(
+        self,
+        image: bytes,
+        *,
+        render_mode: RenderMode | None = None,
+    ) -> ConvertResult:
         """Main entry point for image input (OCR tab)."""
         start = time.monotonic()
-        self._per_request_mode = render_mode
 
         await self.backend.ensure_ready()
 
@@ -134,7 +147,7 @@ class InputRouter:
         latex = await ocr.process(image)
 
         final_latex, valid_result, tokens = self._validate_and_fix(latex)
-        render = self._render(final_latex)
+        render = self._render(final_latex, render_mode)
         latency = (time.monotonic() - start) * 1000
 
         return ConvertResult(
@@ -153,7 +166,10 @@ class InputRouter:
 
     async def _process_nl2latex(
         self, text: str, start: float,
-        *, intent_override: str | None = None, context: str = "",
+        *,
+        intent_override: str | None = None,
+        context: str = "",
+        render_mode: RenderMode | None = None,
     ) -> ConvertResult:
         if intent_override:
             intent_result = IntentResult(intent=intent_override, confidence=0.95)
@@ -198,7 +214,7 @@ class InputRouter:
         was_fixed = final_latex != latex
         source = Source.FIXED if was_fixed else Source.MODEL
 
-        render = self._render(final_latex)
+        render = self._render(final_latex, render_mode)
         latency = (time.monotonic() - start) * 1000
 
         fix_log = [] if valid_result.valid else ["auto-fixed"]
@@ -215,12 +231,18 @@ class InputRouter:
             fix_log=fix_log,
         )
 
-    async def _process_shorthand(self, text: str, start: float) -> ConvertResult:
+    async def _process_shorthand(
+        self,
+        text: str,
+        start: float,
+        *,
+        render_mode: RenderMode | None = None,
+    ) -> ConvertResult:
         result = self.shorthand_store.lookup(text)
         if result is None:
-            return await self._process_nl2latex(text, start)
+            return await self._process_nl2latex(text, start, render_mode=render_mode)
 
-        render = self._render(result)
+        render = self._render(result, render_mode)
         latency = (time.monotonic() - start) * 1000
 
         return ConvertResult(
@@ -234,13 +256,20 @@ class InputRouter:
             tokens_used=0,
         )
 
-    async def _process_completion(self, text: str, start: float, *, context: str = "") -> ConvertResult:
+    async def _process_completion(
+        self,
+        text: str,
+        start: float,
+        *,
+        context: str = "",
+        render_mode: RenderMode | None = None,
+    ) -> ConvertResult:
         await self.backend.ensure_ready()
         prompt = f"{context}\n{text}" if context else text
         latex = await self.model.complete_latex(prompt)
 
         final_latex, valid_result, tokens = self._validate_and_fix(latex)
-        render = self._render(final_latex)
+        render = self._render(final_latex, render_mode)
         latency = (time.monotonic() - start) * 1000
 
         return ConvertResult(
@@ -352,4 +381,3 @@ class InputRouter:
             return False
         # Must contain at least one LaTeX command (\frac, \int, \sum, etc.)
         return bool(re.search(r"\\[a-zA-Z]+", text))
-

@@ -6,6 +6,10 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
 mkdir -p "$LAUNCH_AGENTS_DIR"
+API_HOST="${TEXADA_API_HOST:-127.0.0.1}"
+API_PORT="${TEXADA_API_PORT:-18732}"
+WEB_HOST="${TEXADA_WEB_HOST:-127.0.0.1}"
+WEB_PORT="${TEXADA_WEB_PORT:-5173}"
 # Logs live under ~/.texada, NOT the project dir. If the project is cloned
 # into a TCC-protected location (~/Desktop, ~/Documents, ~/Downloads), the
 # background LaunchAgent cannot write logs there and exits with code 78
@@ -29,7 +33,14 @@ install_plist() {
         exit 1
     fi
 
-    sed -e "s|{{PROJECT_ROOT}}|$PROJECT_ROOT|g" -e "s|{{LOG_DIR}}|$LOG_DIR|g" "$src" > "$dest"
+    sed \
+        -e "s|{{PROJECT_ROOT}}|$PROJECT_ROOT|g" \
+        -e "s|{{LOG_DIR}}|$LOG_DIR|g" \
+        -e "s|{{API_HOST}}|$API_HOST|g" \
+        -e "s|{{API_PORT}}|$API_PORT|g" \
+        -e "s|{{WEB_HOST}}|$WEB_HOST|g" \
+        -e "s|{{WEB_PORT}}|$WEB_PORT|g" \
+        "$src" > "$dest"
     chmod 644 "$dest"
     echo "✅ 已生成 $dest"
 
@@ -52,8 +63,8 @@ install_plist "com.texada.web"
 
 echo ""
 echo "✨ 服务已安装并启动"
-echo "   • API:    http://127.0.0.1:18732"
-echo "   • Web UI: http://127.0.0.1:5173/"
+echo "   • API:    http://$API_HOST:$API_PORT"
+echo "   • Web UI: http://$WEB_HOST:$WEB_PORT/"
 echo ""
 echo "查看状态："
 echo "   launchctl list | grep com.texada"

@@ -1,0 +1,117 @@
+name: Desktop Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Pre-release audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: python -m pip install --upgrade uv
+
+      - name: Ruff
+        run: uv run --extra dev ruff check .
+
+      - name: Pytest
+        run: uv run --extra dev pytest
+
+      - name: Python dependency audit
+        run: uvx pip-audit --strict
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Frontend dependency audit
+        env:
+          npm_config_registry: https://registry.npmjs.org
+        run: npm audit --audit-level=moderate
+
+      - name: JavaScript syntax check
+        run: |
+          node --check tauri-shell/src/main.js
+          node --check tauri-shell/TeXadaShell/TeXadaShell/assets/main.js
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: audit
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS arm64 dmg
+            os: macos-26
+            rust-targets: aarch64-apple-darwin
+            tauri-args: --target aarch64-apple-darwin --bundles dmg
+          - name: macOS Intel dmg
+            os: macos-15-intel
+            rust-targets: x86_64-apple-darwin
+            tauri-args: --target x86_64-apple-darwin --bundles dmg
+          - name: Windows x64 NSIS
+            os: windows-2025
+            rust-targets: x86_64-pc-windows-msvc
+            tauri-args: --target x86_64-pc-windows-msvc --bundles nsis
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: tauri-shell/src-tauri -> target
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Build desktop bundle
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: tauri-shell/src-tauri
+          tauriScript: cargo tauri
+          args: ${{ matrix.tauri-args }}
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'desktop-v__VERSION__' }}
+          releaseName: TeXada Desktop v__VERSION__
+          releaseBody: Built by GitHub Actions after the pre-release audit job passed.
+          releaseDraft: true
+          prerelease: false
+          uploadUpdaterJson: false
+          uploadUpdaterSignatures: false
+          uploadWorkflowArtifacts: true
+          workflowArtifactNamePattern: ${{ matrix.name }}
+          releaseAssetNamePattern: TeXada-[version]-[platform]-[arch]-[bundle][setup][ext]

@@ -41,7 +41,10 @@ class LaTeXFixer:
         return FixResult(latex=fixed, fixed=bool(fix_log), log=fix_log)
 
     def _fix_braces(self, latex: str) -> tuple[str, str]:
-        """Auto-complete missing closing braces. Extra closing braces cannot be safely auto-fixed."""
+        """Auto-complete missing closing braces.
+
+        Extra closing braces cannot be safely auto-fixed.
+        """
         depth = 0
         for ch in latex:
             if ch == '{':

@@ -548,6 +548,34 @@ html, body {
   color: var(--accent);
   font-family: var(--font-mono);
 }
+.setting-row.form-row {
+  align-items: center;
+  gap: 12px;
+}
+.setting-control {
+  width: min(260px, 58%);
+  min-height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font: 11px var(--font-mono);
+  padding: 5px 8px;
+}
+.setting-control:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+.setting-control::placeholder {
+  color: var(--text-muted);
+}
+.settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 8px;
+}
 
 /* Completion */
 .completion-input .typed { color: var(--accent-cyan); }

@@ -3,9 +3,20 @@ import WebKit
 
 class WebViewController: NSViewController, WKScriptMessageHandler, WKNavigationDelegate {
     var webView: WKWebView!
-    let apiBase = "http://127.0.0.1:18732"
+    let apiBase = WebViewController.resolveApiBase()
     var pendingRequests: [String: (Data) -> Void] = [:]
     private var isPageLoaded = false
+
+    static func resolveApiBase() -> String {
+        let env = ProcessInfo.processInfo.environment
+        if let base = env["TEXADA_API_BASE"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !base.isEmpty {
+            return String(base.dropLast(base.hasSuffix("/") ? 1 : 0))
+        }
+        let host = env["TEXADA_API_HOST"]?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let port = env["TEXADA_API_PORT"]?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return "http://\(host?.isEmpty == false ? host! : "127.0.0.1"):\(port?.isEmpty == false ? port! : "18732")"
+    }
 
     override func loadView() {
         view = NSView()
@@ -69,12 +80,22 @@ class WebViewController: NSViewController, WKScriptMessageHandler, WKNavigationD
         let reqId = body["id"] as? String ?? ""
 
         switch cmd {
+        case "get_api_base":
+            sendToJS(id: reqId, result: ["ok": true, "text": apiBase])
         case "convert_text":
             if let text = body["text"] as? String {
                 convertText(text, id: reqId)
             }
         case "get_status":
             getStatus(id: reqId)
+        case "list_shorthands":
+            listShorthands(id: reqId)
+        case "get_backend_settings":
+            getBackendSettings(id: reqId)
+        case "save_backend_settings":
+            if let settings = body["settings"] as? [String: Any] {
+                saveBackendSettings(settings, id: reqId)
+            }
         case "read_clipboard":
             let text = NSPasteboard.general.string(forType: .string) ?? ""
             sendToJS(id: reqId, result: ["ok": true, "text": text])
@@ -158,6 +179,78 @@ class WebViewController: NSViewController, WKScriptMessageHandler, WKNavigationD
             guard let self = self else { return }
             if let error = error {
                 self.sendToJS(id: id, result: ["ok": false, "error": error.localizedDescription])
+                return
+            }
+            guard let data = data else {
+                self.sendToJS(id: id, result: ["ok": false, "error": "No data"])
+                return
+            }
+            do {
+                let json = try JSONSerialization.jsonObject(with: data)
+                self.sendToJS(id: id, result: ["ok": true, "data": json])
+            } catch {
+                self.sendToJS(id: id, result: ["ok": false, "error": "Parse error"])
+            }
+        }.resume()
+    }
+
+    func listShorthands(id: String) {
+        let url = URL(string: "\(apiBase)/api/shorthands")!
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+            guard let self = self else { return }
+            if let error = error {
+                self.sendToJS(id: id, result: ["ok": false, "error": error.localizedDescription])
+                return
+            }
+            guard let data = data else {
+                self.sendToJS(id: id, result: ["ok": false, "error": "No data"])
+                return
+            }
+            do {
+                let json = try JSONSerialization.jsonObject(with: data)
+                self.sendToJS(id: id, result: ["ok": true, "data": json])
+            } catch {
+                self.sendToJS(id: id, result: ["ok": false, "error": "Parse error"])
+            }
+        }.resume()
+    }
+
+    func getBackendSettings(id: String) {
+        let url = URL(string: "\(apiBase)/api/settings/backend")!
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+            guard let self = self else { return }
+            if let error = error {
+                self.sendToJS(id: id, result: ["ok": false, "error": error.localizedDescription])
+                return
+            }
+            guard let data = data else {
+                self.sendToJS(id: id, result: ["ok": false, "error": "No data"])
+                return
+            }
+            do {
+                let json = try JSONSerialization.jsonObject(with: data)
+                self.sendToJS(id: id, result: ["ok": true, "data": json])
+            } catch {
+                self.sendToJS(id: id, result: ["ok": false, "error": "Parse error"])
+            }
+        }.resume()
+    }
+
+    func saveBackendSettings(_ settings: [String: Any], id: String) {
+        let url = URL(string: "\(apiBase)/api/settings/backend")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: settings)
+
+        URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
+            guard let self = self else { return }
+            if let error = error {
+                self.sendToJS(id: id, result: ["ok": false, "error": error.localizedDescription])
+                return
+            }
+            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+                self.sendToJS(id: id, result: ["ok": false, "error": "HTTP \(http.statusCode)"])
                 return
             }
             guard let data = data else {

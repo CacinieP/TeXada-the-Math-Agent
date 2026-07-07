@@ -16,7 +16,7 @@ TeXada 把自然语言、LaTeX 片段、公式图片统一转换成 LaTeX,并即
 └────────────────────────┬─────────────────────────────┘
                          │ HTTP / fetch (CORS *)
 ┌────────────────────────▼─────────────────────────────┐
-│           FastAPI 后端  127.0.0.1:18732               │
+│           FastAPI 后端  TEXADA_API_HOST:PORT          │
 │                                                       │
 │   api.py ──► InputRouter ──► 确定性管线               │
 │    (HTTP)     (路由)        intent · symbols          │
@@ -125,6 +125,8 @@ MiniCPM5-1B 对「补全任意 LaTeX 片段」不可靠(常输出空括号)。`c
 | **双击 `TeXada.app`** | macOS 桌面应用:后台启动 API + 前端(持久),打开浏览器 + 系统通知,无终端窗口 |
 | 双击 `TeXada.command` | 同上但在终端运行,可看实时日志 |
 | 双击 `TeXada Desktop.app` | 原生 macOS 菜单栏 shell(Mach-O arm64,`scripts/build-desktop-app.sh` 构建) |
+| Windows 安装包 | Tauri shell(NSIS,`scripts/build-windows-app.ps1` 在 Windows 主机构建) |
+| GitHub Actions | `Audit` 持续审计;`Desktop Release` 先审计再构建 macOS arm64/Intel `.dmg` 与 Windows x64 NSIS `.exe` |
 | `texada serve` | 仅启动 API |
 | `start.sh` | 启动 API + 原生桌面 shell(自动检测 Desktop.app / TeXadaShell) |
 | `texada check` | 就绪检查(Ollama、模型) |
@@ -133,7 +135,7 @@ MiniCPM5-1B 对「补全任意 LaTeX 片段」不可靠(常输出空括号)。`c
 
 **开机自启**:`scripts/install-service.sh` 注册 launchd agent(`scripts/launchd/`),开机自动拉起;`uninstall-service.sh` 卸载。
 
-**依赖**:Python 3.12+、Ollama、(可选)Node/npx —— 后端 KaTeX 渲染用;前端 KaTeX 走 CDN 不强制。
+**依赖**:Python 3.12+、Ollama 或 OpenAI-compatible 后端、(可选)Node/npx —— 后端 KaTeX 渲染用;Windows Tauri 打包另需 Rust、Microsoft C++ Build Tools、WebView2 Runtime、tauri-cli。
 
 **配置**:`~/.texada/config.json`(模型 tag、host、`max_tokens`、渲染模式等),`TEXADA_` 前缀环境变量可覆盖。
 
@@ -154,7 +156,7 @@ TeXada-the-Math-Agent/
 ├── tauri-shell/src/     # 静态前端(index.html · main.js · style.css)
 ├── docs/                # architecture(本文) · design(历史) · ui-mockup
 ├── TeXada.app/          # macOS 桌面应用包(bash launcher:起服务 + 浏览器)
-├── scripts/             # build-desktop-app.sh · install/uninstall-service.sh · launchd/(开机自启)
+├── scripts/             # build-desktop-app.sh · build-windows-app.ps1 · install/uninstall-service.sh · launchd/(开机自启)
 ├── TeXada.command       # macOS 双击启动(终端版,看日志)
 ├── assets/              # TeXada.icns 图标源(iconset 中间产物 .gitignore)
 ├── logs/                # 运行日志(api/web/launcher/ollama,.gitignore)

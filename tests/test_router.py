@@ -1,4 +1,5 @@
 """Test InputRouter — routing, rendering, and pipeline dispatch."""
+import asyncio
 from unittest.mock import AsyncMock
 
 import pytest
@@ -38,7 +39,7 @@ def test_router_render_no_recursion():
     router = InputRouter(config)
 
     # Calling _render should not cause infinite recursion
-    result = router._render("\\frac{a}{b}")
+    result = router._render("\\frac{a}{b}", None)
     assert isinstance(result, RenderResult)
     assert result.latex == "\\frac{a}{b}"
     assert result.mode == RenderMode.KATEX
@@ -75,3 +76,42 @@ async def test_router_process_text_nl2latex_mocked():
     assert result.valid
     assert result.intent == "integral"
     mock_generate.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_render_modes_do_not_leak(tmp_path):
+    config = TeXadaConfig(data_dir=tmp_path)
+    router = InputRouter(config)
+
+    async def fake_generate(preprocessed, intent, memory_messages=None, force_operators=None):
+        if "slow" in preprocessed:
+            await asyncio.sleep(0.05)
+        return "x+1"
+
+    router.model.generate_latex = fake_generate
+    router.backend.ensure_ready = AsyncMock(return_value=True)
+
+    katex_task = asyncio.create_task(
+        router.process_text(
+            "slow request",
+            route_override=Route.NL2LATEX,
+            render_mode=RenderMode.KATEX,
+        )
+    )
+    await asyncio.sleep(0.01)
+    latex_task = asyncio.create_task(
+        router.process_text(
+            "fast request",
+            route_override=Route.NL2LATEX,
+            render_mode=RenderMode.LATEX,
+        )
+    )
+
+    katex_result, latex_result = await asyncio.gather(katex_task, latex_task)
+
+    assert katex_result.render.mode == RenderMode.KATEX
+    assert katex_result.render.katex_html is not None
+    assert katex_result.render.latex_highlighted is None
+    assert latex_result.render.mode == RenderMode.LATEX
+    assert latex_result.render.katex_html is None
+    assert latex_result.render.latex_highlighted is not None

@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:* http://localhost:* http://[::1]:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
 <title>TeXada</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -18,7 +18,7 @@
       <div class="dot offline"></div>
       <span>Offline</span>
     </div>
-    <div class="panel-kbd">⌥⌘T</div>
+    <div class="panel-kbd" data-shortcut="wake">⌥⌘T</div>
   </div>
 
   <!-- Tabs -->
@@ -51,7 +51,7 @@
             <div class="mode-opt" data-mode="latex"><span class="mode-icon">📜</span> 纯 LaTeX</div>
           </div>
         </div>
-        <div class="mode-banner-right">按 <kbd>⌘K</kbd> 切换模式</div>
+        <div class="mode-banner-right">按 <kbd data-shortcut="mode">⌘K</kbd> 切换模式</div>
       </div>
       <div class="result-area">
         <div class="result-section" id="katex-result-section">
@@ -143,30 +143,70 @@
           <div class="setting-label">API 地址</div>
           <div class="setting-desc">TeXada FastAPI 服务地址</div>
         </div>
-        <div class="setting-value">http://127.0.0.1:18732</div>
+        <div class="setting-value" id="api-base-value">检测中...</div>
+      </div>
+      <div class="setting-row form-row">
+        <label class="setting-label" for="backend-select">模型后端</label>
+        <select class="setting-control" id="backend-select">
+          <option value="ollama">Local Ollama</option>
+          <option value="openai_compatible">OpenAI-compatible</option>
+        </select>
+      </div>
+      <div class="setting-row form-row">
+        <label class="setting-label" for="ollama-host-input">Ollama Host</label>
+        <input class="setting-control" id="ollama-host-input" type="url" autocomplete="off">
+      </div>
+      <div class="setting-row form-row">
+        <label class="setting-label" for="local-model-input">本地文本模型</label>
+        <input class="setting-control" id="local-model-input" type="text" autocomplete="off">
+      </div>
+      <div class="setting-row form-row">
+        <label class="setting-label" for="local-vision-model-input">本地视觉模型</label>
+        <input class="setting-control" id="local-vision-model-input" type="text" autocomplete="off">
+      </div>
+      <div class="setting-row form-row">
+        <label class="setting-label" for="openai-endpoint-input">云端 Endpoint</label>
+        <input class="setting-control" id="openai-endpoint-input" type="url" placeholder="https://.../v1" autocomplete="off">
+      </div>
+      <div class="setting-row form-row">
+        <label class="setting-label" for="openai-model-input">云端模型名</label>
+        <input class="setting-control" id="openai-model-input" type="text" autocomplete="off">
+      </div>
+      <div class="setting-row form-row">
+        <label class="setting-label" for="openai-vision-model-input">云端视觉模型</label>
+        <input class="setting-control" id="openai-vision-model-input" type="text" placeholder="留空则使用同一模型" autocomplete="off">
+      </div>
+      <div class="setting-row form-row">
+        <label class="setting-label" for="openai-key-input">云端 API Key</label>
+        <input class="setting-control" id="openai-key-input" type="password" placeholder="留空则保持不变" autocomplete="off">
+      </div>
+      <div class="settings-actions">
+        <button class="action-btn primary" id="btn-save-backend">保存</button>
+        <span class="setting-desc" id="backend-save-status"></span>
       </div>
     </div>
     <div class="settings-section">
       <div class="settings-title">快捷键</div>
       <div class="setting-row">
         <div class="setting-label">唤出 / 隐藏</div>
-        <div class="setting-value">⌥⌘T</div>
+        <div class="setting-value" data-shortcut="wake">⌥⌘T</div>
       </div>
       <div class="setting-row">
         <div class="setting-label">切换渲染模式</div>
-        <div class="setting-value">⌘K</div>
+        <div class="setting-value" data-shortcut="mode">⌘K</div>
       </div>
     </div>
     <div class="settings-section">
       <div class="settings-title">关于</div>
       <div class="setting-row">
         <div class="setting-label">TeXada Shell</div>
-        <div class="setting-value">v0.1.0</div>
+        <div class="setting-value">v0.3.0</div>
       </div>
     </div>
   </div>
 </div>
 
+<script src="api-config.js"></script>
 <script src="main.js"></script>
 </body>
 </html>

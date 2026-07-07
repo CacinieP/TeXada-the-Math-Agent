@@ -17,8 +17,15 @@ DEFAULT_SHORTHANDS: dict[str, str] = {
     "fourier": "\\hat{f}(\\xi)=\\int_{-\\infty}^{\\infty}f(x)e^{-2\\pi ix\\xi}dx",
     "normal":  "f(x)=\\frac{1}{\\sigma\\sqrt{2\\pi}}e^{-\\frac{(x-\\mu)^2}{2\\sigma^2}}",
     "bayes":   "P(A|B)=\\frac{P(B|A)P(A)}{P(B)}",
-    "stokes":  "\\oint_C \\mathbf{F}\\cdot d\\mathbf{r}=\\iint_S(\\nabla\\times\\mathbf{F})\\cdot d\\mathbf{S}",
-    "green":   "\\oint_C(Pdx+Qdy)=\\iint_D\\left(\\frac{\\partial Q}{\\partial x}-\\frac{\\partial P}{\\partial y}\\right)dA",
+    "stokes": (
+        "\\oint_C \\mathbf{F}\\cdot d\\mathbf{r}"
+        "=\\iint_S(\\nabla\\times\\mathbf{F})\\cdot d\\mathbf{S}"
+    ),
+    "green": (
+        "\\oint_C(Pdx+Qdy)"
+        "=\\iint_D\\left(\\frac{\\partial Q}{\\partial x}"
+        "-\\frac{\\partial P}{\\partial y}\\right)dA"
+    ),
 }
 
 

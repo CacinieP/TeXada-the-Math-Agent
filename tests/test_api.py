@@ -6,6 +6,9 @@ at import time. Without that dependency declared, ``create_app()`` raised
 could not start. This test constructs the app and inspects its routes.
 """
 import pytest
+from fastapi.testclient import TestClient
+
+from texada.config import TeXadaConfig
 
 pytestmark = pytest.mark.asyncio
 
@@ -26,6 +29,8 @@ async def test_create_app_builds_all_routes():
         "/api/render-mode",
         "/api/shorthands",
         "/api/history",
+        "/api/settings/backend",
+        "/api/runtime",
     }
     missing = expected - paths
     assert not missing, f"Missing API routes: {missing}"
@@ -42,3 +47,110 @@ async def test_api_version_matches_pyproject():
     assert app.version == package_version, (
         f"FastAPI app version {app.version!r} != installed texada {package_version!r}"
     )
+
+
+async def test_forbidden_browser_origin_is_rejected(tmp_path):
+    from texada.api import create_app
+
+    app = create_app(TeXadaConfig(data_dir=tmp_path))
+    client = TestClient(app)
+
+    response = client.get("/api/status", headers={"Origin": "https://example.invalid"})
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Forbidden origin"
+
+
+async def test_allowed_browser_origin_gets_cors_header(tmp_path):
+    from texada.api import create_app
+
+    origin = "http://127.0.0.1:5173"
+    app = create_app(TeXadaConfig(data_dir=tmp_path))
+    client = TestClient(app)
+
+    response = client.get("/api/status", headers={"Origin": origin})
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
+
+
+async def test_runtime_config_uses_server_config(tmp_path):
+    from texada.api import create_app
+
+    app = create_app(TeXadaConfig(data_dir=tmp_path, api_host="localhost", api_port=19001))
+    client = TestClient(app)
+
+    response = client.get("/api/runtime")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["api_base_url"] == "http://localhost:19001"
+    assert body["max_ocr_bytes"] > 0
+    assert "image/png" in body["allowed_image_mime_types"]
+
+
+async def test_ocr_upload_size_limit(tmp_path):
+    from texada.api import create_app
+
+    config = TeXadaConfig(data_dir=tmp_path, max_ocr_bytes=3)
+    app = create_app(config)
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/ocr",
+        files={"image": ("formula.png", b"1234", "image/png")},
+    )
+
+    assert response.status_code == 413
+
+
+async def test_backend_settings_do_not_echo_key(tmp_path):
+    from texada.api import create_app
+
+    app = create_app(TeXadaConfig(data_dir=tmp_path))
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/settings/backend",
+        json={
+            "backend": "openai_compatible",
+            "openai_base_url": "https://example.test/v1",
+            "openai_model_name": "custom-model",
+            "openai_api_key": "secret-key",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["backend"] == "openai_compatible"
+    assert body["openai_api_key_set"] is True
+    assert "openai_api_key" not in body
+
+
+async def test_backend_settings_key_is_preserved_when_blank(tmp_path):
+    from texada.api import create_app
+
+    app = create_app(TeXadaConfig(data_dir=tmp_path))
+    client = TestClient(app)
+
+    client.post(
+        "/api/settings/backend",
+        json={
+            "backend": "openai_compatible",
+            "openai_base_url": "https://example.test/v1",
+            "openai_model_name": "model-a",
+            "openai_api_key": "secret-key",
+        },
+    )
+    response = client.post(
+        "/api/settings/backend",
+        json={
+            "backend": "openai_compatible",
+            "openai_base_url": "https://example.test/v1",
+            "openai_model_name": "model-b",
+            "openai_api_key": "",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["openai_api_key_set"] is True
