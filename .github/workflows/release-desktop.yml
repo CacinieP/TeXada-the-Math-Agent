@@ -107,7 +107,7 @@ jobs:
           args: ${{ matrix.tauri-args }}
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'desktop-v__VERSION__' }}
           releaseName: TeXada Desktop v__VERSION__
-          releaseBody: Built by GitHub Actions after the pre-release audit job passed.
+          releaseBody: CacinieP merge所有分支
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: false
