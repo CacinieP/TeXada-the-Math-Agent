@@ -13,6 +13,7 @@
   let allShorthands = [];
   let uiLanguage = 'zh';
   let uiZoom = 1.0;
+  let isComposingText = false;
   let runtimeConfig = {
     maxOcrBytes: null,
     allowedImageTypes: new Set(),
@@ -310,9 +311,41 @@
     });
   }
 
+  function isEditableTarget(target) {
+    return !!target?.closest?.('input, textarea, select, [contenteditable="true"]');
+  }
+
+  function isImeComposing(e) {
+    return isComposingText || e.isComposing || e.keyCode === 229;
+  }
+
+  function isWindowDragBlocked(target) {
+    return !!target?.closest?.([
+      'button',
+      'input',
+      'select',
+      'textarea',
+      'a',
+      'label',
+      '[contenteditable="true"]',
+      '.tab-item',
+      '.mode-opt',
+      '.action-btn',
+      '.formula-click-target',
+      '.drop-zone',
+      '.shorthand-card',
+      '.history-item',
+      '.search-box',
+      '.setting-control',
+      '.zoom-control',
+      '.latex-source',
+      '.ocr-preview',
+    ].join(', '));
+  }
+
   function bindWindowDrag() {
-    const header = document.querySelector('.panel-header');
-    if (!header) return;
+    const dragSurface = document.getElementById('app');
+    if (!dragSurface) return;
     const startDrag = () => {
       if (!isTauri) return;
       try {
@@ -326,8 +359,8 @@
       }
       invoke('start_dragging').catch(() => {});
     };
-    header.addEventListener('mousedown', e => {
-      if (e.button !== 0 || e.target.closest('button, input, select, textarea, a')) return;
+    dragSurface.addEventListener('mousedown', e => {
+      if (e.button !== 0 || e.detail > 1 || isWindowDragBlocked(e.target)) return;
       startDrag();
     });
   }
@@ -727,7 +760,17 @@
   }
 
   // ── Keyboard ──
+  document.addEventListener('compositionstart', () => {
+    isComposingText = true;
+  }, true);
+
+  document.addEventListener('compositionend', () => {
+    isComposingText = false;
+  }, true);
+
   document.addEventListener('keydown', e => {
+    if (isImeComposing(e)) return;
+
     // Esc → hide
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -762,7 +805,7 @@
     }
 
     // Number keys → switch tab
-    if (!e.metaKey && !e.ctrlKey && !e.altKey && /^[1-6]$/.test(e.key)) {
+    if (!isEditableTarget(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey && /^[1-6]$/.test(e.key)) {
       const tabs = ['nl', 'ocr', 'complete', 'shorthand', 'history', 'settings'];
       switchTab(tabs[parseInt(e.key) - 1]);
       return;

@@ -54,7 +54,7 @@ The active UI lives in `tauri-shell/src/` and has no build step.
 - Tabs: NL, OCR, completion, snippets, history, settings.
 - Settings persist UI language, UI zoom, local Ollama host, local model names and cloud model credentials.
 - Formula blocks type into the current system cursor in desktop mode; copy buttons still copy.
-- Header drag calls the Tauri native `start_dragging` command.
+- Header and neutral panel surfaces call the Tauri native `start_dragging` command; form controls, tabs, formula blocks and other interactive targets are excluded so IME composition and clicks remain stable.
 - Browser development falls back to clipboard copy for insert-at-cursor behavior.
 
 ## Desktop Shell

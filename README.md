@@ -155,7 +155,7 @@ The workflow signs and verifies DMGs. Notarization is separate and requires Deve
 | Zoom in | `Command/Ctrl + +` |
 | Zoom out | `Command/Ctrl + -` |
 | Reset zoom | `Command/Ctrl + 0` |
-| Move window | drag the title bar |
+| Move window | drag the header or empty panel space |
 
 ### Hardware And Measurements
 
@@ -343,7 +343,7 @@ workflow 会签名并验证 DMG。Notarization 是单独步骤，需要 Develope
 | 放大 | `Command/Ctrl + +` |
 | 缩小 | `Command/Ctrl + -` |
 | 重置缩放 | `Command/Ctrl + 0` |
-| 移动窗口 | 拖动标题栏 |
+| 移动窗口 | 拖动标题栏或面板空白区域 |
 
 ### 硬件与实测
 
