@@ -16,6 +16,7 @@
   --accent-purple: #bb9af7;
   --radius:        10px;
   --radius-sm:     6px;
+  --ui-zoom:       1;
   --shadow:        0 8px 32px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
   --transition:    .15s ease;
   --font-ui:       -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif;
@@ -55,6 +56,7 @@ body {
   max-height: 100vh;
   display: flex;
   flex-direction: column;
+  zoom: var(--ui-zoom);
 }
 
 /* Header */
@@ -411,7 +413,7 @@ body {
   margin: 12px 14px;
   background: var(--bg-input);
 }
-.drop-zone:hover, .drop-zone.dragover {
+.drop-zone:hover, .drop-zone.drag-over {
   border-color: var(--accent);
   background: rgba(122,162,247,.05);
 }
@@ -651,6 +653,22 @@ body {
   justify-content: flex-end;
   gap: 10px;
   padding-top: 8px;
+}
+
+.zoom-control {
+  width: min(260px, 58%);
+  min-height: 30px;
+  display: grid;
+  grid-template-columns: 30px minmax(78px, 1fr) 30px 30px 44px;
+  align-items: center;
+  gap: 6px;
+}
+.zoom-control input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.zoom-control .setting-value {
+  text-align: right;
 }
 
 /* Completion */

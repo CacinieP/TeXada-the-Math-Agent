@@ -12,11 +12,15 @@
   let isProcessing = false;
   let allShorthands = [];
   let uiLanguage = 'zh';
+  let uiZoom = 1.0;
   let runtimeConfig = {
     maxOcrBytes: null,
     allowedImageTypes: new Set(),
   };
   let requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS;
+  const MIN_UI_ZOOM = 0.8;
+  const MAX_UI_ZOOM = 1.4;
+  const UI_ZOOM_STEP = 0.1;
 
   const I18N = {
     zh: {
@@ -71,6 +75,10 @@
       'history.insertTitle': '点击在光标处键入公式',
       'settings.interface': '界面',
       'settings.language': '语言',
+      'settings.zoom': '界面缩放',
+      'settings.zoomIn': '放大',
+      'settings.zoomOut': '缩小',
+      'settings.zoomReset': '重置缩放',
       'settings.backendTitle': '后端连接',
       'settings.apiAddress': 'API 地址',
       'settings.apiDesc': 'TeXada FastAPI 服务地址',
@@ -154,6 +162,10 @@
       'history.insertTitle': 'Click to type the formula at the cursor',
       'settings.interface': 'Interface',
       'settings.language': 'Language',
+      'settings.zoom': 'Interface zoom',
+      'settings.zoomIn': 'Zoom in',
+      'settings.zoomOut': 'Zoom out',
+      'settings.zoomReset': 'Reset zoom',
       'settings.backendTitle': 'Backend',
       'settings.apiAddress': 'API address',
       'settings.apiDesc': 'TeXada FastAPI service address',
@@ -229,6 +241,11 @@
     openaiKeyInput: document.getElementById('openai-key-input'),
     backendSaveStatus: document.getElementById('backend-save-status'),
     uiLanguageSelect: document.getElementById('ui-language-select'),
+    uiZoomInput: document.getElementById('ui-zoom-input'),
+    uiZoomValue: document.getElementById('ui-zoom-value'),
+    zoomInBtn: document.getElementById('btn-zoom-in'),
+    zoomOutBtn: document.getElementById('btn-zoom-out'),
+    zoomResetBtn: document.getElementById('btn-zoom-reset'),
     uiLanguageStatus: document.getElementById('ui-language-status'),
     apiBaseValue: document.getElementById('api-base-value'),
   };
@@ -243,6 +260,12 @@
 
   function normalizeLanguage(value) {
     return value === 'en' ? 'en' : 'zh';
+  }
+
+  function normalizeZoom(value) {
+    const zoom = Number(value);
+    if (!Number.isFinite(zoom)) return 1.0;
+    return Math.min(MAX_UI_ZOOM, Math.max(MIN_UI_ZOOM, Math.round(zoom * 10) / 10));
   }
 
   function t(key, values = {}) {
@@ -262,6 +285,7 @@
       el.title = t(el.dataset.i18nTitle);
     });
     if (els.uiLanguageSelect) els.uiLanguageSelect.value = uiLanguage;
+    updateZoomControl();
     if (els.apiBaseValue && ['检测中...', 'Detecting...'].includes(els.apiBaseValue.textContent)) {
       els.apiBaseValue.textContent = t('settings.detecting');
     }
@@ -278,6 +302,49 @@
       const value = shortcuts[el.dataset.shortcut];
       if (value) el.textContent = value;
     });
+  }
+
+  function bindWindowDrag() {
+    const header = document.querySelector('.panel-header');
+    if (!header) return;
+    header.addEventListener('pointerdown', e => {
+      if (e.button !== 0 || e.target.closest('button, input, select, textarea, a')) return;
+      if (isTauri) {
+        invoke('start_dragging').catch(() => {});
+      }
+    });
+  }
+
+  function updateAppVisualSize() {
+    const app = document.getElementById('app');
+    if (!app) return;
+    const viewportWidth = window.innerWidth || 560;
+    const viewportHeight = window.innerHeight || 600;
+    app.style.width = `${Math.min(560, viewportWidth) / uiZoom}px`;
+    app.style.height = `${Math.min(600, viewportHeight) / uiZoom}px`;
+  }
+
+  function updateZoomControl() {
+    const percent = Math.round(uiZoom * 100);
+    if (els.uiZoomInput) els.uiZoomInput.value = String(percent);
+    if (els.uiZoomValue) els.uiZoomValue.textContent = `${percent}%`;
+  }
+
+  function applyZoom() {
+    document.documentElement.style.setProperty('--ui-zoom', String(uiZoom));
+    updateZoomControl();
+    updateAppVisualSize();
+    localStorage.setItem('texada-ui-zoom', String(uiZoom));
+  }
+
+  function setZoom(value, persist = false) {
+    uiZoom = normalizeZoom(value);
+    applyZoom();
+    if (persist) persistUiSettings();
+  }
+
+  function adjustZoom(delta) {
+    setZoom(uiZoom + delta, true);
   }
 
   function setIntent(icon, message) {
@@ -461,10 +528,10 @@
     return await apiJson('/api/settings/ui');
   }
 
-  async function apiSaveUiSettings(language) {
+  async function apiSaveUiSettings() {
     return await apiJson('/api/settings/ui', {
       method: 'POST',
-      body: { ui_language: normalizeLanguage(language) },
+      body: { ui_language: uiLanguage, ui_zoom: uiZoom },
     });
   }
 
@@ -658,6 +725,25 @@
       return;
     }
 
+    // Cmd/Ctrl + plus/minus/0 → interface zoom
+    if (e.metaKey || e.ctrlKey) {
+      if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        adjustZoom(UI_ZOOM_STEP);
+        return;
+      }
+      if (e.key === '-') {
+        e.preventDefault();
+        adjustZoom(-UI_ZOOM_STEP);
+        return;
+      }
+      if (e.key === '0') {
+        e.preventDefault();
+        setZoom(1.0, true);
+        return;
+      }
+    }
+
     // Number keys → switch tab
     if (!e.metaKey && !e.ctrlKey && !e.altKey && /^[1-6]$/.test(e.key)) {
       const tabs = ['nl', 'ocr', 'complete', 'shorthand', 'history', 'settings'];
@@ -711,6 +797,7 @@
 
   bindModeOptions();
   bindNlResultButtons();
+  bindWindowDrag();
 
   if ($('#btn-save-backend')) {
     $('#btn-save-backend').addEventListener('click', saveBackendSettings);
@@ -721,33 +808,59 @@
   }
 
   if (els.uiLanguageSelect) {
-    els.uiLanguageSelect.addEventListener('change', saveUiSettings);
+    els.uiLanguageSelect.addEventListener('change', () => saveUiSettings());
+  }
+
+  if (els.uiZoomInput) {
+    els.uiZoomInput.addEventListener('input', e => {
+      setZoom(Number(e.currentTarget.value) / 100, false);
+    });
+    els.uiZoomInput.addEventListener('change', () => persistUiSettings());
+  }
+  if (els.zoomInBtn) {
+    els.zoomInBtn.addEventListener('click', () => adjustZoom(UI_ZOOM_STEP));
+  }
+  if (els.zoomOutBtn) {
+    els.zoomOutBtn.addEventListener('click', () => adjustZoom(-UI_ZOOM_STEP));
+  }
+  if (els.zoomResetBtn) {
+    els.zoomResetBtn.addEventListener('click', () => setZoom(1.0, true));
   }
 
   async function loadUiSettings() {
     try {
       const cfg = await apiGetUiSettings();
       uiLanguage = normalizeLanguage(cfg.ui_language);
+      uiZoom = normalizeZoom(cfg.ui_zoom);
       localStorage.setItem('texada-ui-language', uiLanguage);
+      localStorage.setItem('texada-ui-zoom', String(uiZoom));
     } catch (e) {
       uiLanguage = normalizeLanguage(localStorage.getItem('texada-ui-language') || uiLanguage);
+      uiZoom = normalizeZoom(localStorage.getItem('texada-ui-zoom') || uiZoom);
     }
     if (els.uiLanguageStatus) els.uiLanguageStatus.textContent = '';
+    applyZoom();
     applyLanguage();
     if (lastResult) showResult(lastResult);
   }
 
   async function saveUiSettings() {
-    if (!els.uiLanguageSelect) return;
-    uiLanguage = normalizeLanguage(els.uiLanguageSelect.value);
+    if (els.uiLanguageSelect) uiLanguage = normalizeLanguage(els.uiLanguageSelect.value);
     localStorage.setItem('texada-ui-language', uiLanguage);
     applyLanguage();
     if (lastResult) showResult(lastResult);
+    await persistUiSettings();
+  }
+
+  async function persistUiSettings() {
     if (els.uiLanguageStatus) els.uiLanguageStatus.textContent = t('settings.saving');
     try {
-      const cfg = await apiSaveUiSettings(uiLanguage);
+      const cfg = await apiSaveUiSettings();
       uiLanguage = normalizeLanguage(cfg.ui_language);
+      uiZoom = normalizeZoom(cfg.ui_zoom);
       localStorage.setItem('texada-ui-language', uiLanguage);
+      localStorage.setItem('texada-ui-zoom', String(uiZoom));
+      applyZoom();
       applyLanguage();
       if (lastResult) showResult(lastResult);
       if (els.uiLanguageStatus) els.uiLanguageStatus.textContent = t('settings.languageSaved');
@@ -1069,7 +1182,10 @@
   }
 
   uiLanguage = normalizeLanguage(localStorage.getItem('texada-ui-language') || uiLanguage);
+  uiZoom = normalizeZoom(localStorage.getItem('texada-ui-zoom') || uiZoom);
+  applyZoom();
   applyLanguage();
+  window.addEventListener('resize', updateAppVisualSize);
   await loadRuntimeConfig();
   await loadUiSettings();
 

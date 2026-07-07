@@ -1,100 +1,125 @@
 #!/usr/bin/env bash
-# TeXada — One-shot startup script
+# TeXada — terminal launcher for the API and local web UI.
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
-API_PORT=18732
+eval "$(python3 - <<'PY'
+import json
+import os
+import shlex
+from pathlib import Path
+
+cfg_path = Path.home() / ".texada" / "config.json"
+cfg = {}
+if cfg_path.exists():
+    try:
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        cfg = {}
+
+values = {
+    "TEXADA_CONFIG_BACKEND": cfg.get("backend", "ollama"),
+    "TEXADA_CONFIG_OLLAMA_HOST": cfg.get("ollama_host", "http://localhost:11434"),
+    "TEXADA_CONFIG_API_HOST": cfg.get("api_host", "127.0.0.1"),
+    "TEXADA_CONFIG_API_PORT": str(cfg.get("api_port", 18732)),
+    "TEXADA_CONFIG_WEB_HOST": cfg.get("web_host", "127.0.0.1"),
+    "TEXADA_CONFIG_WEB_PORT": str(cfg.get("web_port", 5173)),
+}
+for key, value in values.items():
+    print(f"{key}={shlex.quote(str(value))}")
+PY
+)"
+
+BACKEND="${TEXADA_BACKEND:-${TEXADA_CONFIG_BACKEND:-ollama}}"
+OLLAMA_HOST="${TEXADA_OLLAMA_HOST:-${TEXADA_CONFIG_OLLAMA_HOST:-http://localhost:11434}}"
+API_HOST="${TEXADA_API_HOST:-${TEXADA_CONFIG_API_HOST:-127.0.0.1}}"
+API_PORT="${TEXADA_API_PORT:-${TEXADA_CONFIG_API_PORT:-18732}}"
+WEB_HOST="${TEXADA_WEB_HOST:-${TEXADA_CONFIG_WEB_HOST:-127.0.0.1}}"
+WEB_PORT="${TEXADA_WEB_PORT:-${TEXADA_CONFIG_WEB_PORT:-5173}}"
+
+export TEXADA_BACKEND="$BACKEND"
+export TEXADA_OLLAMA_HOST="$OLLAMA_HOST"
+export TEXADA_API_HOST="$API_HOST"
+export TEXADA_API_PORT="$API_PORT"
+
 API_PID=""
+WEB_PID=""
 
 cleanup() {
-    echo "
-🧹 Shutting down TeXada..."
-    if [[ -n "$API_PID" ]]; then
-        kill "$API_PID" 2>/dev/null || true
-    fi
+    echo ""
+    echo "Shutting down TeXada..."
+    [ -n "$API_PID" ] && kill "$API_PID" 2>/dev/null || true
+    [ -n "$WEB_PID" ] && kill "$WEB_PID" 2>/dev/null || true
     exit 0
 }
 trap cleanup INT TERM
 
-# ── Check Ollama daemon ──
-echo "🔍 Checking Ollama daemon..."
-
-OLLAMA_OK=false
-if curl -s http://localhost:11434/v1/models >/dev/null 2>&1; then
-    echo "  ✅ Ollama running on :11434 (MiniCPM5-1B + MiniCPM-V 4.6)"
-    OLLAMA_OK=true
-else
-    echo "  ⚠️  Ollama not running on :11434 — attempting 'ollama serve'..."
-    ollama serve >/dev/null 2>&1 &
-    for _ in {1..10}; do
-        sleep 0.5
-        if curl -s http://localhost:11434/v1/models >/dev/null 2>&1; then
-            echo "  ✅ Ollama started"
-            OLLAMA_OK=true
-            break
+if [ "$BACKEND" = "ollama" ]; then
+    OLLAMA_BASE="${OLLAMA_HOST%/}"
+    OLLAMA_BASE="${OLLAMA_BASE%/v1}"
+    OLLAMA_MODELS_URL="$OLLAMA_BASE/v1/models"
+    echo "Checking Ollama at $OLLAMA_BASE ..."
+    if ! curl -sf "$OLLAMA_MODELS_URL" >/dev/null 2>&1; then
+        echo "  Ollama is not responding; trying 'ollama serve'..."
+        if command -v ollama >/dev/null 2>&1; then
+            ollama serve >/dev/null 2>&1 &
+            for _ in $(seq 1 20); do
+                curl -sf "$OLLAMA_MODELS_URL" >/dev/null 2>&1 && break
+                sleep 0.5
+            done
         fi
-    done
+    fi
+    if curl -sf "$OLLAMA_MODELS_URL" >/dev/null 2>&1; then
+        echo "  Ollama ready"
+    else
+        echo "  Ollama is not running at $OLLAMA_BASE"
+        echo "  Set TEXADA_OLLAMA_HOST or ~/.texada/config.json: ollama_host to use another port."
+        exit 1
+    fi
+else
+    echo "Using $BACKEND backend; skipping local Ollama check."
 fi
 
-if [[ "$OLLAMA_OK" != "true" ]]; then
-    echo ""
-    echo "❌ Ollama is required. Please install & start it:"
-    echo "   https://ollama.com  →  ollama serve"
-    echo "   Then pull the MiniCPM models:"
-    echo "   ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M"
-    echo "   ollama pull openbmb/minicpm-v4.6:latest"
-    exit 1
-fi
-
-# ── Check Python env ──
-if [[ -d ".venv" ]]; then
+if [ -d ".venv" ]; then
+    # shellcheck disable=SC1091
     source .venv/bin/activate
 fi
 
-echo "📦 Checking Python dependencies..."
-pip install -q -r requirements.txt 2>/dev/null || true
+if ! python -c "import texada" >/dev/null 2>&1; then
+    echo "Installing TeXada in editable mode..."
+    python -m pip install -q -e .
+fi
 
-# ── Start API server ──
-echo "🚀 Starting FastAPI server on port $API_PORT..."
-python -m texada serve &
+echo "Starting API at http://$API_HOST:$API_PORT ..."
+python -m texada serve --host "$API_HOST" --port "$API_PORT" >/dev/null 2>&1 &
 API_PID=$!
 
-# Wait for API to be ready
-for i in {1..30}; do
-    if curl -s http://127.0.0.1:$API_PORT/api/status >/dev/null 2>&1; then
-        echo "✅ API ready"
+echo "Starting web UI at http://$WEB_HOST:$WEB_PORT/ ..."
+python3 -m http.server "$WEB_PORT" --bind "$WEB_HOST" --directory tauri-shell/src >/dev/null 2>&1 &
+WEB_PID=$!
+
+READY=false
+for _ in $(seq 1 40); do
+    if curl -sf "http://$API_HOST:$API_PORT/api/status" >/dev/null 2>&1; then
+        READY=true
         break
     fi
     sleep 0.5
 done
 
-# ── Start native desktop shell (macOS only) ──
-DESKTOP_APP=""
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    if [[ -d "TeXada Desktop.app" ]]; then
-        DESKTOP_APP="TeXada Desktop.app"
-    elif [[ -d "tauri-shell/TeXadaShell/TeXadaShell.app" ]]; then
-        DESKTOP_APP="tauri-shell/TeXadaShell/TeXadaShell.app"
-    fi
+if [ "$READY" != true ]; then
+    echo "API startup timed out."
+    cleanup
 fi
 
-if [[ -n "$DESKTOP_APP" ]]; then
-    echo "🖥️  Starting native desktop shell..."
-    open "$DESKTOP_APP"
-    echo ""
-    echo "✨ TeXada is running!"
-    echo "   • API:     http://127.0.0.1:$API_PORT"
-    echo "   • Shell:   Click the 𝑇 icon in your menu bar or press ⌥⌘T"
-    echo ""
-    echo "Press Ctrl+C to stop."
-    wait "$API_PID"
-else
-    echo ""
-    echo "✨ API server is running at http://127.0.0.1:$API_PORT"
-    echo "   (Native desktop shell only available on macOS with compiled .app)"
-    echo "   Build it with: ./scripts/build-desktop-app.sh"
-    echo ""
-    echo "Press Ctrl+C to stop."
-    wait "$API_PID"
+if command -v open >/dev/null 2>&1; then
+    open "http://$WEB_HOST:$WEB_PORT/" >/dev/null 2>&1 || true
 fi
+
+echo ""
+echo "TeXada is running."
+echo "  Web UI: http://$WEB_HOST:$WEB_PORT/"
+echo "  API:    http://$API_HOST:$API_PORT/"
+echo "Press Ctrl+C to stop."
+wait "$API_PID"

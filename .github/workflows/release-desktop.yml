@@ -54,9 +54,7 @@ jobs:
         run: npm audit --audit-level=moderate
 
       - name: JavaScript syntax check
-        run: |
-          node --check tauri-shell/src/main.js
-          node --check tauri-shell/TeXadaShell/TeXadaShell/assets/main.js
+        run: node --check tauri-shell/src/main.js
 
   build:
     name: Build ${{ matrix.name }}

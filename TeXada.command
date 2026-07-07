@@ -1,70 +1,106 @@
 #!/usr/bin/env bash
-# TeXada — 双击启动(macOS)
-# 双击此文件即在终端启动 API + 前端，并自动打开浏览器。
-# 前置：已完成 README 的「快速开始」安装（Ollama + 模型 + pip install -e .）。
-set -uo pipefail
+# TeXada — macOS double-click launcher.
+set -euo pipefail
 
 cd "$(dirname "$0")"
 
-API_PORT=18732
-WEB_PORT=5173
+eval "$(python3 - <<'PY'
+import json
+import shlex
+from pathlib import Path
+
+cfg_path = Path.home() / ".texada" / "config.json"
+cfg = {}
+if cfg_path.exists():
+    try:
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        cfg = {}
+
+values = {
+    "TEXADA_CONFIG_BACKEND": cfg.get("backend", "ollama"),
+    "TEXADA_CONFIG_OLLAMA_HOST": cfg.get("ollama_host", "http://localhost:11434"),
+    "TEXADA_CONFIG_API_HOST": cfg.get("api_host", "127.0.0.1"),
+    "TEXADA_CONFIG_API_PORT": str(cfg.get("api_port", 18732)),
+    "TEXADA_CONFIG_WEB_HOST": cfg.get("web_host", "127.0.0.1"),
+    "TEXADA_CONFIG_WEB_PORT": str(cfg.get("web_port", 5173)),
+}
+for key, value in values.items():
+    print(f"{key}={shlex.quote(str(value))}")
+PY
+)"
+
+BACKEND="${TEXADA_BACKEND:-${TEXADA_CONFIG_BACKEND:-ollama}}"
+OLLAMA_HOST="${TEXADA_OLLAMA_HOST:-${TEXADA_CONFIG_OLLAMA_HOST:-http://localhost:11434}}"
+API_HOST="${TEXADA_API_HOST:-${TEXADA_CONFIG_API_HOST:-127.0.0.1}}"
+API_PORT="${TEXADA_API_PORT:-${TEXADA_CONFIG_API_PORT:-18732}}"
+WEB_HOST="${TEXADA_WEB_HOST:-${TEXADA_CONFIG_WEB_HOST:-127.0.0.1}}"
+WEB_PORT="${TEXADA_WEB_PORT:-${TEXADA_CONFIG_WEB_PORT:-5173}}"
+
+export TEXADA_BACKEND="$BACKEND"
+export TEXADA_OLLAMA_HOST="$OLLAMA_HOST"
+export TEXADA_API_HOST="$API_HOST"
+export TEXADA_API_PORT="$API_PORT"
+
 API_PID=""
 WEB_PID=""
 
 cleanup() {
     echo ""
-    echo "🧹 关闭 TeXada..."
+    echo "关闭 TeXada..."
     [ -n "$API_PID" ] && kill "$API_PID" 2>/dev/null || true
     [ -n "$WEB_PID" ] && kill "$WEB_PID" 2>/dev/null || true
     exit 0
 }
 trap cleanup INT TERM
 
-# ── 检查 Ollama ──
-echo "🔍 检查 Ollama..."
-if ! curl -sf http://localhost:11434/v1/models >/dev/null 2>&1; then
-    echo "  ⚠️  Ollama 未运行，尝试启动..."
-    if command -v ollama >/dev/null 2>&1; then
-        ollama serve >/dev/null 2>&1 &
-        for _ in $(seq 1 10); do
-            curl -sf http://localhost:11434/v1/models >/dev/null 2>&1 && break
-            sleep 0.5
-        done
+if [ "$BACKEND" = "ollama" ]; then
+    OLLAMA_BASE="${OLLAMA_HOST%/}"
+    OLLAMA_BASE="${OLLAMA_BASE%/v1}"
+    OLLAMA_MODELS_URL="$OLLAMA_BASE/v1/models"
+    echo "检查 Ollama: $OLLAMA_BASE"
+    if ! curl -sf "$OLLAMA_MODELS_URL" >/dev/null 2>&1; then
+        echo "  Ollama 未响应，尝试启动..."
+        if command -v ollama >/dev/null 2>&1; then
+            ollama serve >/dev/null 2>&1 &
+            for _ in $(seq 1 20); do
+                curl -sf "$OLLAMA_MODELS_URL" >/dev/null 2>&1 && break
+                sleep 0.5
+            done
+        fi
     fi
-fi
-if curl -sf http://localhost:11434/v1/models >/dev/null 2>&1; then
-    echo "  ✅ Ollama 就绪"
+    if curl -sf "$OLLAMA_MODELS_URL" >/dev/null 2>&1; then
+        echo "  Ollama 就绪"
+    else
+        echo "  Ollama 未运行。可设置 TEXADA_OLLAMA_HOST 或 ~/.texada/config.json 的 ollama_host。"
+        read -r -n 1 -s -p "按任意键关闭..."
+        exit 1
+    fi
 else
-    echo "  ❌ Ollama 未运行。请先安装并启动：https://ollama.com"
-    echo "     拉取模型：ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M"
-    echo "               ollama pull openbmb/minicpm-v4.6:latest"
-    read -n 1 -s -r -p "按任意键关闭..."
-    exit 1
+    echo "使用 $BACKEND 后端，跳过本地 Ollama 检查。"
 fi
 
-# ── 检查 Python 环境 ──
-if [ ! -x ".venv/bin/python" ]; then
-    echo "❌ 未找到 .venv/bin/python。请先运行："
-    echo "   python3 -m venv .venv && .venv/bin/pip install -e ."
-    read -n 1 -s -r -p "按任意键关闭..."
-    exit 1
+if [ -d ".venv" ]; then
+    # shellcheck disable=SC1091
+    source .venv/bin/activate
 fi
 
-# ── 启动 API ──
-echo "🚀 启动 API（端口 $API_PORT）..."
-.venv/bin/python -m texada serve >/dev/null 2>&1 &
+if ! python -c "import texada" >/dev/null 2>&1; then
+    echo "安装 TeXada..."
+    python -m pip install -q -e .
+fi
+
+echo "启动 API: http://$API_HOST:$API_PORT"
+python -m texada serve --host "$API_HOST" --port "$API_PORT" >/dev/null 2>&1 &
 API_PID=$!
 
-# ── 启动前端（纯静态）──
-echo "🌐 启动前端（端口 $WEB_PORT）..."
-python3 -m http.server "$WEB_PORT" --bind 127.0.0.1 --directory tauri-shell/src >/dev/null 2>&1 &
+echo "启动前端: http://$WEB_HOST:$WEB_PORT/"
+python3 -m http.server "$WEB_PORT" --bind "$WEB_HOST" --directory tauri-shell/src >/dev/null 2>&1 &
 WEB_PID=$!
 
-# ── 等待 API 就绪 ──
-echo "⏳ 等待 API 就绪..."
 READY=false
 for _ in $(seq 1 40); do
-    if curl -sf "http://127.0.0.1:$API_PORT/api/status" >/dev/null 2>&1; then
+    if curl -sf "http://$API_HOST:$API_PORT/api/status" >/dev/null 2>&1; then
         READY=true
         break
     fi
@@ -72,19 +108,16 @@ for _ in $(seq 1 40); do
 done
 
 if [ "$READY" != true ]; then
-    echo "  ❌ API 启动超时。请检查上方日志。"
+    echo "API 启动超时。"
     cleanup
 fi
-echo "  ✅ API 就绪"
 
-# ── 打开浏览器 ──
-sleep 1
-open "http://127.0.0.1:$WEB_PORT/"
+sleep 0.5
+open "http://$WEB_HOST:$WEB_PORT/" >/dev/null 2>&1 || true
 
 echo ""
-echo "✨ TeXada 已启动！"
-echo "   • 前端：  http://127.0.0.1:$WEB_PORT/"
-echo "   • API：   http://127.0.0.1:$API_PORT/"
-echo "   • 关闭此窗口或按 Ctrl+C 停止所有服务。"
-echo ""
+echo "TeXada 已启动。"
+echo "  前端: http://$WEB_HOST:$WEB_PORT/"
+echo "  API:  http://$API_HOST:$API_PORT/"
+echo "关闭此窗口或按 Ctrl+C 停止。"
 wait "$API_PID"

@@ -6,13 +6,13 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:* http://localhost:* http://[::1]:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
 <title>TeXada</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<link rel="stylesheet" href="style.css?v=0.3.0-20260707-4">
+<link rel="stylesheet" href="style.css?v=0.3.0-20260707-5">
 </head>
 <body>
 <div id="app">
   <!-- Header -->
   <div class="panel-header">
-    <img class="panel-logo" src="app-icon.png?v=0.3.0-20260707-4" alt="TeXada">
+    <img class="panel-logo" src="app-icon.png?v=0.3.0-20260707-5" alt="TeXada">
     <div class="panel-title">TeXada</div>
     <div class="panel-status" id="status-dot">
       <div class="dot offline"></div>
@@ -151,6 +151,16 @@
           <option value="en">English</option>
         </select>
       </div>
+      <div class="setting-row form-row">
+        <label class="setting-label" for="ui-zoom-input" data-i18n="settings.zoom">界面缩放</label>
+        <div class="zoom-control">
+          <button class="action-btn icon-only" id="btn-zoom-out" type="button" title="缩小" data-i18n-title="settings.zoomOut">−</button>
+          <input id="ui-zoom-input" type="range" min="80" max="140" step="10" value="100">
+          <button class="action-btn icon-only" id="btn-zoom-in" type="button" title="放大" data-i18n-title="settings.zoomIn">+</button>
+          <button class="action-btn icon-only" id="btn-zoom-reset" type="button" title="重置缩放" data-i18n-title="settings.zoomReset">0</button>
+          <span class="setting-value" id="ui-zoom-value">100%</span>
+        </div>
+      </div>
       <div class="settings-actions">
         <span class="setting-desc" id="ui-language-status"></span>
       </div>
@@ -225,7 +235,7 @@
   </div>
 </div>
 
-<script src="api-config.js?v=0.3.0-20260707-4"></script>
-<script src="main.js?v=0.3.0-20260707-4"></script>
+<script src="api-config.js?v=0.3.0-20260707-5"></script>
+<script src="main.js?v=0.3.0-20260707-5"></script>
 </body>
 </html>

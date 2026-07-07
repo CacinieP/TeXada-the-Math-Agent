@@ -7,7 +7,7 @@ import html
 class LaTeXHighlighter:
     """Tokenize LaTeX by semantic role, output color-annotated HTML.
 
-    Color mapping (matches ui-mockup.html):
+    Color mapping (matches the current shell CSS):
       structural  → purple (\\frac, \\int, \\sum, \\partial, ...)
       operator    → orange (variables: x, y, f, ...)
       number      → blue (0-9, decimals)

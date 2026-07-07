@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-ollama
-sympy
-opencv-python
-pillow
-pyperclip
-pydantic

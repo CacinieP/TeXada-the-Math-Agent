@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import (
     BaseSettings,
     JsonConfigSettingsSource,
@@ -29,6 +30,7 @@ SAVED_CONFIG_FIELDS = frozenset({
     "default_render_mode",
     "delimiter",
     "ui_language",
+    "ui_zoom",
     "inference_timeout_seconds",
     "api_request_timeout_seconds",
 })
@@ -70,6 +72,7 @@ class TeXadaConfig(BaseSettings):
     katex_enabled: bool = True
     latex_highlight_enabled: bool = True
     ui_language: str = "zh"  # "zh" | "en"
+    ui_zoom: float = 1.0
 
     # ── Server ──
     api_host: str = "127.0.0.1"
@@ -101,6 +104,25 @@ class TeXadaConfig(BaseSettings):
 
     # ── Paths ──
     data_dir: Path = TEXADA_HOME
+
+    @field_validator("ollama_host", "openai_base_url", mode="before")
+    @classmethod
+    def normalize_base_url(cls, value: object) -> str:
+        raw = str(value or "").strip().rstrip("/")
+        if not raw:
+            return ""
+        if "://" not in raw:
+            raw = f"http://{raw}"
+        return raw
+
+    @field_validator("ui_zoom", mode="before")
+    @classmethod
+    def clamp_ui_zoom(cls, value: object) -> float:
+        try:
+            zoom = float(value)
+        except (TypeError, ValueError):
+            return 1.0
+        return min(1.4, max(0.8, zoom))
 
     def ensure_dirs(self) -> None:
         """Create ~/.texada and subdirs if they don't exist."""

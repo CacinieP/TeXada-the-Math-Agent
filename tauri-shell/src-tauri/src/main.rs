@@ -306,6 +306,13 @@ fn show_window(window: tauri::WebviewWindow) {
     let _ = window.set_focus();
 }
 
+#[tauri::command]
+fn start_dragging(window: tauri::WebviewWindow) -> Result<(), String> {
+    window
+        .start_dragging()
+        .map_err(|e| format!("Start dragging failed: {}", e))
+}
+
 fn toggle_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if window.is_visible().unwrap_or(false) {
@@ -475,6 +482,7 @@ fn main() {
             insert_text_at_cursor,
             hide_window,
             show_window,
+            start_dragging,
         ])
         .setup(|app| {
             setup_tray(app)?;

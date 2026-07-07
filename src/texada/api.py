@@ -82,10 +82,12 @@ class BackendSettingsUpdate(BaseModel):
 
 class UiSettingsResponse(BaseModel):
     ui_language: str
+    ui_zoom: float
 
 
 class UiSettingsUpdate(BaseModel):
-    ui_language: str = Field(pattern="^(zh|en)$")
+    ui_language: str | None = Field(default=None, pattern="^(zh|en)$")
+    ui_zoom: float | None = Field(default=None, ge=0.8, le=1.4)
 
 
 class RuntimeConfigResponse(BaseModel):
@@ -195,7 +197,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.get("/api/settings/ui", response_model=UiSettingsResponse)
     async def get_ui_settings():
-        return UiSettingsResponse(ui_language=config.ui_language)
+        return UiSettingsResponse(ui_language=config.ui_language, ui_zoom=config.ui_zoom)
 
     @app.get("/api/runtime", response_model=RuntimeConfigResponse)
     async def get_runtime_config():
@@ -226,8 +228,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     @app.post("/api/settings/ui", response_model=UiSettingsResponse)
     async def update_ui_settings(req: UiSettingsUpdate):
         nonlocal config
-        config = save_config_updates(req.model_dump(), data_dir=config.data_dir)
-        return UiSettingsResponse(ui_language=config.ui_language)
+        updates = req.model_dump(exclude_none=True)
+        if updates:
+            config = save_config_updates(updates, data_dir=config.data_dir)
+        return UiSettingsResponse(ui_language=config.ui_language, ui_zoom=config.ui_zoom)
 
     @app.post("/api/convert", response_model=LaTeXResponse)
     async def convert_text(req: ConvertRequest):

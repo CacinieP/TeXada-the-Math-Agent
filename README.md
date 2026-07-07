@@ -1,179 +1,89 @@
 # TeXada — Math Formula Agent
 
-> 端侧优先的数学公式 Agent：默认通过 **Ollama + MiniCPM** 本地推理，也可切换到任意 OpenAI API 兼容的云侧模型。
+> 中文：端侧优先的数学公式 Agent。默认使用 Ollama + MiniCPM 本地推理，也支持任意 OpenAI API 兼容的云侧模型。
+> English: A local-first math formula agent. It defaults to Ollama + MiniCPM local inference and also supports any OpenAI API-compatible cloud model.
 
-TeXada 把自然语言、LaTeX 片段、手写公式图片统一转换成 LaTeX，并即时渲染（KaTeX / LaTeX 高亮）、校验、自动修复。双模型各司其职：
+![TeXada screenshot](assets/clipboard-screenshot.png)
 
-| 角色 | 模型 | 用途 |
-|------|------|------|
-| 文本推理 | **MiniCPM5-1B** (`hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M`) | 自然语言 → LaTeX、LaTeX 补全 |
-| 本地视觉 OCR | **MiniCPM-V 4.6** (`openbmb/minicpm-v4.6:latest`)；也可配置 MiniCPM5-1B 系兼容视觉模型 | 手写 / 截图公式识别 |
-| 云侧文本 / 视觉 | 所有 OpenAI API 兼容模型 | 设置页填写 endpoint、model、vision model、API key |
+## 功能 / Features
 
-本地模型跑在同一个 **Ollama** daemon 上（Ollama 提供 OpenAI 兼容的 `/v1` 端点，推理层直接复用标准 OpenAI Chat API）。切换到 `OpenAI-compatible` 后不会使用本地 Ollama。
+| 中文 | English |
+|------|---------|
+| 自然语言转 LaTeX | Natural language to LaTeX |
+| LaTeX 片段补全 | LaTeX fragment completion |
+| 图片/截图公式 OCR | Formula OCR from images or screenshots |
+| 快捷公式缩写 | User-editable formula snippets |
+| LaTeX 校验、自动修复、KaTeX 渲染 | LaTeX validation, repair and KaTeX rendering |
+| 点击公式块可在系统光标处键入公式；复制按钮仍只复制 | Click a formula block to type it at the system cursor; copy buttons still only copy |
+| 设置页切换中文/英文和 80%-140% UI 缩放 | Settings switch Chinese/English and 80%-140% UI zoom |
+| Tauri 浮窗支持托盘、全局快捷键、拖动标题栏 | Tauri popup supports tray, global shortcut and draggable title bar |
 
-## 截图
+## 模型 / Models
 
-![TeXada 运行截图](assets/clipboard-screenshot.png)
+| 角色 / Role | 默认模型 / Default model | 用途 / Purpose |
+|-------------|--------------------------|----------------|
+| 本地文本 / Local text | `hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M` | NL->LaTeX and completion |
+| 本地视觉 / Local vision | `openbmb/minicpm-v4.6:latest` | OCR for handwritten or screenshot formulas |
+| 云侧文本/视觉 / Cloud text/vision | Any OpenAI-compatible model | User-configured endpoint, model, vision model and API key |
 
-## 特性
+中文：本地 Ollama 默认地址是 `http://localhost:11434`，但这不是硬编码要求。可以在设置页、`~/.texada/config.json` 或 `TEXADA_OLLAMA_HOST` 改成任意端口/主机。
+English: The local Ollama default is `http://localhost:11434`, but it is not fixed. Change it in Settings, `~/.texada/config.json`, or `TEXADA_OLLAMA_HOST`.
 
-- 🧮 **自然语言 → LaTeX**：「二重积分 f(x,y) 在区域 D 上」→ `\iint_D f(x,y)\,dx\,dy`
-- ✍️ **LaTeX 补全**：`\sum_{i=1}^{` → `\sum_{i=1}^{n} x_i`
-- 📷 **OCR 图片识别**：MiniCPM-V 多模态识别手写 / 截图公式
-- ⚡ **快捷公式**：输入 `euler` → `e^{i\pi}+1=0`（可自定义）
-- ✅ **自动校验 + 修复**：LaTeX 语法检查，错误自动尝试修复
-- 🔒 **默认离线**：本地 Ollama 不产生云端调用；也可显式切换 OpenAI-compatible 云侧模型
+## 快速开始 / Quick Start
 
-## 快速启动（macOS 双击 App）
-
-完成下方「快速开始」的安装后，项目根会生成 **`TeXada.app`**，可以像普通桌面应用一样双击启动：
-
-1. 在 Finder 双击 `TeXada.app`（首次运行可能需 **右键 → 打开** 以绕过 Gatekeeper）。
-2. 通知栏提示启动进度，浏览器自动打开 http://127.0.0.1:5173/。
-3. 服务在后台运行；关闭浏览器不会停止服务，需手动结束 `texada serve` 与 `http.server` 进程。
-
-> 脚本会自动检测并尝试启动 Ollama（若未运行）。
-
-如果更喜欢看到终端日志，也可以使用项目根下的 **`TeXada.command`**：
-
-1. 在 Finder 双击 `TeXada.command`（首次运行可能需 **右键 → 打开**）。
-2. 终端窗口显示启动日志，浏览器自动打开 http://127.0.0.1:5173/。
-3. 关闭终端窗口或按 `Ctrl+C` 即停止全部服务。
-
-## 快速开始
-
-### 1. 安装 Ollama 并拉取 MiniCPM 模型
+### 1. 安装模型 / Install models
 
 ```bash
-# 安装 Ollama: https://ollama.com
-ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M   # 文本
-ollama pull openbmb/minicpm-v4.6:latest             # 视觉 OCR
+ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
+ollama pull openbmb/minicpm-v4.6:latest
 ```
 
-### 2. 安装 TeXada
+### 2. 安装应用 / Install the app
 
 ```bash
-git clone <repo>
+git clone https://github.com/CacinieP/TeXada-the-Math-Agent.git
 cd TeXada-the-Math-Agent
+python3 -m venv .venv
+. .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-### 3. 检查就绪
+### 3. 检查 / Check
 
 ```bash
 texada check
 ```
 
-预期输出：
-
-```
-TeXada v0.3.0 — System Check
-  Ollama host:  http://localhost:11434
-  Backend:      ollama
-  Model:        hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
-  Vision model: openbmb/minicpm-v4.6:latest
-  Ollama:       ✅ running
-  Render mode:  katex
-  Delimiter:    $$
-```
-
-### 4. 启动
+### 4. 启动 / Run
 
 ```bash
-texada serve          # 启动 FastAPI 后端，默认监听 TEXADA_API_HOST/TEXADA_API_PORT
-# 或一键启动（含 macOS Swift 浮窗）：
 ./start.sh
 ```
 
-桌面端启动：
-- 双击 `TeXada.app`：无终端窗口，自动打开浏览器
-- 双击 `TeXada Desktop.app`：原生菜单栏浮窗（需先 `./scripts/build-desktop-app.sh` 构建）
+中文：`start.sh` 会读取 `TEXADA_OLLAMA_HOST`、`TEXADA_API_HOST`、`TEXADA_API_PORT`、`TEXADA_WEB_HOST`、`TEXADA_WEB_PORT` 和 `~/.texada/config.json`。
+English: `start.sh` reads `TEXADA_OLLAMA_HOST`, `TEXADA_API_HOST`, `TEXADA_API_PORT`, `TEXADA_WEB_HOST`, `TEXADA_WEB_PORT`, and `~/.texada/config.json`.
 
-### 后台服务（开机自启）
+macOS 也可双击 `TeXada.command`。
+On macOS, you can also double-click `TeXada.command`.
 
-如果希望 API 和前端在登录后自动后台运行、崩溃后自动重启，可安装 macOS LaunchAgent：
+## 桌面端 / Desktop
 
-```bash
-./scripts/install-service.sh
-```
-
-安装后：
-- 服务会立即启动，并在每次登录时自动启动
-- API: `http://${TEXADA_API_HOST:-127.0.0.1}:${TEXADA_API_PORT:-18732}`
-- Web UI: `http://${TEXADA_WEB_HOST:-127.0.0.1}:${TEXADA_WEB_PORT:-5173}/`
-- 日志：`~/.texada/logs/api-service.log`、`~/.texada/logs/web-service.log`
-
-> ⚠️ **不要把项目克隆到 `~/Desktop`、`~/Documents`、`~/Downloads`**。
-> 这三个是 macOS 的 **TCC 隐私保护位置**，后台 LaunchAgent 默认无权写入其中的文件 —— 服务会因无法写日志而以退出码 78（`EX_CONFIG`）反复崩溃、永远起不来。
-> 推荐克隆到 `~/Projects/`、`~/Code/` 或家目录下任意非保护位置；日志已固定写到 `~/.texada/logs/`（非保护位置），不受项目目录影响。
-
-卸载服务：
-
-```bash
-./scripts/uninstall-service.sh
-```
-
-### 原生桌面浮窗（macOS）
-
-项目内置了一个基于 Swift + WKWebView 的菜单栏浮窗应用 **`TeXada Desktop.app`**：
-
-- 常驻菜单栏，点击 𝑇 图标或使用全局快捷键 **⌥⌘T** 唤出
-- 内置 Web UI，无需打开浏览器
-- 支持拖拽浮窗、读写剪贴板、隐藏/显示窗口
-
-**构建**（需要 Xcode Command Line Tools）：
-
-```bash
-./scripts/build-desktop-app.sh
-```
-
-构建完成后项目根会出现 `TeXada Desktop.app`。
-
-**使用**：
-
-1. 先启动后端（或安装后台服务 `./scripts/install-service.sh`）
-2. 双击 `TeXada Desktop.app`（首次运行需 **右键 → 打开**）
-3. 点击菜单栏 𝑇 图标即可使用
-
-### 原生桌面浮窗（Windows）
-
-Windows 版走 Tauri shell，界面复用 `tauri-shell/src/` 的静态前端，后端地址由运行时配置解析（`TEXADA_API_BASE` 优先，其次是 `TEXADA_API_HOST` / `TEXADA_API_PORT`）。
-
-- 常驻系统托盘，点击托盘图标或使用全局快捷键 **Ctrl+Alt+T** 唤出
-- 支持读写剪贴板、隐藏/显示窗口、文本补全与图片 OCR 桥接
-- 支持云侧 OpenAI-compatible 后端配置，endpoint/model/key 由用户在界面中填写
-
-**构建**（需要 Windows 主机、Rust、Microsoft C++ Build Tools、WebView2 Runtime、tauri-cli）：
+| 平台 / Platform | 构建 / Build |
+|-----------------|--------------|
+| macOS | GitHub Actions builds signed arm64 and Intel `.dmg` packages |
+| Windows | GitHub Actions builds x64 NSIS `.exe`; locally use `scripts/build-windows-app.ps1` |
 
 ```powershell
 cargo install tauri-cli --version "^2" --locked
 .\scripts\build-windows-app.ps1
 ```
 
-构建完成后安装包位于 `tauri-shell\src-tauri\target\release\bundle\nsis\`。macOS 主机不直接产出 Windows 安装包；如需自动化产物，建议在 Windows CI runner 上执行该脚本。
+中文：Tauri 桌面端会从 `TEXADA_API_BASE` 读取完整 API 地址；没有该变量时使用 `TEXADA_API_HOST`/`TEXADA_API_PORT`，默认 `127.0.0.1:18732`。
+English: The Tauri desktop shell reads `TEXADA_API_BASE` first. Without it, it uses `TEXADA_API_HOST`/`TEXADA_API_PORT`, defaulting to `127.0.0.1:18732`.
 
-### GitHub Actions 构建
+## 配置 / Configuration
 
-仓库内置两个 workflow：
-
-- `Audit`：push / PR / 手动触发，运行 Ruff、pytest、pip-audit、npm audit、JS 语法检查，以及 macOS/Windows Tauri `cargo check`
-- `Desktop Release`：推送 `v*` tag 或手动触发；先跑预发布审计，通过后构建 macOS arm64 `.dmg`、macOS Intel `.dmg` 和 Windows x64 NSIS `.exe`，并上传到 draft release 与 workflow artifacts
-
-macOS release 产物要求签名证书，不再产出 ad-hoc 签名包。Actions 需要以下 repository secrets：
-
-| Secret | 说明 |
-|--------|------|
-| `APPLE_CERTIFICATE` | base64 编码的 `.p12` 开发者证书 |
-| `APPLE_CERTIFICATE_PASSWORD` | `.p12` 导出密码 |
-| `APPLE_SIGNING_IDENTITY` | 可选；默认校验 `Yichun Deng` |
-| `APPLE_TEAM_ID` | 可选；后续接入 notarization 时使用 |
-
-导出证书后可用 `base64 -i YichunDeng.p12 | pbcopy` 写入 `APPLE_CERTIFICATE`。macOS job 会验证 `.dmg` 和其中 `.app` 的签名身份包含 `Yichun Deng`。
-
-## 配置
-
-配置从 `~/.texada/config.json` 读取（也可用 `TEXADA_` 前缀环境变量覆盖）：
+配置文件 / Config file:
 
 ```json
 {
@@ -183,67 +93,102 @@ macOS release 产物要求签名证书，不再产出 ad-hoc 签名包。Actions
   "vision_model_name": "openbmb/minicpm-v4.6:latest",
   "api_host": "127.0.0.1",
   "api_port": 18732,
-  "max_tokens": 2048,
-  "default_render_mode": "katex",
-  "ui_language": "zh"
+  "ui_language": "zh",
+  "ui_zoom": 1.0,
+  "max_tokens": 2048
 }
 ```
 
-> `max_tokens` 建议 ≥ 2048 —— MiniCPM5 是推理模型，思维链需要空间。
-
-如果要改用自定义 OpenAI-compatible 云端模型，在设置页选择
-`OpenAI-compatible` 后填写 endpoint、模型名和 API key；也可以直接写入：
+云侧 OpenAI-compatible 示例 / Cloud OpenAI-compatible example:
 
 ```json
 {
   "backend": "openai_compatible",
   "openai_base_url": "https://your-provider.example/v1",
-  "openai_model_name": "your-text-or-vision-model",
-  "openai_vision_model_name": "",
+  "openai_model_name": "your-text-model",
+  "openai_vision_model_name": "your-vision-model",
   "openai_api_key": "your-api-key"
 }
 ```
 
-`openai_vision_model_name` 留空时，OCR 会复用 `openai_model_name`。
+环境变量 / Environment variables:
 
-### 模型配置与硬件建议
+| 变量 / Variable | 说明 / Description |
+|-----------------|--------------------|
+| `TEXADA_OLLAMA_HOST` | Local Ollama base URL, any host/port |
+| `TEXADA_API_HOST`, `TEXADA_API_PORT` | FastAPI bind address |
+| `TEXADA_WEB_HOST`, `TEXADA_WEB_PORT` | Local browser launcher address |
+| `TEXADA_API_BASE` | Explicit desktop shell API base |
+| `TEXADA_API_TIMEOUT_SECS` | Tauri API request timeout |
 
-本地推荐配置：
+## 交互 / Interaction
 
-| 场景 | 推荐硬件 | 说明 |
-|------|----------|------|
-| 文本 NL→LaTeX / 补全 | Apple Silicon / Intel i5+ / Ryzen 5+，8GB RAM | MiniCPM5-1B Q4 可运行，但冷启动较慢 |
-| 文本 + OCR 常用 | Apple Silicon M2/M3 或同级，16GB RAM | MiniCPM-V 4.6 视觉模型建议预留更多内存 |
-| 高频 OCR / 多窗口 | 16GB+ RAM，独立 GPU 或云侧视觉模型 | 可在设置中切换 OpenAI-compatible 视觉模型 |
+| 操作 / Action | 快捷键 / Shortcut |
+|---------------|-------------------|
+| 显示/隐藏浮窗 / Show or hide popup | macOS `Option+Command+T`, Windows `Ctrl+Alt+T` |
+| 切换渲染模式 / Toggle render mode | macOS `Command+K`, Windows `Ctrl+K` |
+| 放大 / Zoom in | `Command/Ctrl + +` |
+| 缩小 / Zoom out | `Command/Ctrl + -` |
+| 重置缩放 / Reset zoom | `Command/Ctrl + 0` |
+| 拖动窗口 / Move window | Drag the title bar |
 
-2026-07-07 实测环境：macOS 26.5.1，arm64，Apple A18 Pro，8GB RAM，Ollama 本地模型。
+## 硬件与实测 / Hardware And Measurements
 
-| 操作 | 模型 | 实测响应 |
-|------|------|----------|
-| NL→LaTeX 冷启动 | MiniCPM5-1B | 179204.3ms |
-| NL→LaTeX warm | MiniCPM5-1B | 29612.2ms |
-| LaTeX 补全 | MiniCPM5-1B / 规则兜底 | 1808.5ms |
-| OCR 样例图 | MiniCPM-V 4.6 | 39419.0ms |
+推荐 / Recommended:
 
-云侧模型的响应时间主要取决于 provider、模型大小和网络；TeXada 对云侧只要求 OpenAI-compatible `/v1/chat/completions` 接口。
+| 场景 / Scenario | 建议 / Recommendation |
+|-----------------|-----------------------|
+| 文本转换和补全 / Text conversion and completion | Apple Silicon, Intel i5/Ryzen 5 or better, 8GB RAM |
+| 常用 OCR / Frequent OCR | Apple Silicon M2/M3 class or better, 16GB RAM |
+| 高频 OCR / Heavy OCR | 16GB+ RAM, discrete GPU or a cloud vision model |
 
-## 架构
+2026-07-07 实测环境：macOS 26.5.1, arm64, Apple A18 Pro, 8GB RAM, Ollama local models.
+Measured on 2026-07-07: macOS 26.5.1, arm64, Apple A18 Pro, 8GB RAM, local Ollama models.
 
+| 操作 / Operation | 模型 / Model | 响应 / Latency |
+|------------------|--------------|----------------|
+| NL->LaTeX cold | MiniCPM5-1B | 179204.3ms |
+| NL->LaTeX warm | MiniCPM5-1B | 29612.2ms |
+| LaTeX completion | MiniCPM5-1B / rules | 1808.5ms |
+| OCR sample | MiniCPM-V 4.6 | 39419.0ms |
+
+## GitHub Actions
+
+| Workflow | 中文 | English |
+|----------|------|---------|
+| `Audit` | Ruff、pytest、pip-audit、npm audit、JS 语法检查、Tauri cargo check | Ruff, pytest, pip-audit, npm audit, JS syntax check and Tauri cargo check |
+| `Desktop Release` | 先预审计，再构建 macOS arm64/Intel DMG 和 Windows x64 NSIS EXE | Runs pre-release audit, then builds macOS arm64/Intel DMG and Windows x64 NSIS EXE |
+
+macOS release secrets:
+
+| Secret | 中文 | English |
+|--------|------|---------|
+| `APPLE_CERTIFICATE` | base64 编码的 `.p12` 证书 | base64-encoded `.p12` certificate |
+| `APPLE_CERTIFICATE_PASSWORD` | `.p12` 导出密码 | `.p12` export password |
+| `APPLE_SIGNING_IDENTITY` | 签名身份，例如 `Yichun Deng` | Signing identity, e.g. `Yichun Deng` |
+| `APPLE_TEAM_ID` | Apple Team ID | Apple Team ID |
+
+中文：当前 workflow 会签名并验证 DMG。Notarization 是单独步骤，需要 Developer ID/notary 凭据。
+English: The current workflow signs and verifies DMGs. Notarization is separate and requires Developer ID/notary credentials.
+
+## 开发 / Development
+
+```bash
+uv run --extra dev ruff check .
+uv run --extra dev pytest
+uvx pip-audit --strict
+npm ci
+npm audit --audit-level=moderate
+node --check tauri-shell/src/main.js
+cd tauri-shell/src-tauri && cargo check
 ```
-用户输入 (NL / LaTeX 片段 / 图片)
-        │
-   InputRouter ── 路由 ──┐
-        │                │
-   NL→LaTeX           OCR 图片
-   MiniCPM5-1B        MiniCPM-V 4.6 (多模态)
-   (Ollama /v1)       (Ollama /v1)
-        │                │
-        └── 校验 + 自动修复 + 渲染 (KaTeX) ──→ 输出
-```
 
-详见 [TECHNICAL_REPORT.md](TECHNICAL_REPORT.md)。
+## 文档 / Docs
+
+- [Architecture](docs/architecture.md)
+- [Source audit](docs/audit.md)
+- [Technical report](TECHNICAL_REPORT.md)
 
 ## License
 
-TeXada-the-Math-Agent 以 GNU General Public License v3.0 or later
-(`GPL-3.0-or-later`) 发布，详见 [LICENSE](LICENSE)。
+TeXada-the-Math-Agent is released under `GPL-3.0-or-later`. See [LICENSE](LICENSE).

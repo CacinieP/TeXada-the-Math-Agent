@@ -1,35 +1,42 @@
 # TeXada Source Audit
 
-> Scope: only `/Users/caciniep/Desktop/TeXada-the-Math-Agent`.
+Scope: `/Users/caciniep/Desktop/TeXada-the-Math-Agent` only.
 
 ## Source Map
 
-| Area | Paths | Notes |
-|------|-------|-------|
-| Python backend | `src/texada/` | FastAPI API, routing, model client, rendering, stores, platform adapters |
-| Static desktop UI | `tauri-shell/src/` | Tauri frontend assets loaded by the cross-platform shell |
-| Tauri shell | `tauri-shell/src-tauri/` | macOS/Windows desktop bridge, tray, shortcuts, bundling config |
-| Legacy Swift shell | `tauri-shell/TeXadaShell/TeXadaShell/` | macOS WKWebView shell kept as source, not the release build path |
-| Build/ops | `scripts/`, `.github/workflows/` | LaunchAgent templates, local build scripts, GitHub Actions |
+| Area | Paths | Status |
+|------|-------|--------|
+| Python backend | `src/texada/` | Current FastAPI API, routing, model client, rendering, stores, platform adapters |
+| Desktop UI | `tauri-shell/src/` | Current static UI used by Tauri and browser development |
+| Tauri shell | `tauri-shell/src-tauri/` | Current macOS/Windows desktop shell, tray, shortcut, signing and bundling config |
+| Build/ops | `scripts/`, `.github/workflows/`, `TeXada.command`, `start.sh` | Current launch, service and CI entrypoints |
 | Tests | `tests/` | Unit/API/E2E coverage |
-| Docs | `README.md`, `docs/` | Architecture and user-facing build instructions |
+| Docs | `README.md`, `TECHNICAL_REPORT.md`, `docs/architecture.md` | Current documentation |
 
-Excluded from source: `node_modules/`, `target/`, generated `.app` bundles, `.dmg`/`.exe` artifacts, and local runtime data under `~/.texada`.
+Excluded from source: `.venv/`, `node_modules/`, `target/`, `.ruff_cache/`, `.pytest_cache/`, generated app bundles, `.dmg`/`.exe` artifacts, runtime logs, and user data under `~/.texada`.
 
 ## Findings
 
-1. Desktop UI, Tauri Rust, and legacy Swift code duplicated a fixed API endpoint.
-2. Frontend OCR upload validation duplicated backend limits.
-3. Python CLI started uvicorn with fixed host/port instead of the shared config.
-4. `MiniCPMModel` used an unreachable placeholder endpoint when OpenAI-compatible settings were incomplete.
-5. LaunchAgent templates bound services to fixed host/port and could drift from runtime config.
-6. Release workflow existed but used moving runner labels for release builds.
+1. The legacy Swift WKWebView shell and its compiled Mach-O binary duplicated the Tauri shell and were not part of the release workflow.
+2. `v1-archive/`, `docs/design.md`, and `docs/ui-mockup.html` described old prototypes instead of the current application.
+3. `requirements.txt` duplicated `pyproject.toml` dependency declarations.
+4. CI still syntax-checked the deleted legacy Swift shell assets.
+5. `package.json` and `package-lock.json` still declared MIT while the repository license is GPL.
+6. `start.sh` and `TeXada.command` assumed Ollama always lived on `localhost:11434`.
+7. The UI persisted language but not zoom, and desktop drag relied only on CSS drag regions.
 
 ## Remediation
 
-1. Added runtime API config via `/api/runtime`.
-2. Centralized desktop API resolution through `TEXADA_API_BASE`, `TEXADA_API_HOST`, and `TEXADA_API_PORT`.
-3. Routed Tauri JSON requests through a native bridge command instead of scattering fetch endpoints.
-4. Made the OpenAI-compatible client lazy and explicit about missing endpoint/key/model.
-5. Templated LaunchAgent host/port and propagated API env vars into the backend process.
-6. Updated GitHub Actions to build macOS `.dmg` and Windows NSIS `.exe` on pinned current runners.
+1. Removed the legacy Swift shell, `v1-archive/`, stale design/mockup docs, and duplicate `requirements.txt`.
+2. Kept the release surface to one desktop implementation: Tauri shell plus static frontend.
+3. Updated GitHub Actions to audit only current frontend sources.
+4. Aligned npm metadata with `GPL-3.0-or-later`.
+5. Made launcher scripts read `TEXADA_OLLAMA_HOST`, `TEXADA_API_*`, `TEXADA_WEB_*`, and `~/.texada/config.json`.
+6. Added persisted UI zoom (`80%` to `140%`) and keyboard zoom shortcuts.
+7. Added a Tauri `start_dragging` command so the header can move the window reliably.
+
+## Remaining Intentional Defaults
+
+- `http://localhost:11434` is only the default Ollama endpoint. Users can change it in Settings, `~/.texada/config.json`, or `TEXADA_OLLAMA_HOST`.
+- `127.0.0.1:18732` and `127.0.0.1:5173` are default local API/web ports, not fixed cloud or model endpoints.
+- macOS release packages are signed with the configured Apple certificate. Notarization is separate and requires Developer ID/notary credentials.

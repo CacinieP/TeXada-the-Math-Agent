@@ -183,3 +183,23 @@ async def test_ui_language_setting_is_persisted(tmp_path):
     assert response.status_code == 200
     assert response.json()["ui_language"] == "en"
     assert client.get("/api/settings/ui").json()["ui_language"] == "en"
+
+
+async def test_ui_zoom_setting_is_persisted(tmp_path):
+    from texada.api import create_app
+
+    app = create_app(TeXadaConfig(data_dir=tmp_path))
+    client = TestClient(app)
+
+    response = client.post("/api/settings/ui", json={"ui_zoom": 1.2})
+
+    assert response.status_code == 200
+    assert response.json()["ui_zoom"] == 1.2
+    assert client.get("/api/settings/ui").json()["ui_zoom"] == 1.2
+
+
+async def test_ollama_host_accepts_custom_port_without_scheme(tmp_path):
+    config = TeXadaConfig(data_dir=tmp_path, ollama_host="localhost:11435")
+
+    assert config.ollama_host == "http://localhost:11435"
+    assert config.active_base_url == "http://localhost:11435/v1"

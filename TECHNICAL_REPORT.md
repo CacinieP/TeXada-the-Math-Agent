@@ -34,8 +34,8 @@ MiniCPM 不支持 Gemma 4 的原生 `tools` schema。替代方案：
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    Frontend Layer                        │
-│  Swift WKWebView (macOS)  /  Tauri (cross-platform)     │
-│  ⌥⌘T 唤醒 → 输入 → 实时渲染 → 一键复制                   │
+│  Tauri desktop shell / browser development UI           │
+│  ⌥⌘T / Ctrl+Alt+T 唤醒 → 渲染 → 复制或光标处键入          │
 └────────────────────────┬────────────────────────────────┘
                          │ HTTP API
 ┌────────────────────────▼────────────────────────────────┐
@@ -65,7 +65,7 @@ MiniCPM 不支持 Gemma 4 的原生 `tools` schema。替代方案：
 │                                                          │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
 │  │ ShorthandStore│  │ HistoryStore │  │ Clipboard    │  │
-│  │ (JSON)       │  │ (SQLite)     │  │ (platform)   │  │
+│  │ (built-in+db) │  │ (SQLite)     │  │ (platform)   │  │
 │  └──────────────┘  └──────────────┘  └──────────────┘  │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -99,12 +99,15 @@ from openai import OpenAI
 
 client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
 response = client.chat.completions.create(
-    model="MiniCPM5-1B",
+    model="hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M",
     messages=[{"role": "system", "content": SYSTEM_PROMPT}, ...],
     temperature=0.1,
-    max_tokens=256,
+    max_tokens=2048,
 )
 ```
+
+`http://localhost:11434` 只是 Ollama 默认地址；实际地址来自设置页、
+`~/.texada/config.json` 的 `ollama_host`，或 `TEXADA_OLLAMA_HOST`。
 
 ### 2.3 确定性优先策略
 
@@ -159,6 +162,12 @@ TeXada 的核心设计原则：**能用确定性代码解决的问题，绝不�
 - **文本推理**：MiniCPM5-1B on Ollama `/v1`，专注 NL→LaTeX / 补全
 - **视觉 OCR**：MiniCPM-V 4.6 on Ollama `/v1`，处理图片输入；也可配置 MiniCPM5-1B 系兼容视觉模型
 - **云侧模型**：任意 OpenAI API 兼容 provider，设置页填写 endpoint / model / vision model / API key
+
+### 4.4 桌面交互
+
+- 顶部标题栏调用 Tauri `start_dragging`，可拖动浮窗位置。
+- 设置页支持 80% 到 140% UI 缩放，快捷键为 `Cmd/Ctrl + +`、`Cmd/Ctrl + -`、`Cmd/Ctrl + 0`。
+- 点击公式块会在系统当前光标处键入公式；复制按钮保持复制语义。
 
 ---
 
