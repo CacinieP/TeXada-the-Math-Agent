@@ -1,8 +1,8 @@
 # TeXada Docs / 文档索引
 
-This directory keeps technical and maintenance documentation. Root-level files such as `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, and `LICENSE` stay at the repository root so GitHub can detect the community profile correctly.
+This directory keeps technical and maintenance documentation. Community health files live under `.github/` so GitHub can detect them without crowding the repository root. `README.md`, `LICENSE`, and `CHANGELOG.md` stay at the root because they are primary project entry points.
 
-本目录保存技术与维护文档。`CONTRIBUTING.md`、`SECURITY.md`、`SUPPORT.md`、`CODE_OF_CONDUCT.md`、`CHANGELOG.md` 和 `LICENSE` 保留在仓库根目录，方便 GitHub 正确识别社区健康信息。
+本目录保存技术与维护文档。社区健康文件放在 `.github/` 下，既方便 GitHub 识别，也避免根目录拥挤。`README.md`、`LICENSE` 和 `CHANGELOG.md` 保留在根目录，因为它们是项目主入口。
 
 ## Technical Docs / 技术文档
 
@@ -18,8 +18,8 @@ This directory keeps technical and maintenance documentation. Root-level files s
 | Document | Purpose |
 |----------|---------|
 | [README](../README.md) | User guide, installation package path, Ollama quick start, cloud mode and hardware notes. |
-| [Contributing](../CONTRIBUTING.md) | Contribution rules, validation checklist, and no hard-coded interface policy. |
-| [Security](../SECURITY.md) | Supported versions and private vulnerability reporting. |
-| [Support](../SUPPORT.md) | Bug-report checklist and model/Ollama troubleshooting entry point. |
-| [Code of Conduct](../CODE_OF_CONDUCT.md) | Community behavior expectations. |
+| [Contributing](../.github/CONTRIBUTING.md) | Contribution rules, validation checklist, and no hard-coded interface policy. |
+| [Security](../.github/SECURITY.md) | Supported versions and private vulnerability reporting. |
+| [Support](../.github/SUPPORT.md) | Bug-report checklist and model/Ollama troubleshooting entry point. |
+| [Code of Conduct](../.github/CODE_OF_CONDUCT.md) | Community behavior expectations. |
 | [Changelog](../CHANGELOG.md) | Release history. |

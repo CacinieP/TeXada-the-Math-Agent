@@ -10,12 +10,12 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 |------|---------|
 | `README.md` | Bilingual user-facing product guide, release-package install path, Ollama quick start, cloud mode, shortcuts, hardware notes, and quality gate. |
 | `LICENSE` | GPL-3.0-or-later license text. |
-| `CODE_OF_CONDUCT.md` | Community conduct expectations and reporting route. |
-| `CONTRIBUTING.md` | Contribution workflow, no hard-coded interfaces, no production mock data, test expectations, and PR rules. |
-| `SECURITY.md` | Supported versions and private vulnerability reporting policy. |
-| `SUPPORT.md` | Support route, Ollama/model checklist, and public issue safety reminders. |
 | `CHANGELOG.md` | Human-readable release history for 0.1.0 and later. |
 | `.github/CODEOWNERS` | Assigns repository ownership and review responsibility to `@CacinieP`. |
+| `.github/CODE_OF_CONDUCT.md` | Community conduct expectations and reporting route. |
+| `.github/CONTRIBUTING.md` | Contribution workflow, no hard-coded interfaces, no production mock data, test expectations, and PR rules. |
+| `.github/SECURITY.md` | Supported versions and private vulnerability reporting policy. |
+| `.github/SUPPORT.md` | Support route, Ollama/model checklist, and public issue safety reminders. |
 | `.github/pull_request_template.md` | Default PR checklist for scope, validation, backend coverage, and secret safety. |
 | `.github/ISSUE_TEMPLATE/bug_report.yml` | Structured bug-report issue form. |
 | `.github/ISSUE_TEMPLATE/feature_request.yml` | Structured feature-request issue form. |
