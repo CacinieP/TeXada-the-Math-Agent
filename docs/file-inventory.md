@@ -38,6 +38,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 
 | File | Purpose |
 |------|---------|
+| `docs/README.md` | Documentation index grouping technical docs and root-level community/release files. |
 | `docs/architecture.md` | High-level architecture, model/backend choices, desktop shell, configuration, and CI overview. |
 | `docs/audit.md` | Source audit scope, stale-code removals, remediation history, and intentional defaults. |
 | `docs/file-inventory.md` | This file-by-file source map. |

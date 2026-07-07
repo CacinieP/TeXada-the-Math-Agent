@@ -195,15 +195,10 @@ cd tauri-shell/src-tauri && cargo check
 
 ### Documentation
 
-- [Architecture](docs/architecture.md)
-- [Source audit](docs/audit.md)
-- [File inventory](docs/file-inventory.md)
-- [Technical report](docs/technical-report.md)
-- [Contributing](CONTRIBUTING.md)
-- [Security](SECURITY.md)
-- [Support](SUPPORT.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
-- [Changelog](CHANGELOG.md)
+| Area | Links |
+|------|-------|
+| Technical docs | [Docs index](docs/README.md), [Architecture](docs/architecture.md), [Technical report](docs/technical-report.md), [Source audit](docs/audit.md), [File inventory](docs/file-inventory.md) |
+| Community | [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), [Support](SUPPORT.md), [Code of Conduct](CODE_OF_CONDUCT.md), [Changelog](CHANGELOG.md) |
 
 ### License
 
@@ -392,15 +387,10 @@ cd tauri-shell/src-tauri && cargo check
 
 ### 文档
 
-- [架构文档](docs/architecture.md)
-- [源码审计](docs/audit.md)
-- [文件清单](docs/file-inventory.md)
-- [技术报告](docs/technical-report.md)
-- [贡献指南](CONTRIBUTING.md)
-- [安全策略](SECURITY.md)
-- [支持说明](SUPPORT.md)
-- [行为准则](CODE_OF_CONDUCT.md)
-- [变更记录](CHANGELOG.md)
+| 类型 | 链接 |
+|------|------|
+| 技术文档 | [文档索引](docs/README.md)、[架构文档](docs/architecture.md)、[技术报告](docs/technical-report.md)、[源码审计](docs/audit.md)、[文件清单](docs/file-inventory.md) |
+| 社区规范 | [贡献指南](CONTRIBUTING.md)、[安全策略](SECURITY.md)、[支持说明](SUPPORT.md)、[行为准则](CODE_OF_CONDUCT.md)、[变更记录](CHANGELOG.md) |
 
 ### 开源协议
 
