@@ -216,7 +216,7 @@ jobs:
 
       - name: Notarize and staple macOS DMG
         if: runner.os == 'macOS'
-        timeout-minutes: 150
+        timeout-minutes: 270
         shell: bash
         env:
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
@@ -268,12 +268,13 @@ jobs:
           submission_id="$(python -c 'import json, sys; print(json.load(open(sys.argv[1]))["id"])' "$submit_json")"
           echo "Submitted DMG for Apple notarization: $submission_id"
 
-          deadline=$((SECONDS + 7200))
+          notary_timeout_minutes=240
+          deadline=$((SECONDS + notary_timeout_minutes * 60))
           status_json="$RUNNER_TEMP/notary-status.json"
           submission_status="In Progress"
           while [ "$submission_status" = "In Progress" ]; do
             if [ "$SECONDS" -ge "$deadline" ]; then
-              echo "::error::Apple notarization did not finish within 120 minutes for submission $submission_id."
+              echo "::error::Apple notarization did not finish within ${notary_timeout_minutes} minutes for submission $submission_id."
               exit 1
             fi
 
