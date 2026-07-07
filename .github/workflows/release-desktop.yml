@@ -169,6 +169,13 @@ jobs:
           set -euo pipefail
           dmg="$(find tauri-shell/src-tauri/target -path '*/bundle/dmg/*.dmg' -print -quit)"
           test -n "$dmg" || { echo "::error::DMG artifact not found."; exit 1; }
+          app="$(find tauri-shell/src-tauri/target -path '*/bundle/macos/*.app' -print -quit)"
+          test -n "$app" || { echo "::error::macOS app bundle not found."; exit 1; }
+
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign -dv --verbose=4 "$app" 2> /tmp/texada-app-codesign.txt
+          grep -F "$EXPECTED_SIGNER" /tmp/texada-app-codesign.txt
+
           codesign --verify --verbose=2 "$dmg"
           codesign -dv --verbose=4 "$dmg" 2> /tmp/texada-dmg-codesign.txt
           grep -F "$EXPECTED_SIGNER" /tmp/texada-dmg-codesign.txt
@@ -216,11 +223,25 @@ jobs:
           PY
           chmod 600 "$key_path"
 
+          submit_json="$RUNNER_TEMP/notary-submit.json"
           xcrun notarytool submit "$dmg" \
             --key "$key_path" \
             --key-id "$APPLE_NOTARY_KEY_ID" \
             --issuer "$APPLE_NOTARY_ISSUER_ID" \
-            --wait
+            --wait \
+            --output-format json | tee "$submit_json"
+
+          submission_id="$(python -c 'import json, sys; print(json.load(open(sys.argv[1]))["id"])' "$submit_json")"
+          submission_status="$(python -c 'import json, sys; print(json.load(open(sys.argv[1]))["status"])' "$submit_json")"
+          if [ "$submission_status" != "Accepted" ]; then
+            xcrun notarytool log "$submission_id" \
+              --key "$key_path" \
+              --key-id "$APPLE_NOTARY_KEY_ID" \
+              --issuer "$APPLE_NOTARY_ISSUER_ID" || true
+            echo "::error::Apple notarization status is $submission_status."
+            exit 1
+          fi
+
           xcrun stapler staple "$dmg"
           xcrun stapler validate "$dmg"
           spctl -a -t open --context context:primary-signature -v "$dmg"

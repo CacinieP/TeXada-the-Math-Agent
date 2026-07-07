@@ -55,6 +55,14 @@ def make_executable(path: Path) -> None:
     path.chmod(current | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
+def codesign_macos_item(path: Path, identity: str) -> None:
+    cmd = ["codesign", "--force", "--options", "runtime", "--sign", identity]
+    if identity != "-":
+        cmd.append("--timestamp")
+    cmd.append(str(path))
+    subprocess.run(cmd, cwd=ROOT, check=True)
+
+
 def codesign_macos_tree(path: Path) -> None:
     if sys.platform != "darwin":
         return
@@ -71,17 +79,9 @@ def codesign_macos_tree(path: Path) -> None:
             or any(part.endswith(".framework") for part in candidate.parts)
         ):
             continue
-        subprocess.run(
-            ["codesign", "--force", "--sign", identity, str(candidate)],
-            cwd=ROOT,
-            check=True,
-        )
+        codesign_macos_item(candidate, identity)
     for framework in frameworks:
-        subprocess.run(
-            ["codesign", "--force", "--sign", identity, str(framework)],
-            cwd=ROOT,
-            check=True,
-        )
+        codesign_macos_item(framework, identity)
 
 
 def build_stub(target: str) -> Path:
