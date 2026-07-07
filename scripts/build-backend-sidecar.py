@@ -115,6 +115,7 @@ def build_pyinstaller(target: str) -> Path:
     cmd = [
         "uv",
         "run",
+        "--managed-python",
         "--extra",
         "dev",
         "pyinstaller",
