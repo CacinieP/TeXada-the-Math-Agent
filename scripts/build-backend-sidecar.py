@@ -170,6 +170,11 @@ def build_pyinstaller(target: str) -> Path:
         if not built.exists():
             raise FileNotFoundError(f"PyInstaller did not create {built}")
         shutil.move(str(built), output)
+        RESOURCE_BACKEND_DIR.mkdir(parents=True, exist_ok=True)
+        (RESOURCE_BACKEND_DIR / ".keep").write_text(
+            "generated empty backend resource directory\n",
+            encoding="utf-8",
+        )
     make_executable(output)
     return output
 
