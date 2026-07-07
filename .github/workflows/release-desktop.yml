@@ -216,6 +216,7 @@ jobs:
 
       - name: Notarize and staple macOS DMG
         if: runner.os == 'macOS'
+        timeout-minutes: 150
         shell: bash
         env:
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
@@ -241,16 +242,56 @@ jobs:
           PY
           chmod 600 "$key_path"
 
+          run_notarytool_json() {
+            local output_path="$1"
+            shift
+            local attempt
+            local delay=20
+            for attempt in 1 2 3 4 5; do
+              if xcrun notarytool "$@" --output-format json > "$output_path" 2> "$output_path.stderr"; then
+                return 0
+              fi
+              echo "::warning::notarytool $1 failed on attempt $attempt."
+              sed 's/^/notarytool: /' "$output_path.stderr" || true
+              sleep "$delay"
+              delay=$((delay * 2))
+            done
+            return 1
+          }
+
           submit_json="$RUNNER_TEMP/notary-submit.json"
-          xcrun notarytool submit "$dmg" \
+          run_notarytool_json "$submit_json" submit "$dmg" \
             --key "$key_path" \
             --key-id "$APPLE_NOTARY_KEY_ID" \
-            --issuer "$APPLE_NOTARY_ISSUER_ID" \
-            --wait \
-            --output-format json | tee "$submit_json"
+            --issuer "$APPLE_NOTARY_ISSUER_ID"
 
           submission_id="$(python -c 'import json, sys; print(json.load(open(sys.argv[1]))["id"])' "$submit_json")"
-          submission_status="$(python -c 'import json, sys; print(json.load(open(sys.argv[1]))["status"])' "$submit_json")"
+          echo "Submitted DMG for Apple notarization: $submission_id"
+
+          deadline=$((SECONDS + 7200))
+          status_json="$RUNNER_TEMP/notary-status.json"
+          submission_status="In Progress"
+          while [ "$submission_status" = "In Progress" ]; do
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::Apple notarization did not finish within 120 minutes for submission $submission_id."
+              exit 1
+            fi
+
+            if run_notarytool_json "$status_json" info "$submission_id" \
+              --key "$key_path" \
+              --key-id "$APPLE_NOTARY_KEY_ID" \
+              --issuer "$APPLE_NOTARY_ISSUER_ID"; then
+              submission_status="$(python -c 'import json, sys; print(json.load(open(sys.argv[1]))["status"])' "$status_json")"
+              echo "Apple notarization status for $submission_id: $submission_status"
+            else
+              echo "::warning::Could not query notarization status for $submission_id; retrying after a short delay."
+            fi
+
+            if [ "$submission_status" = "In Progress" ]; then
+              sleep 60
+            fi
+          done
+
           if [ "$submission_status" != "Accepted" ]; then
             xcrun notarytool log "$submission_id" \
               --key "$key_path" \
@@ -260,7 +301,17 @@ jobs:
             exit 1
           fi
 
-          xcrun stapler staple "$dmg"
+          for staple_attempt in 1 2 3; do
+            if xcrun stapler staple "$dmg"; then
+              break
+            fi
+            if [ "$staple_attempt" -eq 3 ]; then
+              echo "::error::Failed to staple notarization ticket after $staple_attempt attempts."
+              exit 1
+            fi
+            echo "::warning::Stapling failed on attempt $staple_attempt; retrying."
+            sleep $((staple_attempt * 30))
+          done
           xcrun stapler validate "$dmg"
           spctl -a -t open --context context:primary-signature -v "$dmg"
 
