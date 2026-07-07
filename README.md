@@ -44,11 +44,38 @@ Version `0.1.0` is released from the `main` branch.
 
 | Platform | Package |
 |----------|---------|
-| macOS Apple Silicon | `TeXada-0.1.0-darwin-aarch64-dmg.dmg` |
-| macOS Intel | `TeXada-0.1.0-darwin-x64-dmg.dmg` |
-| Windows x64 | `TeXada-0.1.0-windows-x64-nsis-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.1.0_aarch64.dmg` |
+| macOS Intel | `TeXada_0.1.0_x64.dmg` |
+| Windows x64 | `TeXada_0.1.0_x64-setup.exe` |
 
 Release page: [github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
+
+### From A Fresh Machine To First Formula
+
+TeXada release packages are built for end users. You do not need Python, Node.js, Rust, a source checkout, or a separate FastAPI server.
+
+1. Download the package for your machine from the release page.
+   - Apple Silicon Macs use the `aarch64.dmg`.
+   - Intel Macs use the `x64.dmg`.
+   - Windows PCs use the `x64-setup.exe`.
+
+2. Install and open TeXada.
+   - macOS: open the DMG and drag TeXada into Applications.
+   - Windows: run the setup EXE and start TeXada from the Start menu.
+
+3. Pick one model path:
+   - Local path: install Ollama and pull the default text model. Pull the vision model too if you want OCR.
+   - Cloud path: skip Ollama, open Settings, choose `OpenAI-compatible`, enter the provider base URL, text model, vision model and API key, then save.
+
+4. Generate the first formula.
+   - Open the `NL` tab.
+   - Type `integral of x squared from 0 to 1`.
+   - Press `Enter` to run the conversion.
+   - Use the copy button, or place the cursor in another app and click the formula block to type it there.
+
+5. Try OCR after the vision model is ready.
+   - Paste or drop a screenshot into the OCR tab.
+   - If the title bar says `Text ready · OCR missing`, text conversion still works; pull or configure the vision model before OCR.
 
 ### Quick Start With Ollama
 
@@ -56,7 +83,7 @@ Release page: [github.com/CacinieP/TeXada-the-Math-Agent/releases](https://githu
    - macOS: use the official download app.
    - Windows: use the official Windows installer, then launch Ollama once from the Start menu.
 
-2. Pull the default local models:
+2. Pull the default local models. The text model is required for local text conversion; the vision model is required only for local OCR:
 
 ```bash
 ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
@@ -193,7 +220,7 @@ GitHub Actions builds release installers manually from `main` and automatically 
 | Workflow | Checks |
 |----------|--------|
 | `Audit` | Ruff, pytest, pip-audit, npm audit, JS syntax check, Tauri cargo check on macOS and Windows |
-| `Desktop Release` | Pre-release audit, PyInstaller FastAPI sidecar, macOS arm64/Intel DMG, Windows x64 NSIS installer |
+| `Desktop Release` | Pre-release audit, PyInstaller FastAPI sidecar, macOS arm64/Intel DMG, Windows x64 NSIS installer, official release publishing |
 
 ### Shortcuts
 
@@ -272,11 +299,38 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 
 | 平台 | 安装包 |
 |------|--------|
-| macOS Apple Silicon | `TeXada-0.1.0-darwin-aarch64-dmg.dmg` |
-| macOS Intel | `TeXada-0.1.0-darwin-x64-dmg.dmg` |
-| Windows x64 | `TeXada-0.1.0-windows-x64-nsis-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.1.0_aarch64.dmg` |
+| macOS Intel | `TeXada_0.1.0_x64.dmg` |
+| Windows x64 | `TeXada_0.1.0_x64-setup.exe` |
 
 Release 页面：[github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
+
+### 从裸机到第一次使用
+
+TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Node.js、Rust，也不需要拉源码或手动启动 FastAPI 服务。
+
+1. 从 Release 页面下载适合自己机器的安装包。
+   - Apple Silicon Mac 选择 `aarch64.dmg`。
+   - Intel Mac 选择 `x64.dmg`。
+   - Windows 电脑选择 `x64-setup.exe`。
+
+2. 安装并打开 TeXada。
+   - macOS：打开 DMG，把 TeXada 拖到 Applications。
+   - Windows：运行安装器，然后从开始菜单启动 TeXada。
+
+3. 选择一种模型路线。
+   - 本地路线：安装 Ollama，并拉取默认文本模型；如果要用 OCR，再拉取视觉模型。
+   - 云侧路线：可以跳过 Ollama；进入设置页，选择 `OpenAI-compatible`，填写 provider base URL、文本模型、视觉模型和 API key，然后保存。
+
+4. 生成第一个公式。
+   - 打开 `NL` 页签。
+   - 输入 `0 到 1 上 x 平方的积分`。
+   - 按 `Enter` 执行转换。
+   - 可以点击复制按钮，也可以先把光标放到其他应用里，再点击公式块把公式键入到光标处。
+
+5. 视觉模型准备好后再试 OCR。
+   - 在 OCR 页签粘贴或拖入公式截图。
+   - 如果标题栏显示 `文本可用 · OCR 缺模型`，文本转换仍可用；OCR 需要先拉取或配置视觉模型。
 
 ### Ollama 快速启动
 
@@ -284,7 +338,7 @@ Release 页面：[github.com/CacinieP/TeXada-the-Math-Agent/releases](https://gi
    - macOS：使用官方下载版应用。
    - Windows：使用官方 Windows 安装器，安装后先从开始菜单启动一次 Ollama。
 
-2. 拉取默认本地模型：
+2. 拉取默认本地模型。文本模型用于本地文本转换；视觉模型只在本地 OCR 时必需：
 
 ```bash
 ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
@@ -421,7 +475,7 @@ GitHub Actions 可以手动从 `main` 构建安装包，也会在版本 tag 上�
 | Workflow | 检查内容 |
 |----------|----------|
 | `Audit` | Ruff、pytest、pip-audit、npm audit、JS 语法检查、macOS/Windows Tauri cargo check |
-| `Desktop Release` | 预发布审计、PyInstaller FastAPI sidecar、macOS arm64/Intel DMG、Windows x64 NSIS 安装器 |
+| `Desktop Release` | 预发布审计、PyInstaller FastAPI sidecar、macOS arm64/Intel DMG、Windows x64 NSIS 安装器、正式 release 发布 |
 
 ### 快捷键
 
