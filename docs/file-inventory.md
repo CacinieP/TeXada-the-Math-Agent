@@ -52,6 +52,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `src/texada/__main__.py` | Typer CLI for serving the API, one-shot conversion, and readiness checks. |
 | `src/texada/api.py` | FastAPI app factory, CORS/origin guard, conversion/OCR/completion/history/settings/runtime endpoints. |
 | `src/texada/config.py` | Pydantic settings from environment and `~/.texada/config.json`, including Ollama/cloud/UI persistence. |
+| `src/texada/sidecar.py` | FastAPI entry point packaged into the desktop installer as the bundled backend sidecar. |
 | `src/texada/types.py` | Shared enums and dataclasses for routing, rendering, validation, conversion, history, and legacy compatibility. |
 | `src/texada/core/__init__.py` | Core package marker. |
 | `src/texada/core/backend.py` | Ollama/OpenAI-compatible readiness checks, model presence detection, custom port handling, and status payloads. |
@@ -82,8 +83,8 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `tauri-shell/src-tauri/Cargo.toml` | Rust/Tauri package metadata and dependencies for desktop shell features. |
 | `tauri-shell/src-tauri/Cargo.lock` | Locked Rust dependency snapshot for reproducible Tauri builds. |
 | `tauri-shell/src-tauri/build.rs` | Tauri build-script entrypoint. |
-| `tauri-shell/src-tauri/src/main.rs` | Native desktop shell: API proxy, clipboard, paste insertion, tray, global shortcut, window show/hide, and drag command. |
-| `tauri-shell/src-tauri/tauri.conf.json` | Tauri app identity, window settings, permissions, CSP, bundle targets, icons, and macOS signing placeholder. |
+| `tauri-shell/src-tauri/src/main.rs` | Native desktop shell: bundled backend sidecar startup, API proxy, clipboard, paste insertion, tray, global shortcut, window show/hide, and drag command. |
+| `tauri-shell/src-tauri/tauri.conf.json` | Tauri app identity, window settings, permissions, CSP, bundle targets, backend external binary, icons, and macOS signing placeholder. |
 | `tauri-shell/src-tauri/icons/32x32.png` | Tauri PNG icon for small app surfaces. |
 | `tauri-shell/src-tauri/icons/128x128.png` | Tauri PNG icon for standard app surfaces. |
 | `tauri-shell/src-tauri/icons/128x128@2x.png` | Tauri high-DPI PNG icon. |
@@ -101,10 +102,11 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 
 | File | Purpose |
 |------|---------|
+| `scripts/build-backend-sidecar.py` | Builds the real PyInstaller FastAPI sidecar for installers or a generated stub for Tauri `cargo check`. |
 | `scripts/build-windows-app.ps1` | Windows helper for local Tauri NSIS installer builds. |
 | `scripts/generate-app-icons.py` | Generates source PNG, Tauri PNGs, macOS ICNS, and Windows ICO icons. |
-| `.github/workflows/audit.yml` | CI audit workflow for Python, npm, JS syntax, and cross-platform Tauri `cargo check`. |
-| `.github/workflows/release-desktop.yml` | Draft release workflow for audited macOS DMG and Windows NSIS installer builds. |
+| `.github/workflows/audit.yml` | CI audit workflow for Python, npm, JS syntax, generated sidecar stubs, and cross-platform Tauri `cargo check`. |
+| `.github/workflows/release-desktop.yml` | Draft release workflow for audited macOS DMG and Windows NSIS installer builds with bundled FastAPI sidecars. |
 
 ## Tests / 测试
 

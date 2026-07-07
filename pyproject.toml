@@ -22,10 +22,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "ruff>=0.5"]
+dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "ruff>=0.5", "pyinstaller>=6.0"]
 
 [project.scripts]
 texada = "texada.__main__:app"
+texada-backend = "texada.sidecar:main"
 
 [build-system]
 requires = ["hatchling"]

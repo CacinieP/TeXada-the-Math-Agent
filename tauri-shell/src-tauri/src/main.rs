@@ -2,16 +2,22 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::env;
+use std::net::IpAddr;
 use std::process::Command;
+use std::sync::Mutex;
 use std::time::Duration;
 
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder},
-    Manager,
+    Manager, RunEvent,
 };
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::ShortcutState;
+use tauri_plugin_shell::{
+    process::{CommandChild, CommandEvent},
+    ShellExt,
+};
 
 #[cfg(target_os = "macos")]
 const SHORTCUT: &str = "Option+Command+T";
@@ -19,6 +25,11 @@ const SHORTCUT: &str = "Option+Command+T";
 const SHORTCUT: &str = "Ctrl+Alt+T";
 
 const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 120;
+const BACKEND_STARTUP_PROBE_MS: u64 = 900;
+const BUNDLED_BACKEND_NAME: &str = "texada-backend";
+
+#[derive(Default)]
+struct BackendSidecarState(Mutex<Option<CommandChild>>);
 
 fn normalize_api_base(value: String) -> String {
     value.trim().trim_end_matches('/').to_string()
@@ -66,6 +77,68 @@ fn http_client() -> Result<reqwest::Client, String> {
         .timeout(request_timeout())
         .build()
         .map_err(|e| format!("HTTP client setup failed: {}", e))
+}
+
+fn startup_probe_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .timeout(Duration::from_millis(BACKEND_STARTUP_PROBE_MS))
+        .build()
+        .map_err(|e| format!("HTTP client setup failed: {}", e))
+}
+
+fn env_flag_enabled(name: &str) -> bool {
+    env::var(name)
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn is_local_api_host(host: &str) -> bool {
+    if host.eq_ignore_ascii_case("localhost") {
+        return true;
+    }
+    host.parse::<IpAddr>()
+        .map(|addr| addr.is_loopback() || addr.is_unspecified())
+        .unwrap_or(false)
+}
+
+fn explicit_api_base_is_remote() -> bool {
+    let Ok(value) = env::var("TEXADA_API_BASE") else {
+        return false;
+    };
+    let normalized = normalize_api_base(value);
+    if normalized.is_empty() {
+        return false;
+    }
+    let Ok(url) = reqwest::Url::parse(&normalized) else {
+        return true;
+    };
+    url.host_str()
+        .map(|host| !is_local_api_host(host))
+        .unwrap_or(true)
+}
+
+fn should_start_bundled_backend() -> bool {
+    !env_flag_enabled("TEXADA_DISABLE_BUNDLED_BACKEND") && !explicit_api_base_is_remote()
+}
+
+async fn api_runtime_reachable() -> bool {
+    let Ok(client) = startup_probe_client() else {
+        return false;
+    };
+    let Ok(url) = api_url("/api/runtime") else {
+        return false;
+    };
+    client
+        .get(url)
+        .send()
+        .await
+        .map(|response| response.status().is_success())
+        .unwrap_or(false)
 }
 
 fn http_error(status: reqwest::StatusCode, body: &str) -> String {
@@ -313,6 +386,77 @@ fn start_dragging(window: tauri::WebviewWindow) -> Result<(), String> {
         .map_err(|e| format!("Start dragging failed: {}", e))
 }
 
+fn start_bundled_backend(app: &tauri::AppHandle) {
+    if !should_start_bundled_backend() {
+        return;
+    }
+
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if api_runtime_reachable().await {
+            return;
+        }
+
+        let command = match handle.shell().sidecar(BUNDLED_BACKEND_NAME) {
+            Ok(command) => command,
+            Err(e) => {
+                eprintln!("Bundled backend is unavailable: {}", e);
+                return;
+            }
+        };
+
+        let (mut rx, child) = match command.spawn() {
+            Ok(spawned) => spawned,
+            Err(e) => {
+                eprintln!("Failed to start bundled backend: {}", e);
+                return;
+            }
+        };
+
+        let pid = child.pid();
+        {
+            let state = handle.state::<BackendSidecarState>();
+            let mut slot = state.0.lock().unwrap();
+            *slot = Some(child);
+        }
+        eprintln!("Started bundled TeXada backend sidecar pid={}", pid);
+
+        tauri::async_runtime::spawn(async move {
+            while let Some(event) = rx.recv().await {
+                match event {
+                    CommandEvent::Stderr(bytes) => {
+                        if let Ok(text) = String::from_utf8(bytes) {
+                            let trimmed = text.trim();
+                            if !trimmed.is_empty() {
+                                eprintln!("texada-backend: {}", trimmed);
+                            }
+                        }
+                    }
+                    CommandEvent::Error(error) => {
+                        eprintln!("texada-backend error: {}", error);
+                    }
+                    CommandEvent::Terminated(payload) => {
+                        eprintln!("texada-backend exited: {:?}", payload);
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        });
+    });
+}
+
+fn stop_bundled_backend(app: &tauri::AppHandle) {
+    let state = app.state::<BackendSidecarState>();
+    let child = {
+        let mut slot = state.0.lock().unwrap();
+        slot.take()
+    };
+    if let Some(child) = child {
+        let _ = child.kill();
+    }
+}
+
 fn toggle_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if window.is_visible().unwrap_or(false) {
@@ -466,10 +610,11 @@ fn setup_shortcut(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>
 }
 
 fn main() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_os::init())
+        .manage(BackendSidecarState::default())
         .invoke_handler(tauri::generate_handler![
             get_api_base,
             api_json,
@@ -487,6 +632,7 @@ fn main() {
         .setup(|app| {
             setup_tray(app)?;
             setup_shortcut(app)?;
+            start_bundled_backend(app.handle());
 
             // Hide dock icon on macOS for popup-style app
             #[cfg(target_os = "macos")]
@@ -496,6 +642,12 @@ fn main() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if let RunEvent::Exit = event {
+            stop_bundled_backend(app_handle);
+        }
+    });
 }

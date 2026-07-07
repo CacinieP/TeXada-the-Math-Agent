@@ -17,6 +17,8 @@ logs/
 node_modules/
 tauri-shell/src-tauri/target/
 tauri-shell/src-tauri/gen/
+tauri-shell/src-tauri/binaries/
+tauri-shell/src-tauri/resources/texada-backend/
 
 # Generated macOS app bundles (use build scripts to regenerate)
 *.app

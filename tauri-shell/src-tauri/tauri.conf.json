@@ -60,6 +60,12 @@
     "publisher": "CacinieP",
     "homepage": "https://github.com/CacinieP/TeXada-the-Math-Agent",
     "licenseFile": "../../LICENSE",
+    "externalBin": [
+      "binaries/texada-backend"
+    ],
+    "resources": [
+      "resources/texada-backend"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

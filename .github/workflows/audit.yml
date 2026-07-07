@@ -72,6 +72,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
@@ -79,6 +84,9 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: tauri-shell/src-tauri -> target
+
+      - name: Prepare backend sidecar stub
+        run: python scripts/build-backend-sidecar.py --mode stub
 
       - name: Cargo check
         working-directory: tauri-shell/src-tauri

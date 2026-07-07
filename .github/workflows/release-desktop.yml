@@ -82,6 +82,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: python -m pip install --upgrade uv
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -108,6 +116,31 @@ jobs:
           test -n "$APPLE_CERTIFICATE_PASSWORD" || { echo "::error::Missing APPLE_CERTIFICATE_PASSWORD secret."; exit 1; }
           test -n "$APPLE_SIGNING_IDENTITY" || { echo "::error::Missing APPLE_SIGNING_IDENTITY secret."; exit 1; }
 
+      - name: Import macOS signing certificate for sidecar
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          cert_path="$RUNNER_TEMP/texada-signing.p12"
+          keychain_path="$RUNNER_TEMP/texada-signing.keychain-db"
+          CERT_PATH="$cert_path" python -c 'import base64, os; from pathlib import Path; Path(os.environ["CERT_PATH"]).write_bytes(base64.b64decode(os.environ["APPLE_CERTIFICATE"]))'
+          security create-keychain -p "$APPLE_CERTIFICATE_PASSWORD" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$APPLE_CERTIFICATE_PASSWORD" "$keychain_path"
+          security import "$cert_path" -k "$keychain_path" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$APPLE_CERTIFICATE_PASSWORD" "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+          security find-identity -v -p codesigning "$keychain_path" | grep -F "$APPLE_SIGNING_IDENTITY"
+
+      - name: Build bundled FastAPI backend sidecar
+        env:
+          PYINSTALLER_CODESIGN_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: python scripts/build-backend-sidecar.py --mode pyinstaller --target ${{ matrix.rust-targets }}
+
       - name: Build desktop bundle
         uses: tauri-apps/tauri-action@v1
         env:
@@ -129,12 +162,14 @@ jobs:
             - Local-first math formula agent powered by MiniCPM and Ollama.
             - Supports natural language to LaTeX, formula OCR, completion, snippets, history and desktop insertion.
             - Supports OpenAI API-compatible cloud text and vision models.
+            - Includes and auto-starts the TeXada FastAPI backend; Ollama or cloud model runtime remains configurable.
             - Includes macOS DMGs and Windows x64 NSIS installer.
 
             中文：
             - 端侧优先的数学公式 Agent，默认使用 MiniCPM 和 Ollama。
             - 支持自然语言转 LaTeX、公式 OCR、补全、缩写、历史记录和桌面光标处键入。
             - 支持 OpenAI API 兼容的云侧文本和视觉模型。
+            - 安装包内置并自动启动 TeXada FastAPI 后端；Ollama 或云侧模型运行时仍可配置。
             - 提供 macOS DMG 和 Windows x64 NSIS 安装包。
 
             Author: CacinieP

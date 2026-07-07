@@ -8,7 +8,7 @@ Scope: `/Users/caciniep/Desktop/TeXada-the-Math-Agent` only.
 |------|-------|--------|
 | Python backend | `src/texada/` | Current FastAPI API, routing, model client, rendering and stores |
 | Desktop UI | `tauri-shell/src/` | Current static UI used by Tauri and browser development |
-| Tauri shell | `tauri-shell/src-tauri/` | Current macOS/Windows desktop shell, tray, shortcut, signing and bundling config |
+| Tauri shell | `tauri-shell/src-tauri/` | Current macOS/Windows desktop shell, tray, shortcut, backend sidecar startup, signing and bundling config |
 | Build/ops | `scripts/`, `.github/workflows/` | Current icon generation, Windows helper and CI/release entrypoints |
 | Tests | `tests/` | Unit/API/E2E coverage |
 | Docs | `README.md`, root community files, `CHANGELOG.md`, `docs/` | Current user, community and technical documentation |
@@ -38,9 +38,11 @@ Excluded from source: `.venv/`, `node_modules/`, `target/`, `.ruff_cache/`, `.py
 7. Added a Tauri `start_dragging` command so the header can move the window reliably.
 8. Removed unused Python platform/output clipboard adapters and their stale dependencies.
 9. Removed the duplicate root `.icns` artifact; `scripts/generate-app-icons.py` now writes only the Tauri bundle icons plus the source PNG.
+10. Added a packaged PyInstaller FastAPI sidecar so release installers open without a separate Python/API server setup.
 
 ## Remaining Intentional Defaults
 
 - `http://localhost:11434` is only the default Ollama endpoint. Users can change it in Settings, `~/.texada/config.json`, or `TEXADA_OLLAMA_HOST`.
-- `127.0.0.1:18732` and `127.0.0.1:5173` are default local API/web ports, not fixed cloud or model endpoints.
+- `127.0.0.1:18732` is the default bundled FastAPI sidecar port used by the desktop shell; it is separate from the Ollama/model endpoint.
+- `127.0.0.1:5173` and `127.0.0.1:1420` are development origins allowed by CORS/CSP, not required user-facing model endpoints.
 - macOS release package signing, when enabled, is driven only by repository secrets; no personal certificate details are stored in the docs.

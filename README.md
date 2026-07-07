@@ -44,9 +44,9 @@ Version `0.1.0` is released from the `main` branch.
 
 | Platform | Package |
 |----------|---------|
-| macOS Apple Silicon | `.dmg` |
-| macOS Intel | `.dmg` |
-| Windows x64 | NSIS `.exe` installer |
+| macOS Apple Silicon | `TeXada-0.1.0-darwin-aarch64-dmg.dmg` |
+| macOS Intel | `TeXada-0.1.0-darwin-x64-dmg.dmg` |
+| Windows x64 | `TeXada-0.1.0-windows-x64-nsis-setup.exe` |
 
 Release page: [github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
@@ -63,13 +63,29 @@ ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
 ollama pull openbmb/minicpm-v4.6:latest
 ```
 
-3. Open TeXada from the downloaded `.dmg` or `.exe`.
+3. Open TeXada from the downloaded `.dmg` or `.exe`. The packaged app includes the TeXada FastAPI backend and starts it automatically; no separate Python install or manual API server is needed.
 
 4. Check the status in the title bar.
    - `Ready`: text conversion and OCR are available.
    - `Text ready · OCR missing`: text conversion works; pull the vision model shown in the status tooltip.
    - `Model missing`: pull the text model shown in the status tooltip.
    - `Disconnected`: start Ollama or check the configured port.
+
+### Connection Map And Ports
+
+TeXada uses two local HTTP layers. They should normally use different ports:
+
+```text
+Desktop UI -> TeXada FastAPI API -> Ollama or cloud model endpoint
+```
+
+| Layer | Default | What it is for |
+|-------|---------|----------------|
+| TeXada FastAPI API | `http://127.0.0.1:18732` | Bundled with the installer and auto-started by the desktop app |
+| Ollama model endpoint | `http://localhost:11434` | The FastAPI backend calls local model APIs and adds `/v1` internally |
+| Cloud model endpoint | Provider-specific `/v1` base URL | Used only when Backend is `OpenAI-compatible` |
+
+Do not set the FastAPI address and Ollama address to the same port unless you are deliberately running a custom proxy. If Settings shows a network/API error, restart TeXada and check whether `18732` is already occupied. If FastAPI is reachable but status says `Disconnected` or `Model missing`, check Ollama and the model names.
 
 | Role | Default | Notes |
 |------|---------|-------|
@@ -90,7 +106,7 @@ Do not add `/v1`; TeXada adds the OpenAI-compatible suffix internally.
 
 ### Cloud Mode
 
-OpenAI-compatible models can be configured from Settings. Example:
+OpenAI-compatible models can be configured from Settings. For cloud providers, enter the complete Chat Completions base URL expected by that provider; TeXada does not append `/v1` to cloud endpoints. Example:
 
 ```json
 {
@@ -114,6 +130,8 @@ StepFun Step Plan example:
 }
 ```
 
+The StepFun Step Plan OpenAI-compatible Chat Completions base URL is `https://api.stepfun.com/step_plan/v1`, and `step-3.7-flash` is the recommended validation model in StepFun's public documentation.
+
 ### Configuration
 
 Persistent config lives at `~/.texada/config.json`.
@@ -134,20 +152,48 @@ Persistent config lives at `~/.texada/config.json`.
 
 | Variable | Purpose |
 |----------|---------|
+| `TEXADA_BACKEND` | `ollama` or `openai_compatible` |
 | `TEXADA_OLLAMA_HOST` | Local Ollama base URL, including custom ports |
+| `TEXADA_MODEL_NAME`, `TEXADA_VISION_MODEL_NAME` | Local text and vision model names |
+| `TEXADA_OPENAI_BASE_URL` | Full OpenAI-compatible cloud base URL |
+| `TEXADA_OPENAI_MODEL_NAME`, `TEXADA_OPENAI_VISION_MODEL_NAME` | Cloud text and vision model names |
+| `TEXADA_OPENAI_API_KEY` | Cloud provider API key |
 | `TEXADA_API_HOST`, `TEXADA_API_PORT` | FastAPI bind address |
-| `TEXADA_WEB_HOST`, `TEXADA_WEB_PORT` | Local browser launcher address |
 | `TEXADA_API_BASE` | Explicit desktop shell API base |
+| `TEXADA_DISABLE_BUNDLED_BACKEND` | Set to `1` only when you want to manage the FastAPI backend yourself |
 | `TEXADA_API_TIMEOUT_SECS` | Desktop API request timeout |
+| `TEXADA_INFERENCE_TIMEOUT_SECONDS`, `TEXADA_API_REQUEST_TIMEOUT_SECONDS` | Backend model and HTTP timeouts |
+| `TEXADA_UI_LANGUAGE`, `TEXADA_UI_ZOOM` | UI language (`zh` or `en`) and zoom (`0.8` to `1.4`) |
+
+### Privacy And Limits
+
+| Topic | Behavior |
+|-------|----------|
+| Local Ollama mode | Model requests stay on the configured Ollama endpoint |
+| Cloud mode | Text and images are sent to the configured provider endpoint |
+| API keys | Saved in `~/.texada/config.json`; do not paste keys into public issues |
+| OCR uploads | Accepts PNG, JPEG, WebP, BMP and TIFF up to 5 MB |
+| Math correctness | Always review generated formulas before using them in final work |
+
+### Troubleshooting
+
+| Symptom | Check |
+|---------|-------|
+| Settings shows API/network error | Restart TeXada; if it persists, check whether another process already uses `127.0.0.1:18732` |
+| Status is `Disconnected` | Ollama is not running or `ollama_host` points to the wrong host/port |
+| Status is `Model missing` | Pull the text model shown in the status tooltip |
+| Status is `Text ready · OCR missing` | Pull the vision model shown in the status tooltip |
+| Cloud mode returns 401/403 | API key, provider base URL, and model name |
+| Clicking a formula copies instead of inserting | Browser mode falls back to copy; desktop insertion also needs OS paste automation permission |
 
 ### Release CI
 
-GitHub Actions builds release installers from `main` and version tags.
+GitHub Actions builds release installers manually from `main` and automatically from version tags.
 
 | Workflow | Checks |
 |----------|--------|
 | `Audit` | Ruff, pytest, pip-audit, npm audit, JS syntax check, Tauri cargo check on macOS and Windows |
-| `Desktop Release` | Pre-release audit, macOS arm64/Intel DMG, Windows x64 NSIS installer |
+| `Desktop Release` | Pre-release audit, PyInstaller FastAPI sidecar, macOS arm64/Intel DMG, Windows x64 NSIS installer |
 
 ### Shortcuts
 
@@ -181,17 +227,7 @@ Measured environment: macOS 26.5.1, arm64, Apple A18 Pro, 8GB RAM, local Ollama 
 
 ### Quality Gate
 
-The current `main` branch has no known blocking issue after the latest audit pass. That means tests and static checks pass; it is not a mathematical promise that no software bug can exist.
-
-```bash
-uv run --extra dev ruff check .
-uv run --extra dev pytest
-uvx pip-audit --strict
-npm ci
-npm audit --audit-level=moderate
-node --check tauri-shell/src/main.js
-cd tauri-shell/src-tauri && cargo check
-```
+The current `main` branch has no known blocking issue after the latest audit pass. That means tests and static checks pass; it is not a mathematical promise that no software bug can exist. Maintainer validation details live in [Contributing](.github/CONTRIBUTING.md), [Source audit](docs/audit.md), and GitHub Actions.
 
 ### Documentation
 
@@ -236,9 +272,9 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 
 | 平台 | 安装包 |
 |------|--------|
-| macOS Apple Silicon | `.dmg` |
-| macOS Intel | `.dmg` |
-| Windows x64 | NSIS `.exe` 安装器 |
+| macOS Apple Silicon | `TeXada-0.1.0-darwin-aarch64-dmg.dmg` |
+| macOS Intel | `TeXada-0.1.0-darwin-x64-dmg.dmg` |
+| Windows x64 | `TeXada-0.1.0-windows-x64-nsis-setup.exe` |
 
 Release 页面：[github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
@@ -255,13 +291,29 @@ ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
 ollama pull openbmb/minicpm-v4.6:latest
 ```
 
-3. 打开下载好的 TeXada `.dmg` 或 `.exe` 安装包。
+3. 打开下载好的 TeXada `.dmg` 或 `.exe` 安装包。安装包内置 TeXada FastAPI 后端，并会在应用启动时自动拉起；不需要单独安装 Python 或手动启动 API 服务。
 
 4. 看标题栏状态。
    - `Ready`：文本转换和 OCR 都可用。
    - `文本可用 · OCR 缺模型`：文本可用，按状态 tooltip 里的命令拉取视觉模型。
    - `模型缺失`：按状态 tooltip 里的命令拉取文本模型。
    - `未连接`：启动 Ollama，或检查配置的端口。
+
+### 连接层级与端口
+
+TeXada 使用两层本地 HTTP 服务。它们通常应该是不同端口：
+
+```text
+桌面 UI -> TeXada FastAPI API -> Ollama 或云侧模型 endpoint
+```
+
+| 层级 | 默认值 | 用途 |
+|------|--------|------|
+| TeXada FastAPI API | `http://127.0.0.1:18732` | 随安装包内置，由桌面应用自动启动 |
+| Ollama 模型 endpoint | `http://localhost:11434` | FastAPI 后端调用本地模型接口，并在内部自动拼接 `/v1` |
+| 云侧模型 endpoint | 服务商提供的 `/v1` base URL | 仅在后端选择 `OpenAI-compatible` 时使用 |
+
+除非你主动配置了自定义代理，不要把 FastAPI 地址和 Ollama 地址设成同一个端口。如果设置页显示 API/网络错误，先重启 TeXada，并检查 `18732` 是否已被其他进程占用；如果 FastAPI 可达但状态是 `未连接` 或 `模型缺失`，再检查 Ollama 和模型名。
 
 | 角色 | 默认模型 | 说明 |
 |------|----------|------|
@@ -282,7 +334,7 @@ http://192.168.1.20:11434
 
 ### 云侧模式
 
-OpenAI API 兼容模型可以在设置页配置。示例：
+OpenAI API 兼容模型可以在设置页配置。云侧 provider 需要填写该服务商要求的完整 Chat Completions base URL；TeXada 不会为云侧 endpoint 自动追加 `/v1`。示例：
 
 ```json
 {
@@ -293,6 +345,8 @@ OpenAI API 兼容模型可以在设置页配置。示例：
   "openai_api_key": "your-api-key"
 }
 ```
+
+StepFun Step Plan 的 OpenAI-compatible Chat Completions base URL 是 `https://api.stepfun.com/step_plan/v1`，`step-3.7-flash` 是 StepFun 公开文档里的推荐验证模型。
 
 StepFun Step Plan 示例：
 
@@ -326,20 +380,48 @@ StepFun Step Plan 示例：
 
 | 环境变量 | 用途 |
 |----------|------|
+| `TEXADA_BACKEND` | `ollama` 或 `openai_compatible` |
 | `TEXADA_OLLAMA_HOST` | 本地 Ollama 地址，支持自定义端口 |
+| `TEXADA_MODEL_NAME`, `TEXADA_VISION_MODEL_NAME` | 本地文本模型和视觉模型名称 |
+| `TEXADA_OPENAI_BASE_URL` | 完整 OpenAI-compatible 云侧 base URL |
+| `TEXADA_OPENAI_MODEL_NAME`, `TEXADA_OPENAI_VISION_MODEL_NAME` | 云侧文本模型和视觉模型名称 |
+| `TEXADA_OPENAI_API_KEY` | 云侧 provider API key |
 | `TEXADA_API_HOST`, `TEXADA_API_PORT` | FastAPI 监听地址 |
-| `TEXADA_WEB_HOST`, `TEXADA_WEB_PORT` | 本地浏览器启动地址 |
 | `TEXADA_API_BASE` | 桌面壳使用的完整 API 地址 |
+| `TEXADA_DISABLE_BUNDLED_BACKEND` | 仅当你想自行管理 FastAPI 后端时设为 `1` |
 | `TEXADA_API_TIMEOUT_SECS` | 桌面端 API 请求超时时间 |
+| `TEXADA_INFERENCE_TIMEOUT_SECONDS`, `TEXADA_API_REQUEST_TIMEOUT_SECONDS` | 后端模型推理和 HTTP 请求超时 |
+| `TEXADA_UI_LANGUAGE`, `TEXADA_UI_ZOOM` | 界面语言（`zh` 或 `en`）和缩放（`0.8` 到 `1.4`） |
+
+### 隐私与限制
+
+| 项目 | 行为 |
+|------|------|
+| 本地 Ollama 模式 | 模型请求只发送到配置的 Ollama endpoint |
+| 云侧模式 | 文本和图片会发送到你配置的 provider endpoint |
+| API key | 保存在 `~/.texada/config.json`；不要粘贴到公开 issue |
+| OCR 上传 | 支持 PNG、JPEG、WebP、BMP、TIFF，最大 5 MB |
+| 数学正确性 | 生成公式用于正式内容前仍需人工核对 |
+
+### 故障排查
+
+| 现象 | 检查项 |
+|------|--------|
+| 设置页显示 API/网络错误 | 重启 TeXada；如果仍存在，检查是否有其他进程占用 `127.0.0.1:18732` |
+| 状态是 `未连接` | Ollama 没启动，或 `ollama_host` 主机/端口不对 |
+| 状态是 `模型缺失` | 按状态 tooltip 拉取文本模型 |
+| 状态是 `文本可用 · OCR 缺模型` | 按状态 tooltip 拉取视觉模型 |
+| 云侧模式返回 401/403 | API key、provider base URL 和模型名 |
+| 点击公式只复制、不键入 | 浏览器模式会退化为复制；桌面键入还需要系统粘贴自动化权限 |
 
 ### Release CI
 
-GitHub Actions 会从 `main` 和版本 tag 构建安装包。
+GitHub Actions 可以手动从 `main` 构建安装包，也会在版本 tag 上自动构建。
 
 | Workflow | 检查内容 |
 |----------|----------|
 | `Audit` | Ruff、pytest、pip-audit、npm audit、JS 语法检查、macOS/Windows Tauri cargo check |
-| `Desktop Release` | 预发布审计、macOS arm64/Intel DMG、Windows x64 NSIS 安装器 |
+| `Desktop Release` | 预发布审计、PyInstaller FastAPI sidecar、macOS arm64/Intel DMG、Windows x64 NSIS 安装器 |
 
 ### 快捷键
 
@@ -373,17 +455,7 @@ GitHub Actions 会从 `main` 和版本 tag 构建安装包。
 
 ### 质量门禁
 
-当前 `main` 分支在最新审计后没有已知阻塞问题。这里的含义是测试和静态检查通过，不是声称软件绝对不可能有 bug。
-
-```bash
-uv run --extra dev ruff check .
-uv run --extra dev pytest
-uvx pip-audit --strict
-npm ci
-npm audit --audit-level=moderate
-node --check tauri-shell/src/main.js
-cd tauri-shell/src-tauri && cargo check
-```
+当前 `main` 分支在最新审计后没有已知阻塞问题。这里的含义是测试和静态检查通过，不是声称软件绝对不可能有 bug。维护者验证细节见 [贡献指南](.github/CONTRIBUTING.md)、[源码审计](docs/audit.md) 和 GitHub Actions。
 
 ### 文档
 
