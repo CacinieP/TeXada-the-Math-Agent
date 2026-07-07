@@ -120,7 +120,22 @@ jobs:
           args: ${{ matrix.tauri-args }}
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'desktop-v__VERSION__' }}
           releaseName: TeXada Desktop v__VERSION__
-          releaseBody: CacinieP merge所有分支
+          releaseBody: |
+            TeXada Desktop 0.1.0
+
+            English:
+            - Local-first math formula agent powered by MiniCPM and Ollama.
+            - Supports natural language to LaTeX, formula OCR, completion, snippets, history and desktop insertion.
+            - Supports OpenAI API-compatible cloud text and vision models.
+            - Includes signed macOS DMGs and Windows x64 NSIS installer.
+
+            中文：
+            - 端侧优先的数学公式 Agent，默认使用 MiniCPM 和 Ollama。
+            - 支持自然语言转 LaTeX、公式 OCR、补全、缩写、历史记录和桌面光标处键入。
+            - 支持 OpenAI API 兼容的云侧文本和视觉模型。
+            - 提供已签名 macOS DMG 和 Windows x64 NSIS 安装包。
+
+            Author: CacinieP
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: false

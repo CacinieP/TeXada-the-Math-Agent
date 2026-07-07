@@ -182,4 +182,4 @@ TeXada 的核心设计原则：**能用确定性代码解决的问题，绝不�
 
 ---
 
-*TeXada v0.3.0 — MiniCPM Migration*
+*TeXada v0.1.0 — MiniCPM Migration*
