@@ -80,6 +80,14 @@ class BackendSettingsUpdate(BaseModel):
     openai_api_key: str | None = Field(default=None, max_length=4000)
 
 
+class UiSettingsResponse(BaseModel):
+    ui_language: str
+
+
+class UiSettingsUpdate(BaseModel):
+    ui_language: str = Field(pattern="^(zh|en)$")
+
+
 class RuntimeConfigResponse(BaseModel):
     version: str
     api_base_url: str
@@ -185,6 +193,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     async def get_backend_settings():
         return _settings_response(config)
 
+    @app.get("/api/settings/ui", response_model=UiSettingsResponse)
+    async def get_ui_settings():
+        return UiSettingsResponse(ui_language=config.ui_language)
+
     @app.get("/api/runtime", response_model=RuntimeConfigResponse)
     async def get_runtime_config():
         return RuntimeConfigResponse(
@@ -210,6 +222,12 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         render_engine = RenderEngine(config)
         backend_mgr = BackendManager(config)
         return _settings_response(config)
+
+    @app.post("/api/settings/ui", response_model=UiSettingsResponse)
+    async def update_ui_settings(req: UiSettingsUpdate):
+        nonlocal config
+        config = save_config_updates(req.model_dump(), data_dir=config.data_dir)
+        return UiSettingsResponse(ui_language=config.ui_language)
 
     @app.post("/api/convert", response_model=LaTeXResponse)
     async def convert_text(req: ConvertRequest):

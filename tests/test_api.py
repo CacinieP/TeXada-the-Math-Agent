@@ -30,6 +30,7 @@ async def test_create_app_builds_all_routes():
         "/api/shorthands",
         "/api/history",
         "/api/settings/backend",
+        "/api/settings/ui",
         "/api/runtime",
     }
     missing = expected - paths
@@ -169,3 +170,16 @@ async def test_backend_settings_key_is_preserved_when_blank(tmp_path):
 
     assert response.status_code == 200
     assert response.json()["openai_api_key_set"] is True
+
+
+async def test_ui_language_setting_is_persisted(tmp_path):
+    from texada.api import create_app
+
+    app = create_app(TeXadaConfig(data_dir=tmp_path))
+    client = TestClient(app)
+
+    response = client.post("/api/settings/ui", json={"ui_language": "en"})
+
+    assert response.status_code == 200
+    assert response.json()["ui_language"] == "en"
+    assert client.get("/api/settings/ui").json()["ui_language"] == "en"

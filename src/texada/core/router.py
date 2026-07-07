@@ -185,7 +185,6 @@ class InputRouter:
         latex = await self.model.generate_latex(
             preprocessed,
             intent_result.intent,
-            memory_messages=self.memory.to_messages(),
         )
 
         # Operator-drift guard: if the small model downgraded or dropped the
@@ -197,7 +196,6 @@ class InputRouter:
             retried = await self.model.generate_latex(
                 preprocessed,
                 intent_result.intent,
-                memory_messages=self.memory.to_messages(),
                 force_operators=forced,
             )
             # Only adopt the retry if it actually still contains the forced

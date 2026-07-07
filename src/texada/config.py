@@ -28,6 +28,7 @@ SAVED_CONFIG_FIELDS = frozenset({
     "max_tokens",
     "default_render_mode",
     "delimiter",
+    "ui_language",
     "inference_timeout_seconds",
     "api_request_timeout_seconds",
 })
@@ -36,10 +37,9 @@ SAVED_CONFIG_FIELDS = frozenset({
 class TeXadaConfig(BaseSettings):
     """All TeXada settings, loaded from ~/.texada/config.json + env vars.
 
-    TeXada runs fully offline on a local Ollama daemon, loading MiniCPM
-    models by tag. Ollama exposes an OpenAI-compatible ``/v1`` endpoint, so
-    inference (``texada.core.model``) speaks the standard OpenAI chat API;
-    text and vision (OCR) requests hit the same daemon with different tags.
+    TeXada defaults to local Ollama MiniCPM models and can be switched to any
+    OpenAI-compatible endpoint. Both paths speak the standard OpenAI chat API;
+    text and vision (OCR) requests use separate configurable model names.
     """
 
     model_config = SettingsConfigDict(
@@ -69,6 +69,7 @@ class TeXadaConfig(BaseSettings):
     delimiter: str = "$$"                 # "$$" | "\[" | "$"
     katex_enabled: bool = True
     latex_highlight_enabled: bool = True
+    ui_language: str = "zh"  # "zh" | "en"
 
     # ── Server ──
     api_host: str = "127.0.0.1"

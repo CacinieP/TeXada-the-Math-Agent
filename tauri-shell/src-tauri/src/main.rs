@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::env;
+use std::process::Command;
 use std::time::Duration;
 
 use tauri::{
@@ -241,6 +242,59 @@ fn write_clipboard(app: tauri::AppHandle, text: String) -> Result<(), String> {
         .map_err(|e| format!("Clipboard write failed: {}", e))
 }
 
+#[cfg(target_os = "macos")]
+fn trigger_system_paste() -> Result<(), String> {
+    let status = Command::new("osascript")
+        .arg("-e")
+        .arg("tell application \"System Events\" to keystroke \"v\" using command down")
+        .status()
+        .map_err(|e| format!("Paste automation failed: {}", e))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err("Paste automation failed; grant TeXada Accessibility permission".to_string())
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn trigger_system_paste() -> Result<(), String> {
+    let status = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-STA",
+            "-WindowStyle",
+            "Hidden",
+            "-Command",
+            "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')",
+        ])
+        .status()
+        .map_err(|e| format!("Paste automation failed: {}", e))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err("Paste automation failed".to_string())
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn trigger_system_paste() -> Result<(), String> {
+    Err("Insert-at-cursor is only implemented for macOS and Windows".to_string())
+}
+
+#[tauri::command]
+async fn insert_text_at_cursor(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    text: String,
+) -> Result<(), String> {
+    app.clipboard()
+        .write_text(text)
+        .map_err(|e| format!("Clipboard write failed: {}", e))?;
+    let _ = window.hide();
+    tokio::time::sleep(Duration::from_millis(160)).await;
+    trigger_system_paste()
+}
+
 #[tauri::command]
 fn hide_window(window: tauri::WebviewWindow) {
     let _ = window.hide();
@@ -418,6 +472,7 @@ fn main() {
             get_status,
             read_clipboard,
             write_clipboard,
+            insert_text_at_cursor,
             hide_window,
             show_window,
         ])

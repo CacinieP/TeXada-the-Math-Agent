@@ -8,15 +8,15 @@
 |---------|-------------------|---------------------|
 | 参数量 | 1B | 752M (+ 504M projector) |
 | 推理速度 | 极快（1B 参数） | 快（轻量多模态） |
-| 离线运行 | ✅ llama.cpp 单机 | ✅ llama.cpp 单机 |
+| 离线运行 | ✅ Ollama 本地 | ✅ Ollama 本地 |
 | 多模态 OCR | ❌ 纯文本 | ✅ 视觉+文本 |
 | API 兼容 | OpenAI Chat Completions | OpenAI Chat Completions |
 
 **核心决策理由**：
 1. **极低延迟**：MiniCPM5-1B 仅 1B 参数，在 CPU/轻量 GPU 上即可达到极快推理速度，满足「即输即得」的 UX 要求。
-2. **双模型架构**：文本推理用 MiniCPM5-1B（`localhost:8080`），OCR 用 MiniCPM-V 4.6（`localhost:8081`），各司其职，互不干扰。
-3. **llama.cpp 部署**：使用 llama.cpp 的 OpenAI 兼容 API，无需 Ollama 等额外运行时，直接 GGUF 模型文件加载。
-4. **完全离线**：TeXada 的用户场景（学术会议、课堂、论文写作）经常处于无网络环境，llama.cpp 单机部署天然支持。
+2. **双模型架构**：文本推理用 MiniCPM5-1B，OCR 用 MiniCPM-V 4.6；二者默认由 Ollama 的 OpenAI-compatible `/v1` 端点统一提供。
+3. **OpenAI-compatible 抽象**：本地 Ollama 与云侧 provider 走同一套 Chat Completions 调用，设置页可切换 endpoint / model / vision model / key。
+4. **默认离线**：TeXada 可完全通过本地 Ollama 运行；只有用户显式切到 OpenAI-compatible 云侧后端时才会访问云端。
 
 ### 架构决策：移除 Native Function Calling
 
@@ -48,10 +48,11 @@ MiniCPM 不支持 Gemma 4 的原生 `tools` schema。替代方案：
 │  └────┬─────┘  └─────┬────┘  └──────────┬───────────┘  │
 │       │              │                   │               │
 │  ┌────▼──────────────▼───────────────────▼───────────┐  │
-│  │     MiniCPM5-1B (llama.cpp :8080, 文本)           │  │
-│  │     MiniCPM-V 4.6 (llama.cpp :8081, 视觉)        │  │
+│  │     MiniCPM5-1B (Ollama /v1, 文本)               │  │
+│  │     MiniCPM-V 4.6 (Ollama /v1, 视觉)             │  │
+│  │     OpenAI-compatible cloud models (可选)        │  │
 │  │                                                    │  │
-│  │  Memory: ConversationMemory (6 turns)              │  │
+│  │  Few-shot examples + deterministic guards           │  │
 │  │  Few-shot: intent-specific examples                │  │
 │  └────────────────────┬───────────────────────────────┘  │
 │                       │                                  │
@@ -71,7 +72,7 @@ MiniCPM 不支持 Gemma 4 的原生 `tools` schema。替代方案：
 
 ### 2.2 核心模块设计
 
-#### InputRouter — 路由 + Agent Memory
+#### InputRouter — 路由 + 确定性防漂移
 
 ```
 用户输入 → route(tab, content) → [shorthand | completion | nl2latex | ocr]
@@ -81,15 +82,14 @@ MiniCPM 不支持 Gemma 4 的原生 `tools` schema。替代方案：
               nl2latex 管线:
               1. IntentClassifier.classify(text)    → intent, confidence
               2. SymbolEngine.pre_translate(text)    → 中文术语 → LaTeX 符号
-              3. MiniCPMModel.generate_latex(        → 纯 chat 推理
+              3. MiniCPMModel.generate_latex(        → OpenAI-compatible chat 推理
                    preprocessed,
-                   intent,
-                   memory=ConversationMemory.to_messages()
+                   intent
                  )
               4. LaTeXValidator.validate(latex)       → 结构化检查
               5. LaTeXFixer.fix(latex, errors)        → 自动修复
               6. RenderEngine.render(latex)            → KaTeX HTML / 高亮
-              7. ConversationMemory.add(turn)          → 存入 Agent Memory
+              7. HistoryStore.add(turn)                → 服务端历史
 ```
 
 #### OpenAI 兼容 API 调用
@@ -97,7 +97,7 @@ MiniCPM 不支持 Gemma 4 的原生 `tools` schema。替代方案：
 ```python
 from openai import OpenAI
 
-client = OpenAI(base_url="http://localhost:8080/v1", api_key="sk-no-key")
+client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
 response = client.chat.completions.create(
     model="MiniCPM5-1B",
     messages=[{"role": "system", "content": SYSTEM_PROMPT}, ...],
@@ -133,24 +133,18 @@ TeXada 的核心设计原则：**能用确定性代码解决的问题，绝不�
 | 意图识别 | <1ms | 正则匹配 |
 | 符号预翻译 | <5ms | ~130 个术语的 regex 替换 |
 | NL→LaTeX (shorthand 命中) | <1ms | 零模型调用 |
-| NL→LaTeX (模型推理) | 0.5-2s | 1B 参数，极快推理 |
-| OCR 图片识别 | 2-4s | OpenCV 预处理 + MiniCPM-V 多模态推理 |
+| NL→LaTeX (模型推理) | 冷启动 179204.3ms；warm 29612.2ms | 2026-07-07，Apple A18 Pro / 8GB RAM / Ollama |
+| OCR 图片识别 | 39419.0ms | 2026-07-07，MiniCPM-V 4.6 样例图 |
 | 渲染切换 (⌘K) | <1ms | 缓存重渲染，零模型调用 |
 
 ---
 
 ## 4. 技术亮点
 
-### 4.1 Agent Memory
+### 4.1 独立请求防漂移
 
-```python
-class ConversationMemory:
-    """Per-session context — keeps last 6 turns."""
-    def add(self, turn: ConversationTurn): ...
-    def to_messages(self) -> list[dict]: ...
-```
-
-- 每次请求注入历史对话上下文，模型可理解 "把它改成定积分" 等后续指令
+- NL→LaTeX 不再把上一条模型输出注入下一条独立请求，避免无关公式被复用。
+- 交互历史仍写入服务端 `HistoryStore` 和前端 history，用于回看与再次插入。
 
 ### 4.2 多层验证 + 自动修复
 
@@ -162,9 +156,9 @@ class ConversationMemory:
 
 ### 4.3 双模型架构
 
-- **文本推理**：MiniCPM5-1B on `:8080` — 极快的 1B 参数模型，专注 NL→LaTeX
-- **视觉 OCR**：MiniCPM-V 4.6 on `:8081` — 轻量多模态模型，处理图片输入
-- 两个 llama.cpp 实例独立运行，互不干扰
+- **文本推理**：MiniCPM5-1B on Ollama `/v1`，专注 NL→LaTeX / 补全
+- **视觉 OCR**：MiniCPM-V 4.6 on Ollama `/v1`，处理图片输入；也可配置 MiniCPM5-1B 系兼容视觉模型
+- **云侧模型**：任意 OpenAI API 兼容 provider，设置页填写 endpoint / model / vision model / API key
 
 ---
 
@@ -172,10 +166,10 @@ class ConversationMemory:
 
 | 局限 | 计划改进 |
 |------|---------|
-| 1B 模型在复杂矩阵推导上偶有错误 | 可选切换更大模型（MiniCPM-V 4.6 或外部模型） |
+| 1B 模型在复杂矩阵推导上偶有错误 | 可选切换更大 OpenAI-compatible 模型 |
 | OCR 对手写体识别率有限 | 增加手写体训练数据微调 |
-| 无 Windows GUI shell | 开发 Tauri 跨平台 shell |
-| Agent Memory 仅限单次会话 | 添加持久化对话存储 |
+| macOS 点击公式插入需要辅助功能权限 | 首次使用时在系统设置授权 TeXada |
+| 未接入 Apple notarization | 先签名并校验 Yichun Deng 证书，后续可补 notarization secrets |
 
 ---
 

@@ -1,7 +1,7 @@
 # TeXada — 技术架构
 
-> **版本**: v0.3.0 · 纯 Ollama 后端
-> **核心**: 端侧 MiniCPM(文本 + 视觉),零云端依赖
+> **版本**: v0.3.0 · Ollama 本地后端 + OpenAI-compatible 云侧后端
+> **核心**: 端侧 MiniCPM(文本 + 视觉)优先,可显式切换云侧模型
 
 TeXada 把自然语言、LaTeX 片段、公式图片统一转换成 LaTeX,并即时渲染、校验、自动修复。本文描述**当前实现**架构。早期设计思路见 [`design.md`](design.md)(历史稿)。
 
@@ -30,17 +30,17 @@ TeXada 把自然语言、LaTeX 片段、公式图片统一转换成 LaTeX,并即
 │             BackendManager ── 就绪检测/自动拉起       │
 └───────────────────┼──────────────────────────────────┘
                     │ OpenAI 兼容  /v1/chat/completions
-         ┌──────────▼──────────┐
-         │   Ollama daemon     │
-         │  :11434             │
-         │  MiniCPM5-1B (文本) │
-         │  MiniCPM-V 4.6 (视觉)│
+         ┌──────────▼──────────┐      ┌────────────────────┐
+         │   Ollama daemon     │  or  │ OpenAI-compatible  │
+         │  :11434             │      │ cloud provider     │
+         │  MiniCPM5-1B 文本    │      │ text / vision      │
+         │  MiniCPM-V 4.6 视觉  │      └────────────────────┘
          └─────────────────────┘
 ```
 
 **两层职责**:
 - **确定性层**(代码):意图分类、符号预翻译、LaTeX 校验/修复、缩写、渲染 —— 零模型,毫秒级。
-- **模糊层**(模型):NL→LaTeX、OCR —— MiniCPM via Ollama。
+- **模糊层**(模型):NL→LaTeX、OCR —— MiniCPM via Ollama 或 OpenAI-compatible 云侧模型。
 
 ---
 
@@ -51,7 +51,7 @@ TeXada 把自然语言、LaTeX 片段、公式图片统一转换成 LaTeX,并即
 | `config.py` | Pydantic Settings,从 `~/.texada/config.json` + `TEXADA_` 环境变量加载(模型/host/渲染/热键/历史)。 |
 | `__main__.py` | Typer CLI:`serve` / `convert` / `check`。 |
 | `api.py` | FastAPI 工厂。端点:`/api/status` `/convert` `/ocr` `/complete` `/validate` `/shorthands` `/history` `/render-mode`。转换成功后写服务端 history。 |
-| `core/router.py` | `InputRouter`:按输入类型/内容路由到 NL→LaTeX / 补全 / OCR / 缩写管线,维护会话记忆。 |
+| `core/router.py` | `InputRouter`:按输入类型/内容路由到 NL→LaTeX / 补全 / OCR / 缩写管线,并对独立 NL 请求做防漂移处理。 |
 | `core/backend.py` | `BackendManager`:Ollama 就绪检测(`/v1/models`)+ 未运行时 `ollama serve` 自动拉起 + 检查模型已 pull。**零 ollama 包依赖**(httpx + subprocess)。 |
 | `core/model.py` | `MiniCPMModel`:OpenAI 兼容 chat 调用,NL→LaTeX / 补全(规则优先)/ OCR(多模态)。reasoning 字段回退;`trust_env=False` 绕过系统代理。 |
 | `core/intent.py` | 规则意图分类(integral / derivative / sum / limit / matrix / probability / generic)。 |
@@ -66,14 +66,15 @@ TeXada 把自然语言、LaTeX 片段、公式图片统一转换成 LaTeX,并即
 
 ---
 
-## 3. 模型层(纯 Ollama)
+## 3. 模型层(Ollama / OpenAI-compatible)
 
-**单一后端**:Ollama daemon(`localhost:11434`),暴露 OpenAI 兼容 `/v1` 端点。推理层(`MiniCPMModel`)全程用 `openai` SDK,**不依赖 ollama 原生包** —— 这也是 `backend.py` 的健康检查对任何 OpenAI 兼容后端都通用的原因。
+默认后端是 Ollama daemon(`localhost:11434`),暴露 OpenAI 兼容 `/v1` 端点。推理层(`MiniCPMModel`)全程用 `openai` SDK,**不依赖 ollama 原生包**。设置页可切换 `OpenAI-compatible`,填写 endpoint、model、vision model 与 API key 后走云侧 provider。
 
 | 角色 | 模型 tag | 用途 |
 |------|---------|------|
 | 文本 | `hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M` | NL→LaTeX、补全 |
-| 视觉 | `openbmb/minicpm-v4.6:latest` | OCR(多模态 `image_url`) |
+| 本地视觉 | `openbmb/minicpm-v4.6:latest`;也可配置 MiniCPM5-1B 系兼容视觉模型 | OCR(多模态 `image_url`) |
+| 云侧文本 / 视觉 | 任意 OpenAI API 兼容模型 | NL→LaTeX、补全、OCR |
 
 **关键决策**:
 - MiniCPM5 是**推理模型**,答案常在 `reasoning` 字段而 `content` 为空 —— `generate_latex` / `complete_latex` 都做 reasoning 回退;`max_tokens` 需 ≥ 2048(256 会把 token 全耗在思维链上,`content` 被截断为空)。
@@ -98,7 +99,7 @@ MiniCPM5-1B 对「补全任意 LaTeX 片段」不可靠(常输出空括号)。`c
 
 | 路由 | 流程 |
 |------|------|
-| **NL→LaTeX** | router → intent 分类 → symbol 预翻译 → MiniCPM5 `generate_latex`(few-shot + 会话记忆)→ validator/fixer → render |
+| **NL→LaTeX** | router → intent 分类 → symbol 预翻译 → MiniCPM5 / 云侧模型 `generate_latex`(few-shot,不复用上一条输出记忆)→ validator/fixer → render |
 | **补全** | router → `complete_latex`(**规则优先**,模型兜底)→ validator → render |
 | **OCR** | router → OpenCV 预处理 → MiniCPM-V `ocr_latex` → validator → render |
 | **缩写** | router → `shorthand_store` 精确匹配 → render(**零模型**) |
@@ -112,6 +113,8 @@ MiniCPM5-1B 对「补全任意 LaTeX 片段」不可靠(常输出空括号)。`c
 纯静态(HTML + IIFE JS + CSS),**无构建步骤**。CDN 加载 KaTeX 做浏览器端渲染;`main.js` 通过 fetch 调后端 API。
 
 - 顶部 `tab-bar`:NL / OCR / 补全 / 缩写 / 历史 / 设置(数字键 1–6 切换)。
+- 设置页支持中文 / English UI 语言切换,通过 `/api/settings/ui` 持久化到 `~/.texada/config.json`。
+- 公式块支持点击后在系统当前光标处键入;复制按钮仍保持复制行为。浏览器开发模式降级为复制,桌面端通过 Tauri 命令写剪贴板并触发系统粘贴。
 - 缩写搜索框:本地按 key/value 过滤(数据全量加载)。
 - 历史:优先读 `/api/history`,后端不可用回退 localStorage。
 - 渲染:浏览器端 KaTeX(后端 `katex_html` 字段作为兜底)。
@@ -126,7 +129,7 @@ MiniCPM5-1B 对「补全任意 LaTeX 片段」不可靠(常输出空括号)。`c
 | 双击 `TeXada.command` | 同上但在终端运行,可看实时日志 |
 | 双击 `TeXada Desktop.app` | 原生 macOS 菜单栏 shell(Mach-O arm64,`scripts/build-desktop-app.sh` 构建) |
 | Windows 安装包 | Tauri shell(NSIS,`scripts/build-windows-app.ps1` 在 Windows 主机构建) |
-| GitHub Actions | `Audit` 持续审计;`Desktop Release` 先审计再构建 macOS arm64/Intel `.dmg` 与 Windows x64 NSIS `.exe` |
+| GitHub Actions | `Audit` 持续审计;`Desktop Release` 先审计再构建 macOS arm64/Intel `.dmg` 与 Windows x64 NSIS `.exe`;macOS job 要求 Apple signing secrets 并验证 `Yichun Deng` 签名 |
 | `texada serve` | 仅启动 API |
 | `start.sh` | 启动 API + 原生桌面 shell(自动检测 Desktop.app / TeXadaShell) |
 | `texada check` | 就绪检查(Ollama、模型) |
@@ -169,4 +172,4 @@ TeXada-the-Math-Agent/
 ## 9. 演进
 
 - **v0.1–0.2**:llama.cpp 双实例 + 早期 Gemma 评估(见 `docs/design.md` 历史稿)。
-- **v0.3**:纯 Ollama 后端 + MiniCPM5-1B / MiniCPM-V 4.6 + 补全规则兜底 + 代理修复 + `TeXada.command` 点击即启动。
+- **v0.3**:Ollama 本地后端 + OpenAI-compatible 云侧后端 + MiniCPM5-1B / MiniCPM-V 4.6 + 补全规则兜底 + 代理修复 + `TeXada.command` 点击即启动。

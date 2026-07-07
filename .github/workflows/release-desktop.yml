@@ -97,10 +97,25 @@ jobs:
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2" --locked
 
+      - name: Require macOS signing secrets
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$APPLE_CERTIFICATE" || { echo "::error::Missing APPLE_CERTIFICATE secret (base64 .p12)."; exit 1; }
+          test -n "$APPLE_CERTIFICATE_PASSWORD" || { echo "::error::Missing APPLE_CERTIFICATE_PASSWORD secret."; exit 1; }
+
       - name: Build desktop bundle
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || 'Yichun Deng' }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: tauri-shell/src-tauri
           tauriScript: cargo tauri
@@ -115,3 +130,25 @@ jobs:
           uploadWorkflowArtifacts: true
           workflowArtifactNamePattern: ${{ matrix.name }}
           releaseAssetNamePattern: TeXada-[version]-[platform]-[arch]-[bundle][setup][ext]
+
+      - name: Verify macOS package signature
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          EXPECTED_SIGNER: ${{ secrets.APPLE_SIGNING_IDENTITY || 'Yichun Deng' }}
+        run: |
+          set -euo pipefail
+          dmg="$(find tauri-shell/src-tauri/target -path '*/bundle/dmg/*.dmg' -print -quit)"
+          test -n "$dmg" || { echo "::error::DMG artifact not found."; exit 1; }
+          codesign --verify --verbose=2 "$dmg"
+          codesign -dv --verbose=4 "$dmg" 2> /tmp/texada-dmg-codesign.txt
+          grep -F "$EXPECTED_SIGNER" /tmp/texada-dmg-codesign.txt
+
+          mount_dir="$(mktemp -d)"
+          hdiutil attach "$dmg" -mountpoint "$mount_dir" -nobrowse -quiet
+          trap 'hdiutil detach "$mount_dir" -quiet || true; rm -rf "$mount_dir"' EXIT
+          app="$(find "$mount_dir" -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app" || { echo "::error::Signed app not found inside DMG."; exit 1; }
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign -dv --verbose=4 "$app" 2> /tmp/texada-app-codesign.txt
+          grep -F "$EXPECTED_SIGNER" /tmp/texada-app-codesign.txt

@@ -11,11 +11,181 @@
   let lastResult = null;
   let isProcessing = false;
   let allShorthands = [];
+  let uiLanguage = 'zh';
   let runtimeConfig = {
     maxOcrBytes: null,
     allowedImageTypes: new Set(),
   };
   let requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS;
+
+  const I18N = {
+    zh: {
+      'tab.complete': '补全',
+      'tab.shorthand': '缩写',
+      'tab.history': '历史',
+      'nl.placeholder': '输入数学描述…  如: 二重积分 f(x,y) 在 D 上',
+      'nl.hint': 'Enter 发送 · Shift+Enter 换行 · Esc 关闭',
+      'intent.waiting': '等待输入',
+      'intent.processing': '处理中…',
+      'intent.unknown': 'unknown',
+      'result.renderMode': '渲染模式：',
+      'result.pureLatexMode': '纯 LaTeX',
+      'result.press': '按',
+      'result.toggleMode': '切换模式',
+      'result.renderPreview': '渲染预览',
+      'result.latexStructure': '纯 LaTeX 结构预览',
+      'result.latexSource': 'LaTeX 源码',
+      'result.valid': '✓ Valid',
+      'result.invalid': '✗ Invalid',
+      'result.sourceModel': '🤖 model',
+      'result.sourceShorthand': '⚡ shorthand',
+      'result.ocrResult': '识别结果',
+      'result.completionResult': '补全结果',
+      'action.copySource': '复制源码',
+      'action.copyMarkdown': '复制 Markdown',
+      'action.copyClose': '复制并关闭',
+      'action.retry': '重新生成',
+      'action.copyResult': '复制结果',
+      'action.save': '保存',
+      'ocr.dropText': '拖放图片或粘贴截图',
+      'ocr.dropHint': 'Cmd+V 粘贴剪贴板图片',
+      'ocr.unsupportedType': '不支持的图片类型',
+      'ocr.tooLarge': '图片过大，请使用 {limit} MB 以内的图片',
+      'complete.placeholder': '输入部分 LaTeX… 如: \\\\sum_{i=1}^{',
+      'complete.hint': 'Enter 补全 · Esc 关闭',
+      'shorthand.keyPlaceholder': '缩写键…',
+      'shorthand.valuePlaceholder': 'LaTeX…',
+      'shorthand.add': '添加缩写',
+      'shorthand.search': '搜索缩写…',
+      'shorthand.loadError': '无法加载缩写库',
+      'shorthand.noMatch': '无匹配的缩写',
+      'shorthand.emptyCustom': '暂无自定义缩写',
+      'shorthand.fillRequired': '请填写缩写键和 LaTeX',
+      'shorthand.saving': '保存中...',
+      'shorthand.saved': '已保存',
+      'shorthand.deleting': '删除中...',
+      'shorthand.deleted': '已删除',
+      'shorthand.deleteTitle': '删除缩写',
+      'history.search': '搜索历史…',
+      'history.empty': '暂无历史记录',
+      'history.insertTitle': '点击在光标处键入公式',
+      'settings.interface': '界面',
+      'settings.language': '语言',
+      'settings.backendTitle': '后端连接',
+      'settings.apiAddress': 'API 地址',
+      'settings.apiDesc': 'TeXada FastAPI 服务地址',
+      'settings.backend': '模型后端',
+      'settings.localTextModel': '本地文本模型',
+      'settings.localVisionModel': '本地视觉模型',
+      'settings.cloudEndpoint': '云端 Endpoint',
+      'settings.cloudModel': '云端模型名',
+      'settings.cloudVisionModel': '云端视觉模型',
+      'settings.cloudApiKey': '云端 API Key',
+      'settings.sameModelPlaceholder': '留空则使用同一模型',
+      'settings.keepKeyPlaceholder': '留空则保持不变',
+      'settings.keySavedPlaceholder': '已保存，留空则保持不变',
+      'settings.keyEnterPlaceholder': '请输入 API Key',
+      'settings.shortcuts': '快捷键',
+      'settings.wake': '唤出 / 隐藏',
+      'settings.toggleRenderMode': '切换渲染模式',
+      'settings.about': '关于',
+      'settings.loadError': '无法加载设置',
+      'settings.saving': '保存中...',
+      'settings.saved': '已保存',
+      'settings.detecting': '检测中...',
+      'settings.languageSaved': '已切换',
+      'status.ready': 'Ready',
+      'status.noApi': 'No API',
+      'status.error': 'Error',
+      'status.offline': 'Offline',
+      'status.online': 'Online',
+      'insert.fallbackCopied': '浏览器模式已复制；桌面端可直接键入',
+      'insert.failed': '插入失败，已复制到剪贴板'
+    },
+    en: {
+      'tab.complete': 'Complete',
+      'tab.shorthand': 'Snippets',
+      'tab.history': 'History',
+      'nl.placeholder': 'Describe a formula… e.g. double integral of f(x,y) over D',
+      'nl.hint': 'Enter to send · Shift+Enter newline · Esc close',
+      'intent.waiting': 'Waiting',
+      'intent.processing': 'Processing…',
+      'intent.unknown': 'unknown',
+      'result.renderMode': 'Render mode:',
+      'result.pureLatexMode': 'LaTeX',
+      'result.press': 'Press',
+      'result.toggleMode': 'to switch',
+      'result.renderPreview': 'Rendered preview',
+      'result.latexStructure': 'Plain LaTeX structure',
+      'result.latexSource': 'LaTeX source',
+      'result.valid': '✓ Valid',
+      'result.invalid': '✗ Invalid',
+      'result.sourceModel': '🤖 model',
+      'result.sourceShorthand': '⚡ shorthand',
+      'result.ocrResult': 'OCR result',
+      'result.completionResult': 'Completion result',
+      'action.copySource': 'Copy source',
+      'action.copyMarkdown': 'Copy Markdown',
+      'action.copyClose': 'Copy and close',
+      'action.retry': 'Regenerate',
+      'action.copyResult': 'Copy result',
+      'action.save': 'Save',
+      'ocr.dropText': 'Drop an image or paste a screenshot',
+      'ocr.dropHint': 'Cmd+V to paste a clipboard image',
+      'ocr.unsupportedType': 'Unsupported image type',
+      'ocr.tooLarge': 'Image is too large. Use an image under {limit} MB',
+      'complete.placeholder': 'Enter partial LaTeX… e.g. \\\\sum_{i=1}^{',
+      'complete.hint': 'Enter to complete · Esc close',
+      'shorthand.keyPlaceholder': 'Key…',
+      'shorthand.valuePlaceholder': 'LaTeX…',
+      'shorthand.add': 'Add snippet',
+      'shorthand.search': 'Search snippets…',
+      'shorthand.loadError': 'Unable to load snippets',
+      'shorthand.noMatch': 'No matching snippets',
+      'shorthand.emptyCustom': 'No custom snippets yet',
+      'shorthand.fillRequired': 'Enter both a key and LaTeX',
+      'shorthand.saving': 'Saving...',
+      'shorthand.saved': 'Saved',
+      'shorthand.deleting': 'Deleting...',
+      'shorthand.deleted': 'Deleted',
+      'shorthand.deleteTitle': 'Delete snippet',
+      'history.search': 'Search history…',
+      'history.empty': 'No history yet',
+      'history.insertTitle': 'Click to type the formula at the cursor',
+      'settings.interface': 'Interface',
+      'settings.language': 'Language',
+      'settings.backendTitle': 'Backend',
+      'settings.apiAddress': 'API address',
+      'settings.apiDesc': 'TeXada FastAPI service address',
+      'settings.backend': 'Model backend',
+      'settings.localTextModel': 'Local text model',
+      'settings.localVisionModel': 'Local vision model',
+      'settings.cloudEndpoint': 'Cloud endpoint',
+      'settings.cloudModel': 'Cloud model',
+      'settings.cloudVisionModel': 'Cloud vision model',
+      'settings.cloudApiKey': 'Cloud API key',
+      'settings.sameModelPlaceholder': 'Leave blank to use the same model',
+      'settings.keepKeyPlaceholder': 'Leave blank to keep unchanged',
+      'settings.keySavedPlaceholder': 'Saved; leave blank to keep unchanged',
+      'settings.keyEnterPlaceholder': 'Enter API key',
+      'settings.shortcuts': 'Shortcuts',
+      'settings.wake': 'Show / hide',
+      'settings.toggleRenderMode': 'Toggle render mode',
+      'settings.about': 'About',
+      'settings.loadError': 'Unable to load settings',
+      'settings.saving': 'Saving...',
+      'settings.saved': 'Saved',
+      'settings.detecting': 'Detecting...',
+      'settings.languageSaved': 'Changed',
+      'status.ready': 'Ready',
+      'status.noApi': 'No API',
+      'status.error': 'Error',
+      'status.offline': 'Offline',
+      'status.online': 'Online',
+      'insert.fallbackCopied': 'Copied in browser mode; desktop mode types directly',
+      'insert.failed': 'Insert failed; copied to clipboard'
+    }
+  };
 
   // ── DOM refs ──
   const els = {
@@ -58,6 +228,8 @@
     openaiVisionModelInput: document.getElementById('openai-vision-model-input'),
     openaiKeyInput: document.getElementById('openai-key-input'),
     backendSaveStatus: document.getElementById('backend-save-status'),
+    uiLanguageSelect: document.getElementById('ui-language-select'),
+    uiLanguageStatus: document.getElementById('ui-language-status'),
     apiBaseValue: document.getElementById('api-base-value'),
   };
 
@@ -67,6 +239,34 @@
 
   function isMacPlatform() {
     return /Mac|iPhone|iPad|iPod/.test(navigator.platform || '');
+  }
+
+  function normalizeLanguage(value) {
+    return value === 'en' ? 'en' : 'zh';
+  }
+
+  function t(key, values = {}) {
+    const raw = (I18N[uiLanguage] && I18N[uiLanguage][key]) || I18N.zh[key] || key;
+    return raw.replace(/\{(\w+)\}/g, (_, name) => String(values[name] ?? ''));
+  }
+
+  function applyLanguage() {
+    document.documentElement.lang = uiLanguage === 'en' ? 'en' : 'zh-CN';
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      el.textContent = t(el.dataset.i18n);
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+      el.placeholder = t(el.dataset.i18nPlaceholder);
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+      el.title = t(el.dataset.i18nTitle);
+    });
+    if (els.uiLanguageSelect) els.uiLanguageSelect.value = uiLanguage;
+    if (els.apiBaseValue && ['检测中...', 'Detecting...'].includes(els.apiBaseValue.textContent)) {
+      els.apiBaseValue.textContent = t('settings.detecting');
+    }
+    applyPlatformLabels();
+    if (!lastResult && !isProcessing) setIntent('🔍', t('intent.waiting'));
   }
 
   function applyPlatformLabels() {
@@ -92,7 +292,7 @@
     const dot = els.statusDot.querySelector('.dot');
     const span = els.statusDot.querySelector('span');
     dot.className = 'dot' + (online ? '' : ' offline');
-    span.textContent = text || (online ? 'Online' : 'Offline');
+    span.textContent = text || (online ? t('status.online') : t('status.offline'));
   }
 
   async function apiJson(path, options = {}) {
@@ -155,19 +355,19 @@
       const info = isTauri ? await invoke('get_status') : await apiJson('/api/status');
       const isOnline = info.status === 'ok' || info.status === 'ready' || info.status === 'no_model';
       const text = info.status === 'ready' || info.status === 'ok'
-        ? (info.model || 'Ready')
+        ? (info.model || t('status.ready'))
         : (info.message || info.status);
       setStatus(isOnline, text);
     } catch (e) {
       if (isTauri) {
         try {
           const info = await invoke('get_status');
-          setStatus(info.status === 'ok', info.status === 'ok' ? info.model || 'Ready' : 'Error');
+          setStatus(info.status === 'ok', info.status === 'ok' ? info.model || t('status.ready') : t('status.error'));
         } catch (e2) {
-          setStatus(false, 'No API');
+          setStatus(false, t('status.noApi'));
         }
       } else {
-        setStatus(false, 'No API');
+        setStatus(false, t('status.noApi'));
       }
     }
   }
@@ -183,7 +383,10 @@
     if (tab === 'nl') setTimeout(() => els.nlInput.focus(), 50);
     if (tab === 'complete') setTimeout(() => els.completeInput.focus(), 50);
     if (tab === 'ocr') setupOcr();
-    if (tab === 'settings') loadBackendSettings();
+    if (tab === 'settings') {
+      loadUiSettings();
+      loadBackendSettings();
+    }
   }
 
   els.tabBar.addEventListener('click', e => {
@@ -254,6 +457,17 @@
     });
   }
 
+  async function apiGetUiSettings() {
+    return await apiJson('/api/settings/ui');
+  }
+
+  async function apiSaveUiSettings(language) {
+    return await apiJson('/api/settings/ui', {
+      method: 'POST',
+      body: { ui_language: normalizeLanguage(language) },
+    });
+  }
+
   async function apiAddShorthand(key, value) {
     return await apiJson('/api/shorthands', {
       method: 'POST',
@@ -275,7 +489,7 @@
     isProcessing = true;
     els.nlProcessing.classList.add('active');
     els.nlResult.style.display = 'none';
-    setIntent('⏳', '处理中…');
+    setIntent('⏳', t('intent.processing'));
 
     try {
       const res = await apiConvert(text);
@@ -310,13 +524,15 @@
     els.markdownCode.textContent = `$$${res.latex}$$`;
 
     els.resultValid.className = 'valid-badge ' + (res.valid ? 'ok' : 'err');
-    els.resultValid.textContent = res.valid ? '✓ Valid' : '✗ Invalid';
+    els.resultValid.textContent = res.valid ? t('result.valid') : t('result.invalid');
     els.resultSource.className = 'source-badge ' + (res.source === 'shorthand' ? 'shorthand' : 'model');
-    els.resultSource.textContent = res.source === 'shorthand' ? '⚡ shorthand' : '🤖 model';
+    els.resultSource.textContent = res.source === 'shorthand' ? t('result.sourceShorthand') : t('result.sourceModel');
 
-    setIntent('∫', `${res.intent || 'unknown'} · ${Number(res.latency_ms || 0).toFixed(1)}ms`);
+    setIntent('∫', `${res.intent || t('intent.unknown')} · ${Number(res.latency_ms || 0).toFixed(1)}ms`);
 
     updateRender();
+    bindNlResultButtons();
+    bindModeOptions();
   }
 
   function updateRender() {
@@ -394,6 +610,38 @@
     if (isTauri) await invoke('hide_window');
   }
 
+  function formulaText(kind) {
+    if (!lastResult) return '';
+    if (kind === 'markdown') return `$$${lastResult.latex}$$`;
+    if (kind === 'latex') return lastResult.latex;
+    return lastResult.copy_text || lastResult.latex;
+  }
+
+  async function insertAtCursor(text) {
+    if (!text) return;
+    try {
+      if (isTauri) {
+        await invoke('insert_text_at_cursor', { text });
+      } else {
+        await copyToClipboard(text);
+        setIntent('📋', t('insert.fallbackCopied'));
+      }
+    } catch (e) {
+      await copyToClipboard(text);
+      setIntent('📋', t('insert.failed'));
+    }
+  }
+
+  function bindFormulaInsertHandlers(root = document) {
+    root.querySelectorAll('.formula-click-target').forEach(target => {
+      target.onclick = e => {
+        if (e.target.closest('button')) return;
+        const text = target.dataset.insertText || formulaText(target.dataset.insertTarget);
+        insertAtCursor(text);
+      };
+    });
+  }
+
   // ── Keyboard ──
   document.addEventListener('keydown', e => {
     // Esc → hide
@@ -434,23 +682,35 @@
     updateRender();
   }
 
-  $$('.mode-opt').forEach(m => {
-    m.addEventListener('click', () => {
-      renderMode = m.dataset.mode;
-      $$('.mode-opt').forEach(x => x.classList.toggle('active', x === m));
-      updateRender();
+  function bindModeOptions() {
+    $$('.mode-opt').forEach(m => {
+      m.onclick = () => {
+        renderMode = m.dataset.mode;
+        $$('.mode-opt').forEach(x => x.classList.toggle('active', x === m));
+        updateRender();
+      };
     });
-  });
+  }
 
   // ── Buttons ──
-  $('#btn-copy-main').addEventListener('click', copyMain);
-  $('#btn-copy-src').addEventListener('click', () => {
-    if (lastResult) copyToClipboard(lastResult.latex);
-  });
-  $('#btn-copy-md').addEventListener('click', () => {
-    if (lastResult) copyToClipboard(`$$${lastResult.latex}$$`);
-  });
-  $('#btn-retry').addEventListener('click', doConvert);
+  function bindNlResultButtons() {
+    const copyMainBtn = $('#btn-copy-main');
+    const copySrcBtn = $('#btn-copy-src');
+    const copyMdBtn = $('#btn-copy-md');
+    const retryBtn = $('#btn-retry');
+    if (copyMainBtn) copyMainBtn.onclick = copyMain;
+    if (copySrcBtn) copySrcBtn.onclick = () => {
+      if (lastResult) copyToClipboard(lastResult.latex);
+    };
+    if (copyMdBtn) copyMdBtn.onclick = () => {
+      if (lastResult) copyToClipboard(`$$${lastResult.latex}$$`);
+    };
+    if (retryBtn) retryBtn.onclick = doConvert;
+    bindFormulaInsertHandlers(els.nlResult);
+  }
+
+  bindModeOptions();
+  bindNlResultButtons();
 
   if ($('#btn-save-backend')) {
     $('#btn-save-backend').addEventListener('click', saveBackendSettings);
@@ -458,6 +718,42 @@
 
   if ($('#btn-add-shorthand')) {
     $('#btn-add-shorthand').addEventListener('click', addShorthandFromForm);
+  }
+
+  if (els.uiLanguageSelect) {
+    els.uiLanguageSelect.addEventListener('change', saveUiSettings);
+  }
+
+  async function loadUiSettings() {
+    try {
+      const cfg = await apiGetUiSettings();
+      uiLanguage = normalizeLanguage(cfg.ui_language);
+      localStorage.setItem('texada-ui-language', uiLanguage);
+    } catch (e) {
+      uiLanguage = normalizeLanguage(localStorage.getItem('texada-ui-language') || uiLanguage);
+    }
+    if (els.uiLanguageStatus) els.uiLanguageStatus.textContent = '';
+    applyLanguage();
+    if (lastResult) showResult(lastResult);
+  }
+
+  async function saveUiSettings() {
+    if (!els.uiLanguageSelect) return;
+    uiLanguage = normalizeLanguage(els.uiLanguageSelect.value);
+    localStorage.setItem('texada-ui-language', uiLanguage);
+    applyLanguage();
+    if (lastResult) showResult(lastResult);
+    if (els.uiLanguageStatus) els.uiLanguageStatus.textContent = t('settings.saving');
+    try {
+      const cfg = await apiSaveUiSettings(uiLanguage);
+      uiLanguage = normalizeLanguage(cfg.ui_language);
+      localStorage.setItem('texada-ui-language', uiLanguage);
+      applyLanguage();
+      if (lastResult) showResult(lastResult);
+      if (els.uiLanguageStatus) els.uiLanguageStatus.textContent = t('settings.languageSaved');
+    } catch (e) {
+      if (els.uiLanguageStatus) els.uiLanguageStatus.textContent = String(e).replace(/^Error:\s*/, '');
+    }
   }
 
   async function loadBackendSettings() {
@@ -472,10 +768,10 @@
       els.openaiModelInput.value = cfg.openai_model_name || '';
       els.openaiVisionModelInput.value = cfg.openai_vision_model_name || '';
       els.openaiKeyInput.value = '';
-      els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? '已保存，留空则保持不变' : '请输入 API Key';
+      els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? t('settings.keySavedPlaceholder') : t('settings.keyEnterPlaceholder');
       els.backendSaveStatus.textContent = '';
     } catch (e) {
-      els.backendSaveStatus.textContent = '无法加载设置';
+      els.backendSaveStatus.textContent = t('settings.loadError');
     }
   }
 
@@ -493,12 +789,12 @@
     const key = els.openaiKeyInput.value.trim();
     if (key) payload.openai_api_key = key;
 
-    els.backendSaveStatus.textContent = '保存中...';
+    els.backendSaveStatus.textContent = t('settings.saving');
     try {
       const cfg = await apiSaveBackendSettings(payload);
       els.openaiKeyInput.value = '';
-      els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? '已保存，留空则保持不变' : '请输入 API Key';
-      els.backendSaveStatus.textContent = '已保存';
+      els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? t('settings.keySavedPlaceholder') : t('settings.keyEnterPlaceholder');
+      els.backendSaveStatus.textContent = t('settings.saved');
       await checkBackend();
     } catch (e) {
       els.backendSaveStatus.textContent = String(e).replace(/^Error:\s*/, '');
@@ -539,12 +835,12 @@
   async function handleOcrFile(file) {
     const allowedTypes = runtimeConfig.allowedImageTypes;
     if (allowedTypes.size && !allowedTypes.has(file.type)) {
-      showErrorIn(els.ocrResult, `不支持的图片类型: ${file.type || 'unknown'}`);
+      showErrorIn(els.ocrResult, `${t('ocr.unsupportedType')}: ${file.type || 'unknown'}`);
       return;
     }
     if (runtimeConfig.maxOcrBytes && file.size > runtimeConfig.maxOcrBytes) {
       const limitMb = (runtimeConfig.maxOcrBytes / (1024 * 1024)).toFixed(1);
-      showErrorIn(els.ocrResult, `图片过大，请使用 ${limitMb} MB 以内的图片`);
+      showErrorIn(els.ocrResult, t('ocr.tooLarge', { limit: limitMb }));
       return;
     }
 
@@ -572,16 +868,20 @@
     els.ocrResult.style.display = 'block';
     els.ocrResult.innerHTML = `
       <div class="result-section">
-        <div class="result-label">识别结果 <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? '✓ Valid' : '✗ Invalid'}</span></div>
-        <div class="render-preview">${escapeHtml(res.latex)}</div>
+        <div class="result-label">${t('result.ocrResult')} <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? t('result.valid') : t('result.invalid')}</span></div>
+        <div class="render-preview formula-click-target" data-insert-target="copy">${escapeHtml(res.latex)}</div>
       </div>
       <div class="action-row">
-        <button class="action-btn primary" data-copy-result="${escapeHtml(res.copy_text || res.latex)}">📋 复制结果</button>
+        <button class="action-btn primary" data-copy-result>📋 ${t('action.copyResult')}</button>
       </div>
     `;
+    const resultText = res.copy_text || res.latex;
+    els.ocrResult.querySelector('[data-insert-target]').dataset.insertText = resultText;
+    els.ocrResult.querySelector('[data-copy-result]').dataset.copyResult = resultText;
     els.ocrResult.querySelector('[data-copy-result]').addEventListener('click', e => {
       copyToClipboard(e.currentTarget.dataset.copyResult);
     });
+    bindFormulaInsertHandlers(els.ocrResult);
   }
 
   // ── Completion ──
@@ -608,16 +908,20 @@
     els.completeResult.style.display = 'block';
     els.completeResult.innerHTML = `
       <div class="result-section">
-        <div class="result-label">补全结果 <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? '✓ Valid' : '✗ Invalid'}</span></div>
-        <div class="render-preview">${escapeHtml(res.latex)}</div>
+        <div class="result-label">${t('result.completionResult')} <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? t('result.valid') : t('result.invalid')}</span></div>
+        <div class="render-preview formula-click-target" data-insert-target="copy">${escapeHtml(res.latex)}</div>
       </div>
       <div class="action-row">
-        <button class="action-btn primary" data-copy-result="${escapeHtml(res.copy_text || res.latex)}">📋 复制结果</button>
+        <button class="action-btn primary" data-copy-result>📋 ${t('action.copyResult')}</button>
       </div>
     `;
+    const resultText = res.copy_text || res.latex;
+    els.completeResult.querySelector('[data-insert-target]').dataset.insertText = resultText;
+    els.completeResult.querySelector('[data-copy-result]').dataset.copyResult = resultText;
     els.completeResult.querySelector('[data-copy-result]').addEventListener('click', e => {
       copyToClipboard(e.currentTarget.dataset.copyResult);
     });
+    bindFormulaInsertHandlers(els.completeResult);
   }
 
   function showErrorIn(el, msg) {
@@ -632,13 +936,13 @@
       allShorthands = items || [];
       renderShorthands(allShorthands);
     } catch (e) {
-      els.shorthandGrid.innerHTML = '<div class="empty-state"><div class="text">无法加载缩写库</div></div>';
+      els.shorthandGrid.innerHTML = `<div class="empty-state"><div class="text">${t('shorthand.loadError')}</div></div>`;
     }
   }
 
   function renderShorthands(items) {
     if (!items || !items.length) {
-      const msg = allShorthands.length ? '无匹配的缩写' : '暂无自定义缩写';
+      const msg = allShorthands.length ? t('shorthand.noMatch') : t('shorthand.emptyCustom');
       els.shorthandGrid.innerHTML = `<div class="empty-state"><div class="text">${msg}</div></div>`;
       return;
     }
@@ -646,7 +950,7 @@
       <div class="shorthand-card" data-key="${escapeHtml(i.key)}">
         <div class="shorthand-card-head">
           <div class="shorthand-key">${escapeHtml(i.key)}</div>
-          ${i.editable ? `<button class="action-btn shorthand-delete" title="删除缩写" data-delete-key="${escapeHtml(i.key)}">×</button>` : ''}
+          ${i.editable ? `<button class="action-btn shorthand-delete" title="${t('shorthand.deleteTitle')}" data-delete-key="${escapeHtml(i.key)}">×</button>` : ''}
         </div>
         <div class="shorthand-val">${escapeHtml(i.value)}</div>
       </div>
@@ -672,15 +976,15 @@
     const key = (els.shorthandKeyInput.value || '').trim();
     const value = (els.shorthandValueInput.value || '').trim();
     if (!key || !value) {
-      els.shorthandSaveStatus.textContent = '请填写缩写键和 LaTeX';
+      els.shorthandSaveStatus.textContent = t('shorthand.fillRequired');
       return;
     }
-    els.shorthandSaveStatus.textContent = '保存中...';
+    els.shorthandSaveStatus.textContent = t('shorthand.saving');
     try {
       await apiAddShorthand(key, value);
       els.shorthandKeyInput.value = '';
       els.shorthandValueInput.value = '';
-      els.shorthandSaveStatus.textContent = '已保存';
+      els.shorthandSaveStatus.textContent = t('shorthand.saved');
       await loadShorthands();
     } catch (e) {
       els.shorthandSaveStatus.textContent = String(e).replace(/^Error:\s*/, '');
@@ -688,10 +992,10 @@
   }
 
   async function deleteShorthand(key) {
-    els.shorthandSaveStatus.textContent = '删除中...';
+    els.shorthandSaveStatus.textContent = t('shorthand.deleting');
     try {
       await apiDeleteShorthand(key);
-      els.shorthandSaveStatus.textContent = '已删除';
+      els.shorthandSaveStatus.textContent = t('shorthand.deleted');
       await loadShorthands();
     } catch (e) {
       els.shorthandSaveStatus.textContent = String(e).replace(/^Error:\s*/, '');
@@ -737,26 +1041,22 @@
 
   function renderHistory(items) {
     if (!items.length) {
-      els.historyList.innerHTML = '<div class="empty-state"><div class="text">暂无历史记录</div></div>';
+      els.historyList.innerHTML = `<div class="empty-state"><div class="text">${t('history.empty')}</div></div>`;
       return;
     }
     els.historyList.innerHTML = items.slice(0, 50).map(h => `
-      <div class="history-item" data-latex="${escapeHtml(h.latex)}">
+      <div class="history-item formula-click-target" data-insert-text="${escapeHtml(h.latex)}" title="${t('history.insertTitle')}">
         <div class="history-input">
           <div class="history-input-text">${escapeHtml(h.input)}</div>
           <div class="history-input-meta">
             <span>${escapeHtml(h.latex.substring(0, 40))}${h.latex.length > 40 ? '…' : ''}</span>
           </div>
         </div>
-        <div class="history-render">📋</div>
+        <div class="history-render">↵</div>
       </div>
     `).join('');
 
-    els.historyList.querySelectorAll('.history-item').forEach(item => {
-      item.addEventListener('click', () => {
-        copyToClipboard(item.dataset.latex);
-      });
-    });
+    bindFormulaInsertHandlers(els.historyList);
   }
 
   function escapeHtml(str) {
@@ -768,8 +1068,10 @@
       .replace(/'/g,'&#39;');
   }
 
-  applyPlatformLabels();
+  uiLanguage = normalizeLanguage(localStorage.getItem('texada-ui-language') || uiLanguage);
+  applyLanguage();
   await loadRuntimeConfig();
+  await loadUiSettings();
 
   // ── Auto-focus & clipboard on show ──
   async function onWindowShown() {

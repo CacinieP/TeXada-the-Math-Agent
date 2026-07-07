@@ -6,13 +6,13 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:* http://localhost:* http://[::1]:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
 <title>TeXada</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<link rel="stylesheet" href="style.css?v=0.3.0-20260707-2">
+<link rel="stylesheet" href="style.css?v=0.3.0-20260707-4">
 </head>
 <body>
 <div id="app">
   <!-- Header -->
   <div class="panel-header">
-    <div class="panel-logo">T</div>
+    <img class="panel-logo" src="app-icon.png?v=0.3.0-20260707-4" alt="TeXada">
     <div class="panel-title">TeXada</div>
     <div class="panel-status" id="status-dot">
       <div class="dot offline"></div>
@@ -25,18 +25,18 @@
   <div class="tab-bar" id="tab-bar">
     <div class="tab-item active" data-tab="nl"><span class="icon">✏️</span> NL <span class="tab-shortcut">1</span></div>
     <div class="tab-item" data-tab="ocr"><span class="icon">📷</span> OCR <span class="tab-shortcut">2</span></div>
-    <div class="tab-item" data-tab="complete"><span class="icon">{ }</span> 补全 <span class="tab-shortcut">3</span></div>
-    <div class="tab-item" data-tab="shorthand"><span class="icon">⚡</span> 缩写 <span class="tab-shortcut">4</span></div>
-    <div class="tab-item" data-tab="history"><span class="icon">🕐</span> 历史 <span class="tab-shortcut">5</span></div>
+    <div class="tab-item" data-tab="complete"><span class="icon">{ }</span> <span data-i18n="tab.complete">补全</span> <span class="tab-shortcut">3</span></div>
+    <div class="tab-item" data-tab="shorthand"><span class="icon">⚡</span> <span data-i18n="tab.shorthand">缩写</span> <span class="tab-shortcut">4</span></div>
+    <div class="tab-item" data-tab="history"><span class="icon">🕐</span> <span data-i18n="tab.history">历史</span> <span class="tab-shortcut">5</span></div>
     <div class="tab-item" data-tab="settings"><span class="icon">⚙️</span> <span class="tab-shortcut">6</span></div>
   </div>
 
   <!-- NL Tab -->
   <div class="tab-content active" id="tab-nl">
     <div class="input-area">
-      <textarea class="input-box" id="nl-input" placeholder="输入数学描述…  如: 二重积分 f(x,y) 在 D 上" rows="1"></textarea>
+      <textarea class="input-box" id="nl-input" data-i18n-placeholder="nl.placeholder" placeholder="输入数学描述…  如: 二重积分 f(x,y) 在 D 上" rows="1"></textarea>
       <div class="input-hint">
-        <span>Enter 发送 · Shift+Enter 换行 · Esc 关闭</span>
+        <span data-i18n="nl.hint">Enter 发送 · Shift+Enter 换行 · Esc 关闭</span>
         <span class="intent-tag" id="nl-intent"><span class="intent-icon">🔍</span> 等待输入</span>
       </div>
     </div>
@@ -45,45 +45,45 @@
     <div id="nl-result" style="display:none">
       <div class="mode-banner">
         <div class="mode-banner-left">
-          渲染模式：
+          <span data-i18n="result.renderMode">渲染模式：</span>
           <div class="mode-switcher">
-            <div class="mode-opt active" data-mode="katex"><span class="mode-icon">📐</span> KaTeX</div>
-            <div class="mode-opt" data-mode="latex"><span class="mode-icon">📜</span> 纯 LaTeX</div>
+            <div class="mode-opt active" data-mode="katex"><span class="mode-icon">📐</span> <span>KaTeX</span></div>
+            <div class="mode-opt" data-mode="latex"><span class="mode-icon">📜</span> <span data-i18n="result.pureLatexMode">纯 LaTeX</span></div>
           </div>
         </div>
-        <div class="mode-banner-right">按 <kbd data-shortcut="mode">⌘K</kbd> 切换模式</div>
+        <div class="mode-banner-right"><span data-i18n="result.press">按</span> <kbd data-shortcut="mode">⌘K</kbd> <span data-i18n="result.toggleMode">切换模式</span></div>
       </div>
       <div class="result-area">
         <div class="result-section" id="katex-result-section">
           <div class="result-label">
-            渲染预览
+            <span data-i18n="result.renderPreview">渲染预览</span>
             <span class="valid-badge ok" id="result-valid">✓ Valid</span>
             <span class="source-badge model" id="result-source">🤖 model</span>
           </div>
-          <div class="render-preview" id="render-preview"></div>
+          <div class="render-preview formula-click-target" id="render-preview" data-insert-target="copy"></div>
         </div>
         <div class="result-section" id="latex-result-section" style="display:none">
-          <div class="result-label">纯 LaTeX 结构预览</div>
-          <div class="render-preview pure-latex" id="latex-preview"></div>
+          <div class="result-label" data-i18n="result.latexStructure">纯 LaTeX 结构预览</div>
+          <div class="render-preview pure-latex formula-click-target" id="latex-preview" data-insert-target="latex"></div>
         </div>
         <div class="result-section">
-          <div class="result-label">LaTeX 源码</div>
+          <div class="result-label" data-i18n="result.latexSource">LaTeX 源码</div>
           <div class="latex-source">
-            <code class="latex-code" id="latex-code"></code>
-            <button class="action-btn" id="btn-copy-src" title="复制源码"><span class="icon">📋</span></button>
+            <code class="latex-code formula-click-target" id="latex-code" data-insert-target="latex"></code>
+            <button class="action-btn" id="btn-copy-src" title="复制源码" data-i18n-title="action.copySource"><span class="icon">📋</span></button>
           </div>
         </div>
         <div class="result-section">
           <div class="result-label">VS Code Markdown</div>
           <div class="latex-source">
-            <code class="latex-code" id="markdown-code"></code>
-            <button class="action-btn" id="btn-copy-md" title="复制 Markdown"><span class="icon">📋</span></button>
+            <code class="latex-code formula-click-target" id="markdown-code" data-insert-target="markdown"></code>
+            <button class="action-btn" id="btn-copy-md" title="复制 Markdown" data-i18n-title="action.copyMarkdown"><span class="icon">📋</span></button>
           </div>
         </div>
       </div>
       <div class="action-row">
-        <button class="action-btn primary" id="btn-copy-main"><span class="icon">📋</span> 复制并关闭 <span class="panel-kbd">Enter</span></button>
-        <button class="action-btn" id="btn-retry"><span class="icon">🔄</span> 重新生成</button>
+        <button class="action-btn primary" id="btn-copy-main"><span class="icon">📋</span> <span data-i18n="action.copyClose">复制并关闭</span> <span class="panel-kbd">Enter</span></button>
+        <button class="action-btn" id="btn-retry"><span class="icon">🔄</span> <span data-i18n="action.retry">重新生成</span></button>
       </div>
     </div>
   </div>
@@ -92,8 +92,8 @@
   <div class="tab-content" id="tab-ocr">
     <div class="drop-zone" id="ocr-drop">
       <div class="icon">📷</div>
-      <div class="text">拖放图片或粘贴截图</div>
-      <div class="hint">Cmd+V 粘贴剪贴板图片</div>
+      <div class="text" data-i18n="ocr.dropText">拖放图片或粘贴截图</div>
+      <div class="hint" data-i18n="ocr.dropHint">Cmd+V 粘贴剪贴板图片</div>
     </div>
     <div class="ocr-preview" id="ocr-preview" style="display:none">
       <div class="ocr-thumb" id="ocr-thumb">🖼️</div>
@@ -109,8 +109,8 @@
   <!-- Completion Tab -->
   <div class="tab-content" id="tab-complete">
     <div class="input-area">
-      <textarea class="input-box completion-input" id="complete-input" placeholder="输入部分 LaTeX… 如: \\sum_{i=1}^{" rows="1"></textarea>
-      <div class="input-hint"><span>Enter 补全 · Esc 关闭</span></div>
+      <textarea class="input-box completion-input" id="complete-input" data-i18n-placeholder="complete.placeholder" placeholder="输入部分 LaTeX… 如: \\sum_{i=1}^{" rows="1"></textarea>
+      <div class="input-hint"><span data-i18n="complete.hint">Enter 补全 · Esc 关闭</span></div>
     </div>
     <div class="processing-bar" id="complete-processing"></div>
     <div id="complete-result" style="display:none"></div>
@@ -119,14 +119,14 @@
   <!-- Shorthand Tab -->
   <div class="tab-content" id="tab-shorthand">
     <div class="shorthand-editor">
-      <input type="text" id="shorthand-key-input" placeholder="缩写键…">
-      <input type="text" id="shorthand-value-input" placeholder="LaTeX…">
-      <button class="action-btn primary icon-only" id="btn-add-shorthand" title="添加缩写">+</button>
+      <input type="text" id="shorthand-key-input" data-i18n-placeholder="shorthand.keyPlaceholder" placeholder="缩写键…">
+      <input type="text" id="shorthand-value-input" data-i18n-placeholder="shorthand.valuePlaceholder" placeholder="LaTeX…">
+      <button class="action-btn primary icon-only" id="btn-add-shorthand" title="添加缩写" data-i18n-title="shorthand.add">+</button>
     </div>
     <div class="setting-desc" id="shorthand-save-status"></div>
     <div class="search-box">
       <span class="icon">🔍</span>
-      <input type="text" id="shorthand-search" placeholder="搜索缩写…">
+      <input type="text" id="shorthand-search" data-i18n-placeholder="shorthand.search" placeholder="搜索缩写…">
     </div>
     <div class="shorthand-grid" id="shorthand-grid"></div>
   </div>
@@ -135,7 +135,7 @@
   <div class="tab-content" id="tab-history">
     <div class="search-box">
       <span class="icon">🔍</span>
-      <input type="text" id="history-search" placeholder="搜索历史…">
+      <input type="text" id="history-search" data-i18n-placeholder="history.search" placeholder="搜索历史…">
     </div>
     <div class="history-list" id="history-list"></div>
   </div>
@@ -143,16 +143,29 @@
   <!-- Settings Tab -->
   <div class="tab-content" id="tab-settings">
     <div class="settings-section">
-      <div class="settings-title">后端连接</div>
+      <div class="settings-title" data-i18n="settings.interface">界面</div>
+      <div class="setting-row form-row">
+        <label class="setting-label" for="ui-language-select" data-i18n="settings.language">语言</label>
+        <select class="setting-control" id="ui-language-select">
+          <option value="zh">中文</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div class="settings-actions">
+        <span class="setting-desc" id="ui-language-status"></span>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-title" data-i18n="settings.backendTitle">后端连接</div>
       <div class="setting-row">
         <div>
-          <div class="setting-label">API 地址</div>
-          <div class="setting-desc">TeXada FastAPI 服务地址</div>
+          <div class="setting-label" data-i18n="settings.apiAddress">API 地址</div>
+          <div class="setting-desc" data-i18n="settings.apiDesc">TeXada FastAPI 服务地址</div>
         </div>
         <div class="setting-value" id="api-base-value">检测中...</div>
       </div>
       <div class="setting-row form-row">
-        <label class="setting-label" for="backend-select">模型后端</label>
+        <label class="setting-label" for="backend-select" data-i18n="settings.backend">模型后端</label>
         <select class="setting-control" id="backend-select">
           <option value="ollama">Local Ollama</option>
           <option value="openai_compatible">OpenAI-compatible</option>
@@ -163,47 +176,47 @@
         <input class="setting-control" id="ollama-host-input" type="url" autocomplete="off">
       </div>
       <div class="setting-row form-row">
-        <label class="setting-label" for="local-model-input">本地文本模型</label>
+        <label class="setting-label" for="local-model-input" data-i18n="settings.localTextModel">本地文本模型</label>
         <input class="setting-control" id="local-model-input" type="text" autocomplete="off">
       </div>
       <div class="setting-row form-row">
-        <label class="setting-label" for="local-vision-model-input">本地视觉模型</label>
+        <label class="setting-label" for="local-vision-model-input" data-i18n="settings.localVisionModel">本地视觉模型</label>
         <input class="setting-control" id="local-vision-model-input" type="text" autocomplete="off">
       </div>
       <div class="setting-row form-row">
-        <label class="setting-label" for="openai-endpoint-input">云端 Endpoint</label>
+        <label class="setting-label" for="openai-endpoint-input" data-i18n="settings.cloudEndpoint">云端 Endpoint</label>
         <input class="setting-control" id="openai-endpoint-input" type="url" placeholder="https://.../v1" autocomplete="off">
       </div>
       <div class="setting-row form-row">
-        <label class="setting-label" for="openai-model-input">云端模型名</label>
+        <label class="setting-label" for="openai-model-input" data-i18n="settings.cloudModel">云端模型名</label>
         <input class="setting-control" id="openai-model-input" type="text" autocomplete="off">
       </div>
       <div class="setting-row form-row">
-        <label class="setting-label" for="openai-vision-model-input">云端视觉模型</label>
-        <input class="setting-control" id="openai-vision-model-input" type="text" placeholder="留空则使用同一模型" autocomplete="off">
+        <label class="setting-label" for="openai-vision-model-input" data-i18n="settings.cloudVisionModel">云端视觉模型</label>
+        <input class="setting-control" id="openai-vision-model-input" type="text" data-i18n-placeholder="settings.sameModelPlaceholder" placeholder="留空则使用同一模型" autocomplete="off">
       </div>
       <div class="setting-row form-row">
-        <label class="setting-label" for="openai-key-input">云端 API Key</label>
-        <input class="setting-control" id="openai-key-input" type="password" placeholder="留空则保持不变" autocomplete="off">
+        <label class="setting-label" for="openai-key-input" data-i18n="settings.cloudApiKey">云端 API Key</label>
+        <input class="setting-control" id="openai-key-input" type="password" data-i18n-placeholder="settings.keepKeyPlaceholder" placeholder="留空则保持不变" autocomplete="off">
       </div>
       <div class="settings-actions">
-        <button class="action-btn primary" id="btn-save-backend">保存</button>
+        <button class="action-btn primary" id="btn-save-backend" data-i18n="action.save">保存</button>
         <span class="setting-desc" id="backend-save-status"></span>
       </div>
     </div>
     <div class="settings-section">
-      <div class="settings-title">快捷键</div>
+      <div class="settings-title" data-i18n="settings.shortcuts">快捷键</div>
       <div class="setting-row">
-        <div class="setting-label">唤出 / 隐藏</div>
+        <div class="setting-label" data-i18n="settings.wake">唤出 / 隐藏</div>
         <div class="setting-value" data-shortcut="wake">⌥⌘T</div>
       </div>
       <div class="setting-row">
-        <div class="setting-label">切换渲染模式</div>
+        <div class="setting-label" data-i18n="settings.toggleRenderMode">切换渲染模式</div>
         <div class="setting-value" data-shortcut="mode">⌘K</div>
       </div>
     </div>
     <div class="settings-section">
-      <div class="settings-title">关于</div>
+      <div class="settings-title" data-i18n="settings.about">关于</div>
       <div class="setting-row">
         <div class="setting-label">TeXada Shell</div>
         <div class="setting-value">v0.3.0</div>
@@ -212,7 +225,7 @@
   </div>
 </div>
 
-<script src="api-config.js?v=0.3.0-20260707-2"></script>
-<script src="main.js?v=0.3.0-20260707-2"></script>
+<script src="api-config.js?v=0.3.0-20260707-4"></script>
+<script src="main.js?v=0.3.0-20260707-4"></script>
 </body>
 </html>

@@ -115,3 +115,24 @@ async def test_concurrent_render_modes_do_not_leak(tmp_path):
     assert latex_result.render.mode == RenderMode.LATEX
     assert latex_result.render.katex_html is None
     assert latex_result.render.latex_highlighted is not None
+
+
+@pytest.mark.asyncio
+async def test_nl_conversion_does_not_reuse_previous_memory(tmp_path):
+    config = TeXadaConfig(data_dir=tmp_path)
+    router = InputRouter(config)
+    seen_memory_lengths = []
+
+    async def fake_generate(preprocessed, intent, memory_messages=None, force_operators=None):
+        seen_memory_lengths.append(len(memory_messages or []))
+        return "x+1" if "first" in preprocessed else "y+1"
+
+    router.model.generate_latex = fake_generate
+    router.backend.ensure_ready = AsyncMock(return_value=True)
+
+    first = await router.process_text("first request", route_override=Route.NL2LATEX)
+    second = await router.process_text("second request", route_override=Route.NL2LATEX)
+
+    assert first.latex == "x+1"
+    assert second.latex == "y+1"
+    assert seen_memory_lengths == [0, 0]

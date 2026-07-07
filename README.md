@@ -1,15 +1,16 @@
 # TeXada — Math Formula Agent
 
-> 端侧数学公式 Agent，基于 **MiniCPM** 系模型，通过 **Ollama** 本地推理，零云端依赖。
+> 端侧优先的数学公式 Agent：默认通过 **Ollama + MiniCPM** 本地推理，也可切换到任意 OpenAI API 兼容的云侧模型。
 
 TeXada 把自然语言、LaTeX 片段、手写公式图片统一转换成 LaTeX，并即时渲染（KaTeX / LaTeX 高亮）、校验、自动修复。双模型各司其职：
 
 | 角色 | 模型 | 用途 |
 |------|------|------|
 | 文本推理 | **MiniCPM5-1B** (`hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M`) | 自然语言 → LaTeX、LaTeX 补全 |
-| 视觉 OCR | **MiniCPM-V 4.6** (`openbmb/minicpm-v4.6:latest`) | 手写 / 截图公式识别 |
+| 本地视觉 OCR | **MiniCPM-V 4.6** (`openbmb/minicpm-v4.6:latest`)；也可配置 MiniCPM5-1B 系兼容视觉模型 | 手写 / 截图公式识别 |
+| 云侧文本 / 视觉 | 所有 OpenAI API 兼容模型 | 设置页填写 endpoint、model、vision model、API key |
 
-两个模型都跑在同一个本地 **Ollama** daemon 上（Ollama 提供 OpenAI 兼容的 `/v1` 端点，推理层直接复用标准 OpenAI Chat API）。
+本地模型跑在同一个 **Ollama** daemon 上（Ollama 提供 OpenAI 兼容的 `/v1` 端点，推理层直接复用标准 OpenAI Chat API）。切换到 `OpenAI-compatible` 后不会使用本地 Ollama。
 
 ## 截图
 
@@ -22,7 +23,7 @@ TeXada 把自然语言、LaTeX 片段、手写公式图片统一转换成 LaTeX�
 - 📷 **OCR 图片识别**：MiniCPM-V 多模态识别手写 / 截图公式
 - ⚡ **快捷公式**：输入 `euler` → `e^{i\pi}+1=0`（可自定义）
 - ✅ **自动校验 + 修复**：LaTeX 语法检查，错误自动尝试修复
-- 🔒 **完全离线**：本地 Ollama，无任何云端调用
+- 🔒 **默认离线**：本地 Ollama 不产生云端调用；也可显式切换 OpenAI-compatible 云侧模型
 
 ## 快速启动（macOS 双击 App）
 
@@ -159,7 +160,16 @@ cargo install tauri-cli --version "^2" --locked
 - `Audit`：push / PR / 手动触发，运行 Ruff、pytest、pip-audit、npm audit、JS 语法检查，以及 macOS/Windows Tauri `cargo check`
 - `Desktop Release`：推送 `v*` tag 或手动触发；先跑预发布审计，通过后构建 macOS arm64 `.dmg`、macOS Intel `.dmg` 和 Windows x64 NSIS `.exe`，并上传到 draft release 与 workflow artifacts
 
-macOS release 产物使用 ad-hoc signing；正式分发前仍建议接入 Developer ID 签名与 notarization。
+macOS release 产物要求签名证书，不再产出 ad-hoc 签名包。Actions 需要以下 repository secrets：
+
+| Secret | 说明 |
+|--------|------|
+| `APPLE_CERTIFICATE` | base64 编码的 `.p12` 开发者证书 |
+| `APPLE_CERTIFICATE_PASSWORD` | `.p12` 导出密码 |
+| `APPLE_SIGNING_IDENTITY` | 可选；默认校验 `Yichun Deng` |
+| `APPLE_TEAM_ID` | 可选；后续接入 notarization 时使用 |
+
+导出证书后可用 `base64 -i YichunDeng.p12 | pbcopy` 写入 `APPLE_CERTIFICATE`。macOS job 会验证 `.dmg` 和其中 `.app` 的签名身份包含 `Yichun Deng`。
 
 ## 配置
 
@@ -174,7 +184,8 @@ macOS release 产物使用 ad-hoc signing；正式分发前仍建议接入 Devel
   "api_host": "127.0.0.1",
   "api_port": 18732,
   "max_tokens": 2048,
-  "default_render_mode": "katex"
+  "default_render_mode": "katex",
+  "ui_language": "zh"
 }
 ```
 
@@ -194,6 +205,27 @@ macOS release 产物使用 ad-hoc signing；正式分发前仍建议接入 Devel
 ```
 
 `openai_vision_model_name` 留空时，OCR 会复用 `openai_model_name`。
+
+### 模型配置与硬件建议
+
+本地推荐配置：
+
+| 场景 | 推荐硬件 | 说明 |
+|------|----------|------|
+| 文本 NL→LaTeX / 补全 | Apple Silicon / Intel i5+ / Ryzen 5+，8GB RAM | MiniCPM5-1B Q4 可运行，但冷启动较慢 |
+| 文本 + OCR 常用 | Apple Silicon M2/M3 或同级，16GB RAM | MiniCPM-V 4.6 视觉模型建议预留更多内存 |
+| 高频 OCR / 多窗口 | 16GB+ RAM，独立 GPU 或云侧视觉模型 | 可在设置中切换 OpenAI-compatible 视觉模型 |
+
+2026-07-07 实测环境：macOS 26.5.1，arm64，Apple A18 Pro，8GB RAM，Ollama 本地模型。
+
+| 操作 | 模型 | 实测响应 |
+|------|------|----------|
+| NL→LaTeX 冷启动 | MiniCPM5-1B | 179204.3ms |
+| NL→LaTeX warm | MiniCPM5-1B | 29612.2ms |
+| LaTeX 补全 | MiniCPM5-1B / 规则兜底 | 1808.5ms |
+| OCR 样例图 | MiniCPM-V 4.6 | 39419.0ms |
+
+云侧模型的响应时间主要取决于 provider、模型大小和网络；TeXada 对云侧只要求 OpenAI-compatible `/v1/chat/completions` 接口。
 
 ## 架构
 
