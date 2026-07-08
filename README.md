@@ -12,7 +12,7 @@
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue"></a>
 </p>
 
-![TeXada desktop screenshot](assets/clipboard-screenshot.png)
+![TeXada local-first math agent hero](assets/texada-hero.png)
 
 <a id="english"></a>
 
