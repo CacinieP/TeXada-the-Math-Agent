@@ -340,6 +340,11 @@ body {
   justify-content: center;
 }
 .render-preview .katex { font-size: 1.4em; color: #fff; }
+.katex-fallback {
+  color: var(--accent-cyan);
+  font: 13px var(--font-mono);
+  overflow-wrap: anywhere;
+}
 
 .formula-click-target {
   cursor: pointer;

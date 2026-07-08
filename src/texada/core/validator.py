@@ -127,7 +127,7 @@ class LaTeXValidator:
         """KaTeX rendering check — authoritative validation."""
         try:
             result = subprocess.run(
-                ["npx", "katex", "-F", "tex", "-t"],
+                ["npx", "--no-install", "katex", "-F", "tex", "-t"],
                 input=latex, capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0:

@@ -2,6 +2,20 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.2.1 - 2026-07-08
+
+- Fixed packaged desktop formula rendering when `npx katex` is unavailable.
+- Bundled local KaTeX browser CSS, JavaScript, fonts, and license with the Tauri frontend.
+- Changed backend KaTeX rendering to use `npx --no-install` and return a visible formula fallback instead of a user-facing `npx katex not available` error.
+- Rendered OCR and completion results with the same local KaTeX frontend path.
+
+## 0.2.1 - 2026-07-08 中文
+
+- 修复桌面安装包中缺少 `npx katex` 时公式渲染版不可见的问题。
+- 将本地 KaTeX 浏览器 CSS、JavaScript、字体和 license 随 Tauri 前端一起打包。
+- 后端 KaTeX 渲染改用 `npx --no-install`，并在不可用时返回可见公式 fallback，而不是显示 `npx katex not available`。
+- OCR 和补全结果也使用同一套前端本地 KaTeX 渲染路径。
+
 ## 0.2.0 - 2026-07-08
 
 - Improved history reuse with searchable natural-language, completion, OCR, and LaTeX records.

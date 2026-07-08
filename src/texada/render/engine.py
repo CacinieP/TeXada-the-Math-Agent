@@ -59,17 +59,19 @@ class RenderEngine:
         return self.render(self._last_latex)
 
     def _render_katex(self, latex: str) -> str:
-        """KaTeX rendering via npx subprocess."""
+        """KaTeX rendering via local npx subprocess, with visible fallback."""
         try:
             result = subprocess.run(
-                ["npx", "katex"],
+                ["npx", "--no-install", "katex"],
                 input=latex, capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0:
                 return result.stdout
-            error = html.escape(result.stderr[:100])
-            return f"<span class='katex-error'>KaTeX error: {error}</span>"
-        except FileNotFoundError:
-            return "<span class='katex-error'>npx katex not available</span>"
-        except subprocess.TimeoutExpired:
-            return "<span class='katex-error'>KaTeX timeout</span>"
+            return self._fallback_html(latex)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return self._fallback_html(latex)
+
+    @staticmethod
+    def _fallback_html(latex: str) -> str:
+        escaped = html.escape(latex)
+        return f"<span class='katex-fallback' data-render-fallback='true'>{escaped}</span>"

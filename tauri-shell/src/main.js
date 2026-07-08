@@ -737,26 +737,35 @@
 
   function updateRender() {
     if (!lastResult) return;
-    if (renderMode === 'katex' && lastResult.katex_html) {
+    if (renderMode === 'katex') {
       els.katexSection.style.display = 'block';
       els.latexSection.style.display = 'none';
-      els.renderPreview.innerHTML = lastResult.katex_html;
-      // Re-render with KaTeX JS if needed
-      if (window.katex) {
-        try {
-          els.renderPreview.innerHTML = '';
-          window.katex.render(lastResult.latex, els.renderPreview, {
-            throwOnError: false,
-            displayMode: true,
-          });
-        } catch (e) {
-          els.renderPreview.textContent = lastResult.latex;
-        }
-      }
+      renderKatexPreview(els.renderPreview, lastResult.latex, lastResult.katex_html);
     } else {
       els.katexSection.style.display = 'none';
       els.latexSection.style.display = 'block';
       els.latexPreview.innerHTML = highlightLatex(lastResult.latex);
+    }
+  }
+
+  function renderKatexPreview(target, latex, fallbackHtml = '') {
+    if (!target) return;
+    if (window.katex) {
+      try {
+        target.innerHTML = '';
+        window.katex.render(latex, target, {
+          throwOnError: false,
+          displayMode: true,
+        });
+        return;
+      } catch (e) {
+        // Fall back below; the user should still see a usable formula string.
+      }
+    }
+    if (fallbackHtml) {
+      target.innerHTML = fallbackHtml;
+    } else {
+      target.textContent = latex;
     }
   }
 
@@ -1142,6 +1151,11 @@
     const resultText = res.copy_text || res.latex;
     els.ocrResult.querySelector('[data-insert-target]').dataset.insertText = resultText;
     els.ocrResult.querySelector('[data-copy-result]').dataset.copyResult = resultText;
+    renderKatexPreview(
+      els.ocrResult.querySelector('[data-insert-target]'),
+      res.latex,
+      res.katex_html || ''
+    );
     els.ocrResult.querySelector('[data-copy-result]').addEventListener('click', e => {
       copyToClipboard(e.currentTarget.dataset.copyResult);
     });
@@ -1190,6 +1204,11 @@
     const resultText = res.copy_text || res.latex;
     els.completeResult.querySelector('[data-insert-target]').dataset.insertText = resultText;
     els.completeResult.querySelector('[data-copy-result]').dataset.copyResult = resultText;
+    renderKatexPreview(
+      els.completeResult.querySelector('[data-insert-target]'),
+      res.latex,
+      res.katex_html || ''
+    );
     els.completeResult.querySelector('[data-copy-result]').addEventListener('click', e => {
       copyToClipboard(e.currentTarget.dataset.copyResult);
     });
