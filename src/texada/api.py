@@ -115,7 +115,7 @@ def _app_version() -> str:
     try:
         return version("texada")
     except PackageNotFoundError:
-        return "0.1.0"
+        return "0.2.0"
 
 
 def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
@@ -383,9 +383,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     @app.get("/api/history")
     async def list_history(
         q: str = Query(default="", max_length=200),
+        input_type: str = Query(default="", alias="type", max_length=40),
         limit: int = Query(default=50, ge=1, le=100),
     ):
-        entries = await history.list_recent(q, limit)
+        entries = await history.list_recent(q, limit, input_type=input_type)
         return [e.__dict__ for e in entries]
 
     return app

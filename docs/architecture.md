@@ -1,6 +1,6 @@
 # TeXada Architecture
 
-Version: v0.1.0. TeXada is an endpoint-first math formula agent: it defaults to local Ollama MiniCPM models and can switch to any OpenAI-compatible `/v1/chat/completions` provider.
+Version: v0.2.0. TeXada is an endpoint-first math formula agent: it defaults to local Ollama MiniCPM models and can switch to any OpenAI-compatible `/v1/chat/completions` provider.
 
 ## System Overview
 
@@ -37,7 +37,7 @@ The FastAPI address and the Ollama address are separate layers. `TEXADA_API_HOST
 | `core/model.py` | OpenAI-compatible chat wrapper for text and vision models |
 | `core/validator.py`, `core/fixer.py` | LaTeX validation and repair |
 | `render/engine.py` | KaTeX and LaTeX highlighting |
-| `store/` | SQLite history and shorthand storage |
+| `store/` | SQLite history and shorthand storage, including searchable reusable conversion records |
 
 Clipboard, paste and notifications are handled in the Tauri shell for desktop builds. The old Python platform adapter layer was removed because it was no longer used by the API or installer builds.
 
@@ -57,6 +57,7 @@ The active UI lives in `tauri-shell/src/` and has no build step.
 
 - Tabs: NL, OCR, completion, snippets, history, settings.
 - Settings persist UI language, UI zoom, local Ollama host, local model names and cloud model credentials.
+- History can search and filter saved natural-language, completion, OCR, and LaTeX records, then reuse source inputs or copy outputs.
 - Formula blocks type into the current system cursor in desktop mode; copy buttons still copy.
 - Header and neutral panel surfaces call the Tauri native `start_dragging` command; form controls, tabs, formula blocks and other interactive targets are excluded so IME composition and clicks remain stable.
 - Browser development falls back to clipboard copy for insert-at-cursor behavior.

@@ -46,6 +46,61 @@ async def test_history_basic(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_history_query_searches_latex_and_filters_by_type(tmp_path):
+    config = TeXadaConfig(data_dir=tmp_path)
+    store = HistoryStore(config)
+
+    await store.add(HistoryEntry(
+        input_text="二重积分 f(x,y)",
+        input_type="nl",
+        latex="\\iint_D f(x,y)",
+        intent="integral",
+        source="model",
+        render_mode="katex",
+        valid=True,
+        latency_ms=120.5,
+    ))
+    await store.add(HistoryEntry(
+        input_text="\\sum_{i=1}^{",
+        input_type="completion",
+        latex="\\sum_{i=1}^{n} i",
+        intent="completion",
+        source="model",
+        render_mode="katex",
+        valid=True,
+        latency_ms=30.0,
+    ))
+
+    completions = await store.list_recent("sum", input_type="completion")
+
+    assert len(completions) == 1
+    assert completions[0].input_type == "completion"
+    assert completions[0].input_text == "\\sum_{i=1}^{"
+
+
+@pytest.mark.asyncio
+async def test_history_cleanup_enforces_max_items(tmp_path):
+    config = TeXadaConfig(data_dir=tmp_path, history_max_items=2)
+    store = HistoryStore(config)
+
+    for input_text in ["first", "second", "third"]:
+        await store.add(HistoryEntry(
+            input_text=input_text,
+            input_type="nl",
+            latex=input_text,
+            intent="generic",
+            source="model",
+            render_mode="katex",
+            valid=True,
+            latency_ms=10.0,
+        ))
+
+    recent = await store.list_recent()
+
+    assert [entry.input_text for entry in recent] == ["third", "second"]
+
+
+@pytest.mark.asyncio
 async def test_history_cleanup(tmp_path):
     config = TeXadaConfig(data_dir=tmp_path)
     store = HistoryStore(config)

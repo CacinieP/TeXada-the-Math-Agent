@@ -6,13 +6,13 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:* http://localhost:* http://[::1]:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
 <title>TeXada</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<link rel="stylesheet" href="style.css?v=0.1.0-20260707-4">
+<link rel="stylesheet" href="style.css?v=0.2.0-20260708">
 </head>
 <body>
 <div id="app">
   <!-- Header -->
   <div class="panel-header" data-tauri-drag-region>
-    <img class="panel-logo" src="app-icon.png?v=0.1.0-20260707-4" alt="TeXada" data-tauri-drag-region>
+    <img class="panel-logo" src="app-icon.png?v=0.2.0-20260708" alt="TeXada" data-tauri-drag-region>
     <div class="panel-title" data-tauri-drag-region>TeXada</div>
     <div class="panel-status" id="status-dot" data-tauri-drag-region>
       <div class="dot offline"></div>
@@ -133,9 +133,17 @@
 
   <!-- History Tab -->
   <div class="tab-content" id="tab-history">
-    <div class="search-box">
-      <span class="icon">🔍</span>
-      <input type="text" id="history-search" data-i18n-placeholder="history.search" placeholder="搜索历史…">
+    <div class="history-toolbar">
+      <div class="search-box">
+        <span class="icon">🔍</span>
+        <input type="text" id="history-search" data-i18n-placeholder="history.search" placeholder="搜索历史输入或 LaTeX…">
+      </div>
+      <div class="history-filter" id="history-filter">
+        <button class="history-filter-btn active" type="button" data-history-type="all" data-i18n="history.filterAll">全部</button>
+        <button class="history-filter-btn" type="button" data-history-type="nl" data-i18n="history.filterNl">自然语言</button>
+        <button class="history-filter-btn" type="button" data-history-type="completion" data-i18n="history.filterCompletion">补全</button>
+        <button class="history-filter-btn" type="button" data-history-type="ocr" data-i18n="history.filterOcr">OCR</button>
+      </div>
     </div>
     <div class="history-list" id="history-list"></div>
   </div>
@@ -232,13 +240,13 @@
       <div class="settings-title" data-i18n="settings.about">关于</div>
       <div class="setting-row">
         <div class="setting-label">TeXada Shell</div>
-        <div class="setting-value">v0.1.0</div>
+        <div class="setting-value">v0.2.0</div>
       </div>
     </div>
   </div>
 </div>
 
-<script src="api-config.js?v=0.1.0-20260707-4"></script>
-<script src="main.js?v=0.1.0-20260707-4"></script>
+<script src="api-config.js?v=0.2.0-20260708"></script>
+<script src="main.js?v=0.2.0-20260708"></script>
 </body>
 </html>

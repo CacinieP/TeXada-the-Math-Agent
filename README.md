@@ -31,7 +31,7 @@ TeXada is a desktop math formula agent for converting natural language, partial 
 | Formula OCR | Paste or drop screenshots and images for formula recognition |
 | Completion | Complete partial LaTeX expressions |
 | Validation and repair | Check, fix, render and highlight LaTeX |
-| Snippets and history | Keep reusable formula shortcuts and recent conversions |
+| Snippets and history | Keep reusable formula shortcuts, search recent conversions, and reuse prior natural-language or completion inputs |
 | Desktop insertion | Click a formula block to type it at the system cursor |
 | UI controls | Switch language, zoom from 80% to 140%, and drag the floating window |
 | Release packages | macOS DMGs and Windows x64 NSIS installers from GitHub Actions |
@@ -40,13 +40,13 @@ The Ollama port is configurable. The default is `http://localhost:11434`, but Se
 
 ### Download
 
-Version `0.1.0` is released from the `main` branch.
+Version `0.2.0` is released from the `main` branch.
 
 | Platform | Package |
 |----------|---------|
-| macOS Apple Silicon | `TeXada_0.1.0_aarch64.dmg` |
-| macOS Intel | `TeXada_0.1.0_x64.dmg` |
-| Windows x64 | `TeXada_0.1.0_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.2.0_aarch64.dmg` |
+| macOS Intel | `TeXada_0.2.0_x64.dmg` |
+| Windows x64 | `TeXada_0.2.0_x64-setup.exe` |
 
 Release page: [github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
@@ -76,6 +76,11 @@ TeXada release packages are built for end users. You do not need Python, Node.js
 5. Try OCR after the vision model is ready.
    - Paste or drop a screenshot into the OCR tab.
    - If the title bar says `Text ready · OCR missing`, text conversion still works; pull or configure the vision model before OCR.
+
+6. Reuse previous work from History.
+   - Open the `History` tab to search saved natural-language, completion, OCR, and LaTeX results.
+   - Use the type filter to focus on `Natural`, `Complete`, or `OCR` records.
+   - Click `Reuse input` to send a saved natural-language or completion prompt back to the matching tab for editing and rerun.
 
 ### Quick Start With Ollama
 
@@ -287,7 +292,7 @@ TeXada 是一个面向数学写作、公式整理和截图识别的桌面公式 
 | 公式 OCR | 粘贴或拖入截图/图片来识别公式 |
 | 公式补全 | 补全未写完的 LaTeX 表达式 |
 | 校验与修复 | 检查、修复、渲染并高亮 LaTeX |
-| 缩写与历史 | 保存常用公式缩写和最近转换记录 |
+| 缩写与历史 | 保存常用公式缩写，搜索最近转换记录，并复用历史自然语言或补全输入 |
 | 桌面键入 | 点击公式块即可在系统当前光标处键入公式 |
 | 界面控制 | 设置页切换中英文、80% 到 140% 缩放、拖动浮窗 |
 | 安装包发布 | GitHub Actions 构建 macOS DMG 和 Windows x64 NSIS 安装包 |
@@ -296,13 +301,13 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 
 ### 下载
 
-版本 `0.1.0` 从 `main` 分支发布。
+版本 `0.2.0` 从 `main` 分支发布。
 
 | 平台 | 安装包 |
 |------|--------|
-| macOS Apple Silicon | `TeXada_0.1.0_aarch64.dmg` |
-| macOS Intel | `TeXada_0.1.0_x64.dmg` |
-| Windows x64 | `TeXada_0.1.0_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.2.0_aarch64.dmg` |
+| macOS Intel | `TeXada_0.2.0_x64.dmg` |
+| Windows x64 | `TeXada_0.2.0_x64-setup.exe` |
 
 Release 页面：[github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
@@ -332,6 +337,11 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 5. 视觉模型准备好后再试 OCR。
    - 在 OCR 页签粘贴或拖入公式截图。
    - 如果标题栏显示 `文本可用 · OCR 缺模型`，文本转换仍可用；OCR 需要先拉取或配置视觉模型。
+
+6. 从历史页复用旧记录。
+   - 打开 `历史` 页签，搜索保存过的自然语言、补全、OCR 和 LaTeX 结果。
+   - 使用类型筛选专注查看自然语言、补全或 OCR 记录。
+   - 点击 `复用输入` 可以把历史自然语言或补全片段送回对应页签，继续编辑或重新生成。
 
 ### Ollama 快速启动
 

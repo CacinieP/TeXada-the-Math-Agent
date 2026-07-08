@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS history (
 );
 CREATE INDEX IF NOT EXISTS idx_history_created ON history(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_history_input ON history(input_text);
+CREATE INDEX IF NOT EXISTS idx_history_latex ON history(latex);
+CREATE INDEX IF NOT EXISTS idx_history_type ON history(input_type);
 """
 
 
@@ -54,25 +56,40 @@ class HistoryStore:
                  entry.source, entry.render_mode, entry.valid, entry.latency_ms,
                  entry.tokens_used, entry.starred),
             )
+            await self._cleanup_locked(conn)
             await conn.commit()
             return cursor[0]
         finally:
             await conn.close()
 
-    async def list_recent(self, query: str = "", limit: int = 50) -> list[HistoryEntry]:
+    async def list_recent(
+        self,
+        query: str = "",
+        limit: int = 50,
+        input_type: str = "",
+    ) -> list[HistoryEntry]:
         conn = await self._get_conn()
         try:
-            if query:
-                rows = await conn.execute_fetchall(
-                    "SELECT * FROM history "
-                    "WHERE input_text LIKE ? "
-                    "ORDER BY created_at DESC LIMIT ?",
-                    (f"%{query}%", limit),
+            clauses: list[str] = []
+            params: list[str | int] = []
+            normalized_type = input_type.strip().lower()
+            if normalized_type and normalized_type != "all":
+                clauses.append("input_type = ?")
+                params.append(normalized_type)
+            normalized_query = query.strip()
+            if normalized_query:
+                pattern = f"%{normalized_query}%"
+                clauses.append(
+                    "(input_text LIKE ? OR latex LIKE ? OR intent LIKE ? OR source LIKE ?)"
                 )
-            else:
-                rows = await conn.execute_fetchall(
-                    "SELECT * FROM history ORDER BY created_at DESC LIMIT ?", (limit,),
-                )
+                params.extend([pattern, pattern, pattern, pattern])
+
+            sql = "SELECT * FROM history"
+            if clauses:
+                sql += " WHERE " + " AND ".join(clauses)
+            sql += " ORDER BY created_at DESC, id DESC LIMIT ?"
+            params.append(limit)
+            rows = await conn.execute_fetchall(sql, params)
             return [
                 HistoryEntry(
                     id=row["id"],
@@ -94,14 +111,34 @@ class HistoryStore:
             await conn.close()
 
     async def cleanup(self) -> int:
-        """Delete entries older than max_days."""
+        """Delete entries older than max_days and trim records beyond max_items."""
         conn = await self._get_conn()
         try:
+            deleted = await self._cleanup_locked(conn)
+            await conn.commit()
+            return deleted
+        finally:
+            await conn.close()
+
+    async def _cleanup_locked(self, conn: aiosqlite.Connection) -> int:
+        deleted = 0
+        if self.max_days > 0:
             cursor = await conn.execute(
                 "DELETE FROM history WHERE created_at < datetime('now', ?)",
                 (f"-{self.max_days} days",),
             )
-            await conn.commit()
-            return cursor.rowcount
-        finally:
-            await conn.close()
+            deleted += max(cursor.rowcount, 0)
+        if self.max_items > 0:
+            cursor = await conn.execute(
+                """
+                DELETE FROM history
+                WHERE id IN (
+                    SELECT id FROM history
+                    ORDER BY starred DESC, created_at DESC, id DESC
+                    LIMIT -1 OFFSET ?
+                )
+                """,
+                (self.max_items,),
+            )
+            deleted += max(cursor.rowcount, 0)
+        return deleted

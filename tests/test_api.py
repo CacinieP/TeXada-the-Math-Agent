@@ -120,6 +120,46 @@ async def test_shorthand_list_marks_editable_items(tmp_path):
     assert items["custom"]["editable"] is True
 
 
+async def test_history_endpoint_filters_by_type_and_query(tmp_path):
+    from texada.api import create_app
+    from texada.store.history import HistoryStore
+    from texada.types import HistoryEntry
+
+    config = TeXadaConfig(data_dir=tmp_path)
+    store = HistoryStore(config)
+    await store.add(HistoryEntry(
+        input_text="integral of x",
+        input_type="nl",
+        latex="\\int x \\, dx",
+        intent="integral",
+        source="model",
+        render_mode="katex",
+        valid=True,
+        latency_ms=22.0,
+    ))
+    await store.add(HistoryEntry(
+        input_text="\\sum_{i=1}^{",
+        input_type="completion",
+        latex="\\sum_{i=1}^{n} i",
+        intent="completion",
+        source="model",
+        render_mode="katex",
+        valid=True,
+        latency_ms=12.0,
+    ))
+
+    app = create_app(config)
+    client = TestClient(app)
+
+    response = client.get("/api/history?q=sum&type=completion")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["input_type"] == "completion"
+    assert body[0]["input_text"] == "\\sum_{i=1}^{"
+
+
 async def test_backend_settings_do_not_echo_key(tmp_path):
     from texada.api import create_app
 

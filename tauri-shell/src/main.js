@@ -14,6 +14,7 @@
   let uiLanguage = 'zh';
   let uiZoom = 1.0;
   let isComposingText = false;
+  let historyType = 'all';
   let runtimeConfig = {
     maxOcrBytes: null,
     allowedImageTypes: new Set(),
@@ -71,9 +72,23 @@
       'shorthand.deleting': '删除中...',
       'shorthand.deleted': '已删除',
       'shorthand.deleteTitle': '删除缩写',
-      'history.search': '搜索历史…',
+      'history.search': '搜索历史输入或 LaTeX…',
       'history.empty': '暂无历史记录',
+      'history.loadError': '无法加载历史记录',
       'history.insertTitle': '点击在光标处键入公式',
+      'history.filterAll': '全部',
+      'history.filterNl': '自然语言',
+      'history.filterCompletion': '补全',
+      'history.filterOcr': 'OCR',
+      'history.reuseInput': '复用输入',
+      'history.copyLatex': '复制 LaTeX',
+      'history.copyMarkdown': '复制 Markdown',
+      'history.type.nl': '自然语言',
+      'history.type.completion': '补全',
+      'history.type.ocr': 'OCR',
+      'history.type.text': '文本',
+      'history.reuseNl': '已填入自然语言输入',
+      'history.reuseCompletion': '已填入补全输入',
       'settings.interface': '界面',
       'settings.language': '语言',
       'settings.zoom': '界面缩放',
@@ -165,9 +180,23 @@
       'shorthand.deleting': 'Deleting...',
       'shorthand.deleted': 'Deleted',
       'shorthand.deleteTitle': 'Delete snippet',
-      'history.search': 'Search history…',
+      'history.search': 'Search history input or LaTeX…',
       'history.empty': 'No history yet',
+      'history.loadError': 'Unable to load history',
       'history.insertTitle': 'Click to type the formula at the cursor',
+      'history.filterAll': 'All',
+      'history.filterNl': 'Natural',
+      'history.filterCompletion': 'Complete',
+      'history.filterOcr': 'OCR',
+      'history.reuseInput': 'Reuse input',
+      'history.copyLatex': 'Copy LaTeX',
+      'history.copyMarkdown': 'Copy Markdown',
+      'history.type.nl': 'Natural',
+      'history.type.completion': 'Completion',
+      'history.type.ocr': 'OCR',
+      'history.type.text': 'Text',
+      'history.reuseNl': 'Filled natural language input',
+      'history.reuseCompletion': 'Filled completion input',
       'settings.interface': 'Interface',
       'settings.language': 'Language',
       'settings.zoom': 'Interface zoom',
@@ -236,6 +265,8 @@
     shorthandValueInput: document.getElementById('shorthand-value-input'),
     shorthandSaveStatus: document.getElementById('shorthand-save-status'),
     historyList: document.getElementById('history-list'),
+    historySearch: document.getElementById('history-search'),
+    historyFilter: document.getElementById('history-filter'),
     ocrDrop: document.getElementById('ocr-drop'),
     ocrPreview: document.getElementById('ocr-preview'),
     ocrThumb: document.getElementById('ocr-thumb'),
@@ -306,6 +337,7 @@
     }
     applyPlatformLabels();
     if (!lastResult && !isProcessing) setIntent('🔍', t('intent.waiting'));
+    if (currentTab === 'history' && historyData.length) renderHistory(historyData);
   }
 
   function applyPlatformLabels() {
@@ -655,7 +687,15 @@
       const res = await apiConvert(text);
       lastResult = res;
       showResult(res);
-      saveHistory(text, res.latex);
+      saveHistoryFallback({
+        input_text: text,
+        input_type: 'nl',
+        latex: res.latex,
+        intent: res.intent,
+        source: res.source,
+        render_mode: renderMode,
+        valid: res.valid,
+      });
     } catch (e) {
       showError(String(e));
     } finally {
@@ -1072,7 +1112,15 @@
       const res = await apiOcr(new Uint8Array(buf));
       lastResult = res;
       showOcrResult(res);
-      saveHistory('[OCR] ' + file.name, res.latex);
+      saveHistoryFallback({
+        input_text: file.name || 'image',
+        input_type: 'ocr',
+        latex: res.latex,
+        intent: res.intent,
+        source: res.source,
+        render_mode: renderMode,
+        valid: res.valid,
+      });
     } catch (e) {
       showErrorIn(els.ocrResult, String(e));
     } finally {
@@ -1111,7 +1159,15 @@
       const res = await apiComplete(text);
       lastResult = res;
       showCompleteResult(res);
-      saveHistory('[补全] ' + text, res.latex);
+      saveHistoryFallback({
+        input_text: text,
+        input_type: 'completion',
+        latex: res.latex,
+        intent: res.intent,
+        source: res.source,
+        render_mode: renderMode,
+        valid: res.valid,
+      });
     } catch (e) {
       showErrorIn(els.completeResult, String(e));
     } finally {
@@ -1231,28 +1287,118 @@
 
   // ── History ──
   let historyData = [];
-  function saveHistory(input, latex) {
-    historyData.unshift({ input, latex, time: Date.now() });
+
+  function normalizeHistoryItem(item) {
+    return {
+      id: Number(item.id || 0),
+      input: item.input_text || item.input || '',
+      type: item.input_type || item.type || 'nl',
+      latex: item.latex || '',
+      intent: item.intent || '',
+      source: item.source || '',
+      renderMode: item.render_mode || item.renderMode || renderMode,
+      valid: item.valid !== undefined ? Boolean(item.valid) : true,
+      time: item.created_at || item.time || '',
+    };
+  }
+
+  function normalizeLocalHistoryItem(item) {
+    let input = item.input_text || item.input || '';
+    let type = item.input_type || item.type || 'nl';
+    if (input.startsWith('[补全] ')) {
+      type = 'completion';
+      input = input.slice('[补全] '.length);
+    } else if (input.startsWith('[OCR] ')) {
+      type = 'ocr';
+      input = input.slice('[OCR] '.length);
+    }
+    return normalizeHistoryItem({
+      ...item,
+      input_text: input,
+      input_type: type,
+      created_at: item.created_at || item.time,
+    });
+  }
+
+  function saveHistoryFallback(entry) {
+    const localEntry = normalizeHistoryItem({
+      ...entry,
+      created_at: new Date().toISOString(),
+    });
+    historyData.unshift(localEntry);
     if (historyData.length > 100) historyData.pop();
-    localStorage.setItem('texada-history', JSON.stringify(historyData.slice(0, 50)));
+    localStorage.setItem('texada-history', JSON.stringify(historyData.slice(0, 100)));
   }
 
   function loadHistoryLocal() {
     try {
-      historyData = JSON.parse(localStorage.getItem('texada-history') || '[]');
+      const raw = JSON.parse(localStorage.getItem('texada-history') || '[]');
+      historyData = raw.map(normalizeLocalHistoryItem);
     } catch (e) {
       historyData = [];
     }
   }
 
+  function filterHistoryItems(items) {
+    const q = (els.historySearch?.value || '').trim().toLowerCase();
+    return items.filter(item => {
+      if (historyType !== 'all' && item.type !== historyType) return false;
+      if (!q) return true;
+      return [item.input, item.latex, item.intent, item.source, item.type]
+        .some(value => String(value || '').toLowerCase().includes(q));
+    });
+  }
+
+  async function apiHistory(q, type, limit = 80) {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (q) params.set('q', q);
+    if (type && type !== 'all') params.set('type', type);
+    return await apiJson(`/api/history?${params.toString()}`);
+  }
+
   async function loadHistory() {
+    const q = (els.historySearch?.value || '').trim();
     try {
-      const items = await apiJson('/api/history?limit=50');
-      renderHistory(items.map(h => ({ input: h.input_text || h.input, latex: h.latex, time: h.created_at })));
+      const items = await apiHistory(q, historyType);
+      historyData = items.map(normalizeHistoryItem);
+      renderHistory(historyData);
     } catch (e) {
       loadHistoryLocal();
-      renderHistory(historyData);
+      renderHistory(filterHistoryItems(historyData));
     }
+  }
+
+  function historyTypeLabel(type) {
+    return t(`history.type.${type || 'nl'}`);
+  }
+
+  function formatHistoryTime(value) {
+    if (!value) return '';
+    const date = typeof value === 'number'
+      ? new Date(value)
+      : new Date(String(value).replace(' ', 'T'));
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString(uiLanguage === 'en' ? 'en-US' : 'zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  function reuseHistoryInput(item) {
+    if (!item.input) return;
+    if (item.type === 'completion') {
+      els.completeInput.value = item.input;
+      switchTab('complete');
+      setTimeout(() => els.completeInput.focus(), 50);
+      setIntent('↺', t('history.reuseCompletion'));
+      return;
+    }
+    els.nlInput.value = item.input;
+    switchTab('nl');
+    setTimeout(() => els.nlInput.focus(), 50);
+    setIntent('↺', t('history.reuseNl'));
   }
 
   function renderHistory(items) {
@@ -1260,19 +1406,73 @@
       els.historyList.innerHTML = `<div class="empty-state"><div class="text">${t('history.empty')}</div></div>`;
       return;
     }
-    els.historyList.innerHTML = items.slice(0, 50).map(h => `
-      <div class="history-item formula-click-target" data-insert-text="${escapeHtml(h.latex)}" title="${t('history.insertTitle')}">
+    els.historyList.innerHTML = items.slice(0, 80).map((h, index) => {
+      const canReuse = h.type !== 'ocr' && h.input;
+      const statusKey = h.valid ? 'result.valid' : 'result.invalid';
+      const latexPreview = h.latex.length > 80 ? `${h.latex.substring(0, 80)}...` : h.latex;
+      return `
+      <div class="history-item formula-click-target" data-history-index="${index}" data-insert-text="${escapeHtml(h.latex)}" title="${t('history.insertTitle')}">
         <div class="history-input">
+          <div class="history-input-head">
+            <span class="history-type">${escapeHtml(historyTypeLabel(h.type))}</span>
+            <span class="history-time">${escapeHtml(formatHistoryTime(h.time))}</span>
+            <span class="valid-badge ${h.valid ? 'ok' : 'err'}">${t(statusKey)}</span>
+          </div>
           <div class="history-input-text">${escapeHtml(h.input)}</div>
           <div class="history-input-meta">
-            <span>${escapeHtml(h.latex.substring(0, 40))}${h.latex.length > 40 ? '…' : ''}</span>
+            <span class="history-latex">${escapeHtml(latexPreview)}</span>
           </div>
         </div>
-        <div class="history-render">↵</div>
+        <div class="history-actions">
+          ${canReuse ? `<button class="action-btn history-action" data-history-reuse="${index}" title="${t('history.reuseInput')}" aria-label="${t('history.reuseInput')}">${t('history.reuseInput')}</button>` : ''}
+          <button class="action-btn history-action" data-history-copy-latex="${index}" title="${t('history.copyLatex')}" aria-label="${t('history.copyLatex')}">LaTeX</button>
+          <button class="action-btn history-action" data-history-copy-markdown="${index}" title="${t('history.copyMarkdown')}" aria-label="${t('history.copyMarkdown')}">MD</button>
+        </div>
       </div>
-    `).join('');
+      `;
+    }).join('');
 
     bindFormulaInsertHandlers(els.historyList);
+    els.historyList.querySelectorAll('[data-history-reuse]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        reuseHistoryInput(items[Number(e.currentTarget.dataset.historyReuse)]);
+      });
+    });
+    els.historyList.querySelectorAll('[data-history-copy-latex]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const item = items[Number(e.currentTarget.dataset.historyCopyLatex)];
+        copyToClipboard(item.latex);
+      });
+    });
+    els.historyList.querySelectorAll('[data-history-copy-markdown]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const item = items[Number(e.currentTarget.dataset.historyCopyMarkdown)];
+        copyToClipboard(`$$${item.latex}$$`);
+      });
+    });
+  }
+
+  if (els.historySearch) {
+    let historySearchTimer = null;
+    els.historySearch.addEventListener('input', () => {
+      clearTimeout(historySearchTimer);
+      historySearchTimer = setTimeout(loadHistory, 180);
+    });
+  }
+
+  if (els.historyFilter) {
+    els.historyFilter.addEventListener('click', e => {
+      const btn = e.target.closest('[data-history-type]');
+      if (!btn) return;
+      historyType = btn.dataset.historyType || 'all';
+      els.historyFilter.querySelectorAll('[data-history-type]').forEach(item => {
+        item.classList.toggle('active', item === btn);
+      });
+      loadHistory();
+    });
   }
 
   function escapeHtml(str) {
