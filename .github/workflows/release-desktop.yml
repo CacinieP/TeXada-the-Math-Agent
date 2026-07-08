@@ -326,7 +326,7 @@ jobs:
             tauri-shell/src-tauri/target/**/bundle/nsis/*.exe
 
   publish:
-    name: Publish v0.2.3 release
+    name: Publish desktop release
     needs: build
     runs-on: ubuntu-latest
 
@@ -349,7 +349,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          version="0.2.3"
+          version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' pyproject.toml | head -1)"
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             release_tag="${GITHUB_REF_NAME}"
             version="${release_tag#v}"
@@ -364,9 +364,9 @@ jobs:
             exit 1
           fi
 
-          cat > /tmp/texada-release-notes.md <<'EOF'
-          TeXada Desktop 0.2.3
-
+          {
+          printf 'TeXada Desktop %s\n\n' "$version"
+          cat <<'EOF'
           English:
           - Local-first math formula agent powered by MiniCPM and Ollama.
           - Refreshes the desktop shell with a layered deep-blue UI and a matching no-star TeXada app icon.
@@ -375,7 +375,8 @@ jobs:
           - Presets are now self-contained formula cards: click to insert, or copy LaTeX/Markdown without invoking natural-language conversion.
           - Fixes packaged desktop formula rendering when `npx katex` is unavailable by bundling local KaTeX browser assets.
           - Improves history reuse with searchable natural-language, completion, OCR and LaTeX records.
-          - Adds history type filters plus per-record reuse, LaTeX copy and Markdown copy actions.
+          - Reopens saved history results directly in the result view without rerunning the model.
+          - Adds history type filters plus per-record input reuse, LaTeX copy and Markdown copy actions.
           - Supports OpenAI API-compatible cloud text and vision models.
           - Includes and auto-starts the TeXada FastAPI backend; Ollama or cloud model runtime remains configurable.
           - Includes signed and notarized macOS DMGs and Windows x64 NSIS installer.
@@ -388,6 +389,7 @@ jobs:
           - 预设页现在是独立公式卡片：点击即可键入公式，也可复制 LaTeX/Markdown，不再调用自然语言转换。
           - 修复桌面安装包中缺少 `npx katex` 时公式渲染版不可见的问题，并随前端打包本地 KaTeX 资源。
           - 增强历史记录复用，可搜索自然语言、补全、OCR 和 LaTeX 记录。
+          - 点击历史记录可直接重新打开已保存结果，不需要重新运行模型。
           - 历史页新增类型筛选，以及复用输入、复制 LaTeX、复制 Markdown 等单条记录操作。
           - 支持 OpenAI API 兼容的云侧文本和视觉模型。
           - 安装包内置并自动启动 TeXada FastAPI 后端；Ollama 或云侧模型运行时仍可配置。
@@ -395,6 +397,7 @@ jobs:
 
           Author: CacinieP
           EOF
+          } > /tmp/texada-release-notes.md
 
           gh release delete "$release_tag" --cleanup-tag -y || true
           gh release delete "desktop-v${version}" --cleanup-tag -y || true
