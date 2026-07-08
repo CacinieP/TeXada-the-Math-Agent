@@ -1,4 +1,6 @@
 """Test LaTeXValidator — multi-layer syntax checking."""
+import subprocess
+
 from texada.core.validator import LaTeXValidator
 
 
@@ -6,6 +8,27 @@ def test_valid_simple():
     v = LaTeXValidator()
     r = v.validate("\\frac{a}{b}")
     assert r.valid
+
+
+def test_missing_local_katex_cli_is_skipped(monkeypatch):
+    def missing_local_katex(cmd, **kwargs):
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=1,
+            stdout="",
+            stderr=(
+                "npm error npx canceled due to missing packages "
+                'and no YES option: ["katex@0.17.0"]'
+            ),
+        )
+
+    monkeypatch.setattr("texada.core.validator.subprocess.run", missing_local_katex)
+
+    v = LaTeXValidator()
+    r = v.validate("\\frac{a}{b}")
+
+    assert r.valid
+    assert not r.errors
 
 
 def test_brace_unbalanced_missing():

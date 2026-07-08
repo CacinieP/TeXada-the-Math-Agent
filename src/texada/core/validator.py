@@ -132,14 +132,30 @@ class LaTeXValidator:
             )
             if result.returncode == 0:
                 return CheckResult(ok=True, type="katex_render")
+            error = result.stderr.strip()[:200]
+            if self._is_missing_katex_cli(error):
+                return CheckResult(
+                    ok=True,
+                    type="katex_render",
+                    detail="local katex CLI not available, skipped",
+                )
             return CheckResult(ok=False, type="katex_render",
-                               error=result.stderr.strip()[:200])
+                               error=error)
         except FileNotFoundError:
             # npx/katex not available — skip this check
             return CheckResult(
                 ok=True,
                 type="katex_render",
-                detail="npx katex not available, skipped",
+                detail="local katex CLI not available, skipped",
             )
         except subprocess.TimeoutExpired:
             return CheckResult(ok=False, type="katex_render", error="KaTeX render timeout")
+
+    @staticmethod
+    def _is_missing_katex_cli(error: str) -> bool:
+        normalized = error.lower()
+        return (
+            "npx canceled due to missing packages" in normalized
+            or "could not determine executable" in normalized
+            or ("katex" in normalized and "not found" in normalized)
+        )
