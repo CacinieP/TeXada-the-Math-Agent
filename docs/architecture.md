@@ -1,6 +1,6 @@
 # TeXada Architecture
 
-Version: v0.2.3. TeXada is an endpoint-first math formula agent: it defaults to local Ollama MiniCPM models and can switch to any OpenAI-compatible `/v1/chat/completions` provider.
+Version: v0.2.4. TeXada is an endpoint-first math formula agent: it defaults to local Ollama MiniCPM models and can switch to any OpenAI-compatible `/v1/chat/completions` provider.
 
 ## System Overview
 

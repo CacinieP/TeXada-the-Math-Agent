@@ -79,7 +79,7 @@
       'history.search': '搜索历史输入或 LaTeX…',
       'history.empty': '暂无历史记录',
       'history.loadError': '无法加载历史记录',
-      'history.insertTitle': '点击在光标处键入公式',
+      'history.viewTitle': '点击查看历史结果',
       'history.filterAll': '全部',
       'history.filterNl': '自然语言',
       'history.filterCompletion': '补全',
@@ -93,6 +93,7 @@
       'history.type.text': '文本',
       'history.reuseNl': '已填入自然语言输入',
       'history.reuseCompletion': '已填入补全输入',
+      'history.restored': '已打开历史结果',
       'settings.interface': '界面',
       'settings.language': '语言',
       'settings.zoom': '界面缩放',
@@ -191,7 +192,7 @@
       'history.search': 'Search history input or LaTeX…',
       'history.empty': 'No history yet',
       'history.loadError': 'Unable to load history',
-      'history.insertTitle': 'Click to type the formula at the cursor',
+      'history.viewTitle': 'Click to view this history result',
       'history.filterAll': 'All',
       'history.filterNl': 'Natural',
       'history.filterCompletion': 'Complete',
@@ -205,6 +206,7 @@
       'history.type.text': 'Text',
       'history.reuseNl': 'Filled natural language input',
       'history.reuseCompletion': 'Filled completion input',
+      'history.restored': 'Opened history result',
       'settings.interface': 'Interface',
       'settings.language': 'Language',
       'settings.zoom': 'Interface zoom',
@@ -738,6 +740,7 @@
 
     setIntent('∫', `${res.intent || t('intent.unknown')} · ${Number(res.latency_ms || 0).toFixed(1)}ms`);
 
+    syncRenderModeOptions();
     updateRender();
     bindNlResultButtons();
     bindModeOptions();
@@ -944,15 +947,21 @@
 
   function toggleRenderMode() {
     renderMode = renderMode === 'katex' ? 'latex' : 'katex';
-    $$('.mode-opt').forEach(m => m.classList.toggle('active', m.dataset.mode === renderMode));
+    syncRenderModeOptions();
     updateRender();
+  }
+
+  function syncRenderModeOptions() {
+    $$('.mode-opt').forEach(m => {
+      m.classList.toggle('active', m.dataset.mode === renderMode);
+    });
   }
 
   function bindModeOptions() {
     $$('.mode-opt').forEach(m => {
       m.onclick = () => {
         renderMode = m.dataset.mode;
-        $$('.mode-opt').forEach(x => x.classList.toggle('active', x === m));
+        syncRenderModeOptions();
         updateRender();
       };
     });
@@ -1367,6 +1376,8 @@
       source: item.source || '',
       renderMode: item.render_mode || item.renderMode || renderMode,
       valid: item.valid !== undefined ? Boolean(item.valid) : true,
+      latencyMs: Number(item.latency_ms || item.latencyMs || 0),
+      tokensUsed: Number(item.tokens_used || item.tokensUsed || 0),
       time: item.created_at || item.time || '',
     };
   }
@@ -1470,6 +1481,49 @@
     setIntent('↺', t('history.reuseNl'));
   }
 
+  function historyRenderMode(mode) {
+    return mode === 'katex' || mode === 'latex' ? mode : renderMode;
+  }
+
+  function historyResultFromItem(item) {
+    const mode = historyRenderMode(item.renderMode);
+    return {
+      latex: item.latex || '',
+      katex_html: '',
+      latex_highlighted: null,
+      copy_text: mode === 'katex' ? markdownFormula(item.latex || '') : (item.latex || ''),
+      valid: item.valid,
+      source: item.source || 'model',
+      intent: item.intent || historyTypeLabel(item.type),
+      confidence: 1,
+      latency_ms: item.latencyMs || 0,
+      tokens_used: item.tokensUsed || 0,
+    };
+  }
+
+  function viewHistoryResult(item) {
+    if (!item || !item.latex) return;
+    renderMode = historyRenderMode(item.renderMode);
+    lastResult = historyResultFromItem(item);
+
+    if (item.type === 'completion') {
+      if (item.input) els.completeInput.value = item.input;
+      switchTab('complete');
+      showCompleteResult(lastResult);
+    } else if (item.type === 'ocr') {
+      switchTab('ocr');
+      if (els.ocrDrop) els.ocrDrop.style.display = 'none';
+      if (els.ocrPreview) els.ocrPreview.style.display = 'none';
+      showOcrResult(lastResult);
+    } else {
+      if (item.input) els.nlInput.value = item.input;
+      switchTab('nl');
+      showResult(lastResult);
+    }
+
+    setIntent('↺', t('history.restored'));
+  }
+
   function renderHistory(items) {
     if (!items.length) {
       els.historyList.innerHTML = `<div class="empty-state"><div class="text">${t('history.empty')}</div></div>`;
@@ -1480,7 +1534,7 @@
       const statusKey = h.valid ? 'result.valid' : 'result.invalid';
       const latexPreview = h.latex.length > 80 ? `${h.latex.substring(0, 80)}...` : h.latex;
       return `
-      <div class="history-item formula-click-target" data-history-index="${index}" data-insert-text="${escapeHtml(h.latex)}" title="${t('history.insertTitle')}">
+      <div class="history-item" data-history-index="${index}" title="${t('history.viewTitle')}">
         <div class="history-input">
           <div class="history-input-head">
             <span class="history-type">${escapeHtml(historyTypeLabel(h.type))}</span>
@@ -1501,7 +1555,12 @@
       `;
     }).join('');
 
-    bindFormulaInsertHandlers(els.historyList);
+    els.historyList.querySelectorAll('[data-history-index]').forEach(row => {
+      row.addEventListener('click', e => {
+        if (e.target.closest('button')) return;
+        viewHistoryResult(items[Number(e.currentTarget.dataset.historyIndex)]);
+      });
+    });
     els.historyList.querySelectorAll('[data-history-reuse]').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
@@ -1519,7 +1578,7 @@
       btn.addEventListener('click', e => {
         e.stopPropagation();
         const item = items[Number(e.currentTarget.dataset.historyCopyMarkdown)];
-        copyToClipboard(`$$${item.latex}$$`);
+        copyToClipboard(markdownFormula(item.latex));
       });
     });
   }

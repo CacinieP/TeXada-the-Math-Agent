@@ -2,6 +2,16 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.2.4 - 2026-07-08
+
+- Fixed history result restoration: clicking a history record now reopens the previous generated formula in the result view without rerunning the model.
+- Kept history input reuse as a separate action, while LaTeX and Markdown copy actions continue to copy the saved generated formula.
+
+## 0.2.4 - 2026-07-08 中文
+
+- 修复历史结果恢复：点击历史记录时会直接打开以前生成的公式结果，不需要重新跑模型。
+- 保留“复用输入”为独立操作，同时 LaTeX 和 Markdown 复制按钮继续复制已保存的生成公式。
+
 ## 0.2.3 - 2026-07-08
 
 - Replaced the app icon with a unified deep-blue no-star TeXada artwork.
