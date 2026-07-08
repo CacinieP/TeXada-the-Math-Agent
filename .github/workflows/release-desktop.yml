@@ -326,7 +326,7 @@ jobs:
             tauri-shell/src-tauri/target/**/bundle/nsis/*.exe
 
   publish:
-    name: Publish v0.2.2 release
+    name: Publish v0.2.3 release
     needs: build
     runs-on: ubuntu-latest
 
@@ -349,7 +349,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          version="0.2.2"
+          version="0.2.3"
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             release_tag="${GITHUB_REF_NAME}"
             version="${release_tag#v}"
@@ -365,10 +365,12 @@ jobs:
           fi
 
           cat > /tmp/texada-release-notes.md <<'EOF'
-          TeXada Desktop 0.2.2
+          TeXada Desktop 0.2.3
 
           English:
           - Local-first math formula agent powered by MiniCPM and Ollama.
+          - Refreshes the desktop shell with a layered deep-blue UI and a matching no-star TeXada app icon.
+          - Regenerates macOS, Windows and frontend icon assets so the new artwork is included in installer packages.
           - Supports natural language to LaTeX, formula OCR, completion, presets, history and desktop insertion.
           - Presets are now self-contained formula cards: click to insert, or copy LaTeX/Markdown without invoking natural-language conversion.
           - Fixes packaged desktop formula rendering when `npx katex` is unavailable by bundling local KaTeX browser assets.
@@ -380,6 +382,8 @@ jobs:
 
           中文：
           - 端侧优先的数学公式 Agent，默认使用 MiniCPM 和 Ollama。
+          - 将桌面壳刷新为有层次的深蓝 UI，并换用匹配的无星标 TeXada 应用图标。
+          - 重新生成 macOS、Windows 和前端图标资源，确保新图标进入安装包。
           - 支持自然语言转 LaTeX、公式 OCR、补全、预设、历史记录和桌面光标处键入。
           - 预设页现在是独立公式卡片：点击即可键入公式，也可复制 LaTeX/Markdown，不再调用自然语言转换。
           - 修复桌面安装包中缺少 `npx katex` 时公式渲染版不可见的问题，并随前端打包本地 KaTeX 资源。

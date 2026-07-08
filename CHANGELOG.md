@@ -2,6 +2,18 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.2.3 - 2026-07-08
+
+- Replaced the app icon with a unified deep-blue no-star TeXada artwork.
+- Regenerated the packaged macOS, Windows and frontend icon assets from the new artwork.
+- Rethemed the desktop shell with layered deep-blue surfaces, controls, borders and focus states.
+
+## 0.2.3 - 2026-07-08 中文
+
+- 将应用图标替换为统一深蓝、无星标的 TeXada 新图。
+- 基于新图重新生成 macOS、Windows 和前端打包图标资源。
+- 将桌面壳 UI 调整为更有层次的深蓝界面，包括表面、控件、边框和聚焦态。
+
 ## 0.2.2 - 2026-07-08
 
 - Renamed the shortcuts tab to Presets and made it a self-contained preset formula panel.
