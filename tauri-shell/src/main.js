@@ -27,7 +27,7 @@
   const I18N = {
     zh: {
       'tab.complete': '补全',
-      'tab.shorthand': '缩写',
+      'tab.shorthand': '预设',
       'tab.history': '历史',
       'nl.placeholder': '输入数学描述…  如: 二重积分 f(x,y) 在 D 上',
       'nl.hint': 'Enter 发送 · Shift+Enter 换行 · Esc 关闭',
@@ -59,19 +59,23 @@
       'ocr.tooLarge': '图片过大，请使用 {limit} MB 以内的图片',
       'complete.placeholder': '输入部分 LaTeX… 如: \\\\sum_{i=1}^{',
       'complete.hint': 'Enter 补全 · Esc 关闭',
-      'shorthand.keyPlaceholder': '缩写键…',
-      'shorthand.valuePlaceholder': 'LaTeX…',
-      'shorthand.add': '添加缩写',
-      'shorthand.search': '搜索缩写…',
+      'shorthand.keyPlaceholder': '预设键…',
+      'shorthand.valuePlaceholder': 'LaTeX 预设公式…',
+      'shorthand.add': '添加预设',
+      'shorthand.search': '搜索预设…',
       'shorthand.loadError': '无法加载缩写库',
-      'shorthand.noMatch': '无匹配的缩写',
-      'shorthand.emptyCustom': '暂无自定义缩写',
-      'shorthand.fillRequired': '请填写缩写键和 LaTeX',
+      'shorthand.noMatch': '无匹配的预设',
+      'shorthand.emptyCustom': '暂无自定义预设',
+      'shorthand.fillRequired': '请填写预设键和 LaTeX',
       'shorthand.saving': '保存中...',
       'shorthand.saved': '已保存',
       'shorthand.deleting': '删除中...',
       'shorthand.deleted': '已删除',
-      'shorthand.deleteTitle': '删除缩写',
+      'shorthand.deleteTitle': '删除预设',
+      'shorthand.insertTitle': '点击在光标处键入预设公式',
+      'shorthand.copyLatex': '复制 LaTeX',
+      'shorthand.copyMarkdown': '复制 Markdown',
+      'shorthand.copied': '已复制',
       'history.search': '搜索历史输入或 LaTeX…',
       'history.empty': '暂无历史记录',
       'history.loadError': '无法加载历史记录',
@@ -135,7 +139,7 @@
     },
     en: {
       'tab.complete': 'Complete',
-      'tab.shorthand': 'Snippets',
+      'tab.shorthand': 'Presets',
       'tab.history': 'History',
       'nl.placeholder': 'Describe a formula… e.g. double integral of f(x,y) over D',
       'nl.hint': 'Enter to send · Shift+Enter newline · Esc close',
@@ -167,19 +171,23 @@
       'ocr.tooLarge': 'Image is too large. Use an image under {limit} MB',
       'complete.placeholder': 'Enter partial LaTeX… e.g. \\\\sum_{i=1}^{',
       'complete.hint': 'Enter to complete · Esc close',
-      'shorthand.keyPlaceholder': 'Key…',
-      'shorthand.valuePlaceholder': 'LaTeX…',
-      'shorthand.add': 'Add snippet',
-      'shorthand.search': 'Search snippets…',
+      'shorthand.keyPlaceholder': 'Preset key…',
+      'shorthand.valuePlaceholder': 'LaTeX preset…',
+      'shorthand.add': 'Add preset',
+      'shorthand.search': 'Search presets…',
       'shorthand.loadError': 'Unable to load snippets',
-      'shorthand.noMatch': 'No matching snippets',
-      'shorthand.emptyCustom': 'No custom snippets yet',
-      'shorthand.fillRequired': 'Enter both a key and LaTeX',
+      'shorthand.noMatch': 'No matching presets',
+      'shorthand.emptyCustom': 'No custom presets yet',
+      'shorthand.fillRequired': 'Enter both a preset key and LaTeX',
       'shorthand.saving': 'Saving...',
       'shorthand.saved': 'Saved',
       'shorthand.deleting': 'Deleting...',
       'shorthand.deleted': 'Deleted',
-      'shorthand.deleteTitle': 'Delete snippet',
+      'shorthand.deleteTitle': 'Delete preset',
+      'shorthand.insertTitle': 'Click to type the preset formula at the cursor',
+      'shorthand.copyLatex': 'Copy LaTeX',
+      'shorthand.copyMarkdown': 'Copy Markdown',
+      'shorthand.copied': 'Copied',
       'history.search': 'Search history input or LaTeX…',
       'history.empty': 'No history yet',
       'history.loadError': 'Unable to load history',
@@ -748,14 +756,14 @@
     }
   }
 
-  function renderKatexPreview(target, latex, fallbackHtml = '') {
+  function renderKatexPreview(target, latex, fallbackHtml = '', displayMode = true) {
     if (!target) return;
     if (window.katex) {
       try {
         target.innerHTML = '';
         window.katex.render(latex, target, {
           throwOnError: false,
-          displayMode: true,
+          displayMode,
         });
         return;
       } catch (e) {
@@ -824,6 +832,26 @@
     if (kind === 'markdown') return `$$${lastResult.latex}$$`;
     if (kind === 'latex') return lastResult.latex;
     return lastResult.copy_text || lastResult.latex;
+  }
+
+  function markdownFormula(latex) {
+    const text = String(latex || '').trim();
+    if ((text.startsWith('$$') && text.endsWith('$$')) ||
+        (text.startsWith('\\[') && text.endsWith('\\]'))) {
+      return text;
+    }
+    return `$$${latex}$$`;
+  }
+
+  function latexForRender(latex) {
+    const text = String(latex || '').trim();
+    if (text.startsWith('$$') && text.endsWith('$$')) {
+      return text.slice(2, -2).trim();
+    }
+    if (text.startsWith('\\[') && text.endsWith('\\]')) {
+      return text.slice(2, -2).trim();
+    }
+    return latex;
   }
 
   async function insertAtCursor(text) {
@@ -1237,22 +1265,44 @@
       els.shorthandGrid.innerHTML = `<div class="empty-state"><div class="text">${msg}</div></div>`;
       return;
     }
-    els.shorthandGrid.innerHTML = items.map(i => `
-      <div class="shorthand-card" data-key="${escapeHtml(i.key)}">
+    els.shorthandGrid.innerHTML = items.map((i, index) => `
+      <div class="shorthand-card formula-click-target" data-shorthand-index="${index}" title="${t('shorthand.insertTitle')}">
         <div class="shorthand-card-head">
           <div class="shorthand-key">${escapeHtml(i.key)}</div>
           ${i.editable ? `<button class="action-btn shorthand-delete" title="${t('shorthand.deleteTitle')}" data-delete-key="${escapeHtml(i.key)}">×</button>` : ''}
         </div>
+        <div class="shorthand-render" data-shorthand-render="${index}">${escapeHtml(i.value)}</div>
         <div class="shorthand-val">${escapeHtml(i.value)}</div>
+        <div class="shorthand-actions">
+          <button class="action-btn shorthand-action" data-shorthand-copy-latex="${index}" title="${t('shorthand.copyLatex')}" aria-label="${t('shorthand.copyLatex')}">LaTeX</button>
+          <button class="action-btn shorthand-action" data-shorthand-copy-markdown="${index}" title="${t('shorthand.copyMarkdown')}" aria-label="${t('shorthand.copyMarkdown')}">MD</button>
+        </div>
       </div>
     `).join('');
 
-    els.shorthandGrid.querySelectorAll('.shorthand-card').forEach(c => {
-      c.addEventListener('click', () => {
-        const key = c.dataset.key;
-        els.nlInput.value = key;
-        switchTab('nl');
-        doConvert();
+    els.shorthandGrid.querySelectorAll('.shorthand-card').forEach(card => {
+      const item = items[Number(card.dataset.shorthandIndex)];
+      card.dataset.insertText = markdownFormula(item.value);
+    });
+    els.shorthandGrid.querySelectorAll('[data-shorthand-render]').forEach(target => {
+      const item = items[Number(target.dataset.shorthandRender)];
+      renderKatexPreview(target, latexForRender(item.value), '', false);
+    });
+    bindFormulaInsertHandlers(els.shorthandGrid);
+    els.shorthandGrid.querySelectorAll('[data-shorthand-copy-latex]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const item = items[Number(e.currentTarget.dataset.shorthandCopyLatex)];
+        copyToClipboard(item.value);
+        els.shorthandSaveStatus.textContent = t('shorthand.copied');
+      });
+    });
+    els.shorthandGrid.querySelectorAll('[data-shorthand-copy-markdown]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const item = items[Number(e.currentTarget.dataset.shorthandCopyMarkdown)];
+        copyToClipboard(markdownFormula(item.value));
+        els.shorthandSaveStatus.textContent = t('shorthand.copied');
       });
     });
     els.shorthandGrid.querySelectorAll('[data-delete-key]').forEach(btn => {

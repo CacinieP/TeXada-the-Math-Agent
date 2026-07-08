@@ -600,6 +600,22 @@ body {
   justify-content: center;
   color: var(--text-muted);
 }
+.shorthand-render {
+  min-height: 34px;
+  margin: 6px 0;
+  padding: 7px 8px;
+  border: 1px solid rgba(122,162,247,.18);
+  border-radius: var(--radius-sm);
+  background: rgba(26,27,38,.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #fff;
+}
+.shorthand-render .katex {
+  font-size: 1.08em;
+}
 .shorthand-val {
   font-size: 10px;
   color: var(--text-muted);
@@ -607,6 +623,17 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.shorthand-actions {
+  display: flex;
+  gap: 5px;
+  margin-top: 7px;
+  flex-wrap: wrap;
+}
+.shorthand-action {
+  min-height: 24px;
+  padding: 3px 7px;
+  font-size: 10px;
 }
 
 /* History list */

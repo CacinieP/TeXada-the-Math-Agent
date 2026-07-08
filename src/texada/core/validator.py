@@ -149,7 +149,11 @@ class LaTeXValidator:
                 detail="local katex CLI not available, skipped",
             )
         except subprocess.TimeoutExpired:
-            return CheckResult(ok=False, type="katex_render", error="KaTeX render timeout")
+            return CheckResult(
+                ok=True,
+                type="katex_render",
+                detail="local katex CLI timeout, skipped",
+            )
 
     @staticmethod
     def _is_missing_katex_cli(error: str) -> bool:

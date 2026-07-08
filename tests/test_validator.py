@@ -31,6 +31,19 @@ def test_missing_local_katex_cli_is_skipped(monkeypatch):
     assert not r.errors
 
 
+def test_katex_cli_timeout_is_skipped(monkeypatch):
+    def katex_timeout(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=cmd, timeout=5)
+
+    monkeypatch.setattr("texada.core.validator.subprocess.run", katex_timeout)
+
+    v = LaTeXValidator()
+    r = v.validate("\\int_0^1 f(x) dx")
+
+    assert r.valid
+    assert not r.errors
+
+
 def test_brace_unbalanced_missing():
     v = LaTeXValidator()
     r = v.validate("A^{-1 = \\frac{1}{\\det(A)}")

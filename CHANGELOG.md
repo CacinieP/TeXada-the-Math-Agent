@@ -2,6 +2,20 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.2.2 - 2026-07-08
+
+- Renamed the shortcuts tab to Presets and made it a self-contained preset formula panel.
+- Changed preset cards to insert formulas directly at the cursor instead of sending their keys through natural-language conversion.
+- Added per-preset LaTeX and Markdown copy actions plus inline KaTeX previews.
+- Treated optional local KaTeX CLI timeouts as skipped validation checks, matching missing CLI behavior.
+
+## 0.2.2 - 2026-07-08 中文
+
+- 将缩写页改为预设页，作为独立的预设公式面板使用。
+- 预设卡片点击后直接在光标处键入公式，不再把 key 传入自然语言转换。
+- 每个预设新增 LaTeX、Markdown 复制操作和内联 KaTeX 预览。
+- 本地 KaTeX CLI 超时时按可选校验跳过处理，与 CLI 缺失时保持一致。
+
 ## 0.2.1 - 2026-07-08
 
 - Fixed packaged desktop formula rendering when `npx katex` is unavailable.

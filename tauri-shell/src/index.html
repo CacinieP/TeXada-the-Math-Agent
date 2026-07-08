@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:* http://localhost:* http://[::1]:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
 <title>TeXada</title>
-<link rel="stylesheet" href="vendor/katex/katex.min.css?v=0.2.1-20260708">
-<link rel="stylesheet" href="style.css?v=0.2.1-20260708">
+<link rel="stylesheet" href="vendor/katex/katex.min.css?v=0.2.2-20260708">
+<link rel="stylesheet" href="style.css?v=0.2.2-20260708">
 </head>
 <body>
 <div id="app">
   <!-- Header -->
   <div class="panel-header" data-tauri-drag-region>
-    <img class="panel-logo" src="app-icon.png?v=0.2.1-20260708" alt="TeXada" data-tauri-drag-region>
+    <img class="panel-logo" src="app-icon.png?v=0.2.2-20260708" alt="TeXada" data-tauri-drag-region>
     <div class="panel-title" data-tauri-drag-region>TeXada</div>
     <div class="panel-status" id="status-dot" data-tauri-drag-region>
       <div class="dot offline"></div>
@@ -26,7 +26,7 @@
     <div class="tab-item active" data-tab="nl"><span class="icon">✏️</span> NL <span class="tab-shortcut">1</span></div>
     <div class="tab-item" data-tab="ocr"><span class="icon">📷</span> OCR <span class="tab-shortcut">2</span></div>
     <div class="tab-item" data-tab="complete"><span class="icon">{ }</span> <span data-i18n="tab.complete">补全</span> <span class="tab-shortcut">3</span></div>
-    <div class="tab-item" data-tab="shorthand"><span class="icon">⚡</span> <span data-i18n="tab.shorthand">缩写</span> <span class="tab-shortcut">4</span></div>
+    <div class="tab-item" data-tab="shorthand"><span class="icon">⚡</span> <span data-i18n="tab.shorthand">预设</span> <span class="tab-shortcut">4</span></div>
     <div class="tab-item" data-tab="history"><span class="icon">🕐</span> <span data-i18n="tab.history">历史</span> <span class="tab-shortcut">5</span></div>
     <div class="tab-item" data-tab="settings"><span class="icon">⚙️</span> <span class="tab-shortcut">6</span></div>
   </div>
@@ -119,14 +119,14 @@
   <!-- Shorthand Tab -->
   <div class="tab-content" id="tab-shorthand">
     <div class="shorthand-editor">
-      <input type="text" id="shorthand-key-input" data-i18n-placeholder="shorthand.keyPlaceholder" placeholder="缩写键…">
-      <input type="text" id="shorthand-value-input" data-i18n-placeholder="shorthand.valuePlaceholder" placeholder="LaTeX…">
-      <button class="action-btn primary icon-only" id="btn-add-shorthand" title="添加缩写" data-i18n-title="shorthand.add">+</button>
+      <input type="text" id="shorthand-key-input" data-i18n-placeholder="shorthand.keyPlaceholder" placeholder="预设键…">
+      <input type="text" id="shorthand-value-input" data-i18n-placeholder="shorthand.valuePlaceholder" placeholder="LaTeX 预设公式…">
+      <button class="action-btn primary icon-only" id="btn-add-shorthand" title="添加预设" data-i18n-title="shorthand.add">+</button>
     </div>
     <div class="setting-desc" id="shorthand-save-status"></div>
     <div class="search-box">
       <span class="icon">🔍</span>
-      <input type="text" id="shorthand-search" data-i18n-placeholder="shorthand.search" placeholder="搜索缩写…">
+      <input type="text" id="shorthand-search" data-i18n-placeholder="shorthand.search" placeholder="搜索预设…">
     </div>
     <div class="shorthand-grid" id="shorthand-grid"></div>
   </div>
@@ -240,14 +240,14 @@
       <div class="settings-title" data-i18n="settings.about">关于</div>
       <div class="setting-row">
         <div class="setting-label">TeXada Shell</div>
-        <div class="setting-value">v0.2.1</div>
+        <div class="setting-value">v0.2.2</div>
       </div>
     </div>
   </div>
 </div>
 
-<script src="vendor/katex/katex.min.js?v=0.2.1-20260708"></script>
-<script src="api-config.js?v=0.2.1-20260708"></script>
-<script src="main.js?v=0.2.1-20260708"></script>
+<script src="vendor/katex/katex.min.js?v=0.2.2-20260708"></script>
+<script src="api-config.js?v=0.2.2-20260708"></script>
+<script src="main.js?v=0.2.2-20260708"></script>
 </body>
 </html>

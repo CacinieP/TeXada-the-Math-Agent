@@ -31,7 +31,7 @@ TeXada is a desktop math formula agent for converting natural language, partial 
 | Formula OCR | Paste or drop screenshots and images for formula recognition |
 | Completion | Complete partial LaTeX expressions |
 | Validation and repair | Check, fix, render and highlight LaTeX |
-| Snippets and history | Keep reusable formula shortcuts, search recent conversions, and reuse prior natural-language or completion inputs |
+| Presets and history | Keep reusable formula presets, search recent conversions, and reuse prior natural-language or completion inputs |
 | Desktop insertion | Click a formula block to type it at the system cursor |
 | UI controls | Switch language, zoom from 80% to 140%, and drag the floating window |
 | Release packages | macOS DMGs and Windows x64 NSIS installers from GitHub Actions |
@@ -40,13 +40,13 @@ The Ollama port is configurable. The default is `http://localhost:11434`, but Se
 
 ### Download
 
-Version `0.2.1` is released from the `main` branch.
+Version `0.2.2` is released from the `main` branch.
 
 | Platform | Package |
 |----------|---------|
-| macOS Apple Silicon | `TeXada_0.2.1_aarch64.dmg` |
-| macOS Intel | `TeXada_0.2.1_x64.dmg` |
-| Windows x64 | `TeXada_0.2.1_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.2.2_aarch64.dmg` |
+| macOS Intel | `TeXada_0.2.2_x64.dmg` |
+| Windows x64 | `TeXada_0.2.2_x64-setup.exe` |
 
 Release page: [github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
@@ -292,7 +292,7 @@ TeXada 是一个面向数学写作、公式整理和截图识别的桌面公式 
 | 公式 OCR | 粘贴或拖入截图/图片来识别公式 |
 | 公式补全 | 补全未写完的 LaTeX 表达式 |
 | 校验与修复 | 检查、修复、渲染并高亮 LaTeX |
-| 缩写与历史 | 保存常用公式缩写，搜索最近转换记录，并复用历史自然语言或补全输入 |
+| 预设与历史 | 保存常用公式预设，搜索最近转换记录，并复用历史自然语言或补全输入 |
 | 桌面键入 | 点击公式块即可在系统当前光标处键入公式 |
 | 界面控制 | 设置页切换中英文、80% 到 140% 缩放、拖动浮窗 |
 | 安装包发布 | GitHub Actions 构建 macOS DMG 和 Windows x64 NSIS 安装包 |
@@ -301,13 +301,13 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 
 ### 下载
 
-版本 `0.2.1` 从 `main` 分支发布。
+版本 `0.2.2` 从 `main` 分支发布。
 
 | 平台 | 安装包 |
 |------|--------|
-| macOS Apple Silicon | `TeXada_0.2.1_aarch64.dmg` |
-| macOS Intel | `TeXada_0.2.1_x64.dmg` |
-| Windows x64 | `TeXada_0.2.1_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.2.2_aarch64.dmg` |
+| macOS Intel | `TeXada_0.2.2_x64.dmg` |
+| Windows x64 | `TeXada_0.2.2_x64-setup.exe` |
 
 Release 页面：[github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
