@@ -135,11 +135,6 @@ def build_pyinstaller(target: str) -> Path:
         cmd.extend(["--onedir", "--contents-directory", "_internal"])
     else:
         cmd.append("--onefile")
-    if sys.platform == "darwin":
-        cmd.extend([
-            "--codesign-identity",
-            os.environ.get("PYINSTALLER_CODESIGN_IDENTITY", "-"),
-        ])
     subprocess.run(cmd, cwd=ROOT, check=True)
 
     if is_macos_target(target):
@@ -148,6 +143,7 @@ def build_pyinstaller(target: str) -> Path:
         if not built.exists():
             raise FileNotFoundError(f"PyInstaller did not create {built}")
         shutil.copytree(built_dir, RESOURCE_BACKEND_DIR)
+        # Sign after PyInstaller output is copied; its internal signing is flaky on Intel CI.
         codesign_macos_tree(RESOURCE_BACKEND_DIR)
         output.write_text(
             "#!/bin/sh\n"

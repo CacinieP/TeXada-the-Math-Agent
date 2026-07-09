@@ -8,6 +8,7 @@ All notable changes to TeXada-the-Math-Agent are recorded here.
 - Prevented duplicate OCR drag/drop handlers from being registered when reopening the OCR tab.
 - Changed the desktop shell to open visible by default instead of starting hidden.
 - Smoothed the frameless transparent window border by insetting and clipping the rounded shell on macOS and Windows.
+- Stabilized macOS Intel release packaging by signing the bundled backend after PyInstaller creates it.
 
 ## 0.2.5 - 2026-07-09 中文
 
@@ -15,6 +16,7 @@ All notable changes to TeXada-the-Math-Agent are recorded here.
 - 避免反复进入 OCR 页时重复注册拖放事件，导致一次拖图触发多次请求。
 - 桌面壳打开时默认显示窗口，不再默认隐藏。
 - 通过透明 inset 和圆角裁剪修复 macOS、Windows 无边框透明窗口的边角瑕疵。
+- 调整 macOS Intel 发布打包流程，PyInstaller 生成后再统一签名内置后端。
 
 ## 0.2.4 - 2026-07-08
 
