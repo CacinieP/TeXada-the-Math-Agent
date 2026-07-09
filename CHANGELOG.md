@@ -2,6 +2,20 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.2.5 - 2026-07-09
+
+- Fixed the OCR tab so a second recognition can start immediately by dragging, pasting, or selecting another image after a completed run.
+- Prevented duplicate OCR drag/drop handlers from being registered when reopening the OCR tab.
+- Changed the desktop shell to open visible by default instead of starting hidden.
+- Smoothed the frameless transparent window border by insetting and clipping the rounded shell on macOS and Windows.
+
+## 0.2.5 - 2026-07-09 中文
+
+- 修复 OCR 页：第一次识别完成后，可以直接拖图、粘贴或选择另一张图片继续第二次识别。
+- 避免反复进入 OCR 页时重复注册拖放事件，导致一次拖图触发多次请求。
+- 桌面壳打开时默认显示窗口，不再默认隐藏。
+- 通过透明 inset 和圆角裁剪修复 macOS、Windows 无边框透明窗口的边角瑕疵。
+
 ## 0.2.4 - 2026-07-08
 
 - Fixed history result restoration: clicking a history record now reopens the previous generated formula in the result view without rerunning the model.

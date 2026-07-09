@@ -10,6 +10,8 @@
   let renderMode = 'katex'; // 'katex' | 'latex'
   let lastResult = null;
   let isProcessing = false;
+  let isOcrSetup = false;
+  let ocrRunId = 0;
   let allShorthands = [];
   let uiLanguage = 'zh';
   let uiZoom = 1.0;
@@ -20,6 +22,7 @@
     allowedImageTypes: new Set(),
   };
   let requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS;
+  const WINDOW_INSET_PX = 1;
   const MIN_UI_ZOOM = 0.8;
   const MAX_UI_ZOOM = 1.4;
   const UI_ZOOM_STEP = 0.1;
@@ -54,7 +57,8 @@
       'action.copyResult': '复制结果',
       'action.save': '保存',
       'ocr.dropText': '拖放图片或粘贴截图',
-      'ocr.dropHint': 'Cmd+V 粘贴剪贴板图片',
+      'ocr.dropHint': '点击选择 · Cmd+V 粘贴剪贴板图片',
+      'ocr.chooseAnother': '再次识别',
       'ocr.unsupportedType': '不支持的图片类型',
       'ocr.tooLarge': '图片过大，请使用 {limit} MB 以内的图片',
       'complete.placeholder': '输入部分 LaTeX… 如: \\\\sum_{i=1}^{',
@@ -167,7 +171,8 @@
       'action.copyResult': 'Copy result',
       'action.save': 'Save',
       'ocr.dropText': 'Drop an image or paste a screenshot',
-      'ocr.dropHint': 'Cmd+V to paste a clipboard image',
+      'ocr.dropHint': 'Click to choose · Cmd+V to paste a clipboard image',
+      'ocr.chooseAnother': 'Recognize another',
       'ocr.unsupportedType': 'Unsupported image type',
       'ocr.tooLarge': 'Image is too large. Use an image under {limit} MB',
       'complete.placeholder': 'Enter partial LaTeX… e.g. \\\\sum_{i=1}^{',
@@ -277,7 +282,9 @@
     historyList: document.getElementById('history-list'),
     historySearch: document.getElementById('history-search'),
     historyFilter: document.getElementById('history-filter'),
+    ocrTab: document.getElementById('tab-ocr'),
     ocrDrop: document.getElementById('ocr-drop'),
+    ocrFileInput: document.getElementById('ocr-file-input'),
     ocrPreview: document.getElementById('ocr-preview'),
     ocrThumb: document.getElementById('ocr-thumb'),
     ocrFilename: document.getElementById('ocr-filename'),
@@ -429,8 +436,10 @@
     if (!app) return;
     const viewportWidth = window.innerWidth || 560;
     const viewportHeight = window.innerHeight || 600;
-    app.style.width = `${viewportWidth / uiZoom}px`;
-    app.style.height = `${viewportHeight / uiZoom}px`;
+    const visualWidth = Math.max(0, viewportWidth - WINDOW_INSET_PX * 2);
+    const visualHeight = Math.max(0, viewportHeight - WINDOW_INSET_PX * 2);
+    app.style.width = `${visualWidth / uiZoom}px`;
+    app.style.height = `${visualHeight / uiZoom}px`;
   }
 
   function updateZoomControl() {
@@ -1104,58 +1113,125 @@
   }
 
   // ── OCR ──
+  function firstImageFile(files) {
+    const list = Array.from(files || []);
+    return list.find(file => file.type && file.type.startsWith('image/')) || list[0] || null;
+  }
+
+  function imageFileFromClipboard(items) {
+    for (const item of Array.from(items || [])) {
+      if (item.kind === 'file' && (item.type || '').startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) return file;
+      }
+    }
+    return null;
+  }
+
+  function resetOcrUi({ clearResult = true } = {}) {
+    if (els.ocrDrop) {
+      els.ocrDrop.style.display = 'block';
+      els.ocrDrop.classList.remove('drag-over', 'busy');
+    }
+    if (els.ocrPreview) els.ocrPreview.style.display = 'none';
+    if (els.ocrProcessing) els.ocrProcessing.classList.remove('active');
+    if (els.ocrFileInput) els.ocrFileInput.value = '';
+    if (clearResult && els.ocrResult) {
+      els.ocrResult.style.display = 'none';
+      els.ocrResult.innerHTML = '';
+    }
+  }
+
+  function prepareOcrUi(file) {
+    if (els.ocrDrop) {
+      els.ocrDrop.style.display = 'block';
+      els.ocrDrop.classList.add('busy');
+    }
+    if (els.ocrPreview) els.ocrPreview.style.display = 'flex';
+    if (els.ocrThumb) els.ocrThumb.textContent = '🖼️';
+    if (els.ocrFilename) els.ocrFilename.textContent = file.name || 'clipboard-image.png';
+    if (els.ocrSize) els.ocrSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+    if (els.ocrProcessing) els.ocrProcessing.classList.add('active');
+    if (els.ocrResult) {
+      els.ocrResult.style.display = 'none';
+      els.ocrResult.innerHTML = '';
+    }
+  }
+
+  function showOcrError(message) {
+    resetOcrUi({ clearResult: false });
+    showErrorIn(els.ocrResult, message);
+  }
+
   function setupOcr() {
     const dropZone = els.ocrDrop;
-    if (!dropZone) return;
+    if (!dropZone || isOcrSetup) return;
+    isOcrSetup = true;
 
-    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-    dropZone.addEventListener('drop', e => {
+    const dropTarget = els.ocrTab || dropZone;
+
+    dropZone.addEventListener('click', e => {
+      if (isProcessing || e.target.closest('button')) return;
+      if (els.ocrFileInput) els.ocrFileInput.click();
+    });
+
+    if (els.ocrFileInput) {
+      els.ocrFileInput.addEventListener('change', e => {
+        const file = firstImageFile(e.currentTarget.files);
+        e.currentTarget.value = '';
+        if (file) handleOcrFile(file);
+      });
+    }
+
+    dropTarget.addEventListener('dragover', e => {
+      if (currentTab !== 'ocr') return;
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+    dropTarget.addEventListener('dragleave', e => {
+      if (e.relatedTarget && dropTarget.contains(e.relatedTarget)) return;
+      dropZone.classList.remove('drag-over');
+    });
+    dropTarget.addEventListener('drop', e => {
+      if (currentTab !== 'ocr') return;
       e.preventDefault();
       dropZone.classList.remove('drag-over');
-      const file = e.dataTransfer.files[0];
+      const file = firstImageFile(e.dataTransfer.files);
       if (file) handleOcrFile(file);
     });
 
-    // Guard: only register paste listener once
-    if (!window._ocrPasteRegistered) {
-      window._ocrPasteRegistered = true;
-      document.addEventListener('paste', e => {
+    document.addEventListener('paste', e => {
       if (currentTab !== 'ocr') return;
-      const items = e.clipboardData.items;
-      for (const item of items) {
-        if (item.type.startsWith('image/')) {
-          const file = item.getAsFile();
-          if (file) handleOcrFile(file);
-          break;
-        }
+      const file = imageFileFromClipboard(e.clipboardData?.items);
+      if (file) {
+        e.preventDefault();
+        handleOcrFile(file);
       }
     });
-    } // end guard
   }
 
   async function handleOcrFile(file) {
+    if (isProcessing) return;
+
     const allowedTypes = runtimeConfig.allowedImageTypes;
-    if (allowedTypes.size && !allowedTypes.has(file.type)) {
-      showErrorIn(els.ocrResult, `${t('ocr.unsupportedType')}: ${file.type || 'unknown'}`);
+    if (allowedTypes.size && file.type && !allowedTypes.has(file.type)) {
+      showOcrError(`${t('ocr.unsupportedType')}: ${file.type || 'unknown'}`);
       return;
     }
     if (runtimeConfig.maxOcrBytes && file.size > runtimeConfig.maxOcrBytes) {
       const limitMb = (runtimeConfig.maxOcrBytes / (1024 * 1024)).toFixed(1);
-      showErrorIn(els.ocrResult, t('ocr.tooLarge', { limit: limitMb }));
+      showOcrError(t('ocr.tooLarge', { limit: limitMb }));
       return;
     }
 
-    els.ocrDrop.style.display = 'none';
-    els.ocrPreview.style.display = 'flex';
-    els.ocrFilename.textContent = file.name;
-    els.ocrSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
-    els.ocrProcessing.classList.add('active');
-    els.ocrResult.style.display = 'none';
+    const runId = ++ocrRunId;
+    isProcessing = true;
+    prepareOcrUi(file);
 
-    const buf = await file.arrayBuffer();
     try {
+      const buf = await file.arrayBuffer();
       const res = await apiOcr(new Uint8Array(buf));
+      if (runId !== ocrRunId) return;
       lastResult = res;
       showOcrResult(res);
       saveHistoryFallback({
@@ -1168,9 +1244,13 @@
         valid: res.valid,
       });
     } catch (e) {
-      showErrorIn(els.ocrResult, String(e));
+      if (runId === ocrRunId) showOcrError(String(e));
     } finally {
-      els.ocrProcessing.classList.remove('active');
+      if (runId === ocrRunId) {
+        isProcessing = false;
+        if (els.ocrDrop) els.ocrDrop.classList.remove('busy');
+        if (els.ocrProcessing) els.ocrProcessing.classList.remove('active');
+      }
     }
   }
 
@@ -1183,6 +1263,7 @@
       </div>
       <div class="action-row">
         <button class="action-btn primary" data-copy-result>📋 ${t('action.copyResult')}</button>
+        <button class="action-btn" data-reset-ocr>${t('ocr.chooseAnother')}</button>
       </div>
     `;
     const resultText = res.copy_text || res.latex;
@@ -1195,6 +1276,9 @@
     );
     els.ocrResult.querySelector('[data-copy-result]').addEventListener('click', e => {
       copyToClipboard(e.currentTarget.dataset.copyResult);
+    });
+    els.ocrResult.querySelector('[data-reset-ocr]').addEventListener('click', () => {
+      resetOcrUi();
     });
     bindFormulaInsertHandlers(els.ocrResult);
   }
@@ -1512,7 +1596,7 @@
       showCompleteResult(lastResult);
     } else if (item.type === 'ocr') {
       switchTab('ocr');
-      if (els.ocrDrop) els.ocrDrop.style.display = 'none';
+      if (els.ocrDrop) els.ocrDrop.style.display = 'block';
       if (els.ocrPreview) els.ocrPreview.style.display = 'none';
       showOcrResult(lastResult);
     } else {

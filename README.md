@@ -40,13 +40,13 @@ The Ollama port is configurable. The default is `http://localhost:11434`, but Se
 
 ### Download
 
-Version `0.2.4` is released from the `main` branch.
+Version `0.2.5` is released from the `main` branch.
 
 | Platform | Package |
 |----------|---------|
-| macOS Apple Silicon | `TeXada_0.2.4_aarch64.dmg` |
-| macOS Intel | `TeXada_0.2.4_x64.dmg` |
-| Windows x64 | `TeXada_0.2.4_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.2.5_aarch64.dmg` |
+| macOS Intel | `TeXada_0.2.5_x64.dmg` |
+| Windows x64 | `TeXada_0.2.5_x64-setup.exe` |
 
 Release page: [github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
@@ -301,13 +301,13 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 
 ### 下载
 
-版本 `0.2.4` 从 `main` 分支发布。
+版本 `0.2.5` 从 `main` 分支发布。
 
 | 平台 | 安装包 |
 |------|--------|
-| macOS Apple Silicon | `TeXada_0.2.4_aarch64.dmg` |
-| macOS Intel | `TeXada_0.2.4_x64.dmg` |
-| Windows x64 | `TeXada_0.2.4_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.2.5_aarch64.dmg` |
+| macOS Intel | `TeXada_0.2.5_x64.dmg` |
+| Windows x64 | `TeXada_0.2.5_x64-setup.exe` |
 
 Release 页面：[github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 

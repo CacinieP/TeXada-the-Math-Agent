@@ -368,6 +368,10 @@ jobs:
           printf 'TeXada Desktop %s\n\n' "$version"
           cat <<'EOF'
           English:
+          - Fixes OCR repeat recognition so another image can be dragged, pasted, or selected immediately after a completed run.
+          - Prevents duplicate OCR drag/drop handlers from accumulating when the OCR tab is reopened.
+          - Opens the desktop shell window visibly by default instead of starting hidden.
+          - Smooths the rounded frameless transparent window border on macOS and Windows.
           - Local-first math formula agent powered by MiniCPM and Ollama.
           - Refreshes the desktop shell with a layered deep-blue UI and a matching no-star TeXada app icon.
           - Regenerates macOS, Windows and frontend icon assets so the new artwork is included in installer packages.
@@ -382,6 +386,10 @@ jobs:
           - Includes signed and notarized macOS DMGs and Windows x64 NSIS installer.
 
           中文：
+          - 修复 OCR 连续识别：第一次完成后可以直接拖图、粘贴或选择另一张图片。
+          - 避免反复打开 OCR 页时重复注册拖放事件。
+          - 桌面壳启动时默认显示窗口，不再默认隐藏。
+          - 修复 macOS 和 Windows 无边框透明窗口的圆角边框瑕疵。
           - 端侧优先的数学公式 Agent，默认使用 MiniCPM 和 Ollama。
           - 将桌面壳刷新为有层次的深蓝 UI，并换用匹配的无星标 TeXada 应用图标。
           - 重新生成 macOS、Windows 和前端图标资源，确保新图标进入安装包。

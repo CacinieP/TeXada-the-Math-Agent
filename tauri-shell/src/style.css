@@ -15,6 +15,7 @@
   --accent-red:    #ff7f9b;
   --accent-cyan:   #66ddff;
   --accent-purple: #7dafff;
+  --window-radius:  14px;
   --radius:        8px;
   --radius-sm:     6px;
   --ui-zoom:       1;
@@ -43,13 +44,14 @@ html, body {
 body {
   min-height: 100vh;
   display: flex;
-  align-items: stretch;
-  justify-content: stretch;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 1px;
 }
 
 @media (min-width: 561px) and (min-height: 601px) {
   html, body {
-    background: var(--bg-base);
+    background: transparent;
   }
 }
 
@@ -58,12 +60,14 @@ body {
     radial-gradient(circle at 22% 0%, rgba(66,155,255,.16), transparent 32%),
     radial-gradient(circle at 100% 18%, rgba(74,118,255,.14), transparent 35%),
     var(--panel-gradient);
-  border-radius: var(--radius);
+  border-radius: var(--window-radius);
   border: 1px solid var(--border);
+  background-clip: padding-box;
+  clip-path: inset(0 round var(--window-radius));
   box-shadow: var(--shadow);
   overflow: hidden;
-  width: 100vw;
-  height: 100vh;
+  width: calc(100vw - 2px);
+  height: calc(100vh - 2px);
   max-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -473,6 +477,10 @@ body {
 .drop-zone:hover, .drop-zone.drag-over {
   border-color: var(--accent);
   background: rgba(85,168,255,.08);
+}
+.drop-zone.busy {
+  cursor: progress;
+  border-color: rgba(85,168,255,.58);
 }
 .drop-zone .icon { font-size: 28px; color: var(--text-muted); }
 .drop-zone .text { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
