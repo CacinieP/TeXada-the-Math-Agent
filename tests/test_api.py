@@ -29,6 +29,10 @@ async def test_create_app_builds_all_routes():
         "/api/render-mode",
         "/api/shorthands",
         "/api/history",
+        "/api/history/export",
+        "/api/history/import",
+        "/api/export",
+        "/api/import",
         "/api/settings/backend",
         "/api/settings/ui",
         "/api/runtime",
@@ -158,6 +162,109 @@ async def test_history_endpoint_filters_by_type_and_query(tmp_path):
     assert len(body) == 1
     assert body[0]["input_type"] == "completion"
     assert body[0]["input_text"] == "\\sum_{i=1}^{"
+
+
+async def test_history_export_import_and_clear_endpoints(tmp_path):
+    from texada.api import create_app
+
+    app = create_app(TeXadaConfig(data_dir=tmp_path))
+    client = TestClient(app)
+    payload = {
+        "mode": "merge",
+        "history": [
+            {
+                "input_text": "integral",
+                "input_type": "nl",
+                "latex": "\\int x\\,dx",
+                "intent": "integral",
+                "source": "model",
+                "render_mode": "katex",
+                "valid": True,
+                "latency_ms": 1.0,
+                "created_at": "2026-07-20 10:00:00",
+            }
+        ],
+    }
+
+    import_response = client.post(
+        "/api/history/import",
+        json=payload,
+    )
+
+    assert import_response.status_code == 200
+    assert import_response.json()["imported"] == 1
+
+    duplicate_response = client.post(
+        "/api/history/import",
+        json=payload,
+    )
+    assert duplicate_response.status_code == 200
+    assert duplicate_response.json()["skipped"] == 1
+
+    export_response = client.get("/api/history/export")
+    body = export_response.json()
+    assert export_response.status_code == 200
+    assert body["_meta"]["schema_version"] == 1
+    assert body["history"][0]["input_text"] == "integral"
+
+    clear_response = client.delete("/api/history?type=nl")
+
+    assert clear_response.status_code == 200
+    assert clear_response.json()["deleted"] == 1
+    assert client.get("/api/history/export").json()["history"] == []
+
+
+async def test_full_backup_export_import_excludes_api_key(tmp_path):
+    from texada.api import create_app
+
+    app = create_app(TeXadaConfig(data_dir=tmp_path))
+    client = TestClient(app)
+
+    client.post(
+        "/api/settings/backend",
+        json={
+            "backend": "openai_compatible",
+            "openai_base_url": "https://example.test/v1",
+            "openai_model_name": "model-a",
+            "openai_api_key": "secret-key",
+        },
+    )
+    client.post("/api/shorthands", json={"key": "mine", "value": "y^2"})
+    client.post(
+        "/api/history/import",
+        json={
+            "history": [
+                {
+                    "input_text": "sum",
+                    "input_type": "nl",
+                    "latex": "\\sum_i x_i",
+                }
+            ]
+        },
+    )
+
+    backup = client.get("/api/export").json()
+
+    assert "openai_api_key" not in backup["settings"]
+    assert backup["settings"]["openai_base_url"] == "https://example.test/v1"
+    assert backup["shorthands"] == {"mine": "y^2"}
+    assert len(backup["history"]) == 1
+
+    imported = client.post(
+        "/api/import",
+        json={
+            "mode": "merge",
+            "settings": {"ui_language": "en", "openai_api_key": "ignored"},
+            "shorthands": {"custom2": "z^2", "euler": "bad"},
+            "history": backup["history"],
+        },
+    )
+
+    assert imported.status_code == 200
+    body = imported.json()
+    assert body["settings"]["imported"] == 1
+    assert body["shorthands"] == {"imported": 1, "skipped": 1}
+    assert client.get("/api/settings/ui").json()["ui_language"] == "en"
 
 
 async def test_backend_settings_do_not_echo_key(tmp_path):

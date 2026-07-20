@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 
 from fastapi import FastAPI, HTTPException, Query, Request, UploadFile
@@ -15,6 +16,24 @@ from texada.core.router import InputRouter
 from texada.render.engine import RenderEngine
 from texada.store.history import HistoryStore
 from texada.types import ConvertResult, HistoryEntry, RenderMode, Route
+
+EXPORTABLE_SETTINGS_FIELDS = frozenset({
+    "backend",
+    "ollama_host",
+    "model_name",
+    "vision_model_name",
+    "openai_base_url",
+    "openai_model_name",
+    "openai_vision_model_name",
+    "temperature",
+    "max_tokens",
+    "default_render_mode",
+    "delimiter",
+    "ui_language",
+    "ui_zoom",
+    "inference_timeout_seconds",
+    "api_request_timeout_seconds",
+})
 
 # ── Request / Response models ──
 
@@ -109,6 +128,32 @@ class RuntimeConfigResponse(BaseModel):
     allowed_image_mime_types: list[str]
 
 
+class HistoryImportEntry(BaseModel):
+    input_text: str = Field(min_length=1, max_length=4000)
+    input_type: str = Field(default="nl", max_length=40)
+    latex: str = Field(min_length=1, max_length=4000)
+    intent: str = Field(default="", max_length=120)
+    source: str = Field(default="model", max_length=40)
+    render_mode: str = Field(default="katex", pattern="^(katex|latex)$")
+    valid: bool = True
+    latency_ms: float = Field(default=0.0, ge=0)
+    tokens_used: int = Field(default=0, ge=0)
+    starred: bool = False
+    created_at: str = Field(default="", max_length=80)
+
+
+class HistoryImportRequest(BaseModel):
+    mode: str = Field(default="merge", pattern="^(merge|replace)$")
+    history: list[HistoryImportEntry] = Field(default_factory=list, max_length=10000)
+
+
+class BackupImportRequest(BaseModel):
+    mode: str = Field(default="merge", pattern="^(merge|replace)$")
+    history: list[HistoryImportEntry] = Field(default_factory=list, max_length=10000)
+    shorthands: dict[str, str] = Field(default_factory=dict)
+    settings: dict = Field(default_factory=dict)
+
+
 # ── App factory ──
 
 def _app_version() -> str:
@@ -129,6 +174,78 @@ def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
         openai_vision_model_name=config.openai_vision_model_name,
         openai_api_key_set=bool(config.openai_api_key),
     )
+
+
+def _history_entry_response(entry: HistoryEntry) -> dict:
+    return {
+        "id": entry.id,
+        "input_text": entry.input_text,
+        "input_type": entry.input_type,
+        "latex": entry.latex,
+        "intent": entry.intent,
+        "source": entry.source,
+        "render_mode": entry.render_mode,
+        "valid": entry.valid,
+        "latency_ms": entry.latency_ms,
+        "tokens_used": entry.tokens_used,
+        "starred": entry.starred,
+        "created_at": entry.created_at,
+    }
+
+
+def _history_import_entry(entry: HistoryImportEntry) -> HistoryEntry:
+    return HistoryEntry(
+        input_text=entry.input_text,
+        input_type=entry.input_type.strip().lower() or "nl",
+        latex=entry.latex,
+        intent=entry.intent,
+        source=entry.source,
+        render_mode=entry.render_mode,
+        valid=entry.valid,
+        latency_ms=entry.latency_ms,
+        tokens_used=entry.tokens_used,
+        starred=entry.starred,
+        created_at=entry.created_at,
+    )
+
+
+def _backup_meta(app_version: str) -> dict:
+    return {
+        "app": "TeXada",
+        "schema_version": 1,
+        "version": app_version,
+        "exported_at": datetime.now(UTC).isoformat(),
+    }
+
+
+def _exportable_settings(config: TeXadaConfig) -> dict:
+    """Settings safe to include in data backups. API keys are intentionally excluded."""
+    return {
+        "backend": config.backend,
+        "ollama_host": config.ollama_host,
+        "model_name": config.model_name,
+        "vision_model_name": config.vision_model_name,
+        "openai_base_url": config.openai_base_url,
+        "openai_model_name": config.openai_model_name,
+        "openai_vision_model_name": config.openai_vision_model_name,
+        "temperature": config.temperature,
+        "max_tokens": config.max_tokens,
+        "default_render_mode": config.default_render_mode,
+        "delimiter": config.delimiter,
+        "ui_language": config.ui_language,
+        "ui_zoom": config.ui_zoom,
+        "inference_timeout_seconds": config.inference_timeout_seconds,
+        "api_request_timeout_seconds": config.api_request_timeout_seconds,
+    }
+
+
+def _importable_settings(settings: dict) -> dict:
+    return {
+        key: value
+        for key, value in settings.items()
+        if key in EXPORTABLE_SETTINGS_FIELDS
+    }
+
 
 def _parse_render_mode(mode: str) -> RenderMode:
     try:
@@ -388,5 +505,61 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     ):
         entries = await history.list_recent(q, limit, input_type=input_type)
         return [e.__dict__ for e in entries]
+
+    @app.get("/api/history/export")
+    async def export_history(
+        input_type: str = Query(default="", alias="type", max_length=40),
+    ):
+        entries = await history.export_all(input_type=input_type)
+        return {
+            "_meta": _backup_meta(app_version),
+            "history": [_history_entry_response(entry) for entry in entries],
+        }
+
+    @app.post("/api/history/import")
+    async def import_history(req: HistoryImportRequest):
+        entries = [_history_import_entry(entry) for entry in req.history]
+        return await history.import_entries(entries, mode=req.mode)
+
+    @app.delete("/api/history")
+    async def clear_history(
+        input_type: str = Query(default="", alias="type", max_length=40),
+    ):
+        deleted = await history.clear(input_type=input_type)
+        return {"deleted": deleted}
+
+    @app.get("/api/export")
+    async def export_backup():
+        entries = await history.export_all()
+        return {
+            "_meta": _backup_meta(app_version),
+            "settings": _exportable_settings(config),
+            "shorthands": shorthand.list_user_defined(),
+            "history": [_history_entry_response(entry) for entry in entries],
+        }
+
+    @app.post("/api/import")
+    async def import_backup(req: BackupImportRequest):
+        nonlocal config, router, shorthand, history, render_engine, backend_mgr
+        history_result = await history.import_entries(
+            [_history_import_entry(entry) for entry in req.history],
+            mode=req.mode,
+        )
+        shorthand_result = shorthand.import_many(req.shorthands)
+        settings_updates = _importable_settings(req.settings)
+        settings_imported = 0
+        if settings_updates:
+            config = save_config_updates(settings_updates, data_dir=config.data_dir)
+            router = InputRouter(config)
+            shorthand = router.shorthand_store
+            history = HistoryStore(config)
+            render_engine = RenderEngine(config)
+            backend_mgr = BackendManager(config)
+            settings_imported = len(settings_updates)
+        return {
+            "history": history_result,
+            "shorthands": shorthand_result,
+            "settings": {"imported": settings_imported},
+        }
 
     return app

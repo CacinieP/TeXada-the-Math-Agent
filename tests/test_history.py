@@ -128,3 +128,69 @@ async def test_history_cleanup(tmp_path):
 
     recent = await store.list_recent()
     assert len(recent) == 1
+
+
+@pytest.mark.asyncio
+async def test_history_export_import_merge_and_clear(tmp_path):
+    source = HistoryStore(TeXadaConfig(data_dir=tmp_path / "source"))
+    target = HistoryStore(TeXadaConfig(data_dir=tmp_path / "target"))
+
+    entry = HistoryEntry(
+        input_text="integral",
+        input_type="nl",
+        latex="\\int x\\,dx",
+        intent="integral",
+        source="model",
+        render_mode="katex",
+        valid=True,
+        latency_ms=10.0,
+        created_at="2026-07-20 10:00:00",
+    )
+
+    await source.import_entries([entry])
+    exported = await source.export_all()
+
+    first = await target.import_entries(exported)
+    second = await target.import_entries(exported)
+
+    assert first == {"imported": 1, "skipped": 0, "cleared": 0}
+    assert second == {"imported": 0, "skipped": 1, "cleared": 0}
+    assert len(await target.export_all()) == 1
+    assert await target.clear("nl") == 1
+    assert await target.export_all() == []
+
+
+@pytest.mark.asyncio
+async def test_history_import_replace_clears_existing_rows(tmp_path):
+    store = HistoryStore(TeXadaConfig(data_dir=tmp_path))
+
+    await store.add(HistoryEntry(
+        input_text="old",
+        input_type="nl",
+        latex="old",
+        intent="generic",
+        source="model",
+        render_mode="katex",
+        valid=True,
+        latency_ms=1.0,
+    ))
+
+    result = await store.import_entries(
+        [
+            HistoryEntry(
+                input_text="new",
+                input_type="completion",
+                latex="new",
+                intent="completion",
+                source="model",
+                render_mode="latex",
+                valid=True,
+                latency_ms=2.0,
+            )
+        ],
+        mode="replace",
+    )
+
+    entries = await store.export_all()
+    assert result["cleared"] == 1
+    assert [entry.input_text for entry in entries] == ["new"]

@@ -227,6 +227,34 @@
       </div>
     </div>
     <div class="settings-section">
+      <div class="settings-title" data-i18n="settings.dataTitle">数据</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label" data-i18n="settings.backupData">完整备份</div>
+          <div class="setting-desc" data-i18n="settings.backupDataDesc">导出或导入历史、预设和非敏感设置</div>
+        </div>
+        <div class="settings-actions inline">
+          <button class="action-btn" id="btn-export-backup" type="button" data-i18n="settings.exportAll">导出全部</button>
+          <button class="action-btn" id="btn-import-backup" type="button" data-i18n="settings.importAll">导入全部</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label" data-i18n="settings.historyData">历史记录</div>
+          <div class="setting-desc" data-i18n="settings.historyDataDesc">导出、导入或清空转换历史</div>
+        </div>
+        <div class="settings-actions inline">
+          <button class="action-btn" id="btn-export-history" type="button" data-i18n="settings.exportHistory">导出历史</button>
+          <button class="action-btn" id="btn-import-history" type="button" data-i18n="settings.importHistory">导入历史</button>
+          <button class="action-btn danger" id="btn-clear-history" type="button" data-i18n="settings.clearHistory">清空历史</button>
+        </div>
+      </div>
+      <input id="data-import-input" type="file" accept="application/json,.json" hidden>
+      <div class="settings-actions">
+        <span class="setting-desc" id="data-action-status"></span>
+      </div>
+    </div>
+    <div class="settings-section">
       <div class="settings-title" data-i18n="settings.shortcuts">快捷键</div>
       <div class="setting-row">
         <div class="setting-label" data-i18n="settings.wake">唤出 / 隐藏</div>

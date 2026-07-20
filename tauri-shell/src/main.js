@@ -17,6 +17,7 @@
   let uiZoom = 1.0;
   let isComposingText = false;
   let historyType = 'all';
+  let pendingDataImport = null;
   let runtimeConfig = {
     maxOcrBytes: null,
     allowedImageTypes: new Set(),
@@ -58,6 +59,8 @@
       'action.save': '保存',
       'ocr.dropText': '拖放图片或粘贴截图',
       'ocr.dropHint': '点击选择 · Cmd+V 粘贴剪贴板图片',
+      'ocr.dropHintMac': '点击选择 · Cmd+V 粘贴剪贴板图片',
+      'ocr.dropHintWin': '点击选择 · Ctrl+V 粘贴剪贴板图片',
       'ocr.chooseAnother': '再次识别',
       'ocr.unsupportedType': '不支持的图片类型',
       'ocr.tooLarge': '图片过大，请使用 {limit} MB 以内的图片',
@@ -130,6 +133,21 @@
       'settings.saved': '已保存',
       'settings.detecting': '检测中...',
       'settings.languageSaved': '已切换',
+      'settings.dataTitle': '数据',
+      'settings.backupData': '完整备份',
+      'settings.backupDataDesc': '导出或导入历史、预设和非敏感设置',
+      'settings.historyData': '历史记录',
+      'settings.historyDataDesc': '导出、导入或清空转换历史',
+      'settings.exportAll': '导出全部',
+      'settings.importAll': '导入全部',
+      'settings.exportHistory': '导出历史',
+      'settings.importHistory': '导入历史',
+      'settings.clearHistory': '清空历史',
+      'settings.exported': '已导出',
+      'settings.imported': '已导入',
+      'settings.cleared': '已清空 {count} 条历史',
+      'settings.importFailed': '导入失败',
+      'settings.clearConfirm': '确定要清空全部历史记录吗？此操作不可撤销。',
       'status.ready': 'Ready',
       'status.noApi': 'No API',
       'status.error': 'Error',
@@ -172,6 +190,8 @@
       'action.save': 'Save',
       'ocr.dropText': 'Drop an image or paste a screenshot',
       'ocr.dropHint': 'Click to choose · Cmd+V to paste a clipboard image',
+      'ocr.dropHintMac': 'Click to choose · Cmd+V to paste a clipboard image',
+      'ocr.dropHintWin': 'Click to choose · Ctrl+V to paste a clipboard image',
       'ocr.chooseAnother': 'Recognize another',
       'ocr.unsupportedType': 'Unsupported image type',
       'ocr.tooLarge': 'Image is too large. Use an image under {limit} MB',
@@ -244,6 +264,21 @@
       'settings.saved': 'Saved',
       'settings.detecting': 'Detecting...',
       'settings.languageSaved': 'Changed',
+      'settings.dataTitle': 'Data',
+      'settings.backupData': 'Full backup',
+      'settings.backupDataDesc': 'Export or import history, presets, and non-sensitive settings',
+      'settings.historyData': 'History',
+      'settings.historyDataDesc': 'Export, import, or clear conversion history',
+      'settings.exportAll': 'Export all',
+      'settings.importAll': 'Import all',
+      'settings.exportHistory': 'Export history',
+      'settings.importHistory': 'Import history',
+      'settings.clearHistory': 'Clear history',
+      'settings.exported': 'Exported',
+      'settings.imported': 'Imported',
+      'settings.cleared': 'Cleared {count} history records',
+      'settings.importFailed': 'Import failed',
+      'settings.clearConfirm': 'Clear all history? This cannot be undone.',
       'status.ready': 'Ready',
       'status.noApi': 'No API',
       'status.error': 'Error',
@@ -311,6 +346,13 @@
     zoomResetBtn: document.getElementById('btn-zoom-reset'),
     uiLanguageStatus: document.getElementById('ui-language-status'),
     apiBaseValue: document.getElementById('api-base-value'),
+    exportBackupBtn: document.getElementById('btn-export-backup'),
+    importBackupBtn: document.getElementById('btn-import-backup'),
+    exportHistoryBtn: document.getElementById('btn-export-history'),
+    importHistoryBtn: document.getElementById('btn-import-history'),
+    clearHistoryBtn: document.getElementById('btn-clear-history'),
+    dataImportInput: document.getElementById('data-import-input'),
+    dataActionStatus: document.getElementById('data-action-status'),
   };
 
   // ── Helpers ──
@@ -358,13 +400,17 @@
   }
 
   function applyPlatformLabels() {
+    const isMac = isMacPlatform();
     const shortcuts = {
-      wake: isMacPlatform() ? '⌥⌘T' : 'Ctrl+Alt+T',
-      mode: isMacPlatform() ? '⌘K' : 'Ctrl+K',
+      wake: isMac ? '⌥⌘T' : 'Ctrl+Alt+T',
+      mode: isMac ? '⌘K' : 'Ctrl+K',
     };
     document.querySelectorAll('[data-shortcut]').forEach(el => {
       const value = shortcuts[el.dataset.shortcut];
       if (value) el.textContent = value;
+    });
+    document.querySelectorAll('[data-i18n="ocr.dropHint"]').forEach(el => {
+      el.textContent = t(isMac ? 'ocr.dropHintMac' : 'ocr.dropHintWin');
     });
   }
 
@@ -677,6 +723,32 @@
       method: 'POST',
       body: { ui_language: uiLanguage, ui_zoom: uiZoom },
     });
+  }
+
+  async function apiExportBackup() {
+    return await apiJson('/api/export');
+  }
+
+  async function apiImportBackup(payload) {
+    return await apiJson('/api/import', {
+      method: 'POST',
+      body: payload,
+    });
+  }
+
+  async function apiExportHistory() {
+    return await apiJson('/api/history/export');
+  }
+
+  async function apiImportHistory(payload) {
+    return await apiJson('/api/history/import', {
+      method: 'POST',
+      body: payload,
+    });
+  }
+
+  async function apiClearHistory() {
+    return await apiJson('/api/history', { method: 'DELETE' });
   }
 
   async function apiAddShorthand(key, value) {
@@ -1023,6 +1095,124 @@
   }
   if (els.zoomResetBtn) {
     els.zoomResetBtn.addEventListener('click', () => setZoom(1.0, true));
+  }
+
+  if (els.exportBackupBtn) {
+    els.exportBackupBtn.addEventListener('click', exportBackupData);
+  }
+  if (els.importBackupBtn) {
+    els.importBackupBtn.addEventListener('click', () => chooseImportFile('backup'));
+  }
+  if (els.exportHistoryBtn) {
+    els.exportHistoryBtn.addEventListener('click', exportHistoryData);
+  }
+  if (els.importHistoryBtn) {
+    els.importHistoryBtn.addEventListener('click', () => chooseImportFile('history'));
+  }
+  if (els.clearHistoryBtn) {
+    els.clearHistoryBtn.addEventListener('click', clearHistoryData);
+  }
+  if (els.dataImportInput) {
+    els.dataImportInput.addEventListener('change', importSelectedDataFile);
+  }
+
+  function setDataStatus(message) {
+    if (els.dataActionStatus) els.dataActionStatus.textContent = message || '';
+  }
+
+  function backupFileName(kind) {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    return `texada-${kind}-${stamp}.json`;
+  }
+
+  function downloadJson(filename, data) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function exportBackupData() {
+    setDataStatus(t('settings.saving'));
+    try {
+      downloadJson(backupFileName('backup'), await apiExportBackup());
+      setDataStatus(t('settings.exported'));
+    } catch (e) {
+      setDataStatus(String(e).replace(/^Error:\s*/, ''));
+    }
+  }
+
+  async function exportHistoryData() {
+    setDataStatus(t('settings.saving'));
+    try {
+      downloadJson(backupFileName('history'), await apiExportHistory());
+      setDataStatus(t('settings.exported'));
+    } catch (e) {
+      setDataStatus(String(e).replace(/^Error:\s*/, ''));
+    }
+  }
+
+  function chooseImportFile(kind) {
+    if (!els.dataImportInput) return;
+    pendingDataImport = kind;
+    els.dataImportInput.value = '';
+    els.dataImportInput.click();
+  }
+
+  function normalizeHistoryImportPayload(data) {
+    if (Array.isArray(data)) return { mode: 'merge', history: data };
+    return { mode: 'merge', history: data.history || [] };
+  }
+
+  async function importSelectedDataFile(e) {
+    const file = e.currentTarget.files && e.currentTarget.files[0];
+    const kind = pendingDataImport;
+    pendingDataImport = null;
+    if (!file || !kind) return;
+
+    setDataStatus(t('settings.saving'));
+    try {
+      const data = JSON.parse(await file.text());
+      if (kind === 'history') {
+        const result = await apiImportHistory(normalizeHistoryImportPayload(data));
+        setDataStatus(`${t('settings.imported')} · ${result.imported || 0}`);
+      } else {
+        const result = await apiImportBackup({
+          mode: 'merge',
+          history: data.history || [],
+          shorthands: data.shorthands || {},
+          settings: data.settings || {},
+        });
+        const historyCount = result.history ? result.history.imported || 0 : 0;
+        const shorthandCount = result.shorthands ? result.shorthands.imported || 0 : 0;
+        setDataStatus(`${t('settings.imported')} · H ${historyCount} · P ${shorthandCount}`);
+        await loadBackendSettings();
+        await loadUiSettings();
+        await loadShorthands();
+      }
+      if (currentTab === 'history') await loadHistory();
+    } catch (err) {
+      setDataStatus(`${t('settings.importFailed')}: ${String(err).replace(/^Error:\s*/, '')}`);
+    }
+  }
+
+  async function clearHistoryData() {
+    if (!window.confirm(t('settings.clearConfirm'))) return;
+    setDataStatus(t('settings.saving'));
+    try {
+      const result = await apiClearHistory();
+      historyData = [];
+      localStorage.removeItem('texada-history');
+      if (currentTab === 'history') renderHistory([]);
+      setDataStatus(t('settings.cleared', { count: result.deleted || 0 }));
+    } catch (e) {
+      setDataStatus(String(e).replace(/^Error:\s*/, ''));
+    }
   }
 
   async function loadUiSettings() {

@@ -38,6 +38,7 @@ class HistoryStore:
         self._initialized = False
 
     async def _get_conn(self) -> aiosqlite.Connection:
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         conn = await aiosqlite.connect(self.db_path)
         conn.row_factory = aiosqlite.Row
         if not self._initialized:
@@ -59,6 +60,112 @@ class HistoryStore:
             await self._cleanup_locked(conn)
             await conn.commit()
             return cursor[0]
+        finally:
+            await conn.close()
+
+    async def export_all(self, input_type: str = "") -> list[HistoryEntry]:
+        """Export history entries without UI pagination limits."""
+        conn = await self._get_conn()
+        try:
+            params: list[str] = []
+            sql = "SELECT * FROM history"
+            normalized_type = input_type.strip().lower()
+            if normalized_type and normalized_type != "all":
+                sql += " WHERE input_type = ?"
+                params.append(normalized_type)
+            sql += " ORDER BY created_at DESC, id DESC"
+            rows = await conn.execute_fetchall(sql, params)
+            return [self._row_to_entry(row) for row in rows]
+        finally:
+            await conn.close()
+
+    async def import_entries(
+        self,
+        entries: list[HistoryEntry],
+        *,
+        mode: str = "merge",
+    ) -> dict[str, int]:
+        """Import history entries.
+
+        ``merge`` skips exact duplicates; ``replace`` clears history first.
+        """
+        normalized_mode = mode.strip().lower()
+        if normalized_mode not in {"merge", "replace"}:
+            raise ValueError("mode must be 'merge' or 'replace'")
+
+        conn = await self._get_conn()
+        imported = 0
+        skipped = 0
+        cleared = 0
+        try:
+            if normalized_mode == "replace":
+                cursor = await conn.execute("DELETE FROM history")
+                cleared = max(cursor.rowcount, 0)
+
+            for entry in entries:
+                duplicate = await conn.execute_fetchall(
+                    """
+                    SELECT id FROM history
+                    WHERE input_text = ?
+                      AND input_type = ?
+                      AND latex = ?
+                      AND created_at = ?
+                    LIMIT 1
+                    """,
+                    (entry.input_text, entry.input_type, entry.latex, entry.created_at),
+                )
+                if duplicate:
+                    skipped += 1
+                    continue
+
+                await conn.execute(
+                    """
+                    INSERT INTO history (
+                        input_text, input_type, latex, intent, source, render_mode,
+                        valid, latency_ms, tokens_used, starred, created_at
+                    )
+                    VALUES (
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        COALESCE(NULLIF(?, ''), CURRENT_TIMESTAMP)
+                    )
+                    """,
+                    (
+                        entry.input_text,
+                        entry.input_type,
+                        entry.latex,
+                        entry.intent,
+                        entry.source,
+                        entry.render_mode,
+                        entry.valid,
+                        entry.latency_ms,
+                        entry.tokens_used,
+                        entry.starred,
+                        entry.created_at,
+                    ),
+                )
+                imported += 1
+
+            await self._cleanup_locked(conn)
+            await conn.commit()
+            return {"imported": imported, "skipped": skipped, "cleared": cleared}
+        finally:
+            await conn.close()
+
+    async def clear(self, input_type: str = "") -> int:
+        """Clear all history, or only one history type."""
+        conn = await self._get_conn()
+        try:
+            normalized_type = input_type.strip().lower()
+            if normalized_type and normalized_type != "all":
+                cursor = await conn.execute(
+                    "DELETE FROM history WHERE input_type = ?",
+                    (normalized_type,),
+                )
+            else:
+                cursor = await conn.execute("DELETE FROM history")
+            deleted = max(cursor.rowcount, 0)
+            await conn.commit()
+            return deleted
         finally:
             await conn.close()
 
@@ -90,23 +197,7 @@ class HistoryStore:
             sql += " ORDER BY created_at DESC, id DESC LIMIT ?"
             params.append(limit)
             rows = await conn.execute_fetchall(sql, params)
-            return [
-                HistoryEntry(
-                    id=row["id"],
-                    input_text=row["input_text"],
-                    input_type=row["input_type"],
-                    latex=row["latex"],
-                    intent=row["intent"],
-                    source=row["source"],
-                    render_mode=row["render_mode"],
-                    valid=bool(row["valid"]),
-                    latency_ms=row["latency_ms"],
-                    tokens_used=row["tokens_used"],
-                    starred=bool(row["starred"]),
-                    created_at=row["created_at"],
-                )
-                for row in rows
-            ]
+            return [self._row_to_entry(row) for row in rows]
         finally:
             await conn.close()
 
@@ -142,3 +233,20 @@ class HistoryStore:
             )
             deleted += max(cursor.rowcount, 0)
         return deleted
+
+    @staticmethod
+    def _row_to_entry(row: aiosqlite.Row) -> HistoryEntry:
+        return HistoryEntry(
+            id=row["id"],
+            input_text=row["input_text"],
+            input_type=row["input_type"],
+            latex=row["latex"],
+            intent=row["intent"],
+            source=row["source"],
+            render_mode=row["render_mode"],
+            valid=bool(row["valid"]),
+            latency_ms=row["latency_ms"],
+            tokens_used=row["tokens_used"],
+            starred=bool(row["starred"]),
+            created_at=row["created_at"],
+        )

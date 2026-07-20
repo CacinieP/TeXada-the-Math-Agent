@@ -50,3 +50,19 @@ def test_shorthand_list_all(tmp_path):
     keys = [item[0] for item in query_items]
     assert "euler" in keys
     assert "euler-g" in keys
+
+
+def test_shorthand_import_exports_user_defined_only(tmp_path):
+    config = TeXadaConfig(data_dir=tmp_path)
+    store = ShorthandStore(config)
+
+    result = store.import_many({
+        "custom": "x^2",
+        "euler": "should-not-overwrite-built-in",
+        "": "empty-key",
+    })
+
+    assert result == {"imported": 1, "skipped": 2}
+    assert store.lookup("custom") == "x^2"
+    assert store.lookup("euler") == "e^{i\\pi}+1=0"
+    assert store.list_user_defined() == {"custom": "x^2"}

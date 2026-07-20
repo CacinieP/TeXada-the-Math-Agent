@@ -70,12 +70,39 @@ class ShorthandStore:
             items = [(k, v) for k, v in items if query in k or query in v]
         return sorted(items)
 
+    def list_user_defined(self) -> dict[str, str]:
+        """Return only user-owned shorthands for backup/export."""
+        return {
+            k: v for k, v in self._shorthands.items()
+            if k not in DEFAULT_SHORTHANDS or DEFAULT_SHORTHANDS[k] != v
+        }
+
     def can_delete(self, key: str) -> bool:
         return key in self._shorthands and key not in DEFAULT_SHORTHANDS
 
     def add(self, key: str, value: str) -> None:
         self._shorthands[key] = value
         self._save()
+
+    def import_many(self, items: dict[str, str]) -> dict[str, int]:
+        """Merge user shorthands, skipping built-in keys."""
+        imported = 0
+        skipped = 0
+        for key, value in items.items():
+            normalized_key = str(key).strip()
+            normalized_value = str(value).strip()
+            if (
+                not normalized_key
+                or not normalized_value
+                or normalized_key in DEFAULT_SHORTHANDS
+            ):
+                skipped += 1
+                continue
+            self._shorthands[normalized_key] = normalized_value
+            imported += 1
+        if imported:
+            self._save()
+        return {"imported": imported, "skipped": skipped}
 
     def delete(self, key: str) -> bool:
         if self.can_delete(key):

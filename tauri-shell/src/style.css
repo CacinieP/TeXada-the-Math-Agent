@@ -459,6 +459,15 @@ body {
   border-color: var(--accent);
 }
 .action-btn.primary:hover { background: #3f95f2; }
+.action-btn.danger {
+  border-color: rgba(255,110,110,.42);
+  color: #ff9a9a;
+}
+.action-btn.danger:hover {
+  background: linear-gradient(180deg, rgba(120,38,48,.92), rgba(58,18,28,.98));
+  border-color: #ff8a8a;
+  color: #ffd1d1;
+}
 .action-btn .icon { font-size: 13px; }
 
 /* Drop zone */
@@ -878,6 +887,11 @@ body {
   justify-content: flex-end;
   gap: 10px;
   padding-top: 8px;
+}
+.settings-actions.inline {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  padding-top: 0;
 }
 
 .zoom-control {
