@@ -368,39 +368,27 @@ jobs:
           printf 'TeXada Desktop %s\n\n' "$version"
           cat <<'EOF'
           English:
-          - Fixes OCR repeat recognition so another image can be dragged, pasted, or selected immediately after a completed run.
-          - Prevents duplicate OCR drag/drop handlers from accumulating when the OCR tab is reopened.
-          - Opens the desktop shell window visibly by default instead of starting hidden.
-          - Smooths the rounded frameless transparent window border on macOS and Windows.
-          - Stabilizes macOS Intel packaging by signing the bundled backend after PyInstaller creates it.
+          - Adds Settings -> Data controls for full backup export/import, history export/import, and confirmed history clearing.
+          - Adds JSON backup APIs for full data export/import and history-only export/import.
+          - Imports history in merge mode by default, skips duplicate records, and keeps backend replace-mode support for controlled restores.
+          - Exports user-defined presets and non-sensitive settings while excluding API keys from backup files.
+          - Documents the backup JSON format in README and docs/data-backup.md.
+          - Fixes platform-specific OCR paste hints so Windows shows Ctrl+V and macOS shows Cmd+V.
           - Local-first math formula agent powered by MiniCPM and Ollama.
-          - Refreshes the desktop shell with a layered deep-blue UI and a matching no-star TeXada app icon.
-          - Regenerates macOS, Windows and frontend icon assets so the new artwork is included in installer packages.
           - Supports natural language to LaTeX, formula OCR, completion, presets, history and desktop insertion.
-          - Presets are now self-contained formula cards: click to insert, or copy LaTeX/Markdown without invoking natural-language conversion.
-          - Fixes packaged desktop formula rendering when `npx katex` is unavailable by bundling local KaTeX browser assets.
-          - Improves history reuse with searchable natural-language, completion, OCR and LaTeX records.
-          - Reopens saved history results directly in the result view without rerunning the model.
-          - Adds history type filters plus per-record input reuse, LaTeX copy and Markdown copy actions.
           - Supports OpenAI API-compatible cloud text and vision models.
           - Includes and auto-starts the TeXada FastAPI backend; Ollama or cloud model runtime remains configurable.
           - Includes signed and notarized macOS DMGs and Windows x64 NSIS installer.
 
           中文：
-          - 修复 OCR 连续识别：第一次完成后可以直接拖图、粘贴或选择另一张图片。
-          - 避免反复打开 OCR 页时重复注册拖放事件。
-          - 桌面壳启动时默认显示窗口，不再默认隐藏。
-          - 修复 macOS 和 Windows 无边框透明窗口的圆角边框瑕疵。
-          - 调整 macOS Intel 打包签名顺序，内置后端由 PyInstaller 生成后再统一签名。
+          - 在设置页新增“数据”区域，支持完整备份导入导出、历史记录导入导出，以及二次确认后清空历史。
+          - 新增完整数据和仅历史记录的 JSON 导入导出 API。
+          - 历史导入默认使用合并模式，会跳过重复记录；后端保留替换模式，便于受控恢复。
+          - 备份会导出用户自定义预设和非敏感设置，但不会导出 API Key。
+          - 在 README 和 docs/data-backup.md 中补充备份 JSON 格式说明。
+          - 修正 OCR 粘贴提示：Windows 显示 Ctrl+V，macOS 显示 Cmd+V。
           - 端侧优先的数学公式 Agent，默认使用 MiniCPM 和 Ollama。
-          - 将桌面壳刷新为有层次的深蓝 UI，并换用匹配的无星标 TeXada 应用图标。
-          - 重新生成 macOS、Windows 和前端图标资源，确保新图标进入安装包。
           - 支持自然语言转 LaTeX、公式 OCR、补全、预设、历史记录和桌面光标处键入。
-          - 预设页现在是独立公式卡片：点击即可键入公式，也可复制 LaTeX/Markdown，不再调用自然语言转换。
-          - 修复桌面安装包中缺少 `npx katex` 时公式渲染版不可见的问题，并随前端打包本地 KaTeX 资源。
-          - 增强历史记录复用，可搜索自然语言、补全、OCR 和 LaTeX 记录。
-          - 点击历史记录可直接重新打开已保存结果，不需要重新运行模型。
-          - 历史页新增类型筛选，以及复用输入、复制 LaTeX、复制 Markdown 等单条记录操作。
           - 支持 OpenAI API 兼容的云侧文本和视觉模型。
           - 安装包内置并自动启动 TeXada FastAPI 后端；Ollama 或云侧模型运行时仍可配置。
           - 提供已签名并完成 Apple notarization 的 macOS DMG，以及 Windows x64 NSIS 安装包。

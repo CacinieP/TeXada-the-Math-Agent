@@ -18,7 +18,7 @@ and conversion history.
   "_meta": {
     "app": "TeXada",
     "schema_version": 1,
-    "version": "0.2.5",
+    "version": "0.2.6",
     "exported_at": "2026-07-20T15:00:00.000000+00:00"
   },
   "settings": {
@@ -72,7 +72,7 @@ array.
   "_meta": {
     "app": "TeXada",
     "schema_version": 1,
-    "version": "0.2.5",
+    "version": "0.2.6",
     "exported_at": "2026-07-20T15:00:00.000000+00:00"
   },
   "history": [

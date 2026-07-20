@@ -2,6 +2,24 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.2.6 - 2026-07-20
+
+- Added Settings -> Data controls for full backup export/import, history export/import, and confirmed history clearing.
+- Added JSON backup APIs for full data export/import and history-only export/import.
+- Added merge-mode history import with duplicate skipping and replace-mode support in the backend.
+- Exported user-defined presets and non-sensitive settings while excluding API keys from backups.
+- Documented the backup JSON format in README and `docs/data-backup.md`.
+- Fixed platform-specific OCR paste hints so Windows shows `Ctrl+V` and macOS shows `Cmd+V`.
+
+## 0.2.6 - 2026-07-20 中文
+
+- 在设置页新增“数据”区域，支持完整备份导入导出、历史记录导入导出，以及二次确认后清空历史。
+- 新增完整数据和仅历史记录的 JSON 导入导出 API。
+- 后端历史导入支持合并模式去重，并保留替换模式能力。
+- 备份会导出用户自定义预设和非敏感设置，但不会导出 API Key。
+- 在 README 和 `docs/data-backup.md` 中补充备份 JSON 格式说明。
+- 修正 OCR 粘贴提示：Windows 显示 `Ctrl+V`，macOS 显示 `Cmd+V`。
+
 ## 0.2.5 - 2026-07-09
 
 - Fixed the OCR tab so a second recognition can start immediately by dragging, pasting, or selecting another image after a completed run.
