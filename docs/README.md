@@ -9,6 +9,7 @@ This directory keeps technical and maintenance documentation. Community health f
 | Document | Purpose |
 |----------|---------|
 | [Architecture](architecture.md) / [架构文档](architecture.md) | System layout, backend model flow, frontend shell, configuration, CI and release shape. |
+| [Data backup](data-backup.md) / [数据备份](data-backup.md) | JSON export/import format, history merge rules, preset handling, and API key safety. |
 | [Technical report](technical-report.md) / [技术报告](technical-report.md) | Model choice, deterministic pipeline, performance measurements, limitations and future direction. |
 | [Source audit](audit.md) / [源码审计](audit.md) | Cleanup scope, removed stale paths, current release surface and intentional defaults. |
 | [File inventory](file-inventory.md) / [文件清单](file-inventory.md) | Purpose of every tracked file that remains in the repository. |

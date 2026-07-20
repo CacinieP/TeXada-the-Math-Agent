@@ -198,6 +198,17 @@ Persistent config lives at `~/.texada/config.json`.
 | `TEXADA_INFERENCE_TIMEOUT_SECONDS`, `TEXADA_API_REQUEST_TIMEOUT_SECONDS` | Backend model and HTTP timeouts |
 | `TEXADA_UI_LANGUAGE`, `TEXADA_UI_ZOOM` | UI language (`zh` or `en`) and zoom (`0.8` to `1.4`) |
 
+### Data Backup
+
+TeXada can export and import local data from Settings → Data.
+
+Exports are JSON files and can include conversion history, user-defined presets,
+and non-sensitive settings. API keys are never exported. Imports merge by default
+and skip duplicate history records. Clearing history is available from the same
+Settings section and requires confirmation.
+
+See [docs/data-backup.md](docs/data-backup.md) for the JSON format.
+
 ### Privacy And Limits
 
 | Topic | Behavior |
@@ -458,6 +469,16 @@ StepFun Step Plan 示例：
 | `TEXADA_API_TIMEOUT_SECS` | 桌面端 API 请求超时时间 |
 | `TEXADA_INFERENCE_TIMEOUT_SECONDS`, `TEXADA_API_REQUEST_TIMEOUT_SECONDS` | 后端模型推理和 HTTP 请求超时 |
 | `TEXADA_UI_LANGUAGE`, `TEXADA_UI_ZOOM` | 界面语言（`zh` 或 `en`）和缩放（`0.8` 到 `1.4`） |
+
+### 数据备份
+
+TeXada 可在 设置 → 数据 中导出和导入本地数据。
+
+导出的 JSON 文件可包含转换历史、用户自定义预设和非敏感设置。API Key 不会
+被导出。导入默认合并，并会跳过重复历史记录。清空历史也在同一区域，需要
+二次确认。
+
+JSON 格式见 [docs/data-backup.md](docs/data-backup.md)。
 
 ### 隐私与限制
 
