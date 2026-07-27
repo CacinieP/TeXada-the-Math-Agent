@@ -17,6 +17,7 @@
   let uiZoom = 1.0;
   let isComposingText = false;
   let historyType = 'all';
+  let historyView = 'results';
   let pendingDataImport = null;
   let runtimeConfig = {
     maxOcrBytes: null,
@@ -27,6 +28,10 @@
   const MIN_UI_ZOOM = 0.8;
   const MAX_UI_ZOOM = 1.4;
   const UI_ZOOM_STEP = 0.1;
+  // Keep browser rendering in lockstep with the Python/V8 validator.
+  const KATEX_MACROS = Object.freeze({
+    '\\placeholder': '\\square',
+  });
 
   const I18N = {
     zh: {
@@ -48,7 +53,10 @@
       'result.valid': '✓ Valid',
       'result.invalid': '✗ Invalid',
       'result.sourceModel': '🤖 model',
+      'result.sourceAgent': '🧭 MiniCPM5 Agent',
       'result.sourceShorthand': '⚡ shorthand',
+      'result.agentTrace': 'Agent 执行轨迹',
+      'result.agentTraceCount': '{steps} 步 · {tools} 次工具调用 · {changes} 个语义修改',
       'result.ocrResult': '识别结果',
       'result.completionResult': '补全结果',
       'action.copySource': '复制源码',
@@ -84,6 +92,8 @@
       'shorthand.copyMarkdown': '复制 Markdown',
       'shorthand.copied': '已复制',
       'history.search': '搜索历史输入或 LaTeX…',
+      'history.resultsView': '结果历史',
+      'history.runsView': '运行日志',
       'history.empty': '暂无历史记录',
       'history.loadError': '无法加载历史记录',
       'history.viewTitle': '点击查看历史结果',
@@ -101,6 +111,19 @@
       'history.reuseNl': '已填入自然语言输入',
       'history.reuseCompletion': '已填入补全输入',
       'history.restored': '已打开历史结果',
+      'runs.search': '搜索运行 ID、输入、模型或错误…',
+      'runs.operationAll': '全部运行',
+      'runs.statusAll': '全部状态',
+      'runs.success': '成功',
+      'runs.error': '失败',
+      'runs.empty': '暂无运行日志',
+      'runs.loadError': '无法加载运行日志',
+      'runs.detailLoadError': '无法加载运行详情',
+      'runs.loadingDetail': '正在加载运行详情…',
+      'runs.loadMore': '加载更多',
+      'runs.tools': '{count} 次工具',
+      'runs.tokens': '{count} tokens',
+      'runs.trace': '执行轨迹',
       'settings.interface': '界面',
       'settings.language': '语言',
       'settings.zoom': '界面缩放',
@@ -135,19 +158,30 @@
       'settings.languageSaved': '已切换',
       'settings.dataTitle': '数据',
       'settings.backupData': '完整备份',
-      'settings.backupDataDesc': '导出或导入历史、预设和非敏感设置',
+      'settings.backupDataDesc': '导出或导入历史、运行日志、预设和非敏感设置',
       'settings.historyData': '历史记录',
       'settings.historyDataDesc': '导出、导入或清空转换历史',
+      'settings.runLogData': '运行日志',
+      'settings.runLogDataDesc': '导出、导入或清空每次 Agent / OCR / 补全运行详情',
+      'settings.presetData': '自定义预设',
+      'settings.presetDataDesc': '独立导出或导入用户预设，内置预设不受影响',
       'settings.exportAll': '导出全部',
       'settings.importAll': '导入全部',
       'settings.exportHistory': '导出历史',
       'settings.importHistory': '导入历史',
       'settings.clearHistory': '清空历史',
+      'settings.exportRuns': '导出日志',
+      'settings.importRuns': '导入日志',
+      'settings.clearRuns': '清空日志',
+      'settings.exportPresets': '导出预设',
+      'settings.importPresets': '导入预设',
       'settings.exported': '已导出',
       'settings.imported': '已导入',
       'settings.cleared': '已清空 {count} 条历史',
+      'settings.runsCleared': '已清空 {count} 条运行日志',
       'settings.importFailed': '导入失败',
       'settings.clearConfirm': '确定要清空全部历史记录吗？此操作不可撤销。',
+      'settings.clearRunsConfirm': '确定要清空全部运行日志吗？此操作不可撤销。',
       'status.ready': 'Ready',
       'status.noApi': 'No API',
       'status.error': 'Error',
@@ -179,7 +213,10 @@
       'result.valid': '✓ Valid',
       'result.invalid': '✗ Invalid',
       'result.sourceModel': '🤖 model',
+      'result.sourceAgent': '🧭 MiniCPM5 Agent',
       'result.sourceShorthand': '⚡ shorthand',
+      'result.agentTrace': 'Agent execution trace',
+      'result.agentTraceCount': '{steps} steps · {tools} tool calls · {changes} semantic edits',
       'result.ocrResult': 'OCR result',
       'result.completionResult': 'Completion result',
       'action.copySource': 'Copy source',
@@ -215,6 +252,8 @@
       'shorthand.copyMarkdown': 'Copy Markdown',
       'shorthand.copied': 'Copied',
       'history.search': 'Search history input or LaTeX…',
+      'history.resultsView': 'Results',
+      'history.runsView': 'Run logs',
       'history.empty': 'No history yet',
       'history.loadError': 'Unable to load history',
       'history.viewTitle': 'Click to view this history result',
@@ -232,6 +271,19 @@
       'history.reuseNl': 'Filled natural language input',
       'history.reuseCompletion': 'Filled completion input',
       'history.restored': 'Opened history result',
+      'runs.search': 'Search run ID, input, model, or error…',
+      'runs.operationAll': 'All runs',
+      'runs.statusAll': 'All statuses',
+      'runs.success': 'Success',
+      'runs.error': 'Failed',
+      'runs.empty': 'No run logs yet',
+      'runs.loadError': 'Unable to load run logs',
+      'runs.detailLoadError': 'Unable to load run detail',
+      'runs.loadingDetail': 'Loading run detail…',
+      'runs.loadMore': 'Load more',
+      'runs.tools': '{count} tools',
+      'runs.tokens': '{count} tokens',
+      'runs.trace': 'Execution trace',
       'settings.interface': 'Interface',
       'settings.language': 'Language',
       'settings.zoom': 'Interface zoom',
@@ -266,19 +318,30 @@
       'settings.languageSaved': 'Changed',
       'settings.dataTitle': 'Data',
       'settings.backupData': 'Full backup',
-      'settings.backupDataDesc': 'Export or import history, presets, and non-sensitive settings',
+      'settings.backupDataDesc': 'Export or import history, run logs, presets, and non-sensitive settings',
       'settings.historyData': 'History',
       'settings.historyDataDesc': 'Export, import, or clear conversion history',
+      'settings.runLogData': 'Run logs',
+      'settings.runLogDataDesc': 'Export, import, or clear Agent, OCR, and completion run details',
+      'settings.presetData': 'Custom presets',
+      'settings.presetDataDesc': 'Export or import user presets without changing built-ins',
       'settings.exportAll': 'Export all',
       'settings.importAll': 'Import all',
       'settings.exportHistory': 'Export history',
       'settings.importHistory': 'Import history',
       'settings.clearHistory': 'Clear history',
+      'settings.exportRuns': 'Export logs',
+      'settings.importRuns': 'Import logs',
+      'settings.clearRuns': 'Clear logs',
+      'settings.exportPresets': 'Export presets',
+      'settings.importPresets': 'Import presets',
       'settings.exported': 'Exported',
       'settings.imported': 'Imported',
       'settings.cleared': 'Cleared {count} history records',
+      'settings.runsCleared': 'Cleared {count} run logs',
       'settings.importFailed': 'Import failed',
       'settings.clearConfirm': 'Clear all history? This cannot be undone.',
+      'settings.clearRunsConfirm': 'Clear all run logs? This cannot be undone.',
       'status.ready': 'Ready',
       'status.noApi': 'No API',
       'status.error': 'Error',
@@ -305,6 +368,9 @@
     markdownCode: document.getElementById('markdown-code'),
     resultValid: document.getElementById('result-valid'),
     resultSource: document.getElementById('result-source'),
+    agentTrace: document.getElementById('agent-trace'),
+    agentTraceSummary: document.getElementById('agent-trace-summary'),
+    agentTraceList: document.getElementById('agent-trace-list'),
     katexSection: document.getElementById('katex-result-section'),
     latexSection: document.getElementById('latex-result-section'),
     statusDot: document.getElementById('status-dot'),
@@ -317,6 +383,14 @@
     historyList: document.getElementById('history-list'),
     historySearch: document.getElementById('history-search'),
     historyFilter: document.getElementById('history-filter'),
+    historyViewSwitch: document.getElementById('history-view-switch'),
+    historyResultsPanel: document.getElementById('history-results-panel'),
+    runLogsPanel: document.getElementById('run-logs-panel'),
+    runLogList: document.getElementById('run-log-list'),
+    runLogSearch: document.getElementById('run-log-search'),
+    runLogOperation: document.getElementById('run-log-operation'),
+    runLogStatus: document.getElementById('run-log-status'),
+    loadMoreRunsBtn: document.getElementById('btn-load-more-runs'),
     ocrTab: document.getElementById('tab-ocr'),
     ocrDrop: document.getElementById('ocr-drop'),
     ocrFileInput: document.getElementById('ocr-file-input'),
@@ -351,6 +425,11 @@
     exportHistoryBtn: document.getElementById('btn-export-history'),
     importHistoryBtn: document.getElementById('btn-import-history'),
     clearHistoryBtn: document.getElementById('btn-clear-history'),
+    exportRunsBtn: document.getElementById('btn-export-runs'),
+    importRunsBtn: document.getElementById('btn-import-runs'),
+    clearRunsBtn: document.getElementById('btn-clear-runs'),
+    exportPresetsBtn: document.getElementById('btn-export-presets'),
+    importPresetsBtn: document.getElementById('btn-import-presets'),
     dataImportInput: document.getElementById('data-import-input'),
     dataActionStatus: document.getElementById('data-action-status'),
   };
@@ -396,7 +475,10 @@
     }
     applyPlatformLabels();
     if (!lastResult && !isProcessing) setIntent('🔍', t('intent.waiting'));
-    if (currentTab === 'history' && historyData.length) renderHistory(historyData);
+    if (currentTab === 'history') {
+      if (historyView === 'runs' && runLogData.length) renderRunLogs(runLogData);
+      if (historyView === 'results' && historyData.length) renderHistory(historyData);
+    }
   }
 
   function applyPlatformLabels() {
@@ -636,7 +718,10 @@
     $$('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
 
     if (tab === 'shorthand') loadShorthands();
-    if (tab === 'history') loadHistory();
+    if (tab === 'history') {
+      if (historyView === 'runs') loadRunLogs();
+      else loadHistory();
+    }
     if (tab === 'nl') setTimeout(() => els.nlInput.focus(), 50);
     if (tab === 'complete') setTimeout(() => els.completeInput.focus(), 50);
     if (tab === 'ocr') setupOcr();
@@ -656,7 +741,7 @@
     if (isTauri) {
       return await invoke('convert_text', { text, renderMode });
     }
-    return await apiJson('/api/convert', {
+    return await apiJson('/api/agent', {
       method: 'POST',
       body: { text, render_mode: renderMode },
     });
@@ -751,6 +836,32 @@
     return await apiJson('/api/history', { method: 'DELETE' });
   }
 
+  async function apiExportRuns() {
+    return await apiJson('/api/runs/export');
+  }
+
+  async function apiImportRuns(payload) {
+    return await apiJson('/api/runs/import', {
+      method: 'POST',
+      body: payload,
+    });
+  }
+
+  async function apiClearRuns() {
+    return await apiJson('/api/runs', { method: 'DELETE' });
+  }
+
+  async function apiExportPresets() {
+    return await apiJson('/api/shorthands/export');
+  }
+
+  async function apiImportPresets(payload) {
+    return await apiJson('/api/shorthands/import', {
+      method: 'POST',
+      body: payload,
+    });
+  }
+
   async function apiAddShorthand(key, value) {
     return await apiJson('/api/shorthands', {
       method: 'POST',
@@ -807,6 +918,9 @@
       els.latexPreview = document.getElementById('latex-preview');
       els.resultValid = document.getElementById('result-valid');
       els.resultSource = document.getElementById('result-source');
+      els.agentTrace = document.getElementById('agent-trace');
+      els.agentTraceSummary = document.getElementById('agent-trace-summary');
+      els.agentTraceList = document.getElementById('agent-trace-list');
       els.katexSection = document.getElementById('katex-result-section');
       els.latexSection = document.getElementById('latex-result-section');
     }
@@ -816,15 +930,81 @@
 
     els.resultValid.className = 'valid-badge ' + (res.valid ? 'ok' : 'err');
     els.resultValid.textContent = res.valid ? t('result.valid') : t('result.invalid');
-    els.resultSource.className = 'source-badge ' + (res.source === 'shorthand' ? 'shorthand' : 'model');
-    els.resultSource.textContent = res.source === 'shorthand' ? t('result.sourceShorthand') : t('result.sourceModel');
+    const sourceKind = res.source === 'shorthand' ? 'shorthand' : (res.source === 'agent' ? 'agent' : 'model');
+    els.resultSource.className = `source-badge ${sourceKind}`;
+    els.resultSource.textContent = sourceKind === 'shorthand'
+      ? t('result.sourceShorthand')
+      : (sourceKind === 'agent' ? t('result.sourceAgent') : t('result.sourceModel'));
 
     setIntent('∫', `${res.intent || t('intent.unknown')} · ${Number(res.latency_ms || 0).toFixed(1)}ms`);
 
     syncRenderModeOptions();
     updateRender();
+    renderAgentTrace(res);
     bindNlResultButtons();
     bindModeOptions();
+  }
+
+  function agentTraceView(res) {
+    const trace = Array.isArray(res.agent_trace) ? res.agent_trace : [];
+    const stepToolNames = step => {
+      const calls = Array.isArray(step.tool_calls) ? step.tool_calls : [];
+      if (calls.length) return calls.map(call => call.name).filter(Boolean);
+      const observations = Array.isArray(step.observations) ? step.observations : [];
+      return observations.map(observation => observation.tool).filter(Boolean);
+    };
+    const toolCount = trace.reduce(
+      (count, step) => count + stepToolNames(step)
+        .filter(name => name !== 'operator_drift_guard').length,
+      0,
+    );
+    const changeCount = Number(res.semantic_diff?.change_count || 0);
+    const summary = t('result.agentTraceCount', {
+      steps: trace.length,
+      tools: toolCount,
+      changes: changeCount,
+    });
+    const rows = trace.map(step => {
+      const observations = Array.isArray(step.observations) ? step.observations : [];
+      const names = stepToolNames(step);
+      const status = observations.some(observation => !observation.ok) ? 'error' : 'ok';
+      const tools = names.length
+        ? names.map(name => `<code>${escapeHtml(name)}</code>`).join('')
+        : '<span class="agent-no-tool">final</span>';
+      return `
+        <div class="agent-step">
+          <span class="agent-step-index">#${Number(step.step || 0)}</span>
+          <span class="agent-step-origin">${escapeHtml(step.origin || 'planner')}</span>
+          <span class="agent-step-tools">${tools}</span>
+          <span class="agent-step-status ${status}">${status === 'ok' ? '✓' : '!'}</span>
+        </div>`;
+    }).join('');
+    return { trace, summary, rows };
+  }
+
+  function inlineAgentTrace(res) {
+    const view = agentTraceView(res);
+    if (!view.trace.length) return '';
+    return `
+      <details class="agent-trace agent-trace-inline">
+        <summary>
+          <span>${t('result.agentTrace')}</span>
+          <span class="agent-trace-summary">${escapeHtml(view.summary)}</span>
+        </summary>
+        <div class="agent-trace-list">${view.rows}</div>
+      </details>`;
+  }
+
+  function renderAgentTrace(res) {
+    if (!els.agentTrace || !els.agentTraceList || !els.agentTraceSummary) return;
+    const view = agentTraceView(res);
+    if (!view.trace.length) {
+      els.agentTrace.style.display = 'none';
+      return;
+    }
+    els.agentTrace.style.display = 'block';
+    els.agentTraceSummary.textContent = view.summary;
+    els.agentTraceList.innerHTML = view.rows;
   }
 
   function updateRender() {
@@ -848,6 +1028,9 @@
         window.katex.render(latex, target, {
           throwOnError: false,
           displayMode,
+          strict: 'ignore',
+          maxExpand: 1000,
+          macros: KATEX_MACROS,
         });
         return;
       } catch (e) {
@@ -1112,6 +1295,21 @@
   if (els.clearHistoryBtn) {
     els.clearHistoryBtn.addEventListener('click', clearHistoryData);
   }
+  if (els.exportRunsBtn) {
+    els.exportRunsBtn.addEventListener('click', exportRunLogData);
+  }
+  if (els.importRunsBtn) {
+    els.importRunsBtn.addEventListener('click', () => chooseImportFile('runs'));
+  }
+  if (els.clearRunsBtn) {
+    els.clearRunsBtn.addEventListener('click', clearRunLogData);
+  }
+  if (els.exportPresetsBtn) {
+    els.exportPresetsBtn.addEventListener('click', exportPresetData);
+  }
+  if (els.importPresetsBtn) {
+    els.importPresetsBtn.addEventListener('click', () => chooseImportFile('presets'));
+  }
   if (els.dataImportInput) {
     els.dataImportInput.addEventListener('change', importSelectedDataFile);
   }
@@ -1157,6 +1355,26 @@
     }
   }
 
+  async function exportRunLogData() {
+    setDataStatus(t('settings.saving'));
+    try {
+      downloadJson(backupFileName('runs'), await apiExportRuns());
+      setDataStatus(t('settings.exported'));
+    } catch (e) {
+      setDataStatus(String(e).replace(/^Error:\s*/, ''));
+    }
+  }
+
+  async function exportPresetData() {
+    setDataStatus(t('settings.saving'));
+    try {
+      downloadJson(backupFileName('presets'), await apiExportPresets());
+      setDataStatus(t('settings.exported'));
+    } catch (e) {
+      setDataStatus(String(e).replace(/^Error:\s*/, ''));
+    }
+  }
+
   function chooseImportFile(kind) {
     if (!els.dataImportInput) return;
     pendingDataImport = kind;
@@ -1181,21 +1399,35 @@
       if (kind === 'history') {
         const result = await apiImportHistory(normalizeHistoryImportPayload(data));
         setDataStatus(`${t('settings.imported')} · ${result.imported || 0}`);
+      } else if (kind === 'runs') {
+        const runLogs = Array.isArray(data) ? data : (data.run_logs || []);
+        const result = await apiImportRuns({ mode: 'merge', run_logs: runLogs });
+        setDataStatus(`${t('settings.imported')} · ${result.imported || 0}`);
+      } else if (kind === 'presets') {
+        const presets = data.presets || data.shorthands || data;
+        const result = await apiImportPresets({ mode: 'merge', presets });
+        setDataStatus(`${t('settings.imported')} · ${result.imported || 0}`);
+        await loadShorthands();
       } else {
         const result = await apiImportBackup({
           mode: 'merge',
           history: data.history || [],
           shorthands: data.shorthands || {},
+          run_logs: data.run_logs || [],
           settings: data.settings || {},
         });
         const historyCount = result.history ? result.history.imported || 0 : 0;
         const shorthandCount = result.shorthands ? result.shorthands.imported || 0 : 0;
-        setDataStatus(`${t('settings.imported')} · H ${historyCount} · P ${shorthandCount}`);
+        const runCount = result.run_logs ? result.run_logs.imported || 0 : 0;
+        setDataStatus(`${t('settings.imported')} · H ${historyCount} · R ${runCount} · P ${shorthandCount}`);
         await loadBackendSettings();
         await loadUiSettings();
         await loadShorthands();
       }
-      if (currentTab === 'history') await loadHistory();
+      if (currentTab === 'history') {
+        if (historyView === 'runs') await loadRunLogs();
+        else await loadHistory();
+      }
     } catch (err) {
       setDataStatus(`${t('settings.importFailed')}: ${String(err).replace(/^Error:\s*/, '')}`);
     }
@@ -1210,6 +1442,19 @@
       localStorage.removeItem('texada-history');
       if (currentTab === 'history') renderHistory([]);
       setDataStatus(t('settings.cleared', { count: result.deleted || 0 }));
+    } catch (e) {
+      setDataStatus(String(e).replace(/^Error:\s*/, ''));
+    }
+  }
+
+  async function clearRunLogData() {
+    if (!window.confirm(t('settings.clearRunsConfirm'))) return;
+    setDataStatus(t('settings.saving'));
+    try {
+      const result = await apiClearRuns();
+      runLogData = [];
+      if (currentTab === 'history' && historyView === 'runs') renderRunLogs([]);
+      setDataStatus(t('settings.runsCleared', { count: result.deleted || 0 }));
     } catch (e) {
       setDataStatus(String(e).replace(/^Error:\s*/, ''));
     }
@@ -1451,6 +1696,7 @@
         <div class="result-label">${t('result.ocrResult')} <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? t('result.valid') : t('result.invalid')}</span></div>
         <div class="render-preview formula-click-target" data-insert-target="copy">${escapeHtml(res.latex)}</div>
       </div>
+      ${inlineAgentTrace(res)}
       <div class="action-row">
         <button class="action-btn primary" data-copy-result>📋 ${t('action.copyResult')}</button>
         <button class="action-btn" data-reset-ocr>${t('ocr.chooseAnother')}</button>
@@ -1508,6 +1754,7 @@
         <div class="result-label">${t('result.completionResult')} <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? t('result.valid') : t('result.invalid')}</span></div>
         <div class="render-preview formula-click-target" data-insert-target="copy">${escapeHtml(res.latex)}</div>
       </div>
+      ${inlineAgentTrace(res)}
       <div class="action-row">
         <button class="action-btn primary" data-copy-result>📋 ${t('action.copyResult')}</button>
       </div>
@@ -1639,6 +1886,148 @@
 
   // ── History ──
   let historyData = [];
+  let runLogData = [];
+  let runLogOffset = 0;
+  let runLogHasMore = false;
+  let runLogLoading = false;
+  const RUN_LOG_PAGE_SIZE = 40;
+
+  async function apiRunLogs(q, operation, status, limit, offset) {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+    });
+    if (q) params.set('q', q);
+    if (operation && operation !== 'all') params.set('operation', operation);
+    if (status && status !== 'all') params.set('status', status);
+    return await apiJson(`/api/runs?${params.toString()}`);
+  }
+
+  async function apiRunLogDetail(runId) {
+    return await apiJson(`/api/runs/${encodeURIComponent(runId)}`);
+  }
+
+  async function loadRunLogs({ append = false } = {}) {
+    if (!els.runLogList || runLogLoading) return;
+    runLogLoading = true;
+    if (els.loadMoreRunsBtn) els.loadMoreRunsBtn.disabled = true;
+    const offset = append ? runLogOffset : 0;
+    try {
+      const page = await apiRunLogs(
+        (els.runLogSearch?.value || '').trim(),
+        els.runLogOperation?.value || 'all',
+        els.runLogStatus?.value || 'all',
+        RUN_LOG_PAGE_SIZE,
+        offset,
+      );
+      runLogData = append ? runLogData.concat(page) : page;
+      runLogOffset = offset + page.length;
+      runLogHasMore = page.length === RUN_LOG_PAGE_SIZE;
+      renderRunLogs(runLogData);
+    } catch (e) {
+      if (!append) {
+        els.runLogList.innerHTML = `<div class="empty-state"><div class="text">${t('runs.loadError')}</div></div>`;
+      }
+    } finally {
+      runLogLoading = false;
+      if (els.loadMoreRunsBtn) {
+        els.loadMoreRunsBtn.disabled = false;
+        els.loadMoreRunsBtn.hidden = !runLogHasMore;
+      }
+    }
+  }
+
+  function runLogDetailHtml(run) {
+    const tools = Array.isArray(run.tool_names) ? run.tool_names : [];
+    const trace = Array.isArray(run.trace) ? run.trace : [];
+    return `
+      <div class="run-detail-grid">
+        <span>run_id</span><span>${escapeHtml(run.run_id || '')}</span>
+        <span>backend</span><span>${escapeHtml(run.backend || '')}</span>
+        <span>model_role</span><span>${escapeHtml(run.model_role || '')}</span>
+        <span>model</span><span>${escapeHtml(run.model_name || '')}</span>
+        <span>status_code</span><span>${escapeHtml(run.status_code || '')}</span>
+        <span>stop_reason</span><span>${escapeHtml(run.stop_reason || '')}</span>
+        <span>tools</span><span>${escapeHtml(tools.join(' → '))}</span>
+        <span>input</span><span>${escapeHtml(`${run.input_mime || ''} ${run.input_bytes || 0} bytes`)}</span>
+      </div>
+      ${trace.length ? `<div class="run-trace"><strong>${t('runs.trace')}</strong>\n${escapeHtml(JSON.stringify(trace, null, 2))}</div>` : ''}
+    `;
+  }
+
+  function renderRunLogs(items) {
+    if (!els.runLogList) return;
+    if (!items.length) {
+      els.runLogList.innerHTML = `<div class="empty-state"><div class="text">${t('runs.empty')}</div></div>`;
+      return;
+    }
+    els.runLogList.innerHTML = items.map((run, index) => {
+      const ok = run.status === 'success';
+      const input = run.input_text || '';
+      const output = run.output_latex || '';
+      const error = run.error_message || '';
+      const metrics = [
+        `${Number(run.latency_ms || 0).toFixed(0)} ms`,
+        t('runs.tokens', { count: Number(run.tokens_used || 0) }),
+        t('runs.tools', { count: Number(run.tool_call_count || 0) }),
+      ];
+      return `
+        <div class="history-item run-log-item" data-run-index="${index}">
+          <div class="history-input">
+            <div class="run-log-head">
+              <span class="history-type">${escapeHtml(run.operation || 'run')}</span>
+              <span class="run-status ${ok ? 'success' : 'error'}">${t(ok ? 'runs.success' : 'runs.error')}</span>
+              ${typeof run.valid === 'boolean' ? `<span class="valid-badge ${run.valid ? 'ok' : 'err'}">${t(run.valid ? 'result.valid' : 'result.invalid')}</span>` : ''}
+              <span class="history-time">${escapeHtml(formatHistoryTime(run.created_at))}</span>
+              <span class="history-time">${escapeHtml(String(run.run_id || '').slice(0, 12))}</span>
+            </div>
+            <div class="run-input">${escapeHtml(input)}</div>
+            ${output ? `<div class="run-output">${escapeHtml(output)}</div>` : ''}
+            ${error ? `<div class="run-error">${escapeHtml(error)}</div>` : ''}
+            <div class="run-metrics">
+              ${metrics.map(value => `<span>${escapeHtml(value)}</span>`).join('')}
+              <span>${escapeHtml([run.model_role, run.model_name].filter(Boolean).join(' · '))}</span>
+            </div>
+            <div class="run-detail">${runLogDetailHtml(run)}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    els.runLogList.querySelectorAll('[data-run-index]').forEach(row => {
+      row.addEventListener('click', async () => {
+        const index = Number(row.dataset.runIndex);
+        const run = items[index];
+        const opening = !row.classList.contains('expanded');
+        row.classList.toggle('expanded');
+        if (!opening || row.dataset.detailLoaded === 'true') return;
+        if (!run.trace_available) {
+          row.dataset.detailLoaded = 'true';
+          return;
+        }
+        const detailNode = row.querySelector('.run-detail');
+        if (detailNode) detailNode.textContent = t('runs.loadingDetail');
+        try {
+          const detail = await apiRunLogDetail(run.run_id);
+          items[index] = detail;
+          row.dataset.detailLoaded = 'true';
+          if (detailNode) detailNode.innerHTML = runLogDetailHtml(detail);
+        } catch (e) {
+          if (detailNode) detailNode.textContent = t('runs.detailLoadError');
+        }
+      });
+    });
+  }
+
+  function setHistoryView(view) {
+    historyView = view === 'runs' ? 'runs' : 'results';
+    if (els.historyResultsPanel) els.historyResultsPanel.hidden = historyView !== 'results';
+    if (els.runLogsPanel) els.runLogsPanel.hidden = historyView !== 'runs';
+    els.historyViewSwitch?.querySelectorAll('[data-history-view]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.historyView === historyView);
+    });
+    if (historyView === 'runs') loadRunLogs();
+    else loadHistory();
+  }
 
   function normalizeHistoryItem(item) {
     return {
@@ -1874,6 +2263,32 @@
         item.classList.toggle('active', item === btn);
       });
       loadHistory();
+    });
+  }
+
+  if (els.historyViewSwitch) {
+    els.historyViewSwitch.addEventListener('click', e => {
+      const btn = e.target.closest('[data-history-view]');
+      if (btn) setHistoryView(btn.dataset.historyView);
+    });
+  }
+
+  if (els.runLogSearch) {
+    let runSearchTimer = null;
+    els.runLogSearch.addEventListener('input', () => {
+      clearTimeout(runSearchTimer);
+      runSearchTimer = setTimeout(loadRunLogs, 180);
+    });
+  }
+  if (els.runLogOperation) {
+    els.runLogOperation.addEventListener('change', () => loadRunLogs());
+  }
+  if (els.runLogStatus) {
+    els.runLogStatus.addEventListener('change', () => loadRunLogs());
+  }
+  if (els.loadMoreRunsBtn) {
+    els.loadMoreRunsBtn.addEventListener('click', () => {
+      loadRunLogs({ append: true });
     });
   }
 

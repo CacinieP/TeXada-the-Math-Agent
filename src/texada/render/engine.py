@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import html
-import subprocess
 
 from texada.config import TeXadaConfig
 from texada.render.highlighter import LaTeXHighlighter
+from texada.semantic.katex import shared_katex_parser
 from texada.types import RenderMode, RenderResult
 
 
@@ -59,16 +59,13 @@ class RenderEngine:
         return self.render(self._last_latex)
 
     def _render_katex(self, latex: str) -> str:
-        """KaTeX rendering via local npx subprocess, with visible fallback."""
+        """Render in the reusable in-process KaTeX context."""
         try:
-            result = subprocess.run(
-                ["npx", "--no-install", "katex"],
-                input=latex, capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0:
-                return result.stdout
+            result = shared_katex_parser().render(latex)
+            if result.ok:
+                return result.html
             return self._fallback_html(latex)
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+        except Exception:
             return self._fallback_html(latex)
 
     @staticmethod

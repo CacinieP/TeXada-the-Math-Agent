@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:* http://localhost:* http://[::1]:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
 <title>TeXada</title>
-<link rel="stylesheet" href="vendor/katex/katex.min.css?v=0.2.6-20260720">
-<link rel="stylesheet" href="style.css?v=0.2.6-20260720">
+<link rel="stylesheet" href="vendor/katex/katex.min.css?v=0.3.0-20260727">
+<link rel="stylesheet" href="style.css?v=0.3.0-20260727">
 </head>
 <body>
 <div id="app">
   <!-- Header -->
   <div class="panel-header" data-tauri-drag-region>
-    <img class="panel-logo" src="app-icon.png?v=0.2.6-20260720" alt="TeXada" data-tauri-drag-region>
+    <img class="panel-logo" src="app-icon.png?v=0.3.0-20260727" alt="TeXada" data-tauri-drag-region>
     <div class="panel-title" data-tauri-drag-region>TeXada</div>
     <div class="panel-status" id="status-dot" data-tauri-drag-region>
       <div class="dot offline"></div>
@@ -80,6 +80,13 @@
             <button class="action-btn" id="btn-copy-md" title="复制 Markdown" data-i18n-title="action.copyMarkdown"><span class="icon">📋</span></button>
           </div>
         </div>
+        <details class="agent-trace" id="agent-trace" style="display:none">
+          <summary>
+            <span data-i18n="result.agentTrace">Agent 执行轨迹</span>
+            <span class="agent-trace-summary" id="agent-trace-summary"></span>
+          </summary>
+          <div class="agent-trace-list" id="agent-trace-list"></div>
+        </details>
       </div>
       <div class="action-row">
         <button class="action-btn primary" id="btn-copy-main"><span class="icon">📋</span> <span data-i18n="action.copyClose">复制并关闭</span> <span class="panel-kbd">Enter</span></button>
@@ -134,19 +141,50 @@
 
   <!-- History Tab -->
   <div class="tab-content" id="tab-history">
-    <div class="history-toolbar">
-      <div class="search-box">
-        <span class="icon">🔍</span>
-        <input type="text" id="history-search" data-i18n-placeholder="history.search" placeholder="搜索历史输入或 LaTeX…">
+    <div class="history-view-switch" id="history-view-switch">
+      <button class="history-view-btn active" type="button" data-history-view="results" data-i18n="history.resultsView">结果历史</button>
+      <button class="history-view-btn" type="button" data-history-view="runs" data-i18n="history.runsView">运行日志</button>
+    </div>
+    <div id="history-results-panel">
+      <div class="history-toolbar">
+        <div class="search-box">
+          <span class="icon">🔍</span>
+          <input type="text" id="history-search" data-i18n-placeholder="history.search" placeholder="搜索历史输入或 LaTeX…">
+        </div>
+        <div class="history-filter" id="history-filter">
+          <button class="history-filter-btn active" type="button" data-history-type="all" data-i18n="history.filterAll">全部</button>
+          <button class="history-filter-btn" type="button" data-history-type="nl" data-i18n="history.filterNl">自然语言</button>
+          <button class="history-filter-btn" type="button" data-history-type="completion" data-i18n="history.filterCompletion">补全</button>
+          <button class="history-filter-btn" type="button" data-history-type="ocr" data-i18n="history.filterOcr">OCR</button>
+        </div>
       </div>
-      <div class="history-filter" id="history-filter">
-        <button class="history-filter-btn active" type="button" data-history-type="all" data-i18n="history.filterAll">全部</button>
-        <button class="history-filter-btn" type="button" data-history-type="nl" data-i18n="history.filterNl">自然语言</button>
-        <button class="history-filter-btn" type="button" data-history-type="completion" data-i18n="history.filterCompletion">补全</button>
-        <button class="history-filter-btn" type="button" data-history-type="ocr" data-i18n="history.filterOcr">OCR</button>
+      <div class="history-list" id="history-list"></div>
+    </div>
+    <div id="run-logs-panel" hidden>
+      <div class="history-toolbar">
+        <div class="search-box">
+          <span class="icon">🔍</span>
+          <input type="text" id="run-log-search" data-i18n-placeholder="runs.search" placeholder="搜索运行 ID、输入、模型或错误…">
+        </div>
+        <select class="log-filter-select" id="run-log-operation" aria-label="运行类型">
+          <option value="all" data-i18n="runs.operationAll">全部运行</option>
+          <option value="agent">Agent</option>
+          <option value="convert">Convert</option>
+          <option value="completion">Completion</option>
+          <option value="ocr">OCR</option>
+          <option value="validate">Validate</option>
+        </select>
+        <select class="log-filter-select" id="run-log-status" aria-label="运行状态">
+          <option value="all" data-i18n="runs.statusAll">全部状态</option>
+          <option value="success" data-i18n="runs.success">成功</option>
+          <option value="error" data-i18n="runs.error">失败</option>
+        </select>
+      </div>
+      <div class="history-list" id="run-log-list"></div>
+      <div class="run-log-more">
+        <button class="action-btn" id="btn-load-more-runs" type="button" hidden data-i18n="runs.loadMore">加载更多</button>
       </div>
     </div>
-    <div class="history-list" id="history-list"></div>
   </div>
 
   <!-- Settings Tab -->
@@ -231,7 +269,7 @@
       <div class="setting-row">
         <div>
           <div class="setting-label" data-i18n="settings.backupData">完整备份</div>
-          <div class="setting-desc" data-i18n="settings.backupDataDesc">导出或导入历史、预设和非敏感设置</div>
+          <div class="setting-desc" data-i18n="settings.backupDataDesc">导出或导入历史、运行日志、预设和非敏感设置</div>
         </div>
         <div class="settings-actions inline">
           <button class="action-btn" id="btn-export-backup" type="button" data-i18n="settings.exportAll">导出全部</button>
@@ -247,6 +285,27 @@
           <button class="action-btn" id="btn-export-history" type="button" data-i18n="settings.exportHistory">导出历史</button>
           <button class="action-btn" id="btn-import-history" type="button" data-i18n="settings.importHistory">导入历史</button>
           <button class="action-btn danger" id="btn-clear-history" type="button" data-i18n="settings.clearHistory">清空历史</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label" data-i18n="settings.runLogData">运行日志</div>
+          <div class="setting-desc" data-i18n="settings.runLogDataDesc">导出、导入或清空每次 Agent / OCR / 补全运行详情</div>
+        </div>
+        <div class="settings-actions inline">
+          <button class="action-btn" id="btn-export-runs" type="button" data-i18n="settings.exportRuns">导出日志</button>
+          <button class="action-btn" id="btn-import-runs" type="button" data-i18n="settings.importRuns">导入日志</button>
+          <button class="action-btn danger" id="btn-clear-runs" type="button" data-i18n="settings.clearRuns">清空日志</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label" data-i18n="settings.presetData">自定义预设</div>
+          <div class="setting-desc" data-i18n="settings.presetDataDesc">独立导出或导入用户预设，内置预设不受影响</div>
+        </div>
+        <div class="settings-actions inline">
+          <button class="action-btn" id="btn-export-presets" type="button" data-i18n="settings.exportPresets">导出预设</button>
+          <button class="action-btn" id="btn-import-presets" type="button" data-i18n="settings.importPresets">导入预设</button>
         </div>
       </div>
       <input id="data-import-input" type="file" accept="application/json,.json" hidden>
@@ -269,14 +328,14 @@
       <div class="settings-title" data-i18n="settings.about">关于</div>
       <div class="setting-row">
         <div class="setting-label">TeXada Shell</div>
-        <div class="setting-value">v0.2.6</div>
+        <div class="setting-value">v0.3.0</div>
       </div>
     </div>
   </div>
 </div>
 
-<script src="vendor/katex/katex.min.js?v=0.2.6-20260720"></script>
-<script src="api-config.js?v=0.2.6-20260720"></script>
-<script src="main.js?v=0.2.6-20260720"></script>
+<script src="vendor/katex/katex.min.js?v=0.3.0-20260727"></script>
+<script src="api-config.js?v=0.3.0-20260727"></script>
+<script src="main.js?v=0.3.0-20260727"></script>
 </body>
 </html>

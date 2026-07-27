@@ -86,6 +86,7 @@ class ConvertResult:
 @dataclass
 class HistoryEntry:
     id: int = 0
+    run_id: str = ""
     input_text: str = ""
     input_type: str = ""
     latex: str = ""
@@ -96,6 +97,37 @@ class HistoryEntry:
     latency_ms: float = 0.0
     tokens_used: int = 0
     starred: bool = False
+    created_at: str = ""
+
+
+@dataclass
+class RunLogEntry:
+    """One request-level execution record for diagnostics and reproducibility."""
+
+    run_id: str = ""
+    operation: str = ""
+    input_type: str = ""
+    input_text: str = ""
+    input_bytes: int = 0
+    input_mime: str = ""
+    model_role: str = ""
+    model_name: str = ""
+    backend: str = ""
+    status: str = "success"
+    status_code: int = 200
+    output_latex: str = ""
+    intent: str = ""
+    source: str = ""
+    render_mode: str = ""
+    valid: bool | None = None
+    latency_ms: float = 0.0
+    tokens_used: int = 0
+    stop_reason: str = ""
+    tool_call_count: int = 0
+    tool_names: list[str] = field(default_factory=list)
+    trace: list[dict] = field(default_factory=list)
+    trace_available: bool = False
+    error_message: str = ""
     created_at: str = ""
 
 

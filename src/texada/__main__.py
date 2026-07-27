@@ -32,15 +32,14 @@ def serve(
 
 @app.command()
 def convert(text: str):
-    """Convert a single natural language input to LaTeX."""
+    """Run the MiniCPM5 Agent Runtime for one natural-language request."""
     import asyncio
 
+    from texada.agent.runtime import TeXadaAgentRuntime
     from texada.config import load_config
-    from texada.core.router import InputRouter
 
     config = load_config()
-    router = InputRouter(config)
-    result = asyncio.run(router.process_text(text))
+    result = asyncio.run(TeXadaAgentRuntime(config).run(text))
     typer.echo(result.latex)
 
 

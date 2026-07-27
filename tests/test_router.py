@@ -136,3 +136,49 @@ async def test_nl_conversion_does_not_reuse_previous_memory(tmp_path):
     assert first.latex == "x+1"
     assert second.latex == "y+1"
     assert seen_memory_lengths == [0, 0]
+
+
+@pytest.mark.asyncio
+async def test_rule_completion_works_without_a_running_backend(tmp_path):
+    router = InputRouter(TeXadaConfig(data_dir=tmp_path))
+    router.backend.ensure_ready = AsyncMock(side_effect=AssertionError("must not run"))
+
+    result = await router.process_text(
+        r"\frac{",
+        route_override=Route.COMPLETION,
+    )
+
+    assert result.latex == r"\frac{\placeholder{}}{\placeholder{}}"
+    assert result.valid is True
+    assert result.tokens_used == 0
+    router.backend.ensure_ready.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("partial", "expected"),
+    [
+        (r"x+\alp", r"x+\alpha"),
+        (r"\frac{a}{b}", r"\frac{a}{b}"),
+        (r"\frac{a}{b", r"\frac{a}{b}"),
+    ],
+)
+async def test_deterministic_completion_candidates_skip_generation(
+    tmp_path,
+    partial,
+    expected,
+):
+    router = InputRouter(TeXadaConfig(data_dir=tmp_path))
+    router.backend.ensure_ready = AsyncMock(
+        side_effect=AssertionError("must not run")
+    )
+    router.model.complete_latex = AsyncMock(
+        side_effect=AssertionError("must not run")
+    )
+
+    candidate, tokens = await router.create_completion_candidate(partial)
+
+    assert candidate == expected
+    assert tokens == 0
+    router.backend.ensure_ready.assert_not_awaited()
+    router.model.complete_latex.assert_not_awaited()

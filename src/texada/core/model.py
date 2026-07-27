@@ -4,10 +4,13 @@ from __future__ import annotations
 import asyncio
 import base64
 import re
+from contextvars import ContextVar
+from typing import Any
 
 import httpx
-from openai import APITimeoutError, OpenAI
+from openai import APITimeoutError, BadRequestError, OpenAI
 
+from texada.agent.protocol import MiniCPMToolCallParser, PlannerTurn
 from texada.config import TeXadaConfig
 from texada.core.prompts import (
     COMPLETION_PROMPT,
@@ -15,6 +18,7 @@ from texada.core.prompts import (
     OCR_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
 )
+from texada.core.validator import LaTeXValidator
 
 # Rule-based completions for high-frequency LaTeX fragments. Matched against
 # the stripped input's tail (first match wins). MiniCPM5-1B is unreliable on
@@ -22,23 +26,33 @@ from texada.core.prompts import (
 # precedence and are instant; the model only handles fragments no rule
 # recognises.
 _RULE_COMPLETIONS: list[tuple[str, str]] = [
+    (r"\\alp$", "ha"),
+    (r"\\bet$", "a"),
+    (r"\\gam$", "ma"),
+    (r"\\del$", "ta"),
+    (r"\\the$", "ta"),
+    (r"\\lam$", "bda"),
+    (r"\\sig$", "ma"),
+    (r"\\ome$", "ga"),
+    (r"\\part$", "ial"),
     (r"\\sum_\{i=1\}\^\{$", "n} x_i"),
     (r"\\sum_\{$", "i=1}^{n} x_i"),
     (r"\\sum$", "_{i=1}^{n} x_i"),
     (r"\\prod_\{$", "i=1}^{n} x_i"),
     (r"\\prod$", "_{i=1}^{n} x_i"),
-    (r"\\frac\{$", "}{}"),
-    (r"\\sqrt\{$", "}"),
+    (r"\\frac\{$", r"\placeholder{}}{\placeholder{}}"),
+    (r"\\sqrt\{$", r"\placeholder{}}"),
     (r"\\int$", "_{0}^{1} f(x)\\,dx"),
     (r"\\int_\{$", "0}^{1} f(x)\\,dx"),
     (r"\\lim$", "_{x \\to 0}"),
     (r"\\lim_\{$", "x \\to 0}"),
     (r"\\mathbb\{$", "R}"),
     (r"\\mathcal\{$", "L}"),
-    (r"\^\{$", "n}"),
-    (r"_\{$", "}"),
-    (r"\{$", "}"),
+    (r"\^\{$", r"\placeholder{}}"),
+    (r"_\{$", r"\placeholder{}}"),
+    (r"\{$", r"\placeholder{}}"),
 ]
+FORMULA_MAX_TOKENS = 768
 
 
 class MiniCPMModel:
@@ -52,6 +66,14 @@ class MiniCPMModel:
         self.max_tokens = config.max_tokens
         # Vision (OCR) uses the same endpoint, with an optional separate model name.
         self._vision_model = config.active_vision_model_name
+        self._tool_parser = MiniCPMToolCallParser()
+        self._formula_validator = LaTeXValidator()
+        # Request-local telemetry: one shared model instance may serve several
+        # concurrent FastAPI tasks, so a plain instance integer would race.
+        self._request_tokens: ContextVar[int] = ContextVar(
+            f"texada_model_tokens_{id(self)}",
+            default=0,
+        )
 
     @property
     def client(self) -> OpenAI:
@@ -70,6 +92,9 @@ class MiniCPMModel:
                 base_url=base_url,
                 api_key=api_key,
                 timeout=self.config.inference_timeout_seconds,
+                # The request-level timeout is an explicit product contract.
+                # SDK retries would otherwise turn 45 seconds into ~135 seconds.
+                max_retries=0,
                 http_client=httpx.Client(
                     timeout=timeout,
                     trust_env=self.config.uses_openai_compatible,
@@ -98,6 +123,42 @@ class MiniCPMModel:
 
     # ── Public inference methods ──
 
+    async def plan(
+        self,
+        messages: list[dict],
+        tools: list[dict],
+    ) -> PlannerTurn:
+        """Run one MiniCPM5 planner turn with its native tool definitions.
+
+        SGLang returns normalized OpenAI ``tool_calls``. Some local runtimes
+        leave MiniCPM5's official XML in ``content``; the parser accepts both.
+        """
+        kwargs = {
+            "model": self._text_model_name(),
+            "messages": messages,
+            "tools": tools,
+            "tool_choice": "auto",
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+        }
+        try:
+            response = await asyncio.to_thread(self._completion_create, **kwargs)
+        except BadRequestError:
+            # Compatibility path for OpenAI-shaped endpoints that reject the
+            # tools field. The runtime will still validate direct LaTeX output.
+            kwargs.pop("tools")
+            kwargs.pop("tool_choice")
+            response = await asyncio.to_thread(self._completion_create, **kwargs)
+
+        if not response.choices:
+            return PlannerTurn()
+        usage = getattr(response, "usage", None)
+        tokens = int(getattr(usage, "total_tokens", 0) or 0)
+        return self._tool_parser.parse_message(
+            response.choices[0].message,
+            tokens_used=tokens,
+        )
+
     async def generate_latex(
         self,
         preprocessed: str,
@@ -115,6 +176,7 @@ class MiniCPMModel:
         so the small model can't silently downgrade the operator the symbol
         engine pre-translated into the prompt.
         """
+        self._reset_tokens()
         messages: list[dict] = [
             {"role": "system", "content": SYSTEM_PROMPT},
             *self._build_few_shot(intent),
@@ -128,8 +190,9 @@ class MiniCPMModel:
             model=self._text_model_name(),
             messages=messages,
             temperature=self.temperature,
-            max_tokens=self.max_tokens,
+            max_tokens=min(self.max_tokens, FORMULA_MAX_TOKENS),
         )
+        self._record_response_tokens(response)
         raw = response.choices[0].message.content if response.choices else ""
         latex = self._extract_latex(raw)
 
@@ -163,8 +226,9 @@ class MiniCPMModel:
                         {"role": "user", "content": preprocessed},
                     ],
                     temperature=0.1,
-                    max_tokens=self.max_tokens,
+                    max_tokens=min(self.max_tokens, FORMULA_MAX_TOKENS),
                 )
+                self._record_response_tokens(retry)
                 rraw = retry.choices[0].message.content if retry.choices else ""
                 retry_latex = self._extract_latex(rraw)
                 # Only adopt the retry if it actually fixed the problem;
@@ -184,7 +248,8 @@ class MiniCPMModel:
         to emit empty braces), so high-frequency patterns are matched by rule
         first (accurate, zero latency); the model handles the rest.
         """
-        ruled = self._rule_complete(partial)
+        self._reset_tokens()
+        ruled = self.rule_complete(partial)
         if ruled:
             return ruled
 
@@ -197,8 +262,9 @@ class MiniCPMModel:
             model=self._text_model_name(),
             messages=messages,
             temperature=0.05,
-            max_tokens=self.max_tokens,
+            max_tokens=min(self.max_tokens, FORMULA_MAX_TOKENS),
         )
+        self._record_response_tokens(response)
         raw = response.choices[0].message.content if response.choices else ""
         latex = self._extract_latex(raw)
         # Reasoning models (e.g. MiniCPM5) may leave `content` empty and put the
@@ -211,6 +277,7 @@ class MiniCPMModel:
 
     async def ocr_latex(self, image: bytes) -> str:
         """OCR inference — multimodal input via vision model."""
+        self._reset_tokens()
         b64_image = base64.b64encode(image).decode("utf-8")
         messages = [
             {"role": "system", "content": OCR_SYSTEM_PROMPT},
@@ -240,18 +307,81 @@ class MiniCPMModel:
             self._completion_create,
             **kwargs,
         )
-        raw = response.choices[0].message.content if response.choices else ""
-        return self._extract_latex(raw)
+        self._record_response_tokens(response)
+        latex = self._response_latex(response)
+        if latex:
+            return latex
+
+        # MiniCPM-V may consume its first answer on internal reasoning and
+        # expose neither content nor a usable reasoning field. Retry once with
+        # an explicit final-answer constraint; the Agent Runtime handles all
+        # validation and deterministic repair after this candidate exists.
+        retry_messages = [
+            {
+                "role": "system",
+                "content": (
+                    OCR_SYSTEM_PROMPT
+                    + "\n\n硬性要求：必须在最终回答中输出可见的 LaTeX。"
+                    "只提取图片中的单条主体公式，不要输出思考过程。"
+                ),
+            },
+            messages[1],
+        ]
+        retry_kwargs = {
+            **kwargs,
+            "messages": retry_messages,
+            "temperature": 0.0,
+            "max_tokens": min(self.max_tokens, FORMULA_MAX_TOKENS),
+        }
+        retry = await asyncio.to_thread(
+            self._completion_create,
+            **retry_kwargs,
+        )
+        self._record_response_tokens(retry)
+        latex = self._response_latex(retry)
+        if latex:
+            return latex
+        raise RuntimeError(
+            "OCR 视觉模型未返回可识别的公式，请裁剪到单个公式或换一张更清晰的图片。"
+        )
 
     # ── Helpers ──
 
-    def _rule_complete(self, partial: str) -> str | None:
+    def rule_complete(self, partial: str) -> str | None:
         """Complete a fragment by exact tail-match against common patterns."""
         s = partial.strip()
         for pattern, suffix in _RULE_COMPLETIONS:
             if re.search(pattern + r"\s*$", s):
                 return s + suffix
         return None
+
+    # Backwards-compatible private alias for tests and extensions.
+    _rule_complete = rule_complete
+
+    def consume_tokens_used(self) -> int:
+        """Return and clear token usage for the current async request."""
+        tokens = self._request_tokens.get()
+        self._request_tokens.set(0)
+        return tokens
+
+    def _reset_tokens(self) -> None:
+        self._request_tokens.set(0)
+
+    def _record_response_tokens(self, response: Any) -> None:
+        usage = getattr(response, "usage", None)
+        tokens = int(getattr(usage, "total_tokens", 0) or 0)
+        self._request_tokens.set(self._request_tokens.get() + tokens)
+
+    def _response_latex(self, response: Any) -> str:
+        """Extract a formula from visible or reasoning response fields."""
+        if not getattr(response, "choices", None):
+            return ""
+        message = response.choices[0].message
+        for field in ("content", "reasoning", "reasoning_content"):
+            latex = self._extract_latex(getattr(message, field, None))
+            if latex:
+                return latex
+        return ""
 
     def _build_few_shot(self, intent: str) -> list[dict]:
         """Select intent-specific few-shot examples."""
@@ -323,4 +453,11 @@ class MiniCPMModel:
         # 5. Strip any residual unclosed math delimiters around the result.
         result = re.sub(r'^(\$\$|\$|\\\[|\\\()\s*', '', result)
         result = re.sub(r'\s*(\\\]|\\\)|\$\$|\$)$', '', result)
-        return result.strip()
+        result = result.strip()
+        if result and not self._formula_validator.has_formula_content(result):
+            return ""
+        return result
+
+    def extract_latex(self, raw: str | None) -> str:
+        """Public final-answer extractor shared with the Agent Runtime."""
+        return self._extract_latex(raw)

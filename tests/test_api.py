@@ -8,7 +8,11 @@ could not start. This test constructs the app and inspects its routes.
 import pytest
 from fastapi.testclient import TestClient
 
+from texada.agent.runtime import AgentRunResult, TeXadaAgentRuntime
 from texada.config import TeXadaConfig
+from texada.core.router import InputRouter
+from texada.render.engine import RenderEngine
+from texada.types import RenderMode
 
 pytestmark = pytest.mark.asyncio
 
@@ -22,15 +26,22 @@ async def test_create_app_builds_all_routes():
     # Every endpoint the frontend (tauri-shell/src/main.js) calls must exist.
     expected = {
         "/api/status",
+        "/api/agent",
         "/api/convert",
         "/api/complete",
         "/api/ocr",  # the route that needs python-multipart
         "/api/validate",
         "/api/render-mode",
         "/api/shorthands",
+        "/api/shorthands/export",
+        "/api/shorthands/import",
         "/api/history",
         "/api/history/export",
         "/api/history/import",
+        "/api/runs",
+        "/api/runs/export",
+        "/api/runs/import",
+        "/api/runs/{run_id}",
         "/api/export",
         "/api/import",
         "/api/settings/backend",
@@ -109,6 +120,164 @@ async def test_ocr_upload_size_limit(tmp_path):
     assert response.status_code == 413
 
 
+async def test_completion_endpoint_runs_candidate_through_agent(
+    tmp_path,
+    monkeypatch,
+):
+    from texada.api import create_app
+
+    config = TeXadaConfig(data_dir=tmp_path)
+    captured = {}
+
+    async def fake_candidate(self, text, *, context=""):
+        captured["candidate_request"] = (text, context)
+        return r"\sum_{i=1}^{n} i", 5
+
+    async def fake_run_candidate(
+        self,
+        task,
+        user_input,
+        candidate_latex,
+        **kwargs,
+    ):
+        captured["agent_request"] = (
+            task,
+            user_input,
+            candidate_latex,
+            kwargs,
+        )
+        return AgentRunResult(
+            latex=candidate_latex,
+            valid=True,
+            render=RenderEngine(config).render(
+                candidate_latex,
+                mode_override=RenderMode.KATEX,
+            ),
+            semantic_document={"latex": candidate_latex},
+            trace=[
+                {
+                    "step": 1,
+                    "origin": "candidate_intake",
+                    "tool_calls": [{"name": "compile_tex"}],
+                    "observations": [
+                        {"tool": "compile_tex", "ok": True, "output": {"valid": True}}
+                    ],
+                }
+            ],
+            tokens_used=8,
+            stop_reason="planner_final",
+        )
+
+    monkeypatch.setattr(
+        InputRouter,
+        "create_completion_candidate",
+        fake_candidate,
+    )
+    monkeypatch.setattr(
+        TeXadaAgentRuntime,
+        "run_candidate",
+        fake_run_candidate,
+    )
+    client = TestClient(create_app(config))
+
+    response = client.post(
+        "/api/complete",
+        json={
+            "text": r"\sum_{i=1}^{",
+            "context": "sequence",
+            "render_mode": "katex",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source"] == "agent"
+    assert body["intent"] == "completion_agent"
+    assert body["agent_trace"][0]["origin"] == "candidate_intake"
+    assert captured["candidate_request"] == (r"\sum_{i=1}^{", "sequence")
+    assert captured["agent_request"][0] == "completion"
+    assert captured["agent_request"][3]["initial_tokens_used"] == 5
+    run = client.get(f"/api/runs/{body['run_id']}").json()
+    assert run["model_role"] == "planner"
+    assert run["tool_names"] == ["compile_tex"]
+    assert run["trace"]
+
+
+async def test_ocr_endpoint_runs_vision_candidate_through_agent(
+    tmp_path,
+    monkeypatch,
+):
+    from texada.api import create_app
+
+    config = TeXadaConfig(data_dir=tmp_path)
+    captured = {}
+
+    async def fake_candidate(self, image):
+        captured["image"] = image
+        return r"x^2+y^2", 7
+
+    async def fake_run_candidate(
+        self,
+        task,
+        user_input,
+        candidate_latex,
+        **kwargs,
+    ):
+        captured["agent_request"] = (
+            task,
+            user_input,
+            candidate_latex,
+            kwargs,
+        )
+        return AgentRunResult(
+            latex=candidate_latex,
+            valid=True,
+            render=RenderEngine(config).render(
+                candidate_latex,
+                mode_override=RenderMode.KATEX,
+            ),
+            semantic_document={"latex": candidate_latex},
+            trace=[
+                {
+                    "step": 1,
+                    "origin": "candidate_intake",
+                    "tool_calls": [{"name": "compile_tex"}],
+                    "observations": [
+                        {"tool": "compile_tex", "ok": True, "output": {"valid": True}}
+                    ],
+                }
+            ],
+            tokens_used=10,
+            stop_reason="planner_final",
+        )
+
+    monkeypatch.setattr(InputRouter, "create_ocr_candidate", fake_candidate)
+    monkeypatch.setattr(
+        TeXadaAgentRuntime,
+        "run_candidate",
+        fake_run_candidate,
+    )
+    client = TestClient(create_app(config))
+
+    response = client.post(
+        "/api/ocr",
+        files={"image": ("formula.png", b"png-bytes", "image/png")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source"] == "agent"
+    assert body["intent"] == "ocr_agent"
+    assert body["agent_trace"][0]["origin"] == "candidate_intake"
+    assert captured["image"] == b"png-bytes"
+    assert captured["agent_request"][0] == "ocr"
+    assert captured["agent_request"][3]["initial_tokens_used"] == 7
+    run = client.get(f"/api/runs/{body['run_id']}").json()
+    assert run["model_role"] == "planner"
+    assert "->" in run["model_name"]
+    assert run["trace"]
+
+
 async def test_shorthand_list_marks_editable_items(tmp_path):
     from texada.api import create_app
 
@@ -122,6 +291,27 @@ async def test_shorthand_list_marks_editable_items(tmp_path):
     items = {item["key"]: item for item in response.json()}
     assert items["euler"]["editable"] is False
     assert items["custom"]["editable"] is True
+
+
+async def test_shorthand_api_protects_builtins_and_rejects_prose(tmp_path):
+    from texada.api import create_app
+
+    client = TestClient(create_app(TeXadaConfig(data_dir=tmp_path)))
+
+    builtin = client.post(
+        "/api/shorthands",
+        json={"key": "euler", "value": "x"},
+    )
+    prose = client.post(
+        "/api/shorthands",
+        json={"key": "bad", "value": "这不是一个公式"},
+    )
+
+    assert builtin.status_code == 409
+    assert prose.status_code == 422
+    presets = {item["key"]: item["value"] for item in client.get("/api/shorthands").json()}
+    assert presets["euler"] == "e^{i\\pi}+1=0"
+    assert "bad" not in presets
 
 
 async def test_history_endpoint_filters_by_type_and_query(tmp_path):
@@ -204,7 +394,7 @@ async def test_history_export_import_and_clear_endpoints(tmp_path):
     export_response = client.get("/api/history/export")
     body = export_response.json()
     assert export_response.status_code == 200
-    assert body["_meta"]["schema_version"] == 1
+    assert body["_meta"]["schema_version"] == 2
     assert body["history"][0]["input_text"] == "integral"
 
     clear_response = client.delete("/api/history?type=nl")
@@ -263,8 +453,53 @@ async def test_full_backup_export_import_excludes_api_key(tmp_path):
     assert imported.status_code == 200
     body = imported.json()
     assert body["settings"]["imported"] == 1
-    assert body["shorthands"] == {"imported": 1, "skipped": 1}
+    assert body["shorthands"] == {"imported": 1, "skipped": 1, "cleared": 0}
     assert client.get("/api/settings/ui").json()["ui_language"] == "en"
+
+
+async def test_invalid_backup_settings_fail_before_any_data_is_mutated(tmp_path):
+    from texada.api import create_app
+
+    client = TestClient(create_app(TeXadaConfig(data_dir=tmp_path)))
+    assert client.post(
+        "/api/shorthands",
+        json={"key": "old-preset", "value": "x^2"},
+    ).status_code == 200
+    assert client.post(
+        "/api/history/import",
+        json={
+            "history": [
+                {
+                    "run_id": "old-run",
+                    "input_text": "old",
+                    "latex": "x",
+                }
+            ]
+        },
+    ).status_code == 200
+
+    response = client.post(
+        "/api/import",
+        json={
+            "mode": "replace",
+            "settings": {"temperature": 99},
+            "shorthands": {"new-preset": "y^2"},
+            "history": [
+                {
+                    "run_id": "new-run",
+                    "input_text": "new",
+                    "latex": "y",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 422
+    presets = {item["key"] for item in client.get("/api/shorthands").json()}
+    assert "old-preset" in presets
+    assert "new-preset" not in presets
+    history = client.get("/api/history/export").json()["history"]
+    assert [entry["run_id"] for entry in history] == ["old-run"]
 
 
 async def test_backend_settings_do_not_echo_key(tmp_path):
@@ -357,3 +592,41 @@ async def test_ollama_host_strips_openai_suffix(tmp_path):
 
     assert config.ollama_host == "http://localhost:11435"
     assert config.active_base_url == "http://localhost:11435/v1"
+
+
+async def test_agent_endpoint_exposes_trace_and_semantic_document(tmp_path, monkeypatch):
+    config = TeXadaConfig(data_dir=tmp_path)
+    render = RenderEngine(config).render(r"\frac{a}{b}")
+
+    async def fake_run(self, user_input, *, context="", render_mode=None):
+        return AgentRunResult(
+            latex=r"\frac{a}{b}",
+            valid=True,
+            render=render,
+            semantic_document={
+                "latex": r"\frac{a}{b}",
+                "root": {"kind": "sequence"},
+            },
+            trace=[{"step": 1, "origin": "planner"}],
+            semantic_diff={"equivalent": True, "change_count": 0},
+            tokens_used=9,
+            latency_ms=12.5,
+            stop_reason="planner_final",
+        )
+
+    monkeypatch.setattr(TeXadaAgentRuntime, "run", fake_run)
+
+    from texada.api import create_app
+
+    response = TestClient(create_app(config)).post(
+        "/api/agent",
+        json={"text": "a divided by b", "render_mode": "katex"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["latex"] == r"\frac{a}{b}"
+    assert body["source"] == "agent"
+    assert body["semantic_document"]["root"]["kind"] == "sequence"
+    assert body["agent_trace"][0]["origin"] == "planner"
+    assert body["stop_reason"] == "planner_final"

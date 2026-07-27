@@ -9,6 +9,7 @@ from texada.core.backend import BackendManager
 from texada.core.fixer import LaTeXFixer
 from texada.core.intent import IntentClassifier
 from texada.core.model import MiniCPMModel
+from texada.core.operator_guard import OperatorDriftGuard
 from texada.core.symbols import SymbolEngine
 from texada.core.validator import LaTeXValidator
 from texada.render.engine import RenderEngine
@@ -57,6 +58,7 @@ class InputRouter:
         self.intent_classifier = IntentClassifier()
         self.symbol_engine = SymbolEngine()
         self.model = MiniCPMModel(config)
+        self.operator_guard = OperatorDriftGuard()
         self.validator = LaTeXValidator()
         self.fixer = LaTeXFixer()
         self.render_engine = RenderEngine(config)
@@ -140,13 +142,12 @@ class InputRouter:
         """Main entry point for image input (OCR tab)."""
         start = time.monotonic()
 
-        await self.backend.ensure_vision_ready()
+        latex, model_tokens = await self.create_ocr_candidate(image)
 
-        from texada.core.ocr import OCRPipeline
-        ocr = OCRPipeline(self.model, self.config)
-        latex = await ocr.process(image)
-
-        final_latex, valid_result, tokens = self._validate_and_fix(latex)
+        final_latex, valid_result, tokens = self._validate_and_fix(
+            latex,
+            tokens_used=model_tokens,
+        )
         render = self._render(final_latex, render_mode)
         latency = (time.monotonic() - start) * 1000
 
@@ -161,6 +162,38 @@ class InputRouter:
             tokens_used=tokens,
             fix_log=[] if valid_result.valid else ["auto-fixed"],
         )
+
+    async def create_ocr_candidate(self, image: bytes) -> tuple[str, int]:
+        """Use MiniCPM-V 4.6 only to propose the OCR candidate."""
+        await self.backend.ensure_vision_ready()
+
+        from texada.core.ocr import OCRPipeline
+
+        ocr = OCRPipeline(self.model, self.config)
+        latex = await ocr.process(image)
+        return latex, self._consume_model_tokens()
+
+    async def create_completion_candidate(
+        self,
+        text: str,
+        *,
+        context: str = "",
+    ) -> tuple[str, int]:
+        """Propose a completion before the shared Agent Runtime reviews it."""
+        prompt = f"{context}\n{text}" if context else text
+        ruled = self.model.rule_complete(text)
+        if ruled:
+            return self.operator_guard.normalize_candidate(ruled), 0
+
+        normalized = self.operator_guard.normalize_candidate(text)
+        deterministic, validation, _ = self._validate_and_fix(normalized)
+        incomplete_tail = bool(re.search(r"[=+\-*/^_]\s*$", deterministic))
+        if validation.valid and not incomplete_tail:
+            return deterministic, 0
+
+        await self.backend.ensure_ready()
+        latex = await self.model.complete_latex(prompt)
+        return latex, self._consume_model_tokens()
 
     # ── Private pipeline implementations ──
 
@@ -186,6 +219,7 @@ class InputRouter:
             preprocessed,
             intent_result.intent,
         )
+        model_tokens = self._consume_model_tokens()
 
         # Operator-drift guard: if the small model downgraded or dropped the
         # operator the symbol engine pre-translated, retry once with the
@@ -198,6 +232,7 @@ class InputRouter:
                 intent_result.intent,
                 force_operators=forced,
             )
+            model_tokens += self._consume_model_tokens()
             # Only adopt the retry if it actually still contains the forced
             # operators; otherwise keep the first answer for the validator to
             # flag rather than silently swap in another wrong answer.
@@ -208,7 +243,10 @@ class InputRouter:
         self.memory.add(ConversationTurn(role="user", content=text))
         self.memory.add(ConversationTurn(role="assistant", content=latex))
 
-        final_latex, valid_result, tokens = self._validate_and_fix(latex)
+        final_latex, valid_result, tokens = self._validate_and_fix(
+            latex,
+            tokens_used=model_tokens,
+        )
         was_fixed = final_latex != latex
         source = Source.FIXED if was_fixed else Source.MODEL
 
@@ -240,18 +278,19 @@ class InputRouter:
         if result is None:
             return await self._process_nl2latex(text, start, render_mode=render_mode)
 
-        render = self._render(result, render_mode)
+        final_latex, validation, tokens = self._validate_and_fix(result)
+        render = self._render(final_latex, render_mode)
         latency = (time.monotonic() - start) * 1000
 
         return ConvertResult(
-            latex=result,
+            latex=final_latex,
             render=render,
-            valid=True,
-            source=Source.SHORTHAND,
+            valid=validation.valid,
+            source=Source.SHORTHAND if final_latex == result else Source.FIXED,
             intent="shorthand",
-            confidence=1.0,
+            confidence=1.0 if validation.valid else 0.0,
             latency_ms=latency,
-            tokens_used=0,
+            tokens_used=tokens,
         )
 
     async def _process_completion(
@@ -262,11 +301,15 @@ class InputRouter:
         context: str = "",
         render_mode: RenderMode | None = None,
     ) -> ConvertResult:
-        await self.backend.ensure_ready()
-        prompt = f"{context}\n{text}" if context else text
-        latex = await self.model.complete_latex(prompt)
+        latex, model_tokens = await self.create_completion_candidate(
+            text,
+            context=context,
+        )
 
-        final_latex, valid_result, tokens = self._validate_and_fix(latex)
+        final_latex, valid_result, tokens = self._validate_and_fix(
+            latex,
+            tokens_used=model_tokens,
+        )
         render = self._render(final_latex, render_mode)
         latency = (time.monotonic() - start) * 1000
 
@@ -281,7 +324,12 @@ class InputRouter:
             tokens_used=tokens,
         )
 
-    def _validate_and_fix(self, latex: str) -> tuple[str, ValidationResult, int]:
+    def _validate_and_fix(
+        self,
+        latex: str,
+        *,
+        tokens_used: int = 0,
+    ) -> tuple[str, ValidationResult, int]:
         """Validate and auto-fix if possible.
 
         Returns (final_latex, validation_result, tokens_used).
@@ -289,84 +337,34 @@ class InputRouter:
         """
         result = self.validator.validate(latex)
         if result.valid:
-            return latex, result, 0
+            return latex, result, tokens_used
         # Try auto-fix
         fix = self.fixer.fix(latex, result.errors)
         if fix.fixed:
             re_validated = self.validator.validate(fix.latex)
             if re_validated.valid:
-                return fix.latex, re_validated, 0
-        return latex, result, 0
+                return fix.latex, re_validated, tokens_used
+        return latex, result, tokens_used
 
-    # ── Operator-drift guard (anti "answered the wrong question") ──
-    #
-    # MiniCPM5-1B occasionally ignores the operator the symbol engine
-    # pre-translated into the prompt (e.g. input carried `\\iint` but the
-    # model emitted `\\int`, mimicking an unrelated few-shot). This compares
-    # the stronger operators present in the preprocessed input against the
-    # model output and flags a downgrade or outright loss, so the router can
-    # trigger one constrained retry.
-    #
-    # Integral operators form an ordered ladder; standalone operators only
-    # care about presence (lost = drift, kept/same = fine). Upgrading the
-    # operator (e.g. `\\int` -> `\\iint`) is NOT drift — that's the model
-    # helping.
+    def _consume_model_tokens(self) -> int:
+        consume = getattr(self.model, "consume_tokens_used", None)
+        if not callable(consume):
+            return 0
+        return int(consume() or 0)
 
-    # Ordered weakest→strongest within the integral family.
-    _INTEGRAL_LADDER: tuple[str, ...] = (r"\int", r"\oint", r"\iint", r"\iiint")
-    # Standalone operators whose outright loss (or swap to a different one)
-    # signals drift. Each is its own family, so only presence matters.
-    _STANDALONE_OPS: tuple[str, ...] = (r"\sum", r"\prod", r"\lim", r"\frac", r"\partial")
+    # Compatibility wrappers keep the original router test and extension seam
+    # while sharing one implementation with the Agent Runtime.
+    _INTEGRAL_LADDER = OperatorDriftGuard.INTEGRAL_LADDER
+    _STANDALONE_OPS = OperatorDriftGuard.STANDALONE_OPS
 
     def _integral_rank(self, text: str) -> int:
-        """Highest integral operator rank present in text (0 = none)."""
-        rank = 0
-        for i, op in enumerate(self._INTEGRAL_LADDER, start=1):
-            if op in text:
-                rank = i  # keep the max (ladder is weakest→strongest)
-        return rank
+        return self.operator_guard.integral_rank(text)
 
     def _check_operator_drift(self, preprocessed: str, model_output: str) -> bool:
-        r"""True if the model downgraded or dropped a stronger operator.
-
-        Detection is deliberately narrow to avoid false positives:
-          - integral downgrade: input rank > output rank (e.g. \iint -> \int)
-          - integral lost:     input has integrals, output has none
-          - standalone lost:   a standalone op in input is absent in output
-        Upgrades and same-level retention are NOT drift. Empty output is not
-        drift (handled by the model's empty-output retry instead).
-        """
-        if not model_output:
-            return False
-
-        # Integral ladder: a downgrade or total loss is drift.
-        in_rank = self._integral_rank(preprocessed)
-        out_rank = self._integral_rank(model_output)
-        if in_rank > 0 and out_rank < in_rank:
-            return True
-
-        # Standalone operators: outright loss is drift.
-        for op in self._STANDALONE_OPS:
-            if op in preprocessed and op not in model_output:
-                return True
-
-        return False
+        return self.operator_guard.check(preprocessed, model_output)
 
     def _forced_operators(self, preprocessed: str) -> list[str]:
-        """Operators the output must contain — extracted from the preprocessed input.
-
-        Used to build the constrained-retry instruction. Returns the strongest
-        integral present (if any) plus any standalone operators present.
-        """
-        forced: list[str] = []
-        # Strongest integral only — a ladder member implies the weaker ones.
-        in_rank = self._integral_rank(preprocessed)
-        if in_rank > 0:
-            forced.append(self._INTEGRAL_LADDER[in_rank - 1])
-        for op in self._STANDALONE_OPS:
-            if op in preprocessed:
-                forced.append(op)
-        return forced
+        return self.operator_guard.forced_operators(preprocessed)
 
     def _is_partial_latex(self, text: str) -> bool:
         """Detect if text is an incomplete LaTeX fragment.

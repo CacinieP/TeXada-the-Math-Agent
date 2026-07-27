@@ -368,29 +368,27 @@ jobs:
           printf 'TeXada Desktop %s\n\n' "$version"
           cat <<'EOF'
           English:
-          - Adds Settings -> Data controls for full backup export/import, history export/import, and confirmed history clearing.
-          - Adds JSON backup APIs for full data export/import and history-only export/import.
-          - Imports history in merge mode by default, skips duplicate records, and keeps backend replace-mode support for controlled restores.
-          - Exports user-defined presets and non-sensitive settings while excluding API keys from backup files.
-          - Documents the backup JSON format in README and docs/data-backup.md.
-          - Fixes platform-specific OCR paste hints so Windows shows Ctrl+V and macOS shows Cmd+V.
-          - Local-first math formula agent powered by MiniCPM and Ollama.
-          - Supports natural language to LaTeX, formula OCR, completion, presets, history and desktop insertion.
-          - Supports OpenAI API-compatible cloud text and vision models.
-          - Includes and auto-starts the TeXada FastAPI backend; Ollama or cloud model runtime remains configurable.
+          - Repositions TeXada as an on-device, agent-driven structured math editor.
+          - Adds a MiniCPM5 Planner -> Tool -> Observation runtime with native XML and OpenAI tool-call normalization.
+          - Keeps exactly two model roles: MiniCPM5-1B for planning/text and MiniCPM-V 4.6 for OCR.
+          - Adds parse, compile, deterministic repair, semantic diff, render, and export tools.
+          - Adds pinned KaTeX semantic units, role-aware structural diff, and the Level 0 operator-drift guard.
+          - Routes natural language, OCR, and completion through one observable Agent runtime with bounded loops and visible traces.
+          - Adds zero-token fast paths for high-confidence structured input and common LaTeX completions.
+          - Adds request-level run logs plus schema-v2 import/export for logs, history, presets, and non-sensitive settings.
+          - Includes and auto-starts the TeXada FastAPI backend; the MiniCPM endpoint remains configurable.
           - Includes signed and notarized macOS DMGs and Windows x64 NSIS installer.
 
           中文：
-          - 在设置页新增“数据”区域，支持完整备份导入导出、历史记录导入导出，以及二次确认后清空历史。
-          - 新增完整数据和仅历史记录的 JSON 导入导出 API。
-          - 历史导入默认使用合并模式，会跳过重复记录；后端保留替换模式，便于受控恢复。
-          - 备份会导出用户自定义预设和非敏感设置，但不会导出 API Key。
-          - 在 README 和 docs/data-backup.md 中补充备份 JSON 格式说明。
-          - 修正 OCR 粘贴提示：Windows 显示 Ctrl+V，macOS 显示 Cmd+V。
-          - 端侧优先的数学公式 Agent，默认使用 MiniCPM 和 Ollama。
-          - 支持自然语言转 LaTeX、公式 OCR、补全、预设、历史记录和桌面光标处键入。
-          - 支持 OpenAI API 兼容的云侧文本和视觉模型。
-          - 安装包内置并自动启动 TeXada FastAPI 后端；Ollama 或云侧模型运行时仍可配置。
+          - 将 TeXada 重新定位为基于端侧 Agent 的结构化数学编辑器。
+          - 新增 MiniCPM5 Planner -> Tool -> Observation 运行时，兼容原生 XML 与 OpenAI tool_calls。
+          - 产品只保留两个模型角色：MiniCPM5-1B 负责规划/文本，MiniCPM-V 4.6 负责 OCR。
+          - 新增解析、编译校验、确定性修复、语义 Diff、渲染和导出六类工具。
+          - 新增固定 KaTeX Semantic Unit、角色感知结构 Diff 与 Level 0 算符漂移守卫。
+          - NL、OCR、补全统一进入可观察 Agent Runtime，并提供有界循环与可见执行轨迹。
+          - 为高置信度结构化输入和常见 LaTeX 补全增加零 token 快速路径。
+          - 新增请求级运行日志，以及日志、历史、预设、非敏感设置的 schema-v2 导入导出。
+          - 安装包内置并自动启动 TeXada FastAPI 后端；MiniCPM endpoint 仍可配置。
           - 提供已签名并完成 Apple notarization 的 macOS DMG，以及 Windows x64 NSIS 安装包。
 
           Author: CacinieP

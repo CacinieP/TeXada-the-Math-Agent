@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
+import os
 
 from texada.config import TeXadaConfig
+from texada.core.validator import LaTeXValidator
 
 # Default shorthands shipped with TeXada
 DEFAULT_SHORTHANDS: dict[str, str] = {
@@ -34,6 +36,7 @@ class ShorthandStore:
 
     def __init__(self, config: TeXadaConfig):
         self.config = config
+        self.validator = LaTeXValidator()
         self._shorthands: dict[str, str] = {}
         self._file = config.data_dir / "shorthands.json"
         self._load()
@@ -43,10 +46,13 @@ class ShorthandStore:
         self._shorthands = dict(DEFAULT_SHORTHANDS)
         # Overlay user-defined
         if self._file.exists():
-            with open(self._file) as f:
-                data = json.load(f)
-                if "shorthands" in data:
-                    self._shorthands.update(data["shorthands"])
+            try:
+                data = json.loads(self._file.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                data = {}
+            for key, value in data.get("shorthands", {}).items():
+                if key not in DEFAULT_SHORTHANDS and isinstance(value, str):
+                    self._shorthands[key] = value
 
     def _save(self) -> None:
         user_only = {
@@ -55,8 +61,13 @@ class ShorthandStore:
         }
         data = {"_meta": {"version": 1}, "shorthands": user_only}
         self._file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self._file, "w") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        tmp_path = self._file.with_suffix(".json.tmp")
+        tmp_path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        os.chmod(tmp_path, 0o600)
+        tmp_path.replace(self._file)
 
     def has(self, key: str) -> bool:
         return key.strip() in self._shorthands
@@ -81,28 +92,44 @@ class ShorthandStore:
         return key in self._shorthands and key not in DEFAULT_SHORTHANDS
 
     def add(self, key: str, value: str) -> None:
-        self._shorthands[key] = value
+        normalized_key, normalized_value = self._validate_pair(key, value)
+        self._shorthands[normalized_key] = normalized_value
         self._save()
 
-    def import_many(self, items: dict[str, str]) -> dict[str, int]:
-        """Merge user shorthands, skipping built-in keys."""
+    def import_many(
+        self,
+        items: dict[str, str],
+        *,
+        mode: str = "merge",
+    ) -> dict[str, int]:
+        """Import user shorthands while always preserving built-in presets."""
+        normalized_mode = mode.strip().lower()
+        if normalized_mode not in {"merge", "replace"}:
+            raise ValueError("mode must be 'merge' or 'replace'")
+
         imported = 0
         skipped = 0
+        cleared = 0
+        if normalized_mode == "replace":
+            existing_user_keys = list(self.list_user_defined())
+            for key in existing_user_keys:
+                if key in DEFAULT_SHORTHANDS:
+                    self._shorthands[key] = DEFAULT_SHORTHANDS[key]
+                else:
+                    self._shorthands.pop(key, None)
+            cleared = len(existing_user_keys)
+
         for key, value in items.items():
-            normalized_key = str(key).strip()
-            normalized_value = str(value).strip()
-            if (
-                not normalized_key
-                or not normalized_value
-                or normalized_key in DEFAULT_SHORTHANDS
-            ):
+            try:
+                normalized_key, normalized_value = self._validate_pair(key, value)
+            except (TypeError, ValueError):
                 skipped += 1
                 continue
             self._shorthands[normalized_key] = normalized_value
             imported += 1
-        if imported:
+        if imported or cleared:
             self._save()
-        return {"imported": imported, "skipped": skipped}
+        return {"imported": imported, "skipped": skipped, "cleared": cleared}
 
     def delete(self, key: str) -> bool:
         if self.can_delete(key):
@@ -110,3 +137,20 @@ class ShorthandStore:
             self._save()
             return True
         return False
+
+    def _validate_pair(self, key: object, value: object) -> tuple[str, str]:
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise TypeError("preset key and value must be strings")
+        normalized_key = key.strip()
+        normalized_value = value.strip()
+        if not normalized_key or not normalized_value:
+            raise ValueError("preset key and value must not be empty")
+        if len(normalized_key) > 100 or len(normalized_value) > 4000:
+            raise ValueError("preset exceeds the supported size")
+        if normalized_key in DEFAULT_SHORTHANDS:
+            raise ValueError(f"built-in preset '{normalized_key}' cannot be replaced")
+        validation = self.validator.validate(normalized_value)
+        if not validation.valid:
+            detail = validation.errors[0].detail or validation.errors[0].error
+            raise ValueError(detail or "preset value is not valid LaTeX")
+        return normalized_key, normalized_value

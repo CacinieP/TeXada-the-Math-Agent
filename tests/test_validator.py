@@ -1,5 +1,4 @@
 """Test LaTeXValidator — multi-layer syntax checking."""
-import subprocess
 
 from texada.core.validator import LaTeXValidator
 
@@ -10,38 +9,20 @@ def test_valid_simple():
     assert r.valid
 
 
-def test_missing_local_katex_cli_is_skipped(monkeypatch):
-    def missing_local_katex(cmd, **kwargs):
-        return subprocess.CompletedProcess(
-            args=cmd,
-            returncode=1,
-            stdout="",
-            stderr=(
-                "npm error npx canceled due to missing packages "
-                'and no YES option: ["katex@0.17.0"]'
-            ),
-        )
-
-    monkeypatch.setattr("texada.core.validator.subprocess.run", missing_local_katex)
-
+def test_valid_long_katex_command_is_not_blocked_by_a_hand_whitelist():
     v = LaTeXValidator()
-    r = v.validate("\\frac{a}{b}")
+    r = v.validate(r"\xrightarrow{n\to\infty}x")
 
     assert r.valid
     assert not r.errors
 
 
-def test_katex_cli_timeout_is_skipped(monkeypatch):
-    def katex_timeout(cmd, **kwargs):
-        raise subprocess.TimeoutExpired(cmd=cmd, timeout=5)
-
-    monkeypatch.setattr("texada.core.validator.subprocess.run", katex_timeout)
-
+def test_undefined_command_is_rejected_by_vendored_katex():
     v = LaTeXValidator()
-    r = v.validate("\\int_0^1 f(x) dx")
+    r = v.validate(r"\definitelyUnknownCommand{x}")
 
-    assert r.valid
-    assert not r.errors
+    assert not r.valid
+    assert any(e.type == "katex_parse" for e in r.errors)
 
 
 def test_brace_unbalanced_missing():
@@ -81,3 +62,30 @@ def test_command_with_subscript_not_swallowed():
         r = v.validate(latex)
         assert r.valid, f"{latex!r} should be valid, got errors: {r.errors}"
         assert not any(e.type == "unknown_command" for e in r.errors)
+
+
+def test_prose_is_not_accepted_as_a_formula():
+    v = LaTeXValidator()
+
+    for value in ["这是一个公式", "This is a helpful explanation"]:
+        result = v.validate(value)
+        assert not result.valid
+        assert any(e.type == "non_formula_content" for e in result.errors)
+
+
+def test_explicit_text_command_can_contain_chinese():
+    assert LaTeXValidator().validate(r"\text{中文} + x").valid
+
+
+def test_semantically_empty_structures_are_rejected():
+    v = LaTeXValidator()
+
+    for value in [r"\frac{x}{}", r"\frac{}{y}", r"\sqrt{}", r"x_{}", r"x^{}"]:
+        assert not v.validate(value).valid
+
+
+def test_placeholder_is_a_supported_local_macro():
+    v = LaTeXValidator()
+
+    assert v.validate(r"\frac{\placeholder{}}{\placeholder{}}").valid
+    assert v.validate(r"\sqrt{\placeholder{}}").valid

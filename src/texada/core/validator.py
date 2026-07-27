@@ -1,54 +1,44 @@
-"""LaTeX Validator — multi-layer syntax checking."""
+"""LaTeX Validator — structural, content, and in-process KaTeX checking."""
 from __future__ import annotations
 
 import re
-import subprocess
 
+from texada.semantic.katex import shared_katex_parser
 from texada.types import CheckResult, ValidationResult
 
 
 class LaTeXValidator:
-    """Multi-layer LaTeX validation — brace balance, env balance, command check, KaTeX parse."""
+    """Validate formula syntax and reject obvious prose masquerading as math."""
 
-    # Known valid commands — replaces the old inline tuple + length heuristic
-    _KNOWN_COMMANDS: frozenset[str] = frozenset({
-        # Math operators
-        "frac", "dfrac", "tfrac", "sqrt", "binom",
-        "int", "iint", "iiint", "oint", "sum", "prod", "lim",
-        "sin", "cos", "tan", "log", "ln", "exp",
-        "partial", "nabla", "det",
-        # Text / font
-        "text", "mathrm", "mathbf", "mathcal", "mathbb", "mathscr",
-        "operatorname",
-        # Delimiters
-        "left", "right", "begin", "end",
-        # Decorations
-        "hat", "vec", "tilde", "dot", "bar", "ddot",
-        "overline", "underline", "overrightarrow", "overleftarrow",
-        "widehat", "widetilde", "overbrace", "underbrace",
-        # Environments
-        "cases", "pmatrix", "bmatrix", "vmatrix", "aligned", "array",
-        # Greek letters
-        "alpha", "beta", "gamma", "delta", "epsilon", "varepsilon",
-        "zeta", "eta", "theta", "vartheta", "iota", "kappa",
-        "lambda", "mu", "nu", "xi", "pi", "rho", "sigma",
-        "tau", "upsilon", "phi", "chi", "psi", "omega",
-        "Gamma", "Delta", "Theta", "Lambda", "Xi", "Pi",
-        "Sigma", "Upsilon", "Phi", "Psi", "Omega",
-        # Relations / symbols
-        "infty", "forall", "exists", "in", "notin", "subset",
-        "subsetneq", "supset", "cup", "cap", "emptyset",
-        "neq", "geq", "leq", "gg", "ll", "approx", "propto", "sim",
-        "Rightarrow", "Leftrightarrow", "rightarrow", "leftarrow",
-        "leftrightarrow", "mapsto", "implies",
-        "because", "therefore", "blacksquare", "placeholder",
-        "cdots", "vdots", "ddots", "ldots",
-        "quad", "qquad", "cdot", "times", "div",
-        # Long valid commands (> 8 chars)
-        "displaystyle", "phantom", "overleftrightarrow",
-        "stackrel", "substack", "overset", "underset",
-        "textbf", "textit", "textrm", "textsf", "texttt",
-    })
+    _TEXT_COMMAND = re.compile(
+        r"\\(?:text|textbf|textit|textrm|textsf|texttt|mathrm|operatorname)"
+        r"\s*\{[^{}]*\}",
+        re.DOTALL,
+    )
+    _CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
+    _WORD = re.compile(r"[A-Za-z]{2,}")
+    _MATH_SIGNAL = re.compile(r"[\\=+\-*/^_<>&|()[\]{}]|\d")
+    _SENTENCE_PUNCTUATION = re.compile(r"[?!。？！：:]")
+    _EMPTY_STRUCTURES: tuple[tuple[str, re.Pattern[str]], ...] = (
+        (
+            "empty_fraction_numerator",
+            re.compile(r"\\(?:d?frac|tfrac)\s*\{\s*\}\s*\{", re.DOTALL),
+        ),
+        (
+            "empty_fraction_denominator",
+            re.compile(r"\\(?:d?frac|tfrac)\s*\{[^{}]*\}\s*\{\s*\}", re.DOTALL),
+        ),
+        (
+            "empty_radicand",
+            re.compile(r"\\sqrt(?:\s*\[[^\]]*\])?\s*\{\s*\}", re.DOTALL),
+        ),
+        ("empty_subscript", re.compile(r"_\s*\{\s*\}")),
+        ("empty_superscript", re.compile(r"\^\s*\{\s*\}")),
+    )
+
+    def has_formula_content(self, latex: str) -> bool:
+        """Return whether text looks like formula content rather than prose."""
+        return self._check_formula_content(latex).ok
 
     def validate(self, latex: str) -> ValidationResult:
         # Empty string is never valid LaTeX
@@ -60,16 +50,10 @@ class LaTeXValidator:
         checks = [
             self._check_brace_balance(latex),
             self._check_env_balance(latex),
-            self._check_command_validity(latex),
+            self._check_formula_content(latex),
+            self._check_nonempty_structures(latex),
+            self._check_katex_parse(latex),
         ]
-        # KaTeX check is authoritative but optional (needs npx)
-        katex_check = self._check_katex_render(latex)
-        if katex_check.ok:
-            checks.append(katex_check)
-        else:
-            # If KaTeX fails but structural checks pass, flag but don't block
-            if all(c.ok for c in checks):
-                checks.append(CheckResult(ok=False, type="katex_render", detail=katex_check.error))
 
         return ValidationResult(
             valid=all(c.ok for c in checks),
@@ -101,65 +85,59 @@ class LaTeXValidator:
                                           f"\\end{{{env}}} 只有 {ends.count(env)} 个")
         return CheckResult(ok=True, type="env_balance")
 
-    def _check_command_validity(self, latex: str) -> CheckResult:
-        """Check that LaTeX commands are not obviously invalid."""
-        # LaTeX command names are letters only: `\` followed by `[A-Za-z]+`.
-        # Using `\w` would wrongly include `_` and swallow the subscript,
-        # e.g. matching `\partial_i` as command name "partial_i", or `\int_0`
-        # as "int_0" — flagging perfectly valid LaTeX as unknown commands.
-        commands = re.findall(r'\\([A-Za-z]+)', latex)
-        invalid = []
-        for cmd in commands:
-            if cmd in self._KNOWN_COMMANDS:
-                continue
-            # Single-letter commands are always valid (\x, \a, etc.)
-            if len(cmd) == 1:
-                continue
-            # Unknown multi-char commands might be wrong
-            if len(cmd) > 8:
-                invalid.append(cmd)
-        if invalid:
-            return CheckResult(ok=False, type="unknown_command",
-                               detail=f"可疑命令: {', '.join(invalid)}")
-        return CheckResult(ok=True, type="command_validity")
-
-    def _check_katex_render(self, latex: str) -> CheckResult:
-        """KaTeX rendering check — authoritative validation."""
-        try:
-            result = subprocess.run(
-                ["npx", "--no-install", "katex", "-F", "tex", "-t"],
-                input=latex, capture_output=True, text=True, timeout=5
+    def _check_formula_content(self, latex: str) -> CheckResult:
+        """Reject explanatory prose while allowing text inside explicit text commands."""
+        outside_text = self._TEXT_COMMAND.sub("", latex)
+        if self._CJK.search(outside_text):
+            return CheckResult(
+                ok=False,
+                type="non_formula_content",
+                detail="公式包含未放入 \\text{...} 的中文说明文字",
             )
-            if result.returncode == 0:
-                return CheckResult(ok=True, type="katex_render")
-            error = result.stderr.strip()[:200]
-            if self._is_missing_katex_cli(error):
+        if self._SENTENCE_PUNCTUATION.search(outside_text):
+            return CheckResult(
+                ok=False,
+                type="non_formula_content",
+                detail="输出看起来是说明句，而不是纯数学公式",
+            )
+
+        words = self._WORD.findall(outside_text)
+        signals = self._MATH_SIGNAL.findall(outside_text)
+        if len(words) >= 4 and len(signals) < 2:
+            return CheckResult(
+                ok=False,
+                type="non_formula_content",
+                detail="输出包含过多自然语言文字",
+            )
+        return CheckResult(ok=True, type="formula_content")
+
+    def _check_nonempty_structures(self, latex: str) -> CheckResult:
+        """Reject syntactically closed but semantically empty formula slots."""
+        if r"\placeholder" in latex:
+            return CheckResult(ok=True, type="nonempty_structures")
+        for error_type, pattern in self._EMPTY_STRUCTURES:
+            if pattern.search(latex):
                 return CheckResult(
-                    ok=True,
-                    type="katex_render",
-                    detail="local katex CLI not available, skipped",
+                    ok=False,
+                    type=error_type,
+                    detail="公式仍包含空的结构参数，请补全内容或使用 \\placeholder{}",
                 )
-            return CheckResult(ok=False, type="katex_render",
-                               error=error)
-        except FileNotFoundError:
-            # npx/katex not available — skip this check
-            return CheckResult(
-                ok=True,
-                type="katex_render",
-                detail="local katex CLI not available, skipped",
-            )
-        except subprocess.TimeoutExpired:
-            return CheckResult(
-                ok=True,
-                type="katex_render",
-                detail="local katex CLI timeout, skipped",
-            )
+        return CheckResult(ok=True, type="nonempty_structures")
 
-    @staticmethod
-    def _is_missing_katex_cli(error: str) -> bool:
-        normalized = error.lower()
-        return (
-            "npx canceled due to missing packages" in normalized
-            or "could not determine executable" in normalized
-            or ("katex" in normalized and "not found" in normalized)
+    def _check_katex_parse(self, latex: str) -> CheckResult:
+        """Use the vendored in-process KaTeX parser as the single syntax authority."""
+        try:
+            result = shared_katex_parser().parse(latex)
+        except Exception as exc:
+            return CheckResult(
+                ok=False,
+                type="katex_parse",
+                error=f"KaTeX parser unavailable: {exc}",
+            )
+        if result.ok:
+            return CheckResult(ok=True, type="katex_parse")
+        return CheckResult(
+            ok=False,
+            type="katex_parse",
+            error=result.error[:500],
         )

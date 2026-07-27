@@ -1,5 +1,4 @@
 """Test RenderEngine — dual mode switching."""
-import subprocess
 
 from texada.config import TeXadaConfig
 from texada.render.engine import RenderEngine
@@ -14,33 +13,20 @@ def test_katex_mode():
     assert result.copy_text == "$$\\frac{a}{b}$$"
 
 
-def test_katex_uses_local_npx_without_install(monkeypatch):
-    captured = {}
-
-    def fake_run(cmd, **kwargs):
-        captured["cmd"] = cmd
-        return subprocess.CompletedProcess(
-            args=cmd,
-            returncode=0,
-            stdout='<span class="katex">ok</span>',
-            stderr="",
-        )
-
-    monkeypatch.setattr("texada.render.engine.subprocess.run", fake_run)
-
+def test_katex_uses_vendored_in_process_renderer():
     config = TeXadaConfig(default_render_mode="katex")
     engine = RenderEngine(config)
     result = engine.render("\\frac{a}{b}")
 
-    assert captured["cmd"] == ["npx", "--no-install", "katex"]
-    assert result.katex_html == '<span class="katex">ok</span>'
+    assert 'class="katex"' in result.katex_html
+    assert "katex-fallback" not in result.katex_html
 
 
-def test_katex_fallback_is_visible_without_npx(monkeypatch):
-    def missing_npx(*args, **kwargs):
-        raise FileNotFoundError()
+def test_katex_fallback_is_visible_when_renderer_fails(monkeypatch):
+    def failed_renderer():
+        raise RuntimeError("V8 unavailable")
 
-    monkeypatch.setattr("texada.render.engine.subprocess.run", missing_npx)
+    monkeypatch.setattr("texada.render.engine.shared_katex_parser", failed_renderer)
 
     config = TeXadaConfig(default_render_mode="katex")
     engine = RenderEngine(config)
@@ -50,6 +36,14 @@ def test_katex_fallback_is_visible_without_npx(monkeypatch):
     assert "katex-fallback" in result.katex_html
     assert "\\frac{a}{b}" in result.katex_html
     assert result.copy_text == "$$\\frac{a}{b}$$"
+
+
+def test_placeholder_macro_renders_in_katex():
+    config = TeXadaConfig(default_render_mode="katex")
+    result = RenderEngine(config).render(r"\frac{x}{\placeholder{}}")
+
+    assert 'class="katex"' in result.katex_html
+    assert "katex-fallback" not in result.katex_html
 
 
 def test_latex_mode():

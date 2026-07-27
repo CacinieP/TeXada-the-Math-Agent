@@ -4,8 +4,9 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import Literal
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import (
     BaseSettings,
     JsonConfigSettingsSource,
@@ -33,6 +34,9 @@ SAVED_CONFIG_FIELDS = frozenset({
     "ui_zoom",
     "inference_timeout_seconds",
     "api_request_timeout_seconds",
+    "agent_max_steps",
+    "run_log_max_days",
+    "run_log_max_items",
 })
 
 
@@ -53,25 +57,28 @@ class TeXadaConfig(BaseSettings):
     )
 
     # ── Ollama backend (MiniCPM) ──
-    backend: str = "ollama"  # "ollama" | "openai_compatible"
+    backend: Literal["ollama", "openai_compatible"] = "ollama"
     ollama_host: str = "http://localhost:11434"
     model_name: str = "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M"  # Text: MiniCPM5-1B
-    vision_model_name: str = "openbmb/minicpm-v4.6:latest"     # Vision: MiniCPM-V 4.6 (OCR)
+    vision_model_name: str = "openbmb/minicpm-v4.6:latest"  # MiniCPM-V 4.6 OCR
     openai_base_url: str = ""
     openai_api_key: str = ""
     openai_model_name: str = ""
     openai_vision_model_name: str = ""
-    temperature: float = 0.1
-    max_tokens: int = 2048  # MiniCPM5 is a reasoning model — CoT needs headroom
-    inference_timeout_seconds: float = 45.0
-    api_request_timeout_seconds: float = 120.0
+    temperature: float = Field(default=0.1, ge=0.0, le=2.0)
+    max_tokens: int = Field(default=2048, ge=64, le=32768)
+    inference_timeout_seconds: float = Field(default=45.0, gt=0.0, le=600.0)
+    api_request_timeout_seconds: float = Field(default=120.0, gt=0.0, le=900.0)
+
+    # ── Agent Runtime ──
+    agent_max_steps: int = Field(default=3, ge=1, le=8)
 
     # ── Render ──
-    default_render_mode: str = "katex"   # "katex" | "latex"
-    delimiter: str = "$$"                 # "$$" | "\[" | "$"
+    default_render_mode: Literal["katex", "latex"] = "katex"
+    delimiter: Literal["$$", "$", "\\[", "\\("] = "$$"
     katex_enabled: bool = True
     latex_highlight_enabled: bool = True
-    ui_language: str = "zh"  # "zh" | "en"
+    ui_language: Literal["zh", "en"] = "zh"
     ui_zoom: float = 1.0
 
     # ── Server ──
@@ -101,6 +108,11 @@ class TeXadaConfig(BaseSettings):
     # ── History ──
     history_max_days: int = 30
     history_max_items: int = 1000
+
+    # ── Request-level run logs ──
+    # Zero means unlimited. Every run is kept unless the user configures a cap.
+    run_log_max_days: int = Field(default=0, ge=0)
+    run_log_max_items: int = Field(default=0, ge=0)
 
     # ── Paths ──
     data_dir: Path = TEXADA_HOME
@@ -202,11 +214,12 @@ def load_config() -> TeXadaConfig:
     return config
 
 
-def save_config_updates(updates: dict, data_dir: Path | None = None) -> TeXadaConfig:
-    """Persist supported user settings to ~/.texada/config.json."""
+def _prepare_config_updates(
+    updates: dict,
+    data_dir: Path | None = None,
+) -> tuple[Path, dict, TeXadaConfig]:
     target_dir = data_dir or TEXADA_HOME
     config_file = target_dir / "config.json"
-    target_dir.mkdir(parents=True, exist_ok=True)
     existing: dict = {}
     if config_file.exists():
         try:
@@ -217,6 +230,23 @@ def save_config_updates(updates: dict, data_dir: Path | None = None) -> TeXadaCo
     for key, value in updates.items():
         if key in SAVED_CONFIG_FIELDS:
             existing[key] = value
+    validated = TeXadaConfig(data_dir=target_dir, **existing)
+    return config_file, existing, validated
+
+
+def validate_config_updates(
+    updates: dict,
+    data_dir: Path | None = None,
+) -> TeXadaConfig:
+    """Validate prospective saved settings without changing the filesystem."""
+    return _prepare_config_updates(updates, data_dir)[2]
+
+
+def save_config_updates(updates: dict, data_dir: Path | None = None) -> TeXadaConfig:
+    """Validate first, then atomically persist supported user settings."""
+    config_file, existing, validated = _prepare_config_updates(updates, data_dir)
+    target_dir = config_file.parent
+    target_dir.mkdir(parents=True, exist_ok=True)
 
     tmp_path = config_file.with_suffix(".json.tmp")
     tmp_path.write_text(json.dumps(existing, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -226,4 +256,4 @@ def save_config_updates(updates: dict, data_dir: Path | None = None) -> TeXadaCo
         os.chmod(config_file, 0o600)
     except OSError:
         pass
-    return TeXadaConfig(data_dir=target_dir, **existing)
+    return validated

@@ -1,6 +1,6 @@
 {
   "name": "texada-the-math-agent",
-  "version": "0.2.6",
+  "version": "0.3.0",
   "description": "Local math formula agent powered by MiniCPM",
   "repository": {
     "type": "git",
@@ -13,6 +13,6 @@
   },
   "homepage": "https://github.com/CacinieP/TeXada-the-Math-Agent#readme",
   "devDependencies": {
-    "katex": "^0.17.0"
+    "katex": "0.17.0"
   }
 }

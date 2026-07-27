@@ -127,3 +127,24 @@ async def test_remote_ollama_status_points_to_remote_endpoint_check(monkeypatch,
     assert status["ready"] is False
     assert status["message"] == "Ollama endpoint 不可达"
     assert status["next_action"] == "启动远端 Ollama，或检查 Ollama 地址和端口"
+
+
+@pytest.mark.asyncio
+async def test_ocr_readiness_does_not_require_text_model(monkeypatch, tmp_path):
+    config = TeXadaConfig(
+        data_dir=tmp_path,
+        model_name="missing-text-model",
+        vision_model_name="vision-model",
+    )
+    manager = BackendManager(config)
+
+    async def is_running():
+        return True
+
+    async def list_models():
+        return ["vision-model"]
+
+    monkeypatch.setattr(manager, "_is_running", is_running)
+    monkeypatch.setattr(manager, "_list_models", list_models)
+
+    assert await manager.ensure_vision_ready() is True

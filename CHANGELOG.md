@@ -2,6 +2,85 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.3.0 - 2026-07-27
+
+- Repositioned TeXada as an on-device, agent-driven structured math editor.
+- Added a MiniCPM5 Planner → Tool → Observation runtime with native XML and
+  OpenAI tool-call normalization.
+- Added independent `parse_tex`, `compile_tex`, `repair_tex`, `semantic_diff`,
+  `render_math`, and `export` tools.
+- Added a pinned KaTeX 0.17.0 AST bridge in reusable in-process V8, normalized
+  semantic units, and role-aware weighted tree-edit observations/rewards.
+- Preserved the original SymbolEngine/operator-drift guard as Level 0, shared
+  it with the Agent Runtime, and added bounded retry/error/duplicate-call
+  circuit breakers.
+- Kept `repair_tex` as a deterministic local syntax tool; TeXada now has only
+  two model roles: MiniCPM5-1B for planning/text and MiniCPM-V 4.6 for OCR.
+- Switched the desktop NL path to `/api/agent` and added a visible execution
+  trace for local E2E testing.
+- Routed OCR and completion candidates through the same MiniCPM5 Agent Runtime;
+  all three product inputs now expose candidate intake, tool observations,
+  semantic state, stop reason, and visible execution traces.
+- Added OCR fallback extraction from vision reasoning fields, one bounded empty
+  response retry, and an actionable service error instead of an uncaught
+  empty-candidate failure.
+- Added a CC Switch-inspired request ledger with unique run IDs, indexed
+  filters, success/error symmetry, Agent trace detail, and history correlation.
+- Added schema-v2 full backups and independent JSON import/export for run logs,
+  result history, and custom presets.
+- Added a deterministic integral-structure fast path for SymbolEngine-anchored
+  rank/domain phrases, reducing the real double-integral E2E from about 106
+  seconds to about 4.8 seconds and preventing prose such as `in region D` from
+  leaking into syntactically valid formulas.
+- Added zero-token deterministic candidates for high-confidence range sums,
+  quotient limits, partial derivatives, multiple integrals, fractions, simple
+  arithmetic, grouped powers, radicals, and explicit inline LaTeX hints.
+- Added instant completion rules for common command prefixes and safely
+  repairable partial formulas while preserving compile/render tool observations.
+- Normalized common MiniCPM escaping artifacts in OCR candidates and made
+  structured Chinese input tolerant of sentence punctuation and natural
+  synonyms such as “加上”, “乘以”, and “趋近于”.
+- Changed run-log lists to paginated lightweight summaries with lazy trace
+  detail, separate request/formula status badges, and unlimited default
+  retention with opt-in caps.
+- Migrated cursor-relative window positioning to Tauri's monitor APIs, added
+  `httpx2` for tests, and updated Pillow to 12.3.0.
+
+## 0.3.0 - 2026-07-27 中文
+
+- 将 TeXada 重新定位为基于端侧 Agent 的结构化数学编辑器。
+- 新增 MiniCPM5 Planner → Tool → Observation 运行时，同时兼容原生 XML 与
+  OpenAI `tool_calls`。
+- 新增六个职责单一的 TeX 工具：解析、编译校验、修复、语义 Diff、渲染与导出。
+- 新增固定 KaTeX 0.17.0 的进程内 V8 AST 桥、归一化 Semantic Unit，以及角色感知
+  的加权树编辑 Observation/Reward。
+- 保留原有 SymbolEngine/算符漂移守卫作为 Level 0，由 Agent Runtime 共享，并新增
+  有界重试、连续错误与重复工具调用熔断。
+- `repair_tex` 明确保持为确定性本地语法工具；TeXada 现在只有两个模型角色：
+  MiniCPM5-1B 负责规划/文本，MiniCPM-V 4.6 负责 OCR。
+- 桌面 NL 主路径切换到 `/api/agent`，并加入可展开的执行轨迹，便于本地 E2E。
+- OCR 与补全候选也统一进入 MiniCPM5 Agent Runtime；三个产品入口现在都会返回
+  candidate intake、工具 Observation、语义状态、停止原因与可见执行轨迹。
+- OCR 现在会从视觉模型 reasoning 字段回退提取公式，并对空输出进行一次有界重试；
+  若仍为空会返回明确服务错误，不再触发未捕获的空候选异常。
+- 新增参考 CC Switch 请求账本思想的运行日志：唯一 run ID、索引筛选、成功/失败
+  对称记录、Agent trace 详情，以及与结果历史关联。
+- 完整备份升级为 schema v2，并支持运行日志、结果历史、自定义预设独立 JSON
+  导入导出。
+- 为 SymbolEngine 已锁定的积分阶数与积分域加入确定性结构快速路径：真实二重积分
+  E2E 从约 106 秒降至约 4.8 秒，并阻止 `in region D` 等自然语言泄漏进语法合法
+  但结构错误的公式。
+- 为高置信度的区间求和、商式极限、偏导、多重积分、分式、简单运算、组合幂、
+  根式和显式行内 LaTeX 增加零 token 确定性候选。
+- 为常见 LaTeX 命令前缀和可安全修复的残缺公式增加即时补全规则，同时保留
+  compile/render 工具 Observation。
+- 归一化 OCR 候选中常见的 MiniCPM 转义伪影，并让结构化中文输入兼容句末标点
+  以及“加上”“乘以”“趋近于”等自然同义表达。
+- 运行日志改为分页轻量摘要、展开后按需加载 trace，分别显示请求状态与公式有效性；
+  默认不限量保留，也可显式配置上限。
+- 窗口跟随光标改用 Tauri 原生显示器 API；测试依赖加入 `httpx2`，Pillow 更新至
+  12.3.0。
+
 ## 0.2.6 - 2026-07-20
 
 - Added Settings -> Data controls for full backup export/import, history export/import, and confirmed history clearing.

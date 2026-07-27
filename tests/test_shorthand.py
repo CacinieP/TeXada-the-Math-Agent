@@ -1,4 +1,6 @@
 """Test ShorthandStore — built-in and user-defined shorthands."""
+import pytest
+
 from texada.config import TeXadaConfig
 from texada.store.shorthand import ShorthandStore
 
@@ -62,7 +64,19 @@ def test_shorthand_import_exports_user_defined_only(tmp_path):
         "": "empty-key",
     })
 
-    assert result == {"imported": 1, "skipped": 2}
+    assert result == {"imported": 1, "skipped": 2, "cleared": 0}
     assert store.lookup("custom") == "x^2"
     assert store.lookup("euler") == "e^{i\\pi}+1=0"
     assert store.list_user_defined() == {"custom": "x^2"}
+
+
+def test_shorthand_rejects_builtin_replacement_and_non_formula_content(tmp_path):
+    store = ShorthandStore(TeXadaConfig(data_dir=tmp_path))
+
+    with pytest.raises(ValueError, match="cannot be replaced"):
+        store.add("euler", "x")
+    with pytest.raises(ValueError):
+        store.add("prose", "这不是一个公式")
+
+    assert store.lookup("euler") == "e^{i\\pi}+1=0"
+    assert not store.has("prose")

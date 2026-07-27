@@ -158,6 +158,7 @@ struct ConvertPayload {
 
 #[derive(serde::Deserialize, serde::Serialize)]
 struct ConvertResponse {
+    run_id: String,
     latex: String,
     katex_html: Option<String>,
     copy_text: String,
@@ -166,6 +167,11 @@ struct ConvertResponse {
     intent: String,
     confidence: f64,
     latency_ms: f64,
+    tokens_used: usize,
+    agent_trace: Option<Vec<serde_json::Value>>,
+    semantic_document: Option<serde_json::Value>,
+    semantic_diff: Option<serde_json::Value>,
+    stop_reason: Option<String>,
 }
 
 #[tauri::command]
@@ -242,7 +248,7 @@ async fn convert_text(
     text: String,
     render_mode: Option<String>,
 ) -> Result<ConvertResponse, String> {
-    post_text("/api/convert", text, render_mode).await
+    post_text("/api/agent", text, render_mode).await
 }
 
 #[tauri::command]
@@ -469,75 +475,18 @@ fn toggle_window(app: &tauri::AppHandle) {
     }
 }
 
-#[cfg(target_os = "macos")]
-fn position_window_near_cursor(window: &tauri::WebviewWindow) {
-    use cocoa::appkit::NSScreen;
-    use cocoa::base::nil;
-    use objc::runtime::Object;
-    use objc::{class, msg_send, sel, sel_impl};
-    use tauri::PhysicalPosition;
-
-    unsafe {
-        let Ok(ns_window_ptr) = window.ns_window() else {
-            return;
-        };
-        let ns_window = ns_window_ptr as *mut Object;
-
-        // Get mouse location in screen coordinates (bottom-left origin)
-        let mouse_location: cocoa::foundation::NSPoint = msg_send![class!(NSEvent), mouseLocation];
-
-        // Get screen containing mouse
-        let screens: *mut Object = NSScreen::screens(nil);
-        let count: usize = msg_send![screens, count];
-        let mut target_screen: *mut Object = nil;
-        for i in 0..count {
-            let screen: *mut Object = msg_send![screens, objectAtIndex:i];
-            let frame: cocoa::foundation::NSRect = msg_send![screen, frame];
-            let contains_mouse = mouse_location.x >= frame.origin.x
-                && mouse_location.x <= frame.origin.x + frame.size.width
-                && mouse_location.y >= frame.origin.y
-                && mouse_location.y <= frame.origin.y + frame.size.height;
-            if contains_mouse {
-                target_screen = screen;
-                break;
-            }
-        }
-
-        if target_screen.is_null() {
-            target_screen = msg_send![screens, objectAtIndex:0];
-        }
-
-        let screen_frame: cocoa::foundation::NSRect = msg_send![target_screen, frame];
-        let window_frame: cocoa::foundation::NSRect = msg_send![ns_window, frame];
-
-        // Convert to top-left origin
-        let screen_height = screen_frame.size.height;
-        let mut x = mouse_location.x - window_frame.size.width / 2.0;
-        let mut y = screen_height - mouse_location.y + 16.0; // 16px above cursor
-
-        // Clamp to screen bounds
-        if x < screen_frame.origin.x {
-            x = screen_frame.origin.x + 8.0;
-        }
-        if x + window_frame.size.width > screen_frame.origin.x + screen_frame.size.width {
-            x = screen_frame.origin.x + screen_frame.size.width - window_frame.size.width - 8.0;
-        }
-        if y + window_frame.size.height > screen_height {
-            y = screen_height - mouse_location.y - window_frame.size.height - 8.0;
-        }
-        if y < 0.0 {
-            y = 8.0;
-        }
-
-        let _ = window.set_position(PhysicalPosition::new(x as i32, y as i32));
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
 fn position_window_near_cursor(window: &tauri::WebviewWindow) {
     use tauri::PhysicalPosition;
 
-    let Ok(Some(monitor)) = window.current_monitor() else {
+    let Ok(cursor) = window.cursor_position() else {
+        return;
+    };
+    let monitor = window
+        .monitor_from_point(cursor.x, cursor.y)
+        .ok()
+        .flatten()
+        .or_else(|| window.current_monitor().ok().flatten());
+    let Some(monitor) = monitor else {
         return;
     };
     let Ok(window_size) = window.outer_size() else {
@@ -552,10 +501,13 @@ fn position_window_near_cursor(window: &tauri::WebviewWindow) {
     let right = left + work_area.size.width as i32;
     let bottom = top + work_area.size.height as i32;
 
-    let centered_x = left + ((work_area.size.width as i32 - width) / 2).max(8);
-    let y = top + 72;
-    let x = centered_x.clamp(left + 8, (right - width - 8).max(left + 8));
-    let y = y.clamp(top + 8, (bottom - height - 8).max(top + 8));
+    let mut x = cursor.x.round() as i32 - width / 2;
+    let mut y = cursor.y.round() as i32 + 16;
+    if y + height > bottom - 8 {
+        y = cursor.y.round() as i32 - height - 16;
+    }
+    x = x.clamp(left + 8, (right - width - 8).max(left + 8));
+    y = y.clamp(top + 8, (bottom - height - 8).max(top + 8));
 
     let _ = window.set_position(PhysicalPosition::new(x, y));
 }

@@ -74,10 +74,14 @@ class BackendManager:
             await self._ensure_ollama_running_or_startable()
 
         models = await self._list_models()
-        missing = self._missing_local_models(models, include_vision=True)
-        if missing:
-            commands = " && ".join(self._pull_command(model) for model in missing)
-            raise RuntimeError(f"Ollama 模型未安装: {', '.join(missing)}。请运行: {commands}")
+        vision_model = self.config.vision_model_name.strip()
+        if not vision_model:
+            raise RuntimeError("OCR 视觉模型名称未配置")
+        if not self._model_installed(vision_model, models):
+            raise RuntimeError(
+                f"Ollama 模型未安装: {vision_model}。请运行: "
+                f"{self._pull_command(vision_model)}"
+            )
 
         self._ready = True
         return True

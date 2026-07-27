@@ -31,18 +31,21 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `.gitignore` | Excludes local caches, virtual environments, build outputs, logs, runtime artifacts, and generated bundles. |
 | `pyproject.toml` | Python package metadata, dependencies, optional dev tools, hatch build settings, Ruff, and pytest config. |
 | `uv.lock` | Locked Python dependency snapshot for reproducible `uv` installs. |
-| `package.json` | Node metadata and KaTeX CLI dependency used by rendering validation. |
-| `package-lock.json` | Locked npm dependency snapshot for KaTeX and its CLI dependency. |
+| `package.json` | Node metadata and the pinned KaTeX source dependency used to maintain the vendored browser/V8 asset. |
+| `package-lock.json` | Locked npm dependency snapshot for the pinned KaTeX source package. |
 
 ## Documentation / 文档
 
 | File | Purpose |
 |------|---------|
 | `docs/README.md` | Documentation index grouping technical docs and root-level community/release files. |
+| `docs/design-evolution.md` | Long-form Chinese design rationale and verified per-version architecture Diff from the original prototype through v0.3.0. |
 | `docs/architecture.md` | High-level architecture, model/backend choices, desktop shell, configuration, and CI overview. |
+| `docs/e2e-manual.md` | Human and automated local E2E checklist for the Agent Runtime path. |
 | `docs/audit.md` | Source audit scope, stale-code removals, remediation history, and intentional defaults. |
 | `docs/file-inventory.md` | This file-by-file source map. |
 | `docs/technical-report.md` | Technical rationale, model selection, deterministic pipeline design, performance measurements, and known limitations. |
+| `docs/technical-report-v0.1.md` | Archived pre-Agent technical report retained as historical design evidence. |
 
 ## Python Backend / Python 后端
 
@@ -54,21 +57,34 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `src/texada/config.py` | Pydantic settings from environment and `~/.texada/config.json`, including Ollama/cloud/UI persistence. |
 | `src/texada/sidecar.py` | FastAPI entry point packaged into the desktop installer as the bundled backend sidecar. |
 | `src/texada/types.py` | Shared enums and dataclasses for routing, rendering, validation, conversion, history, and legacy compatibility. |
+| `src/texada/agent/__init__.py` | Lightweight Agent Runtime package marker. |
+| `src/texada/agent/protocol.py` | Official MiniCPM5 XML and OpenAI tool-call normalization. |
+| `src/texada/agent/runtime.py` | Planner, tool routing, observations, state, and final runtime guard. |
 | `src/texada/core/__init__.py` | Core package marker. |
 | `src/texada/core/backend.py` | Ollama/OpenAI-compatible readiness checks, model presence detection, custom port handling, and status payloads. |
 | `src/texada/core/fixer.py` | Deterministic LaTeX repair for common brace, environment, and command mistakes. |
 | `src/texada/core/intent.py` | Regex-based intent classifier for math categories without model calls. |
 | `src/texada/core/model.py` | OpenAI-compatible chat wrapper for text, completion, vision OCR, timeout handling, and LaTeX extraction. |
+| `src/texada/core/operator_guard.py` | Shared Level 0 operator-preservation guard for the router and Agent Runtime. |
 | `src/texada/core/ocr.py` | OCR pipeline wrapper around the configured vision model. |
 | `src/texada/core/prompts.py` | System prompts and intent-specific few-shot examples for NL, completion, and OCR. |
+| `src/texada/core/repair.py` | Deterministic repair service used by `repair_tex`; no model invocation. |
 | `src/texada/core/router.py` | Request routing across natural language, completion, OCR, shorthand, validation/fix, rendering, and drift retry. |
 | `src/texada/core/symbols.py` | Deterministic Chinese math term to LaTeX pre-translation table. |
 | `src/texada/core/validator.py` | Multi-layer LaTeX validation using braces, environments, commands, and optional KaTeX parsing. |
+| `src/texada/semantic/__init__.py` | Semantic math-unit public exports. |
+| `src/texada/semantic/model.py` | Semantic document, unit, change, and diff data model. |
+| `src/texada/semantic/katex.py` | Pinned KaTeX AST bridge in a reusable mini-racer V8 context. |
+| `src/texada/semantic/parser.py` | KaTeX AST normalization plus malformed-input recovery parser. |
+| `src/texada/semantic/diff.py` | Role-aware weighted ordered-tree comparison and reward. |
+| `src/texada/tools/__init__.py` | TeX tool package public exports. |
+| `src/texada/tools/registry.py` | Six single-purpose tool implementations, schemas, and tool router. |
 | `src/texada/render/__init__.py` | Render package marker. |
 | `src/texada/render/engine.py` | KaTeX and pure-LaTeX render mode engine plus copy text delimiters. |
 | `src/texada/render/highlighter.py` | Lightweight semantic LaTeX highlighter for pure source mode. |
 | `src/texada/store/__init__.py` | Store package marker. |
 | `src/texada/store/history.py` | SQLite-backed conversion history store with cleanup support. |
+| `src/texada/store/run_log.py` | Indexed SQLite request ledger for success/error runs, Agent trace, filtering, correlation, and JSON portability. |
 | `src/texada/store/shorthand.py` | Built-in and user-defined shorthand formula store backed by JSON. |
 
 ## Desktop Frontend And Shell / 桌面前端与壳
@@ -114,17 +130,23 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | File | Purpose |
 |------|---------|
 | `tests/test_api.py` | FastAPI route, CORS, runtime, upload, settings, and key-safety tests. |
+| `tests/test_agent_protocol.py` | MiniCPM5 native XML and OpenAI tool-call parser tests. |
+| `tests/test_agent_runtime.py` | Planner → Tool → Observation multi-step execution tests. |
 | `tests/test_backend.py` | Backend readiness/status tests for OpenAI-compatible config and Ollama missing-model states. |
 | `tests/test_e2e.py` | Optional live API E2E tests gated by `TEXADA_RUN_E2E=1`. |
 | `tests/test_fixer.py` | LaTeX auto-fixer tests. |
+| `tests/test_frontend_contract.py` | Static desktop DOM-ID and data-portability wiring contracts. |
 | `tests/test_highlighter.py` | Pure LaTeX syntax highlighter tests. |
 | `tests/test_history.py` | SQLite history store tests. |
+| `tests/test_run_log.py` | Run-ledger persistence, legacy migration, trace correlation, failure logging, and preset portability tests. |
 | `tests/test_intent.py` | Regex intent classifier tests. |
 | `tests/test_operator_drift.py` | Regression tests for dropped/downgraded math operators. |
 | `tests/test_render_engine.py` | KaTeX/pure-LaTeX render mode and delimiter tests. |
 | `tests/test_router.py` | Input routing, shorthand, model-call dispatch, render isolation, and memory-isolation tests. |
 | `tests/test_shorthand.py` | Built-in and custom shorthand persistence tests. |
+| `tests/test_semantic.py` | Semantic-unit parsing and structural diff tests. |
 | `tests/test_symbols.py` | Deterministic symbol pre-translation tests. |
+| `tests/test_tools.py` | Independent tool contracts, repair boundary, rendering, and export tests. |
 | `tests/test_validator.py` | LaTeX validator tests for braces, environments, and command parsing. |
 
 ## Current Conclusion / 当前结论

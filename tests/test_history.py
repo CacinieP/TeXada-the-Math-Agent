@@ -194,3 +194,27 @@ async def test_history_import_replace_clears_existing_rows(tmp_path):
     entries = await store.export_all()
     assert result["cleared"] == 1
     assert [entry.input_text for entry in entries] == ["new"]
+
+
+@pytest.mark.asyncio
+async def test_history_import_keeps_same_second_runs_with_distinct_run_ids(tmp_path):
+    store = HistoryStore(TeXadaConfig(data_dir=tmp_path))
+    common = {
+        "input_text": "same request",
+        "input_type": "nl",
+        "latex": "x+1",
+        "intent": "generic",
+        "source": "model",
+        "render_mode": "katex",
+        "valid": True,
+        "latency_ms": 1.0,
+        "created_at": "2026-07-20 10:00:00",
+    }
+
+    result = await store.import_entries([
+        HistoryEntry(run_id="run-a", **common),
+        HistoryEntry(run_id="run-b", **common),
+    ])
+
+    assert result == {"imported": 2, "skipped": 0, "cleared": 0}
+    assert {entry.run_id for entry in await store.export_all()} == {"run-a", "run-b"}

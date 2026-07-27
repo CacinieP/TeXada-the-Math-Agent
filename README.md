@@ -21,32 +21,71 @@
 
 ## TeXada
 
-TeXada is a desktop math formula agent for converting natural language, partial LaTeX, and screenshots into usable formula blocks. It is local-first with Ollama + MiniCPM by default, and it can also use any OpenAI API-compatible cloud endpoint.
+TeXada is an on-device, agent-driven structured math editor for converting
+natural language, partial LaTeX, and screenshots into usable formula blocks.
+It deliberately has only two model roles: MiniCPM5-1B handles planning and
+text generation, while MiniCPM-V 4.6 handles image understanding and formula
+OCR. Independently testable TeX tools own parsing, validation, deterministic
+repair, semantic diffing, rendering and export.
+
+```text
+MiniCPM5 Planner → TeX Tool → Observation → MiniCPM5 Planner
+                       |
+                       v
+                 Semantic Unit
+```
+
+MiniCPM5 does not repair invalid formulas itself. `repair_tex` is a
+deterministic local syntax tool, not a third model. See
+[Architecture](docs/architecture.md), [Design Evolution](docs/design-evolution.md),
+and [Local E2E](docs/e2e-manual.md).
+
+The original `SymbolEngine` and Operator-Drift Guard remain Level 0: they pin
+critical operators with near-zero overhead. A pinned KaTeX AST bridge and
+role-aware weighted Semantic Diff form Level 1 when an explicit before/after
+formula exists. Raw natural language is never treated as a reference AST.
 
 ### Highlights
 
 | Capability | Description |
 |------------|-------------|
 | Natural language to LaTeX | Describe a formula and get copyable LaTeX or Markdown |
-| Formula OCR | Paste or drop screenshots and images for formula recognition |
-| Completion | Complete partial LaTeX expressions |
+| Formula OCR | MiniCPM-V proposes a formula; MiniCPM5 reviews it through TeX tools |
+| Completion | Rules or MiniCPM5 propose a completion; the shared Agent validates it |
 | Validation and repair | Check, fix, render and highlight LaTeX |
-| Presets and history | Keep reusable formula presets, search recent conversions, reopen saved results, and reuse prior natural-language or completion inputs |
+| Presets, history, and run logs | Keep reusable presets, reopen results, and inspect each Agent/OCR/completion success or failure with model, latency, tools, and trace |
 | Desktop insertion | Click a formula block to type it at the system cursor |
 | UI controls | Switch language, zoom from 80% to 140%, and drag the floating window |
 | Release packages | macOS DMGs and Windows x64 NSIS installers from GitHub Actions |
+
+### Agent Technical Highlights
+
+| Layer | Technical highlight |
+|-------|---------------------|
+| MiniCPM5-native planning | Accepts MiniCPM5 XML tool calls and normalized OpenAI `tool_calls` without inventing a separate Agent protocol |
+| Six specialist tools | `parse_tex`, `compile_tex`, deterministic `repair_tex`, `semantic_diff`, `render_math`, and `export` have narrow schemas and independent tests |
+| Semantic state | Pinned KaTeX 0.17.0 runs in reusable in-process V8 and is normalized into fractions, roots, integrals, scripts, matrix rows/cells, and other Semantic Units |
+| Two-level guard | Level 0 preserves critical operators and integral rank; Level 1 compares explicit before/after formulas with role-aware weighted structural Diff |
+| Bounded execution | Step limits, repeated-call fingerprints, consecutive-error cutoffs, operator-drift retry limits, request timeouts, and final compile/render guards prevent small-model loops |
+| Deterministic acceleration | High-confidence NL and common completion prefixes take a zero-token path while still producing real compile/render observations |
+| Unified inputs | NL, MiniCPM-V OCR candidates, and completion candidates share one runtime, trace format, stop reasons, and result contract |
+| Observable local runs | A request ledger records run ID, models, latency, tokens, tools, stop reason, formula validity, errors, and expandable Agent trace |
+
+TeXada deliberately does not embed a TeX2TeX repair model. Formula repair is a
+deterministic specialist tool, while experimental repair models can evolve in a
+separate research repository without coupling product runtime or release size.
 
 The Ollama port is configurable. The default is `http://localhost:11434`, but Settings, `~/.texada/config.json`, and `TEXADA_OLLAMA_HOST` can point TeXada at any host or port.
 
 ### Download
 
-Version `0.2.6` is released from the `main` branch.
+Version `0.3.0` is released from the `main` branch.
 
 | Platform | Package |
 |----------|---------|
-| macOS Apple Silicon | `TeXada_0.2.6_aarch64.dmg` |
-| macOS Intel | `TeXada_0.2.6_x64.dmg` |
-| Windows x64 | `TeXada_0.2.6_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.3.0_aarch64.dmg` |
+| macOS Intel | `TeXada_0.3.0_x64.dmg` |
+| Windows x64 | `TeXada_0.3.0_x64-setup.exe` |
 
 Release page: [github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
@@ -81,6 +120,7 @@ TeXada release packages are built for end users. You do not need Python, Node.js
    - Open the `History` tab to search saved natural-language, completion, OCR, and LaTeX results.
    - Use the type filter to focus on `Natural`, `Complete`, or `OCR` records.
    - Click `Reuse input` to send a saved natural-language or completion prompt back to the matching tab for editing and rerun.
+   - Switch to `Run logs` to filter request-level records and expand execution details.
 
 ### Quick Start With Ollama
 
@@ -123,9 +163,10 @@ Do not set the FastAPI address and Ollama address to the same port unless you ar
 |------|---------|-------|
 | Text | `hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M` | Natural language conversion and completion |
 | Vision | `openbmb/minicpm-v4.6:latest` | OCR from screenshots and images |
-| Cloud | any OpenAI-compatible model | User-defined endpoint, text model, vision model and API key |
 
-The vision slot supports MiniCPM-V 4.6, MiniCPM 5 1B compatible vision endpoints, and OpenAI API-compatible cloud vision models.
+These are the only two supported model roles. OpenAI-compatible configuration
+is a transport option for serving the same MiniCPM models through vLLM, SGLang,
+or another compatible endpoint; it does not add a third product model.
 
 Ollama does not have to run on port `11434`. In Settings → Backend → Ollama address, use any reachable endpoint:
 
@@ -179,7 +220,9 @@ Persistent config lives at `~/.texada/config.json`.
   "api_port": 18732,
   "ui_language": "zh",
   "ui_zoom": 1.0,
-  "max_tokens": 2048
+  "max_tokens": 2048,
+  "run_log_max_days": 0,
+  "run_log_max_items": 0
 }
 ```
 
@@ -196,16 +239,17 @@ Persistent config lives at `~/.texada/config.json`.
 | `TEXADA_DISABLE_BUNDLED_BACKEND` | Set to `1` only when you want to manage the FastAPI backend yourself |
 | `TEXADA_API_TIMEOUT_SECS` | Desktop API request timeout |
 | `TEXADA_INFERENCE_TIMEOUT_SECONDS`, `TEXADA_API_REQUEST_TIMEOUT_SECONDS` | Backend model and HTTP timeouts |
+| `TEXADA_AGENT_MAX_STEPS` | Maximum MiniCPM5 planner/tool turns |
 | `TEXADA_UI_LANGUAGE`, `TEXADA_UI_ZOOM` | UI language (`zh` or `en`) and zoom (`0.8` to `1.4`) |
 
 ### Data Backup
 
 TeXada can export and import local data from Settings → Data.
 
-Exports are JSON files and can include conversion history, user-defined presets,
-and non-sensitive settings. API keys are never exported. Imports merge by default
-and skip duplicate history records. Clearing history is available from the same
-Settings section and requires confirmation.
+Exports are JSON files and can include conversion history, request-level run
+logs, user-defined presets, and non-sensitive settings. API keys and OCR image
+bytes are never exported. History, logs, and presets can also be exported or
+imported independently. Imports merge by default and skip duplicates.
 
 See [docs/data-backup.md](docs/data-backup.md) for the JSON format.
 
@@ -293,32 +337,66 @@ TeXada-the-Math-Agent is released under `GPL-3.0-or-later`. See [LICENSE](LICENS
 
 ## TeXada
 
-TeXada 是一个面向数学写作、公式整理和截图识别的桌面公式 Agent。默认本地使用 Ollama + MiniCPM，也支持任何 OpenAI API 兼容的云侧模型。
+TeXada 是一个基于端侧 Agent 的结构化数学编辑器，用于把自然语言、不完整
+LaTeX 和截图转为可用公式块。产品明确只有两个模型角色：MiniCPM5-1B 负责规划、
+工具选择和文本生成，MiniCPM-V 4.6 负责图片理解与公式 OCR；解析、校验、确定性
+修复、语义 Diff、渲染与导出由可独立测试的 TeX 工具负责。
+
+```text
+MiniCPM5 Planner → TeX Tool → Observation → MiniCPM5 Planner
+                       |
+                       v
+                 Semantic Unit
+```
+
+MiniCPM5 不直接修复非法公式；`repair_tex` 是确定性本地语法工具，不是第三个
+模型。详见[架构文档](docs/architecture.md)与
+[设计思路与版本迭代](docs/design-evolution.md)、[本地 E2E 指南](docs/e2e-manual.md)。
+
+原有 `SymbolEngine` 与 Operator-Drift Guard 被保留为 Level 0，以近乎零开销
+锁定关键算符；固定版本的 KaTeX AST 桥与角色感知的加权 Semantic Diff 构成
+Level 1，但只在明确存在 before/after 公式时启用，不会把自然语言伪装成参考 AST。
 
 ### 亮点
 
 | 能力 | 说明 |
 |------|------|
 | 自然语言转 LaTeX | 输入公式描述，生成可复制的 LaTeX 或 Markdown |
-| 公式 OCR | 粘贴或拖入截图/图片来识别公式 |
-| 公式补全 | 补全未写完的 LaTeX 表达式 |
+| 公式 OCR | MiniCPM-V 产出候选，MiniCPM5 再通过 TeX 工具审查 |
+| 公式补全 | 规则或 MiniCPM5 产出候选，再由统一 Agent 校验 |
 | 校验与修复 | 检查、修复、渲染并高亮 LaTeX |
-| 预设与历史 | 保存常用公式预设，搜索最近转换记录，重新打开已保存结果，并复用历史自然语言或补全输入 |
+| 预设、历史与运行日志 | 保存预设、重新打开结果，并检查每次 Agent/OCR/补全成功或失败的模型、耗时、工具与轨迹 |
 | 桌面键入 | 点击公式块即可在系统当前光标处键入公式 |
 | 界面控制 | 设置页切换中英文、80% 到 140% 缩放、拖动浮窗 |
 | 安装包发布 | GitHub Actions 构建 macOS DMG 和 Windows x64 NSIS 安装包 |
+
+### Agent 技术亮点
+
+| 层级 | 技术亮点 |
+|------|----------|
+| MiniCPM5 原生规划 | 同时接收 MiniCPM5 XML tool calling 与标准化 OpenAI `tool_calls`，不另造一套 Agent 协议 |
+| 六个专家工具 | `parse_tex`、`compile_tex`、确定性 `repair_tex`、`semantic_diff`、`render_math`、`export` 均有窄 schema 和独立测试 |
+| 结构化状态 | 固定 KaTeX 0.17.0 在可复用进程内 V8 中运行，并归一化为分式、根式、积分、上下标、矩阵行列等 Semantic Unit |
+| 两级守卫 | Level 0 保留关键算符和积分阶数；Level 1 对明确的 before/after 公式执行角色感知加权结构 Diff |
+| 有界执行 | 步数上限、重复调用指纹、连续错误截断、算符漂移重试上限、请求超时与最终 compile/render guard 防止小模型循环 |
+| 确定性加速 | 高置信度 NL 和常见补全前缀走零 token 路径，但仍生成真实 compile/render Observation |
+| 三入口统一 | NL、MiniCPM-V OCR 候选、补全候选共用 Runtime、trace、stop reason 与结果合约 |
+| 本地可观察性 | 请求账本记录 run ID、模型、耗时、token、工具、停止原因、公式有效性、错误和可展开 Agent trace |
+
+TeXada 不内置 TeX2TeX 修复模型。公式修复由确定性专家工具负责，实验性修复模型可在
+独立研究仓库演进，不与产品 Runtime 和安装包体积耦合。
 
 Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可以在设置页、`~/.texada/config.json` 或 `TEXADA_OLLAMA_HOST` 中改为任意主机和端口。
 
 ### 下载
 
-版本 `0.2.6` 从 `main` 分支发布。
+版本 `0.3.0` 从 `main` 分支发布。
 
 | 平台 | 安装包 |
 |------|--------|
-| macOS Apple Silicon | `TeXada_0.2.6_aarch64.dmg` |
-| macOS Intel | `TeXada_0.2.6_x64.dmg` |
-| Windows x64 | `TeXada_0.2.6_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.3.0_aarch64.dmg` |
+| macOS Intel | `TeXada_0.3.0_x64.dmg` |
+| Windows x64 | `TeXada_0.3.0_x64-setup.exe` |
 
 Release 页面：[github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
@@ -353,6 +431,7 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
    - 打开 `历史` 页签，搜索保存过的自然语言、补全、OCR 和 LaTeX 结果。
    - 使用类型筛选专注查看自然语言、补全或 OCR 记录。
    - 点击 `复用输入` 可以把历史自然语言或补全片段送回对应页签，继续编辑或重新生成。
+   - 切换到 `运行日志`，可以筛选请求并展开查看执行详情。
 
 ### Ollama 快速启动
 
@@ -395,9 +474,9 @@ TeXada 使用两层本地 HTTP 服务。它们通常应该是不同端口：
 |------|----------|------|
 | 文本 | `hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M` | 自然语言转换和补全 |
 | 视觉 | `openbmb/minicpm-v4.6:latest` | 从截图和图片识别公式 |
-| 云侧 | 任意 OpenAI API 兼容模型 | 自定义 endpoint、文本模型、视觉模型和 API key |
 
-视觉模型位支持 MiniCPM-V 4.6、MiniCPM 5 1B 兼容视觉端点，以及 OpenAI API 兼容的云侧视觉模型。
+产品只支持这两个模型角色。OpenAI-compatible 配置只是让同一组 MiniCPM 模型可以
+通过 vLLM、SGLang 或其他兼容 endpoint 部署，不会引入第三个产品模型。
 
 Ollama 不必固定在 `11434`。在设置页 → 后端连接 → Ollama 地址里，可以填任意可访问地址：
 
@@ -468,15 +547,18 @@ StepFun Step Plan 示例：
 | `TEXADA_DISABLE_BUNDLED_BACKEND` | 仅当你想自行管理 FastAPI 后端时设为 `1` |
 | `TEXADA_API_TIMEOUT_SECS` | 桌面端 API 请求超时时间 |
 | `TEXADA_INFERENCE_TIMEOUT_SECONDS`, `TEXADA_API_REQUEST_TIMEOUT_SECONDS` | 后端模型推理和 HTTP 请求超时 |
+| `TEXADA_AGENT_MAX_STEPS` | MiniCPM5 Planner/Tool 最大执行轮数 |
+| `TEXADA_RUN_LOG_MAX_DAYS`, `TEXADA_RUN_LOG_MAX_ITEMS` | 运行日志保留上限；默认 `0` 表示不限，完整保留每次运行 |
 | `TEXADA_UI_LANGUAGE`, `TEXADA_UI_ZOOM` | 界面语言（`zh` 或 `en`）和缩放（`0.8` 到 `1.4`） |
 
 ### 数据备份
 
 TeXada 可在 设置 → 数据 中导出和导入本地数据。
 
-导出的 JSON 文件可包含转换历史、用户自定义预设和非敏感设置。API Key 不会
-被导出。导入默认合并，并会跳过重复历史记录。清空历史也在同一区域，需要
-二次确认。
+导出的 JSON 文件可包含转换历史、请求级运行日志、用户自定义预设和非敏感设置。
+API Key 与 OCR 图片原始字节不会被导出。历史、日志与预设也可以单独导入导出；
+导入默认合并并跳过重复项。运行日志默认不限量保留；列表分页加载轻量摘要，
+展开某条记录时才读取完整 Agent 轨迹。
 
 JSON 格式见 [docs/data-backup.md](docs/data-backup.md)。
 

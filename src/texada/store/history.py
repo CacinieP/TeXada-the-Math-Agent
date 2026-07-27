@@ -9,6 +9,7 @@ from texada.types import HistoryEntry
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS history (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id     TEXT NOT NULL DEFAULT '',
     input_text TEXT NOT NULL,
     input_type TEXT NOT NULL,
     latex      TEXT NOT NULL,
@@ -43,6 +44,18 @@ class HistoryStore:
         conn.row_factory = aiosqlite.Row
         if not self._initialized:
             await conn.executescript(SCHEMA)
+            columns = {
+                row["name"]
+                for row in await conn.execute_fetchall("PRAGMA table_info(history)")
+            }
+            if "run_id" not in columns:
+                await conn.execute(
+                    "ALTER TABLE history ADD COLUMN run_id TEXT NOT NULL DEFAULT ''"
+                )
+            await conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_history_run_id ON history(run_id)"
+            )
+            await conn.commit()
             self._initialized = True
         return conn
 
@@ -50,10 +63,10 @@ class HistoryStore:
         conn = await self._get_conn()
         try:
             cursor = await conn.execute_insert(
-                "INSERT INTO history (input_text, input_type, latex, intent, source, "
+                "INSERT INTO history (run_id, input_text, input_type, latex, intent, source, "
                 "render_mode, valid, latency_ms, tokens_used, starred) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (entry.input_text, entry.input_type, entry.latex, entry.intent,
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (entry.run_id, entry.input_text, entry.input_type, entry.latex, entry.intent,
                  entry.source, entry.render_mode, entry.valid, entry.latency_ms,
                  entry.tokens_used, entry.starred),
             )
@@ -103,17 +116,23 @@ class HistoryStore:
                 cleared = max(cursor.rowcount, 0)
 
             for entry in entries:
-                duplicate = await conn.execute_fetchall(
-                    """
-                    SELECT id FROM history
-                    WHERE input_text = ?
-                      AND input_type = ?
-                      AND latex = ?
-                      AND created_at = ?
-                    LIMIT 1
-                    """,
-                    (entry.input_text, entry.input_type, entry.latex, entry.created_at),
-                )
+                if entry.run_id.strip():
+                    duplicate = await conn.execute_fetchall(
+                        "SELECT id FROM history WHERE run_id = ? LIMIT 1",
+                        (entry.run_id,),
+                    )
+                else:
+                    duplicate = await conn.execute_fetchall(
+                        """
+                        SELECT id FROM history
+                        WHERE input_text = ?
+                          AND input_type = ?
+                          AND latex = ?
+                          AND created_at = ?
+                        LIMIT 1
+                        """,
+                        (entry.input_text, entry.input_type, entry.latex, entry.created_at),
+                    )
                 if duplicate:
                     skipped += 1
                     continue
@@ -121,15 +140,16 @@ class HistoryStore:
                 await conn.execute(
                     """
                     INSERT INTO history (
-                        input_text, input_type, latex, intent, source, render_mode,
+                        run_id, input_text, input_type, latex, intent, source, render_mode,
                         valid, latency_ms, tokens_used, starred, created_at
                     )
                     VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                         COALESCE(NULLIF(?, ''), CURRENT_TIMESTAMP)
                     )
                     """,
                     (
+                        entry.run_id,
                         entry.input_text,
                         entry.input_type,
                         entry.latex,
@@ -238,6 +258,7 @@ class HistoryStore:
     def _row_to_entry(row: aiosqlite.Row) -> HistoryEntry:
         return HistoryEntry(
             id=row["id"],
+            run_id=row["run_id"],
             input_text=row["input_text"],
             input_type=row["input_type"],
             latex=row["latex"],

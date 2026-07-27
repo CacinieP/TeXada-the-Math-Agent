@@ -416,7 +416,48 @@ body {
   font-family: var(--font-mono);
 }
 .source-badge.model { background: rgba(85,168,255,.14); color: var(--accent); }
+.source-badge.agent { background: rgba(158,206,106,.14); color: var(--accent-green); }
 .source-badge.shorthand { background: rgba(125,175,255,.14); color: var(--accent-purple); }
+
+.agent-trace {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(4,16,33,.56);
+  overflow: hidden;
+}
+.agent-trace summary {
+  cursor: pointer;
+  padding: 8px 10px;
+  color: var(--text-secondary);
+  font: 600 10px var(--font-ui);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.agent-trace-summary { color: var(--text-muted); font-weight: 400; }
+.agent-trace-list { border-top: 1px solid var(--border); }
+.agent-step {
+  display: grid;
+  grid-template-columns: 28px 100px 1fr 18px;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 9px;
+  border-bottom: 1px solid rgba(85,168,255,.1);
+  font: 10px var(--font-mono);
+}
+.agent-step:last-child { border-bottom: none; }
+.agent-step-index, .agent-step-origin, .agent-no-tool { color: var(--text-muted); }
+.agent-step-tools { display: flex; flex-wrap: wrap; gap: 4px; }
+.agent-step-tools code {
+  color: var(--accent-cyan);
+  background: rgba(85,168,255,.1);
+  border-radius: 3px;
+  padding: 2px 5px;
+}
+.agent-step-status { text-align: right; }
+.agent-step-status.ok { color: var(--accent-green); }
+.agent-step-status.error { color: var(--accent-red); }
 
 /* Actions */
 .action-row {
@@ -667,7 +708,33 @@ body {
   font-size: 10px;
 }
 
-/* History list */
+/* History and request-level run logs */
+.history-view-switch {
+  display: flex;
+  align-items: center;
+  width: calc(100% - 28px);
+  max-width: 920px;
+  margin: 12px auto 0;
+  border-bottom: 1px solid var(--border);
+}
+.history-view-btn {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 7px 12px 6px;
+  font: 700 11px var(--font-ui);
+  cursor: pointer;
+}
+.history-view-btn:hover { color: var(--text-secondary); }
+.history-view-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+#history-results-panel,
+#run-logs-panel {
+  width: 100%;
+}
 .history-toolbar {
   display: flex;
   align-items: center;
@@ -788,6 +855,95 @@ body {
   min-height: 24px;
   padding: 3px 7px;
   font-size: 10px;
+}
+.log-filter-select {
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--control-gradient);
+  color: var(--text-secondary);
+  font: 600 10px var(--font-ui);
+  padding: 0 8px;
+}
+.run-log-item { cursor: pointer; }
+.run-log-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.run-status {
+  border: 1px solid;
+  border-radius: 4px;
+  font: 700 9px var(--font-ui);
+  padding: 1px 5px;
+}
+.run-status.success {
+  color: var(--accent-green);
+  border-color: rgba(158,206,106,.4);
+}
+.run-status.error {
+  color: var(--accent-red);
+  border-color: rgba(247,118,142,.4);
+}
+.run-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 5px;
+  color: var(--text-muted);
+  font: 10px var(--font-mono);
+}
+.run-input,
+.run-output,
+.run-error {
+  margin-top: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 11px var(--font-mono);
+}
+.run-input { color: var(--text-secondary); }
+.run-output { color: var(--accent-cyan); }
+.run-error { color: var(--accent-red); }
+.run-detail {
+  display: none;
+  margin-top: 8px;
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+}
+.run-log-item.expanded .run-detail { display: block; }
+.run-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(80px, 120px) minmax(0, 1fr);
+  gap: 4px 8px;
+  color: var(--text-muted);
+  font: 10px var(--font-mono);
+}
+.run-detail-grid span:nth-child(even) {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.run-trace {
+  max-height: 220px;
+  overflow: auto;
+  margin-top: 7px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(3,13,28,.72);
+  color: var(--text-muted);
+  font: 9px/1.45 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.run-log-more {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 0 14px 14px;
+}
+.run-log-more .action-btn {
+  min-width: 120px;
 }
 @media (max-width: 520px) {
   .history-toolbar {

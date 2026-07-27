@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BIN_DIR = ROOT / "tauri-shell" / "src-tauri" / "binaries"
 RESOURCE_BACKEND_DIR = ROOT / "tauri-shell" / "src-tauri" / "resources" / "texada-backend"
 ENTRYPOINT = ROOT / "src" / "texada" / "sidecar.py"
+KATEX_JAVASCRIPT = ROOT / "tauri-shell" / "src" / "vendor" / "katex" / "katex.min.js"
 MACHO_MAGICS = {
     b"\xfe\xed\xfa\xce",
     b"\xfe\xed\xfa\xcf",
@@ -129,6 +130,8 @@ def build_pyinstaller(target: str) -> Path:
         str(work_dir),
         "--specpath",
         str(work_dir),
+        "--add-data",
+        f"{KATEX_JAVASCRIPT}{os.pathsep}texada/semantic/vendor",
         str(ENTRYPOINT),
     ]
     if is_macos_target(target):
