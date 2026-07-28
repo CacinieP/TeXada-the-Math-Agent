@@ -42,7 +42,7 @@ def test_release_version_is_synchronized_across_python_node_and_tauri():
         package_lock_version,
         cargo_version,
         tauri_version,
-    } == {"0.3.0"}
+    } == {"0.3.1"}
     assert f"v{python_version}" in frontend
 
 

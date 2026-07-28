@@ -161,6 +161,17 @@ async def test_rule_completion_works_without_a_running_backend(tmp_path):
         (r"x+\alp", r"x+\alpha"),
         (r"\frac{a}{b}", r"\frac{a}{b}"),
         (r"\frac{a}{b", r"\frac{a}{b}"),
+        ("a_", r"a_{\placeholder{}}"),
+        ("x^", r"x^{\placeholder{}}"),
+        (r"\int_0^", r"\int_0^{\placeholder{}}"),
+        (r"\frac{}{b}", r"\frac{\placeholder{}}{b}"),
+        (r"\sum_{i=1}^{} x_i", r"\sum_{i=1}^{\placeholder{}} x_i"),
+        (r"x+\alxha", r"x+\alpha"),
+        (r"\frax{a}{b}", r"\frac{a}{b}"),
+        (
+            r"\begin{matrix}a&b\\c&d\end{pmatrix}",
+            r"\begin{pmatrix}a&b\\c&d\end{pmatrix}",
+        ),
     ],
 )
 async def test_deterministic_completion_candidates_skip_generation(

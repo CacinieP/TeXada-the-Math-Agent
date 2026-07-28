@@ -438,8 +438,11 @@ body {
 .agent-trace-list { border-top: 1px solid var(--border); }
 .agent-step {
   display: grid;
-  grid-template-columns: 28px 100px 1fr 18px;
-  align-items: center;
+  grid-template-columns: 28px minmax(0, 1fr) 18px;
+  grid-template-areas:
+    "index origin status"
+    ". tools .";
+  align-items: start;
   gap: 6px;
   min-height: 30px;
   padding: 5px 9px;
@@ -447,15 +450,31 @@ body {
   font: 10px var(--font-mono);
 }
 .agent-step:last-child { border-bottom: none; }
+.agent-step-index { grid-area: index; }
 .agent-step-index, .agent-step-origin, .agent-no-tool { color: var(--text-muted); }
-.agent-step-tools { display: flex; flex-wrap: wrap; gap: 4px; }
+.agent-step-origin {
+  grid-area: origin;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-step-tools {
+  grid-area: tools;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
 .agent-step-tools code {
   color: var(--accent-cyan);
   background: rgba(85,168,255,.1);
   border-radius: 3px;
   padding: 2px 5px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
-.agent-step-status { text-align: right; }
+.agent-step-status { grid-area: status; text-align: right; }
 .agent-step-status.ok { color: var(--accent-green); }
 .agent-step-status.error { color: var(--accent-red); }
 

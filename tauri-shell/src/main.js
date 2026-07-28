@@ -967,6 +967,7 @@
     const rows = trace.map(step => {
       const observations = Array.isArray(step.observations) ? step.observations : [];
       const names = stepToolNames(step);
+      const origin = String(step.origin || 'planner');
       const status = observations.some(observation => !observation.ok) ? 'error' : 'ok';
       const tools = names.length
         ? names.map(name => `<code>${escapeHtml(name)}</code>`).join('')
@@ -974,7 +975,7 @@
       return `
         <div class="agent-step">
           <span class="agent-step-index">#${Number(step.step || 0)}</span>
-          <span class="agent-step-origin">${escapeHtml(step.origin || 'planner')}</span>
+          <span class="agent-step-origin" title="${escapeHtml(origin)}">${escapeHtml(origin)}</span>
           <span class="agent-step-tools">${tools}</span>
           <span class="agent-step-status ${status}">${status === 'ok' ? '✓' : '!'}</span>
         </div>`;

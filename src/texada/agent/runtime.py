@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -371,7 +372,11 @@ class TeXadaAgentRuntime:
                     observation = await self.tools.execute(call.name, call.arguments)
                 observation_data = self._compact_observation(observation)
                 trace_item["observations"].append(observation_data)
-                latest_latex = self._latest_latex(latest_latex, observation)
+                latest_latex = self._latest_latex(
+                    latest_latex,
+                    call.name,
+                    observation,
+                )
                 if call.name == "semantic_diff" and observation.ok:
                     semantic_diff = observation.output
                 if call.name == "repair_tex" and observation.ok:
@@ -464,7 +469,11 @@ class TeXadaAgentRuntime:
                     deterministic,
                 )
             else:
-                latest_latex = await self.model.generate_latex(preprocessed, "generic")
+                intent = self.intent_classifier.classify(user_input).intent
+                latest_latex = await self.model.generate_latex(
+                    preprocessed,
+                    intent,
+                )
                 tokens_used += self._consume_model_tokens()
                 latest_latex = self.operator_guard.normalize_candidate(latest_latex)
                 observation = None
@@ -689,6 +698,21 @@ class TeXadaAgentRuntime:
             if recompile.ok:
                 valid = bool(recompile.output.get("valid"))
 
+        if not valid:
+            trace.append(
+                {
+                    "step": len(trace) + 1,
+                    "origin": "runtime_guard",
+                    "content": "",
+                    "tool_calls": [],
+                    "observations": observations,
+                }
+            )
+            raise RuntimeError(
+                "Agent candidate failed compile_tex validation after "
+                "deterministic repair"
+            )
+
         render = await self.tools.execute(
             "render_math",
             {"latex": latex, "mode": render_mode.value},
@@ -828,7 +852,7 @@ class TeXadaAgentRuntime:
         for key in ("latex", "before", "after"):
             value = arguments.get(key)
             if isinstance(value, str):
-                arguments[key] = self.operator_guard.normalize_candidate(value)
+                arguments[key] = self._sanitize_latex_argument(value)
         if call.name == "render_math":
             mode = arguments.get("mode")
             if isinstance(mode, str) and mode.strip().lower() in {
@@ -841,6 +865,27 @@ class TeXadaAgentRuntime:
             name=call.name,
             arguments=arguments,
         )
+
+    def _sanitize_latex_argument(self, value: str) -> str:
+        """Remove prompt labels accidentally copied into a tool argument."""
+        sanitized = value.strip()
+        markers = (
+            "Deterministic symbol translation (authoritative):",
+            "Candidate LaTeX (authoritative starting state):",
+            "Candidate LaTeX:",
+            "Final LaTeX:",
+            "LaTeX:",
+        )
+        for marker in markers:
+            if marker in sanitized:
+                sanitized = sanitized.rsplit(marker, 1)[1].strip()
+        sanitized = re.sub(
+            r"^(?:formula|candidate|latex)\s*:\s*",
+            "",
+            sanitized,
+            flags=re.IGNORECASE,
+        )
+        return self.operator_guard.normalize_candidate(sanitized)
 
     def _operator_drift_feedback(
         self,
@@ -886,7 +931,14 @@ class TeXadaAgentRuntime:
             "duration_ms": 0.0,
         }
 
-    def _latest_latex(self, current: str, observation: ToolObservation) -> str:
+    def _latest_latex(
+        self,
+        current: str,
+        tool_name: str,
+        observation: ToolObservation,
+    ) -> str:
+        if tool_name not in {"compile_tex", "repair_tex", "render_math"}:
+            return current
         if not observation.ok:
             return current
         latex = observation.output.get("latex")

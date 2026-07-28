@@ -94,6 +94,19 @@ class DeterministicCandidateEngine:
         rf"(?:(?P<operator>加上?|减去?|乘以?)\s*"
         rf"(?P<right>{_ATOM}))?\s*$"
     )
+    _DOT_PRODUCT_EN = re.compile(
+        rf"^\s*dot\s+product\s*\(\s*(?P<left>{_IDENT})\s*,\s*"
+        rf"(?P<right>{_IDENT})\s*\)\s*$",
+        re.IGNORECASE,
+    )
+    _DOT_PRODUCT_ZH = re.compile(
+        rf"^\s*(?:向量\s*)?(?P<left>{_IDENT})\s*(?:和|与)\s*"
+        rf"(?P<right>{_IDENT})\s*的?点乘\s*$"
+    )
+    _INNER_PRODUCT_ZH = re.compile(
+        rf"^\s*(?:向量\s*)?(?P<left>{_IDENT})\s*(?:和|与)\s*"
+        rf"(?P<right>{_IDENT})\s*的?内积\s*$"
+    )
     _TRAILING_PUNCTUATION = " \t\r\n,，。;；"
     _TRAILING_NL_PUNCTUATION = " \t\r\n,，。;；!！?？"
 
@@ -107,6 +120,12 @@ class DeterministicCandidateEngine:
             )
 
         structured_text = text.rstrip(self._TRAILING_NL_PUNCTUATION)
+        concept = self._canonical_concept(structured_text)
+        if concept:
+            return DeterministicCandidate(
+                latex=concept,
+                rule="nl_canonical_concept",
+            )
 
         summation = self._range_sum(structured_text)
         if summation:
@@ -289,6 +308,62 @@ class DeterministicCandidateEngine:
             )
             radicand += f"{operator}{match.group('right')}"
         return rf"\sqrt{{{radicand}}}"
+
+    def _canonical_concept(self, text: str) -> str:
+        """Return a standard formula only for an explicit named concept."""
+        dot = self._DOT_PRODUCT_EN.fullmatch(text)
+        if not dot:
+            dot = self._DOT_PRODUCT_ZH.fullmatch(text)
+        if dot:
+            return rf"{dot.group('left')} \cdot {dot.group('right')}"
+
+        inner = self._INNER_PRODUCT_ZH.fullmatch(text)
+        if inner:
+            return (
+                rf"\langle {inner.group('left')},"
+                rf"{inner.group('right')} \rangle"
+            )
+
+        normalized = re.sub(r"\s+", " ", text.strip()).casefold()
+        concepts = {
+            "inner product": (
+                r"\langle \placeholder{},\placeholder{} \rangle"
+            ),
+            "导数定义": (
+                r"f'(x)=\lim_{h\to 0}"
+                r"\frac{f(x+h)-f(x)}{h}"
+            ),
+            "导数的极限定义式": (
+                r"f'(x)=\lim_{h\to 0}"
+                r"\frac{f(x+h)-f(x)}{h}"
+            ),
+            "极限定义式": r"\lim_{x\to a}f(x)=L",
+            "概率密度函数": (
+                r"f_X(x)\ge 0,\quad "
+                r"\int_{-\infty}^{\infty}f_X(x)\,dx=1"
+            ),
+            "probability density function": (
+                r"f_X(x)\ge 0,\quad "
+                r"\int_{-\infty}^{\infty}f_X(x)\,dx=1"
+            ),
+            "probability denisity function": (
+                r"f_X(x)\ge 0,\quad "
+                r"\int_{-\infty}^{\infty}f_X(x)\,dx=1"
+            ),
+            "连续随机变量": (
+                r"P(a\le X\le b)=\int_a^b f_X(x)\,dx"
+            ),
+            "交叉熵损失": (
+                r"\mathcal{L}_{CE}=-\sum_{i=1}^{n}"
+                r"y_i\log \hat{y}_i"
+            ),
+            "信息熵公式": r"H(X)=-\sum_i p_i\log p_i",
+            "实数域 r": r"\mathbb{R}",
+            "贝叶斯公式": (
+                r"P(A\mid B)=\frac{P(B\mid A)P(A)}{P(B)}"
+            ),
+        }
+        return concepts.get(normalized, "")
 
     @classmethod
     def _restore_bare_commands(cls, candidate: str) -> str:

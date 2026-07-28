@@ -364,35 +364,23 @@ jobs:
             exit 1
           fi
 
+          release_notes="$(
+            awk -v version="$version" '
+              $0 ~ "^## " version " - " { found = 1; next }
+              found && /^## / { exit }
+              found { print }
+            ' CHANGELOG.md
+          )"
+          if [ -z "${release_notes//[[:space:]]/}" ]; then
+            echo "::error::CHANGELOG.md has no release section for ${version}."
+            exit 1
+          fi
+
           {
-          printf 'TeXada Desktop %s\n\n' "$version"
-          cat <<'EOF'
-          English:
-          - Repositions TeXada as an on-device, agent-driven structured math editor.
-          - Adds a MiniCPM5 Planner -> Tool -> Observation runtime with native XML and OpenAI tool-call normalization.
-          - Keeps exactly two model roles: MiniCPM5-1B for planning/text and MiniCPM-V 4.6 for OCR.
-          - Adds parse, compile, deterministic repair, semantic diff, render, and export tools.
-          - Adds pinned KaTeX semantic units, role-aware structural diff, and the Level 0 operator-drift guard.
-          - Routes natural language, OCR, and completion through one observable Agent runtime with bounded loops and visible traces.
-          - Adds zero-token fast paths for high-confidence structured input and common LaTeX completions.
-          - Adds request-level run logs plus schema-v2 import/export for logs, history, presets, and non-sensitive settings.
-          - Includes and auto-starts the TeXada FastAPI backend; the MiniCPM endpoint remains configurable.
-          - Includes signed and notarized macOS DMGs and Windows x64 NSIS installer.
-
-          中文：
-          - 将 TeXada 重新定位为基于端侧 Agent 的结构化数学编辑器。
-          - 新增 MiniCPM5 Planner -> Tool -> Observation 运行时，兼容原生 XML 与 OpenAI tool_calls。
-          - 产品只保留两个模型角色：MiniCPM5-1B 负责规划/文本，MiniCPM-V 4.6 负责 OCR。
-          - 新增解析、编译校验、确定性修复、语义 Diff、渲染和导出六类工具。
-          - 新增固定 KaTeX Semantic Unit、角色感知结构 Diff 与 Level 0 算符漂移守卫。
-          - NL、OCR、补全统一进入可观察 Agent Runtime，并提供有界循环与可见执行轨迹。
-          - 为高置信度结构化输入和常见 LaTeX 补全增加零 token 快速路径。
-          - 新增请求级运行日志，以及日志、历史、预设、非敏感设置的 schema-v2 导入导出。
-          - 安装包内置并自动启动 TeXada FastAPI 后端；MiniCPM endpoint 仍可配置。
-          - 提供已签名并完成 Apple notarization 的 macOS DMG，以及 Windows x64 NSIS 安装包。
-
-          Author: CacinieP
-          EOF
+            printf 'TeXada Desktop %s\n\n' "$version"
+            printf '%s\n\n' "$release_notes"
+            printf '%s\n' 'Installers: signed and notarized macOS arm64/x64 DMGs and Windows x64 NSIS.'
+            printf '%s\n' 'Author: CacinieP'
           } > /tmp/texada-release-notes.md
 
           gh release delete "$release_tag" --cleanup-tag -y || true

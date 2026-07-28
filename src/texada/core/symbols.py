@@ -132,7 +132,7 @@ SYMBOL_MAP: dict[str, str] = {
 }
 
 # Suffixes that indicate a word is used in a non-math compound (e.g. 积分学, 矩阵论)
-_COMPOUND_SUFFIXES = frozenset("学论法方程式表系理性质义题体器列种项")
+_COMPOUND_SUFFIXES = frozenset("学论法方程式表系理性质义题体器列种项定密")
 
 
 class SymbolEngine:

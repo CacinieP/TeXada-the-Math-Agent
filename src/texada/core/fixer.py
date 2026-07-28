@@ -58,19 +58,58 @@ class LaTeXFixer:
         return latex, ""
 
     def _fix_env(self, latex: str) -> tuple[str, str]:
-        """Auto-complete missing \\end{...}."""
-        begins = re.findall(r'\\begin\{(\w+)\}', latex)
-        ends = re.findall(r'\\end\{(\w+)\}', latex)
-        missing = []
-        for env in set(begins):
-            deficit = begins.count(env) - ends.count(env)
-            if deficit > 0:
-                for _ in range(deficit):
-                    latex += f'\\end{{{env}}}'
-                    missing.append(env)
-        if missing:
-            return latex, f"补全 \\end{{{', '.join(set(missing))}}}"
-        return latex, ""
+        """Repair one unambiguous mismatch or append missing end tags."""
+        token_pattern = re.compile(
+            r"\\(?P<kind>begin|end)\{(?P<environment>[^{}]+)\}"
+        )
+        tokens = list(token_pattern.finditer(latex))
+        logs: list[str] = []
+
+        if (
+            len(tokens) == 2
+            and tokens[0].group("kind") == "begin"
+            and tokens[1].group("kind") == "end"
+        ):
+            begin = tokens[0].group("environment")
+            end = tokens[1].group("environment")
+            if begin != end:
+                decorated_matrices = {
+                    "pmatrix",
+                    "bmatrix",
+                    "Bmatrix",
+                    "vmatrix",
+                    "Vmatrix",
+                    "smallmatrix",
+                }
+                if begin == "matrix" and end in decorated_matrices:
+                    latex = latex.replace(
+                        r"\begin{matrix}",
+                        rf"\begin{{{end}}}",
+                        1,
+                    )
+                    logs.append(f"统一矩阵环境 matrix → {end}")
+                else:
+                    latex = latex.replace(
+                        rf"\end{{{end}}}",
+                        rf"\end{{{begin}}}",
+                        1,
+                    )
+                    logs.append(f"统一环境结尾 {end} → {begin}")
+
+        stack: list[str] = []
+        for match in token_pattern.finditer(latex):
+            environment = match.group("environment")
+            if match.group("kind") == "begin":
+                stack.append(environment)
+            elif stack and stack[-1] == environment:
+                stack.pop()
+
+        if stack:
+            for environment in reversed(stack):
+                latex += rf"\end{{{environment}}}"
+            logs.append(f"补全 \\end{{{', '.join(reversed(stack))}}}")
+
+        return latex, "；".join(logs)
 
     def _fix_command(self, latex: str, detail: str) -> tuple[str, str]:
         """Replace known erroneous commands."""

@@ -73,3 +73,15 @@ def test_ocr_and_completion_render_their_agent_traces():
     assert "function inlineAgentTrace(res)" in JAVASCRIPT
     assert JAVASCRIPT.count("${inlineAgentTrace(res)}") == 2
     assert 'intent: res.intent' in JAVASCRIPT
+
+
+def test_agent_trace_origin_cannot_overlap_tool_badges():
+    stylesheet = (ROOT / "tauri-shell" / "src" / "style.css").read_text(
+        encoding="utf-8"
+    )
+
+    assert ".agent-step-origin" in stylesheet
+    assert "text-overflow: ellipsis" in stylesheet
+    assert '"index origin status"' in stylesheet
+    assert '". tools ."' in stylesheet
+    assert 'class="agent-step-origin" title=' in JAVASCRIPT

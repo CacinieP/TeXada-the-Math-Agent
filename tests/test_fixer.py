@@ -22,6 +22,28 @@ def test_fix_missing_end():
     assert "\\end{bmatrix}" in result.latex
 
 
+def test_fix_mismatched_matrix_environment_prefers_decorated_pair():
+    fixer = LaTeXFixer()
+    result = fixer.fix(
+        r"\begin{matrix}a&b\\c&d\end{pmatrix}",
+        [CheckResult(ok=False, type="env_unbalanced", detail="mismatch")],
+    )
+
+    assert result.fixed
+    assert result.latex == r"\begin{pmatrix}a&b\\c&d\end{pmatrix}"
+
+
+def test_fix_mismatched_environment_keeps_opening_environment():
+    fixer = LaTeXFixer()
+    result = fixer.fix(
+        r"\begin{pmatrix}a&b\\c&d\end{bmatrix}",
+        [CheckResult(ok=False, type="env_unbalanced", detail="mismatch")],
+    )
+
+    assert result.fixed
+    assert result.latex == r"\begin{pmatrix}a&b\\c&d\end{pmatrix}"
+
+
 def test_fix_command_replace():
     f = LaTeXFixer()
     result = f.fix("\\begin{array} x \\end{array}", [

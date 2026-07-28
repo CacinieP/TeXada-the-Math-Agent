@@ -12,6 +12,7 @@ from openai import APITimeoutError, BadRequestError, OpenAI
 
 from texada.agent.protocol import MiniCPMToolCallParser, PlannerTurn
 from texada.config import TeXadaConfig
+from texada.core.completion import DeterministicCompletionEngine
 from texada.core.prompts import (
     COMPLETION_PROMPT,
     FEW_SHOT_BY_INTENT,
@@ -20,38 +21,6 @@ from texada.core.prompts import (
 )
 from texada.core.validator import LaTeXValidator
 
-# Rule-based completions for high-frequency LaTeX fragments. Matched against
-# the stripped input's tail (first match wins). MiniCPM5-1B is unreliable on
-# these common patterns (it tends to emit empty braces), so rules take
-# precedence and are instant; the model only handles fragments no rule
-# recognises.
-_RULE_COMPLETIONS: list[tuple[str, str]] = [
-    (r"\\alp$", "ha"),
-    (r"\\bet$", "a"),
-    (r"\\gam$", "ma"),
-    (r"\\del$", "ta"),
-    (r"\\the$", "ta"),
-    (r"\\lam$", "bda"),
-    (r"\\sig$", "ma"),
-    (r"\\ome$", "ga"),
-    (r"\\part$", "ial"),
-    (r"\\sum_\{i=1\}\^\{$", "n} x_i"),
-    (r"\\sum_\{$", "i=1}^{n} x_i"),
-    (r"\\sum$", "_{i=1}^{n} x_i"),
-    (r"\\prod_\{$", "i=1}^{n} x_i"),
-    (r"\\prod$", "_{i=1}^{n} x_i"),
-    (r"\\frac\{$", r"\placeholder{}}{\placeholder{}}"),
-    (r"\\sqrt\{$", r"\placeholder{}}"),
-    (r"\\int$", "_{0}^{1} f(x)\\,dx"),
-    (r"\\int_\{$", "0}^{1} f(x)\\,dx"),
-    (r"\\lim$", "_{x \\to 0}"),
-    (r"\\lim_\{$", "x \\to 0}"),
-    (r"\\mathbb\{$", "R}"),
-    (r"\\mathcal\{$", "L}"),
-    (r"\^\{$", r"\placeholder{}}"),
-    (r"_\{$", r"\placeholder{}}"),
-    (r"\{$", r"\placeholder{}}"),
-]
 FORMULA_MAX_TOKENS = 768
 
 
@@ -68,6 +37,7 @@ class MiniCPMModel:
         self._vision_model = config.active_vision_model_name
         self._tool_parser = MiniCPMToolCallParser()
         self._formula_validator = LaTeXValidator()
+        self._completion_engine = DeterministicCompletionEngine()
         # Request-local telemetry: one shared model instance may serve several
         # concurrent FastAPI tasks, so a plain instance integer would race.
         self._request_tokens: ContextVar[int] = ContextVar(
@@ -348,12 +318,9 @@ class MiniCPMModel:
     # ── Helpers ──
 
     def rule_complete(self, partial: str) -> str | None:
-        """Complete a fragment by exact tail-match against common patterns."""
-        s = partial.strip()
-        for pattern, suffix in _RULE_COMPLETIONS:
-            if re.search(pattern + r"\s*$", s):
-                return s + suffix
-        return None
+        """Complete safe syntax holes without invoking MiniCPM."""
+        completion = self._completion_engine.complete(partial)
+        return completion.latex if completion else None
 
     # Backwards-compatible private alias for tests and extensions.
     _rule_complete = rule_complete

@@ -19,6 +19,10 @@ class LaTeXValidator:
     _WORD = re.compile(r"[A-Za-z]{2,}")
     _MATH_SIGNAL = re.compile(r"[\\=+\-*/^_<>&|()[\]{}]|\d")
     _SENTENCE_PUNCTUATION = re.compile(r"[?!。？！：:]")
+    _MARKUP = re.compile(r"<[^>]+>|<!\[CDATA\[", re.IGNORECASE)
+    _ENV_TOKEN = re.compile(
+        r"\\(?P<kind>begin|end)\{(?P<environment>[^{}]+)\}"
+    )
     _EMPTY_STRUCTURES: tuple[tuple[str, re.Pattern[str]], ...] = (
         (
             "empty_fraction_numerator",
@@ -76,17 +80,49 @@ class LaTeXValidator:
         return CheckResult(ok=True, type="brace_balance")
 
     def _check_env_balance(self, latex: str) -> CheckResult:
-        begins = re.findall(r'\\begin\{(\w+)\}', latex)
-        ends = re.findall(r'\\end\{(\w+)\}', latex)
-        for env in set(begins):
-            if begins.count(env) != ends.count(env):
+        stack: list[str] = []
+        for match in self._ENV_TOKEN.finditer(latex):
+            environment = match.group("environment")
+            if match.group("kind") == "begin":
+                stack.append(environment)
+                continue
+            if not stack:
                 return CheckResult(ok=False, type="env_unbalanced",
-                                   detail=f"\\begin{{{env}}} 有 {begins.count(env)} 个但 "
-                                          f"\\end{{{env}}} 只有 {ends.count(env)} 个")
+                                   detail=f"多余的 \\end{{{environment}}}")
+            expected = stack.pop()
+            if environment != expected:
+                return CheckResult(
+                    ok=False,
+                    type="env_unbalanced",
+                    detail=(
+                        f"环境不匹配：期望 \\end{{{expected}}}，"
+                        f"实际为 \\end{{{environment}}}"
+                    ),
+                )
+        if stack:
+            environment = stack[-1]
+            return CheckResult(
+                ok=False,
+                type="env_unbalanced",
+                detail=f"缺失 \\end{{{environment}}}",
+            )
         return CheckResult(ok=True, type="env_balance")
 
     def _check_formula_content(self, latex: str) -> CheckResult:
         """Reject explanatory prose while allowing text inside explicit text commands."""
+        stripped = latex.strip()
+        if stripped in {"...", "…", r"\cdots", r"\ldots"}:
+            return CheckResult(
+                ok=False,
+                type="non_formula_content",
+                detail="输出只有省略号，不是可用的数学公式",
+            )
+        if self._MARKUP.search(stripped):
+            return CheckResult(
+                ok=False,
+                type="non_formula_content",
+                detail="公式中混入了 HTML/XML 标记",
+            )
         outside_text = self._TEXT_COMMAND.sub("", latex)
         if self._CJK.search(outside_text):
             return CheckResult(

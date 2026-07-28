@@ -43,3 +43,11 @@ def test_decorations():
     assert "\\vec" in result
     assert "\\hat" in result
     assert "\\tilde" in result
+
+
+def test_named_concepts_are_not_corrupted_by_partial_symbol_replacement():
+    engine = SymbolEngine()
+
+    assert engine.pre_translate("导数定义") == "导数定义"
+    assert engine.pre_translate("极限定义式") == "极限定义式"
+    assert engine.pre_translate("概率密度函数") == "概率密度函数"

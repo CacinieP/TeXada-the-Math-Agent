@@ -2,6 +2,46 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.3.1 - 2026-07-28
+
+### English
+
+- Added zero-model completion for bare superscripts/subscripts, empty arguments,
+  empty bounds, and trailing operators using editable `\placeholder{}` slots.
+- Added conservative local correction for uniquely matched common LaTeX command
+  typos and deterministic repair for mismatched environments.
+- Added canonical zero-model candidates for explicit named concepts found during
+  the 200 NL + 200 completion desktop audit.
+- Hardened the Agent Runtime so non-candidate tools cannot replace formula state,
+  intent-aware fallback replaces the old generic fallback, invalid formulas
+  cannot render or finalize, and leaked prompt labels are removed from tool args.
+- Fixed Agent execution trace layout by placing the candidate origin and tool
+  badges on separate rows, preventing `deterministic_candidate`,
+  `compile_tex`, and `render_math` from overlapping in compact windows.
+- Audited 200 NL and 200 completion cases through the real desktop UI. The
+  resulting targeted 59-case regression passes 59/59 with zero model tokens,
+  averaging 8.73 ms and peaking at 261.08 ms.
+- Verified the release candidate with 246 passing tests, 8 optional skips,
+  lockfile validation, Rust checks, a macOS application build, and installed-app
+  Computer Use checks for superscripts, subscripts, and expanded traces.
+
+### 中文
+
+- 为裸上标/下标、空参数、空上下界和尾部运算符新增零模型补全，使用可继续编辑的
+  `\placeholder{}` 占位槽，不再让小模型猜测缺失内容。
+- 为唯一匹配的常见 LaTeX 命令拼写错误加入保守本地纠错，并支持环境不匹配的确定性
+  修复。
+- 根据 200 条 NL 与 200 条补全桌面审计结果，为明确命名的数学概念新增零模型标准
+  候选。
+- 加固 Agent Runtime：非候选工具不能覆盖公式状态；兼容回退会保留真实意图；无效
+  公式不能渲染或作为成功结果返回；工具参数中的提示词标签会被清理。
+- 执行轨迹改为两行布局：第一行显示 `deterministic_candidate` 等来源与状态，第二行
+  单独显示 `compile_tex`、`render_math` 工具标签，彻底修复紧凑窗口中的文字重叠。
+- 通过真实桌面 UI 完成 200 条 NL 与 200 条补全审计；针对发现问题建立的 59 条回归
+  用例全部通过，模型 token 为 0，平均耗时 8.73 ms，最大耗时 261.08 ms。
+- 发布候选已通过 246 项自动化测试（另有 8 项可选跳过）、锁文件校验、Rust 检查、
+  macOS 应用构建，以及安装版 Computer Use 上下标和执行轨迹检查。
+
 ## 0.3.0 - 2026-07-27
 
 - Repositioned TeXada as an on-device, agent-driven structured math editor.

@@ -7,6 +7,7 @@ import pytest
 from texada.agent.protocol import PlannerToolCall, PlannerTurn
 from texada.agent.runtime import TeXadaAgentRuntime
 from texada.config import TeXadaConfig
+from texada.tools import ToolObservation
 from texada.types import RenderMode
 
 
@@ -109,6 +110,20 @@ async def test_runtime_accepts_direct_final_then_applies_guard_tools(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_runtime_rejects_invalid_final_after_deterministic_repair(tmp_path):
+    planner = FakePlanner([PlannerTurn(content="...")])
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    with pytest.raises(RuntimeError, match="failed compile_tex validation"):
+        await runtime.run("unknown request")
+
+
+@pytest.mark.asyncio
 async def test_runtime_uses_zero_model_range_sum_fast_path(tmp_path):
     planner = FakePlanner([])
     runtime = TeXadaAgentRuntime(
@@ -128,6 +143,25 @@ async def test_runtime_uses_zero_model_range_sum_fast_path(tmp_path):
     assert [
         call["name"] for call in result.trace[0]["tool_calls"]
     ] == ["compile_tex", "render_math"]
+    assert planner.seen_messages == []
+    runtime.backend.ensure_ready.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_runtime_uses_zero_model_named_concept_fast_path(tmp_path):
+    planner = FakePlanner([])
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path),
+        model=planner,
+    )
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("贝叶斯公式")
+
+    assert result.valid is True
+    assert result.tokens_used == 0
+    assert result.trace[0]["candidate_rule"] == "nl_canonical_concept"
+    assert r"\frac" in result.latex
     assert planner.seen_messages == []
     runtime.backend.ensure_ready.assert_not_awaited()
 
@@ -399,6 +433,65 @@ async def test_runtime_falls_back_after_two_consecutive_tool_errors(tmp_path):
     assert result.stop_reason == "tool_error_limit"
     assert result.latex == "x+1"
     assert any(item["origin"] == "compatibility_fallback" for item in result.trace)
+
+
+@pytest.mark.asyncio
+async def test_runtime_compatibility_fallback_uses_detected_intent(tmp_path):
+    planner = FakePlanner(
+        [
+            PlannerTurn(
+                tool_calls=[
+                    PlannerToolCall(id="bad_1", name="not_a_tool", arguments={})
+                ]
+            ),
+            PlannerTurn(
+                tool_calls=[
+                    PlannerToolCall(id="bad_2", name="still_not_a_tool", arguments={})
+                ]
+            ),
+        ]
+    )
+    planner.generate_latex = AsyncMock(return_value=r"\det(A)")
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("矩阵 A 的行列式")
+
+    assert result.latex == r"\det(A)"
+    assert planner.generate_latex.await_args.args[1] == "matrix"
+
+
+def test_runtime_sanitizes_prompt_labels_in_tool_arguments(tmp_path):
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path))
+    normalized = runtime._normalize_call(
+        PlannerToolCall(
+            id="compile_label_leak",
+            name="compile_tex",
+            arguments={
+                "latex": (
+                    "Deterministic symbol translation (authoritative):\n"
+                    r"\sum_{i=1}^{n}i"
+                )
+            },
+        )
+    )
+
+    assert normalized.arguments["latex"] == r"\sum_{i=1}^{n}i"
+
+
+def test_non_candidate_tool_outputs_do_not_replace_latest_latex(tmp_path):
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path))
+    observation = ToolObservation(
+        name="parse_tex",
+        ok=True,
+        output={"semantic_document": {"latex": "wrong"}},
+    )
+
+    assert runtime._latest_latex("kept", "parse_tex", observation) == "kept"
 
 
 @pytest.mark.asyncio

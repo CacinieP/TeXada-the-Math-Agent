@@ -45,6 +45,18 @@ def test_env_unbalanced():
     assert any(e.type == "env_unbalanced" for e in r.errors)
 
 
+def test_environment_names_must_match_and_extra_end_is_rejected():
+    validator = LaTeXValidator()
+
+    for value in [
+        r"\begin{pmatrix}a\end{bmatrix}",
+        r"\end{align*}",
+    ]:
+        result = validator.validate(value)
+        assert not result.valid
+        assert any(error.type == "env_unbalanced" for error in result.errors)
+
+
 def test_brace_balanced():
     v = LaTeXValidator()
     r = v.validate("\\int_0^1 f(x) dx")
@@ -89,3 +101,12 @@ def test_placeholder_is_a_supported_local_macro():
 
     assert v.validate(r"\frac{\placeholder{}}{\placeholder{}}").valid
     assert v.validate(r"\sqrt{\placeholder{}}").valid
+
+
+def test_ellipsis_and_markup_are_not_formula_content():
+    validator = LaTeXValidator()
+
+    for value in ["...", "…", r"\cdots", "x^]><![CDATA[<b>2</b>"]:
+        result = validator.validate(value)
+        assert not result.valid
+        assert any(error.type == "non_formula_content" for error in result.errors)

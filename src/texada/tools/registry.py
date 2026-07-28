@@ -205,6 +205,16 @@ class TeXToolset:
 
     async def render_math(self, latex: str, mode: str = "katex") -> dict[str, Any]:
         latex = self._tex(latex)
+        validation = self.validator.validate(latex)
+        if not validation.valid:
+            diagnostics = "; ".join(
+                item.detail or item.error or item.type
+                for item in validation.errors
+            )
+            raise ValueError(
+                "render_math requires validated LaTeX"
+                + (f": {diagnostics}" if diagnostics else "")
+            )
         try:
             render_mode = RenderMode(mode)
         except ValueError as exc:

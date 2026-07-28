@@ -69,6 +69,17 @@ async def test_semantic_diff_render_and_export(tool_router):
 
 
 @pytest.mark.asyncio
+async def test_render_math_rejects_unvalidated_latex(tool_router):
+    rendered = await tool_router.execute(
+        "render_math",
+        {"latex": r"\frac{a}{}", "mode": "katex"},
+    )
+
+    assert not rendered.ok
+    assert "requires validated LaTeX" in rendered.error
+
+
+@pytest.mark.asyncio
 async def test_tool_router_rejects_unknown_tools(tool_router):
     result = await tool_router.execute("delete_everything", {})
 

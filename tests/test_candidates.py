@@ -1,5 +1,7 @@
 """Deterministic candidate extraction regression tests."""
 
+import pytest
+
 from texada.core.candidates import DeterministicCandidateEngine
 
 
@@ -152,3 +154,30 @@ def test_radical_accepts_natural_operator_suffix():
 
     assert candidate is not None
     assert candidate.latex == r"\sqrt{x+1}"
+
+
+@pytest.mark.parametrize(
+    ("text", "required"),
+    [
+        ("dot product(v,m)", (r"\cdot", "v", "m")),
+        ("inner product", (r"\langle", r"\rangle")),
+        ("向量 u 与 v 的内积", (r"\langle", r"\rangle", "u", "v")),
+        ("导数定义", (r"\lim", r"\frac")),
+        ("导数的极限定义式", (r"\lim", r"\frac")),
+        ("极限定义式", (r"\lim",)),
+        ("概率密度函数", ("f_X", r"\int")),
+        ("probability density function", ("f_X", r"\int")),
+        ("probability denisity function", ("f_X", r"\int")),
+        ("连续随机变量", ("X", r"\int")),
+        ("交叉熵损失", (r"\sum", r"\log")),
+        ("信息熵公式", ("H", r"\log")),
+        ("实数域 R", (r"\mathbb{R}",)),
+        ("贝叶斯公式", ("P", r"\frac")),
+    ],
+)
+def test_named_math_concepts_have_canonical_zero_model_candidates(text, required):
+    candidate = DeterministicCandidateEngine().propose(text)
+
+    assert candidate is not None
+    assert candidate.rule == "nl_canonical_concept"
+    assert all(fragment in candidate.latex for fragment in required)
