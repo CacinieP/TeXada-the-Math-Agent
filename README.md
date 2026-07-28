@@ -79,13 +79,13 @@ The Ollama port is configurable. The default is `http://localhost:11434`, but Se
 
 ### Download
 
-Version `0.3.0` is released from the `main` branch.
+Version `0.3.2` is released from the `main` branch.
 
 | Platform | Package |
 |----------|---------|
-| macOS Apple Silicon | `TeXada_0.3.0_aarch64.dmg` |
-| macOS Intel | `TeXada_0.3.0_x64.dmg` |
-| Windows x64 | `TeXada_0.3.0_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.3.2_aarch64.dmg` |
+| macOS Intel | `TeXada_0.3.2_x64.dmg` |
+| Windows x64 | `TeXada_0.3.2_x64-setup.exe` |
 
 Release page: [github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
@@ -274,6 +274,31 @@ See [docs/data-backup.md](docs/data-backup.md) for the JSON format.
 | Cloud mode returns 401/403 | API key, provider base URL, and model name |
 | Clicking a formula copies instead of inserting | Browser mode falls back to copy; desktop insertion also needs OS paste automation permission |
 
+### Experimental CAS Boundary
+
+Version 0.3.2 includes an optional developer-facing CAS scaffold and a
+reproducible capability matrix. It is not connected to the Agent, API, or
+desktop UI, and the six public TeX tools remain unchanged. TeXada therefore
+does not claim to prove arbitrary formula correctness in this release.
+
+The production-direction adapter starts from TeXada Semantic Units and accepts
+only a declared scalar subset. Raw ANTLR/Lark LaTeX parsing exists only in the
+evaluation probes. Unsupported notation is rejected, `.equals() == False`
+never becomes a contradiction by itself, and every positive result records its
+assumptions and evidence path.
+
+Source contributors can run the pinned gate with:
+
+```bash
+uv run --extra dev --extra cas-eval pytest \
+  tests/test_cas_translator.py \
+  tests/test_cas_checker.py \
+  tests/test_cas_capabilities.py
+```
+
+See [the SymPy capability matrix](docs/sympy-capability-matrix.md) for the
+supported boundary, known parser drift, seed policy, and acceptance red lines.
+
 ### Release CI
 
 GitHub Actions builds release installers manually from `main` and automatically from version tags.
@@ -390,13 +415,13 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 
 ### 下载
 
-版本 `0.3.0` 从 `main` 分支发布。
+版本 `0.3.2` 从 `main` 分支发布。
 
 | 平台 | 安装包 |
 |------|--------|
-| macOS Apple Silicon | `TeXada_0.3.0_aarch64.dmg` |
-| macOS Intel | `TeXada_0.3.0_x64.dmg` |
-| Windows x64 | `TeXada_0.3.0_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.3.2_aarch64.dmg` |
+| macOS Intel | `TeXada_0.3.2_x64.dmg` |
+| Windows x64 | `TeXada_0.3.2_x64-setup.exe` |
 
 Release 页面：[github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
@@ -582,6 +607,29 @@ JSON 格式见 [docs/data-backup.md](docs/data-backup.md)。
 | 状态是 `文本可用 · OCR 缺模型` | 按状态 tooltip 拉取视觉模型 |
 | 云侧模式返回 401/403 | API key、provider base URL 和模型名 |
 | 点击公式只复制、不键入 | 浏览器模式会退化为复制；桌面键入还需要系统粘贴自动化权限 |
+
+### 实验性 CAS 能力边界
+
+0.3.2 包含面向开发者的可选 CAS 骨架与可复现能力矩阵，但尚未接入 Agent、API 或
+桌面 UI；公开的六个 TeX 工具保持不变。因此，本版本不宣称能够证明任意公式的数学
+正确性。
+
+生产方向的 adapter 只接收 TeXada Semantic Unit，并仅转换明确声明的标量子集。
+ANTLR/Lark 原始 LaTeX parser 只用于评测探针。未支持的记号会明确拒绝；
+`.equals() == False` 不会独自升级为判错；每个正向结论都会记录 assumptions 和证据
+路径。
+
+源码贡献者可运行固定环境的门禁：
+
+```bash
+uv run --extra dev --extra cas-eval pytest \
+  tests/test_cas_translator.py \
+  tests/test_cas_checker.py \
+  tests/test_cas_capabilities.py
+```
+
+支持边界、已知 parser 漂移、seed 策略与验收红线见
+[SymPy 能力矩阵](docs/sympy-capability-matrix.md)。
 
 ### Release CI
 

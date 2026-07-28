@@ -8,8 +8,9 @@ This directory keeps technical and maintenance documentation. Community health f
 
 | Document | Purpose |
 |----------|---------|
-| [Design evolution](design-evolution.md) / [设计思路与版本迭代](design-evolution.md) | Long-form product, architecture, algorithm, and per-version Diff rationale from the original prototype through v0.3.0. |
+| [Design evolution](design-evolution.md) / [设计思路与版本迭代](design-evolution.md) | Long-form product, architecture, algorithm, and per-version Diff rationale from the original prototype through v0.3.2. |
 | [Architecture](architecture.md) / [架构文档](architecture.md) | System layout, backend model flow, frontend shell, configuration, CI and release shape. |
+| [SymPy capability matrix](sympy-capability-matrix.md) / [SymPy 能力矩阵](sympy-capability-matrix.md) | Generated boundary declaration for the optional, unregistered CAS scaffold, including parser drift, deterministic seed policy, and acceptance red lines. |
 | [Local E2E](e2e-manual.md) / [本地端到端测试](e2e-manual.md) | Human and automated validation for the MiniCPM5 Agent Runtime path. |
 | [Data backup](data-backup.md) / [数据备份](data-backup.md) | JSON export/import format, history merge rules, preset handling, and API key safety. |
 | [Technical report](technical-report.md) / [技术报告](technical-report.md) | Model choice, deterministic pipeline, performance measurements, limitations and future direction. |

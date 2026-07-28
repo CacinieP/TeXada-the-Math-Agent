@@ -1024,6 +1024,21 @@ v0.3.0 发布基线在本地发布前验证中的结果为：
 仓库仍有一个来自第三方 Starlette TestClient 的弃用警告，它不影响当前功能，但后续
 升级 FastAPI/Starlette/httpx 时应处理，避免警告长期变成兼容故障。
 
+v0.3.2 又增加了一层“能力先验收、产品后接入”的 CAS 门禁，但没有改变桌面产品
+行为：
+
+- `src/texada/cas/` 只作为可选、未注册的能力骨架；
+- 生产方向只允许 `Semantic Unit → 白名单 SymPy`，不把 raw LaTeX parser 当权威；
+- 结果拆分为 status、basis、evidence grade、assumptions、witness、seed 与版本；
+- `.equals() == False` 永远只是 observation，有限精确反例才可支持 different；
+- 常驻 worker 每任务重置 seed，并由父进程执行 timeout 与 PID-RSS 限额；
+- `eval/cas_capabilities.yaml` 是机器可读真相源，Markdown 由它生成；
+- 发布候选为 281 项离线测试通过、8 项 live E2E 按设计跳过，CAS 定向 35 项连续
+  五轮通过。
+
+这不代表 v0.3.2 已向用户提供 algebra checker。公开工具仍为六个，Agent、API 与 UI
+均未注册 CAS；它验证的是“目前能够安全支持或拒绝什么”。
+
 ---
 
 ## 13. 架构决策记录
@@ -1096,6 +1111,20 @@ Level 0 成本低、召回关键，Level 1 粒度细，二者互补。
 **原因**：端侧 1B 的循环与格式错误是可预期风险。
 
 **后果**：少数确实需要四轮以上的复杂任务会提前停止，但结果仍可恢复和观察。
+
+### ADR-009：CAS 先作为未注册能力门
+
+**决定**：v0.3.2 允许仓库提前拥有可选 CAS adapter、worker、policy 与评测矩阵，
+但在错误 verified 未稳定为零、能力边界未审计前，不把 `algebra_check` 注册进
+`TeXToolset`、Agent、API 或 UI。
+
+**原因**：raw `parse_latex` 会静默漂移，`.equals()` 的否定结果既不完备又受随机
+采样影响，非有限对象和 assumptions 还会改变结论。先建立白名单与可复现证据契约，
+比先暴露一个看似通用的验证按钮更安全。
+
+**后果**：默认 sidecar 与桌面安装包不引入 SymPy/psutil；源码贡献者可通过
+`cas`/`cas-eval` 可选依赖运行门禁。v0.7 路线仍代表真正的产品接入，而不是本次
+基础设施提交。
 
 ---
 
@@ -1172,10 +1201,11 @@ KaTeX 不能覆盖所有 TeX。建议建立：
 ### 14.5 v0.7：语义等价与 CAS 辅助
 
 当前 spacing 等价已支持，但 `x+y` 与 `y+x`、`\frac{2x}{2}` 与 `x` 仍会被判为
-结构不同。若产品需要“数学等价”，应另建 CAS 层：
+结构不同。v0.3.2 已先建立未注册的白名单 adapter、隔离 worker 与能力矩阵；
+这里的 v0.7 指把经过扩展验证的能力正式接入产品。若产品需要“数学等价”，应继续：
 
-- Semantic Tree → 有限 SymPy expression；
-- 代数 canonicalization；
+- 扩充并版本化 Semantic Tree → 有限 SymPy expression 的白名单；
+- 对每一类代数 canonicalization 建立可审计证据等级；
 - 保留表示层 Diff 与代数等价两个维度；
 - 不支持的表达式明确返回 unknown。
 

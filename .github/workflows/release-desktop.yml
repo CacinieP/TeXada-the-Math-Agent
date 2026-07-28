@@ -31,10 +31,10 @@ jobs:
         run: python -m pip install --upgrade uv
 
       - name: Ruff
-        run: uv run --extra dev ruff check .
+        run: uv run --extra dev --extra cas-eval ruff check .
 
       - name: Pytest
-        run: uv run --extra dev pytest
+        run: uv run --extra dev --extra cas-eval pytest
 
       - name: Python dependency audit
         run: uvx pip-audit --strict

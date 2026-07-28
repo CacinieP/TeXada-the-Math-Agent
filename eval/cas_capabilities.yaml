@@ -1,0 +1,398 @@
+schema_version: 1
+description: >-
+  Reproducible boundary matrix for TeXada's optional CAS adapter. A successful
+  parse in a raw LaTeX backend is a probe result, never production verification.
+
+environment:
+  python: ">=3.12"
+  katex: "0.17.0"
+  sympy:
+    pin: "==1.14.0"
+    version: "1.14.0"
+  antlr4-python3-runtime:
+    pin: "==4.11"
+    version: "4.11.0"
+  lark:
+    pin: "==1.3.1"
+    version: "1.3.1"
+  psutil:
+    pin: ">=6.1,<8"
+    version: "7.2.2"
+
+policy:
+  version: "cas-policy-v1"
+  default_seed: 0
+  equals_false_is_observation: true
+  non_finite_v1_status: unknown
+
+worker_resources:
+  rss_monitor: parent_pid_psutil
+  rss_unit: bytes
+  default_max_rss_bytes: 536870912
+  poll_interval_ms: 50
+  platforms:
+    macos:
+      rlimit_as_authority: false
+      reason: cannot_lower_limit_reliably
+    linux:
+      rlimit_as_authority: false
+      reason: cross_platform_policy_uses_parent_pid_rss
+    windows:
+      rlimit_as_authority: false
+      reason: resource_module_unavailable
+
+cache:
+  ordered_formula_pair: true
+  key_fields:
+    - fingerprint_a
+    - fingerprint_b
+    - assumptions
+    - sympy_version
+    - policy_version
+    - seed
+
+acceptance:
+  maximum_false_verified: 0
+  unsupported_reaches_comparator: false
+  verified_requires_basis: true
+  verified_requires_assumptions_field: true
+  verified_requires_seed: true
+  verified_requires_policy_version: true
+
+semantic_adapter_cases:
+  - id: polynomial_expansion
+    lhs: "x^2+2x+1"
+    rhs: "(x+1)^2"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: equivalent
+      basis: exact_normalization
+      evidence_grade: exact
+
+  - id: trigonometric_identity_symbolic
+    lhs: "\\sin(x)^2+\\cos(x)^2"
+    rhs: "1"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: equivalent
+      basis: sympy_equals_true
+      evidence_grade: symbolic_heuristic
+
+  - id: exact_counterexample
+    lhs: "(x+1)^2"
+    rhs: "x^2+2x+2"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: different
+      basis: exact_counterexample
+      evidence_grade: exact
+      witness:
+        x: 0
+
+  - id: bounded_definite_integral
+    lhs: "\\int_0^1 x^2\\,dx"
+    rhs: "\\frac{1}{3}"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: equivalent
+      basis: exact_normalization
+      evidence_grade: exact
+
+  - id: exact_cube_root
+    lhs: "\\sqrt[3]{8}"
+    rhs: "2"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: equivalent
+      basis: exact_normalization
+      evidence_grade: exact
+
+  - id: equation_constant_factor
+    lhs: "2x=2"
+    rhs: "x=1"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: equivalent
+      basis: equation_constant_factor
+      evidence_grade: exact
+
+  - id: square_root_requires_domain
+    lhs: "\\sqrt{x^2}"
+    rhs: "x"
+    assumptions:
+      x:
+        real: true
+    timeout_ms: 1000
+    expected:
+      status: different
+      basis: exact_counterexample
+      evidence_grade: exact
+      witness:
+        x: -1
+
+  - id: square_root_default_domain
+    lhs: "\\sqrt{x^2}"
+    rhs: "x"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: different
+      basis: exact_counterexample
+      evidence_grade: exact
+      witness:
+        x: -1
+
+  - id: square_root_positive_domain
+    lhs: "\\sqrt{x^2}"
+    rhs: "x"
+    assumptions:
+      x:
+        positive: true
+    timeout_ms: 1000
+    expected:
+      status: equivalent
+      basis: exact_normalization
+      evidence_grade: exact
+
+  - id: square_root_nonnegative_domain
+    lhs: "\\sqrt{x^2}"
+    rhs: "x"
+    assumptions:
+      x:
+        nonnegative: true
+    timeout_ms: 1000
+    expected:
+      status: equivalent
+      basis: exact_normalization
+      evidence_grade: exact
+
+  - id: reject_hat
+    lhs: "\\hat{H}"
+    rhs: "H"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: unsupported
+      reason_code: unsupported_command
+
+  - id: reject_operatorname
+    lhs: "\\operatorname{Var}(X)"
+    rhs: "X"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: unsupported
+      reason_code: unsupported_katex_node
+
+  - id: reject_matrix
+    lhs: "\\begin{pmatrix}1&2\\\\3&4\\end{pmatrix}"
+    rhs: "1"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: unsupported
+      reason_code: structured_environment
+
+  - id: reject_single_bar_braket
+    lhs: "\\langle\\psi|\\hat{H}|\\psi\\rangle"
+    rhs: "H"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: unsupported
+      reason_code: unsupported_symbol
+
+  - id: reject_ambiguous_e_i
+    lhs: "e^{i\\pi}+1"
+    rhs: "0"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: unsupported
+      reason_code: ambiguous_constant_symbol
+
+  - id: reject_sum_v1
+    lhs: "\\sum_{k=1}^{5}k"
+    rhs: "15"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: unsupported
+      reason_code: unsupported_operator
+
+  - id: reject_cases_v1
+    lhs: "\\begin{cases}x&x>0\\\\-x&x\\leq0\\end{cases}"
+    rhs: "x"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: unsupported
+      reason_code: structured_environment
+
+  - id: reject_unbounded_integral_v1
+    lhs: "\\int x\\,dx"
+    rhs: "\\frac{x^2}{2}"
+    assumptions: {}
+    timeout_ms: 1000
+    expected:
+      status: unsupported
+      reason_code: unbounded_integral
+
+raw_parser_probes:
+  - id: cube_root_antlr_exact_rational
+    latex: "\\sqrt[3]{8}"
+    backend: antlr
+    strict: true
+    expected:
+      outcome: parsed
+      type: sympy.core.power.Pow
+      srepr: "Pow(Integer(8), Rational(1, 3))"
+
+  - id: cube_root_lark_evaluated
+    latex: "\\sqrt[3]{8}"
+    backend: lark
+    strict: false
+    expected:
+      outcome: parsed
+      type: sympy.core.numbers.Integer
+      srepr: "Integer(2)"
+
+  - id: pmatrix_antlr_rejected
+    latex: "\\begin{pmatrix}1&2\\\\3&4\\end{pmatrix}"
+    backend: antlr
+    strict: true
+    expected:
+      outcome: error
+      exception: sympy.parsing.latex.errors.LaTeXParsingError
+
+  - id: pmatrix_lark_parsed
+    latex: "\\begin{pmatrix}1&2\\\\3&4\\end{pmatrix}"
+    backend: lark
+    strict: false
+    expected:
+      outcome: parsed
+      type: sympy.matrices.dense.MutableDenseMatrix
+      srepr: "MutableDenseMatrix([[Integer(1), Integer(2)], [Integer(3), Integer(4)]])"
+
+  - id: double_bar_braket_antlr_rejected
+    latex: "\\langle\\psi\\|\\hat{H}\\|\\psi\\rangle"
+    backend: antlr
+    strict: true
+    expected:
+      outcome: error
+      exception: sympy.parsing.latex.errors.LaTeXParsingError
+
+  - id: single_bar_braket_antlr_silent_drift
+    latex: "\\langle\\psi|\\hat{H}|\\psi\\rangle"
+    backend: antlr
+    strict: true
+    expected:
+      outcome: parsed
+      type: sympy.core.mul.Mul
+      srepr: "Mul(Bra(Symbol('psi')), Mul(Symbol('hat'), Mul(Symbol('H'), Ket(Symbol('psi')))))"
+      semantic_warning: hat_is_bare_symbol
+
+  - id: hat_antlr_silent_drift
+    latex: "\\hat{H}"
+    backend: antlr
+    strict: true
+    expected:
+      outcome: parsed
+      type: sympy.core.mul.Mul
+      srepr: "Mul(Symbol('H'), Symbol('hat'))"
+      semantic_warning: accent_is_multiplication
+
+  - id: operatorname_antlr_silent_drift
+    latex: "\\operatorname{Var}(X)"
+    backend: antlr
+    strict: true
+    expected:
+      outcome: parsed
+      type: sympy.core.mul.Mul
+      srepr: "Mul(Symbol('operatorname'), Mul(Symbol('X'), Mul(Symbol('V'), Mul(Symbol('a'), Symbol('r')))))"
+      semantic_warning: operatorname_is_multiplication
+
+  - id: euler_identity_antlr_uses_bare_symbols
+    latex: "e^{i\\pi}+1"
+    backend: antlr
+    strict: true
+    expected:
+      outcome: parsed
+      type: sympy.core.add.Add
+      srepr: "Add(Pow(Symbol('e'), Mul(Symbol('i'), Symbol('pi'))), Integer(1))"
+      semantic_warning: constants_are_symbols
+
+  - id: function_application_lark_ambiguous
+    latex: "f(x)"
+    backend: lark
+    strict: false
+    expected:
+      outcome: parsed
+      type: lark.tree.Tree
+      srepr: "Tree('_ambig', [f(x), f*x])"
+      semantic_warning: function_or_multiplication
+
+  - id: align_antlr_rejected
+    latex: "\\begin{align}x&=1\\\\y&=2\\end{align}"
+    backend: antlr
+    strict: true
+    expected:
+      outcome: error
+      exception: sympy.parsing.latex.errors.LaTeXParsingError
+
+  - id: cases_lark_rejected
+    latex: "\\begin{cases}x&x>0\\\\-x&x\\leq0\\end{cases}"
+    backend: lark
+    strict: false
+    expected:
+      outcome: error
+      exception: lark.exceptions.UnexpectedCharacters
+
+sympy_contract_probes:
+  - id: harmonic_sum_false_before_doit
+    tier: ci
+    expected:
+      equals_before_doit: false
+      doit_srepr: "oo"
+      equals_after_doit: true
+      policy_status: unknown
+      policy_basis: unsafe_evaluation_result
+      policy_reason_code: non_finite_result
+      convergence_observation: divergent
+      forbidden_statuses:
+        - equivalent
+        - different
+
+  - id: definite_integral_true_before_doit
+    tier: ci
+    expected:
+      equals_before_doit: true
+      doit_srepr: "Rational(1, 3)"
+      equals_after_doit: true
+
+  - id: finite_sum_true_before_doit
+    tier: ci
+    expected:
+      equals_before_doit: true
+      doit_srepr: "Integer(15)"
+      equals_after_doit: true
+
+  - id: logarithm_series_slow_equals
+    tier: nightly
+    timeout_ms: 1000
+    expected:
+      outcome: timeout
+
+sympy_random_probes:
+  - id: sqrt_square_equals_symbol
+    expression: "sqrt(x**2).equals(x)"
+    expected_by_seed:
+      0: null
+      1: false
+    repetitions: 3

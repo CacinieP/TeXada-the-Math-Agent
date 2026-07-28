@@ -1,6 +1,6 @@
 [project]
 name = "texada"
-version = "0.3.1"
+version = "0.3.2"
 description = "Local math formula agent powered by MiniCPM"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.12"
@@ -23,6 +23,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+cas = [
+    "psutil>=6.1,<8",
+    "sympy==1.14.0",
+]
+cas-eval = [
+    "antlr4-python3-runtime==4.11",
+    "lark==1.3.1",
+    "psutil>=6.1,<8",
+    "pyyaml>=6.0.2,<7",
+    "sympy==1.14.0",
+]
 dev = [
     "httpx2>=2.9.1",
     "pytest>=8.2",

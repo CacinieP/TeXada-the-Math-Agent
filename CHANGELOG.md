@@ -2,6 +2,70 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.3.2 - 2026-07-28
+
+### English
+
+- Added an experimental, optional CAS capability boundary under
+  `src/texada/cas/`. It is intentionally not registered in `TeXToolset`, the
+  Agent Runtime, the API, or the desktop UI; this release does not advertise a
+  general formula-correctness checker.
+- Added a conservative `Semantic Unit → SymPy` whitelist translator for exact
+  integers/rationals, scalar arithmetic, rational powers and roots, selected
+  elementary functions, simple equations, and bounded definite integrals.
+  Matrices, cases, sums/products, quantum notation, accents,
+  `\operatorname`, ambiguous `e`/`i`, unknown commands, and fallback-parser
+  documents are rejected before comparison.
+- Added auditable CAS results with separate status, evidence basis, and
+  evidence grade (`exact` or `symbolic_heuristic`), plus declared assumptions,
+  exact finite witnesses, task seed, SymPy/policy versions, and a reproducible
+  cache key.
+- Hardened SymPy comparison policy: `.equals() == False` is observation only;
+  exact difference requires finite exact counterevidence; non-finite,
+  piecewise, unevaluated, or timed-out work returns `unknown`/`timeout`.
+  Convergence checks are recorded as auxiliary evidence and never used alone
+  to equate a divergent series with positive infinity.
+- Added a reusable spawned worker process with per-task SymPy seed reset,
+  deadline-triggered kill/restart, and parent-side PID RSS monitoring via
+  `psutil`. The policy does not rely on macOS `RLIMIT_AS`.
+- Added the pinned, machine-readable `eval/cas_capabilities.yaml` matrix for
+  production adapter cases, ANTLR/Lark drift probes, SymPy contract probes,
+  seed reproducibility, assumptions, resource boundaries, and the
+  zero-false-verified acceptance gate.
+- Added generated capability documentation and synchronization checks. SymPy,
+  psutil, ANTLR, Lark, and PyYAML remain optional `cas`/`cas-eval`
+  dependencies, so the default desktop sidecar and installer size are
+  unchanged.
+- Verified the release candidate with Ruff, `git diff --check`, 281 passing
+  tests and 8 optional skips. The 35 focused CAS tests also passed five
+  consecutive runs without a seed-dependent gate flip.
+
+### 中文
+
+- 在 `src/texada/cas/` 新增实验性、可选的 CAS 能力边界。它刻意没有注册进
+  `TeXToolset`、Agent Runtime、API 或桌面 UI；本版本不宣称已经提供通用公式正确性
+  检查器。
+- 新增保守的 `Semantic Unit → SymPy` 白名单转换器，仅覆盖精确整数/有理数、标量
+  四则运算、有理幂与根式、少量初等函数、简单方程和有界定积分。矩阵、cases、
+  求和/乘积、量子记号、重音命令、`\operatorname`、有歧义的 `e`/`i`、未知命令
+  以及 fallback parser 文档都会在进入比较器前明确拒绝。
+- 新增可审计 CAS 结果：结论状态、证据 basis 与证据等级（`exact` 或
+  `symbolic_heuristic`）相互分离，并携带 assumptions、有限精确反例、任务 seed、
+  SymPy/policy 版本和可复现缓存键。
+- 加固 SymPy 比较策略：`.equals() == False` 永远只作 observation；判定不同必须有
+  有限精确反例；非有限、Piecewise、未求值或超时结果统一返回
+  `unknown`/`timeout`。收敛性只作为辅助证据，不能单独把“不收敛”升级为“等于
+  正无穷”。
+- 新增可复用 spawn worker：每个任务重置 SymPy seed，超时后由父进程杀死并重建，
+  并通过 `psutil` 按子进程 PID 轮询 RSS；策略不依赖 macOS `RLIMIT_AS`。
+- 新增固定环境的机器可读能力矩阵 `eval/cas_capabilities.yaml`，覆盖生产 adapter、
+  ANTLR/Lark 静默漂移、SymPy 契约、seed 可复现性、assumptions、资源边界，以及
+  “错误 verified 为 0”的验收红线。
+- 新增由能力矩阵生成的说明文档和同步检查。SymPy、psutil、ANTLR、Lark 与 PyYAML
+  仍只属于可选的 `cas`/`cas-eval` 依赖，默认桌面 sidecar 与安装包体积不变。
+- 发布候选已通过 Ruff、`git diff --check`、281 项自动化测试（另有 8 项可选跳过）；
+  35 项 CAS 定向测试连续运行五轮全部通过，没有出现 seed 导致的门禁翻转。
+
 ## 0.3.1 - 2026-07-28
 
 ### English

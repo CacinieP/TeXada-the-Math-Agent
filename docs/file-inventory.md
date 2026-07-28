@@ -29,23 +29,30 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 |------|---------|
 | `.env.example` | Illustrative environment variables for local Ollama, API, web, and UI configuration. |
 | `.gitignore` | Excludes local caches, virtual environments, build outputs, logs, runtime artifacts, and generated bundles. |
-| `pyproject.toml` | Python package metadata, dependencies, optional dev tools, hatch build settings, Ruff, and pytest config. |
+| `pyproject.toml` | Python package metadata, base dependencies, optional `dev`/`cas`/`cas-eval` groups, hatch build settings, Ruff, and pytest config. |
 | `uv.lock` | Locked Python dependency snapshot for reproducible `uv` installs. |
 | `package.json` | Node metadata and the pinned KaTeX source dependency used to maintain the vendored browser/V8 asset. |
 | `package-lock.json` | Locked npm dependency snapshot for the pinned KaTeX source package. |
+
+## Evaluation Contracts / 评测契约
+
+| File | Purpose |
+|------|---------|
+| `eval/cas_capabilities.yaml` | Pinned machine-readable CAS boundary: Semantic Unit adapter cases, raw parser drift probes, SymPy contracts, seeds, assumptions, cache identity, worker resources, and zero-false-verified acceptance rules. |
 
 ## Documentation / 文档
 
 | File | Purpose |
 |------|---------|
 | `docs/README.md` | Documentation index grouping technical docs and root-level community/release files. |
-| `docs/design-evolution.md` | Long-form Chinese design rationale and verified per-version architecture Diff from the original prototype through v0.3.0. |
+| `docs/design-evolution.md` | Long-form Chinese design rationale and verified per-version architecture Diff from the original prototype through v0.3.2. |
 | `docs/architecture.md` | High-level architecture, model/backend choices, desktop shell, configuration, and CI overview. |
 | `docs/e2e-manual.md` | Human and automated local E2E checklist for the Agent Runtime path. |
 | `docs/audit.md` | Source audit scope, stale-code removals, remediation history, and intentional defaults. |
 | `docs/file-inventory.md` | This file-by-file source map. |
 | `docs/technical-report.md` | Technical rationale, model selection, deterministic pipeline design, performance measurements, and known limitations. |
 | `docs/technical-report-v0.1.md` | Archived pre-Agent technical report retained as historical design evidence. |
+| `docs/sympy-capability-matrix.md` | Generated human-readable view of the optional CAS capability and reproducibility matrix. |
 
 ## Python Backend / Python 后端
 
@@ -60,6 +67,12 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `src/texada/agent/__init__.py` | Lightweight Agent Runtime package marker. |
 | `src/texada/agent/protocol.py` | Official MiniCPM5 XML and OpenAI tool-call normalization. |
 | `src/texada/agent/runtime.py` | Planner, tool routing, observations, state, and final runtime guard. |
+| `src/texada/cas/__init__.py` | Public exports for the optional, unregistered CAS scaffold. |
+| `src/texada/cas/model.py` | Auditable CAS statuses, evidence basis/grade, assumptions, witness, seed, version, and cache-key result model. |
+| `src/texada/cas/translator.py` | Conservative KaTeX Semantic Unit to SymPy whitelist translator; never parses raw LaTeX in the production direction. |
+| `src/texada/cas/policy.py` | Exact-normalization, finite-witness, convergence-observation, non-finite rejection, and `.equals()` evidence policy. |
+| `src/texada/cas/worker.py` | Reusable spawned SymPy worker with per-task seed reset, timeout restart, and parent-observed PID RSS ceiling. |
+| `src/texada/cas/checker.py` | Capability orchestration, optional-dependency degradation, translation gate, worker result mapping, and reproducible cache keys. |
 | `src/texada/core/__init__.py` | Core package marker. |
 | `src/texada/core/backend.py` | Ollama/OpenAI-compatible readiness checks, model presence detection, custom port handling, and status payloads. |
 | `src/texada/core/fixer.py` | Deterministic LaTeX repair for common brace, environment, and command mistakes. |
@@ -122,6 +135,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `scripts/build-backend-sidecar.py` | Builds the real PyInstaller FastAPI sidecar for installers or a generated stub for Tauri `cargo check`. |
 | `scripts/build-windows-app.ps1` | Windows helper for local Tauri NSIS installer builds. |
 | `scripts/generate-app-icons.py` | Generates source PNG, Tauri PNGs, macOS ICNS, and Windows ICO icons. |
+| `scripts/render-cas-capabilities.py` | Generates and verifies the human-readable SymPy capability document from the YAML contract. |
 | `.github/workflows/audit.yml` | CI audit workflow for Python, npm, JS syntax, generated sidecar stubs, and cross-platform Tauri `cargo check`. |
 | `.github/workflows/release-desktop.yml` | Official release workflow for audited Windows NSIS and signed/notarized macOS DMG builds with bundled FastAPI sidecars. |
 
@@ -133,6 +147,9 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `tests/test_agent_protocol.py` | MiniCPM5 native XML and OpenAI tool-call parser tests. |
 | `tests/test_agent_runtime.py` | Planner → Tool → Observation multi-step execution tests. |
 | `tests/test_backend.py` | Backend readiness/status tests for OpenAI-compatible config and Ollama missing-model states. |
+| `tests/test_cas_translator.py` | Whitelist translation coverage and known unsupported notation rejection tests. |
+| `tests/test_cas_checker.py` | Evidence policy, finite witness, deterministic seed, timeout/restart, RSS ceiling, and cache-key tests. |
+| `tests/test_cas_capabilities.py` | Executable YAML capability matrix, pinned backend drift, SymPy contract, and generated-doc synchronization gate. |
 | `tests/test_e2e.py` | Optional live API E2E tests gated by `TEXADA_RUN_E2E=1`. |
 | `tests/test_fixer.py` | LaTeX auto-fixer tests. |
 | `tests/test_frontend_contract.py` | Static desktop DOM-ID and data-portability wiring contracts. |

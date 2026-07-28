@@ -1,6 +1,6 @@
 # TeXada Architecture
 
-Version: v0.3.0. TeXada is an on-device, agent-driven structured
+Version: v0.3.2. TeXada is an on-device, agent-driven structured
 math editor. It is not a LaTeX input method with an LLM bolted on.
 
 TeXada has exactly two model roles:
@@ -161,6 +161,35 @@ The diff algorithm is a role-aware weighted ordered-tree edit:
 4. The observation contains an edit script, weighted cost, normalized distance,
    semantic similarity and the same `[0, 1]` value as `reward`.
 
+## Experimental CAS Capability Boundary
+
+`src/texada/cas/` is an optional v0.3.2 developer capability, not a seventh
+public TeX tool. It is not imported by the Agent, API, desktop UI, or bundled
+sidecar. The default release behavior and installer dependency set therefore
+remain unchanged.
+
+The production direction is deliberately one-way:
+
+```text
+Pinned KaTeX AST → TeXada Semantic Unit → whitelist translator → SymPy core
+```
+
+Raw ANTLR/Lark LaTeX parsing appears only in evaluation probes. The translator
+rejects any unit outside the declared scalar subset before starting a
+comparison. Results separate status from evidence basis/grade and record
+assumptions, exact finite witnesses, task seed, SymPy/policy versions, and
+cache identity.
+
+Potentially non-terminating work runs in one reusable spawned worker. Every task
+resets SymPy's random seed; the parent enforces a deadline and a PID-based RSS
+ceiling, then kills and recreates the worker after a violation. The
+cross-platform policy does not rely on `RLIMIT_AS`.
+
+`eval/cas_capabilities.yaml` is the machine-readable source of truth.
+`docs/sympy-capability-matrix.md` is generated from it. No `algebra_check`
+registration should occur until the supported matrix continues to observe zero
+false verified results and the product exposure is reviewed separately.
+
 ## Deterministic Repair
 
 `src/texada/core/repair.py` is the implementation behind `repair_tex`.
@@ -284,8 +313,14 @@ Important variables:
 
 ## CI And Release
 
-- `Audit`: Ruff, pytest, pip-audit, npm audit, JS syntax check and Tauri `cargo check` on macOS and Windows. The Rust check creates a generated backend stub only to satisfy Tauri `externalBin` resolution.
+- `Audit`: Ruff, pytest (including pinned `cas-eval` capability tests),
+  pip-audit, npm audit, JS syntax check and Tauri `cargo check` on macOS and
+  Windows. The Rust check creates a generated backend stub only to satisfy
+  Tauri `externalBin` resolution.
 - `Desktop Release`: runs pre-release audit, builds the real PyInstaller FastAPI sidecar, builds signed and notarized macOS DMGs plus the Windows NSIS EXE, and publishes the official release assets.
+- The release sidecar installs only the `dev` extra. Because no runtime module
+  imports `texada.cas`, optional SymPy/psutil/ANTLR/Lark/PyYAML dependencies are
+  not bundled into desktop installers.
 - macOS signing and notarization are controlled by repository secrets only. The workflow expects `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_TEAM_ID`, `APPLE_NOTARY_KEY_ID`, `APPLE_NOTARY_ISSUER_ID`, and `APPLE_NOTARY_KEY`; personal certificate contents are not documented in the repo.
 - Source-run shell launchers and macOS LaunchAgent templates are intentionally not kept; packaged desktop releases are the supported user path.
 

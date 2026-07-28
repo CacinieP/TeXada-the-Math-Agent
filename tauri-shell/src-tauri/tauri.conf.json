@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "TeXada",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "identifier": "com.texada.desktop",
   "build": {
     "frontendDist": "../src",

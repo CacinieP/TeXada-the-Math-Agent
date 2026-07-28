@@ -1,7 +1,7 @@
-# TeXada v0.3.0 技术报告
+# TeXada v0.3.2 技术报告
 
-> 版本：v0.3.0
-> 日期：2026-07-27
+> 版本：v0.3.2
+> 日期：2026-07-28
 > 定位：基于端侧 Agent 的结构化数学编辑器
 > 默认模型：MiniCPM5-1B（规划与文本）+ MiniCPM-V 4.6（视觉 OCR）
 
@@ -34,6 +34,10 @@ v0.3.0 同时增加了可观察性和数据可迁移性：每次 NL、OCR、补�
 请求都有唯一 run ID，记录模型、耗时、token、工具调用、停止原因、成功或失败状态
 以及 Agent trace；运行日志、结果历史、自定义预设和非敏感设置支持 schema-v2 JSON
 导入导出。
+
+v0.3.2 保持上述桌面产品行为不变，新增可选、未注册的 CAS 能力边界和可复现评测
+门禁。它先回答“哪些有限标量结构能够被安全转换、比较或拒绝”，不把实验能力提前
+包装成面向用户的通用数学证明功能。
 
 ## 2. 产品边界与设计原则
 
@@ -354,7 +358,15 @@ v0.3.0 发布基线本地验证：
 - `pip-audit --strict` 未发现已知漏洞；
 - wheel 构建成功并包含固定 KaTeX V8 资源；
 - sidecar stub 与 Tauri `externalBin` 检查通过；
-- OpenAPI 版本为 `0.3.0`。
+- OpenAPI 版本为 `0.3.2`。
+
+v0.3.2 的增量发布门禁为：
+
+- 全仓 281 项测试通过，8 项 live E2E 按设计跳过；
+- CAS 定向 35 项连续运行五轮全部通过；
+- `.equals() == False`、非有限对象、seed 与 assumptions 均有机器可读 fixture；
+- `algebra_check` 未注册，默认 sidecar 不打包 CAS 可选依赖；
+- Ruff、`git diff --check` 与生成文档同步检查通过。
 
 正式 tag 还会触发 GitHub Actions，在 macOS ARM、macOS Intel 和 Windows x64 上重新
 执行审计、构建 PyInstaller FastAPI sidecar、生成安装包，并对 macOS DMG 进行
@@ -385,9 +397,9 @@ Developer ID 签名、notarization 和 staple。
 
 | 平台 | 产物 |
 |------|------|
-| macOS Apple Silicon | `TeXada_0.3.0_aarch64.dmg` |
-| macOS Intel | `TeXada_0.3.0_x64.dmg` |
-| Windows x64 | `TeXada_0.3.0_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.3.2_aarch64.dmg` |
+| macOS Intel | `TeXada_0.3.2_x64.dmg` |
+| Windows x64 | `TeXada_0.3.2_x64-setup.exe` |
 
 ## 11. 已知限制
 
@@ -398,6 +410,8 @@ Developer ID 签名、notarization 和 staple。
 4. KaTeX 是渲染导向解析器，不是完整 TeX 宏展开引擎；任意自定义宏和宏包不在当前
    兼容目标内。
 5. Semantic Diff 当前关注结构变化，不声称证明两个数学表达式代数等价。
+6. v0.3.2 的 CAS 代码是可选、未注册的能力与评测骨架，不进入 Agent、API、桌面
+   UI 或默认 sidecar；只有通过白名单的有限标量子集才进入受控比较。
 6. macOS 光标处键入需要辅助功能权限；签名和 notarization 依赖仓库发布 secrets。
 
 ## 12. 后续方向
@@ -412,10 +426,11 @@ Developer ID 签名、notarization 和 staple。
 
 ## 13. 结论
 
-TeXada v0.3.0 的技术价值不是“让一个小模型生成 LaTeX”，而是用清晰边界把小模型
-变成可控 Planner：确定性规则负责高置信度输入，专业工具负责数学编辑操作，
-Semantic Unit 负责结构状态，Runtime Guard 负责失败上限，Run Ledger 负责可观察性
-与复现。
+TeXada v0.3.2 延续 v0.3.0 的核心技术价值：不是“让一个小模型生成 LaTeX”，而是
+用清晰边界把小模型变成可控 Planner。确定性规则负责高置信度输入，专业工具负责
+数学编辑操作，Semantic Unit 负责结构状态，Runtime Guard 负责失败上限，Run
+Ledger 负责可观察性与复现；新增 CAS 骨架则示范了专业能力必须先有可审计边界，
+再进入产品工具层。
 
 这一架构在只保留 MiniCPM5-1B 和 MiniCPM-V 4.6 两个模型角色的前提下，同时获得了
 端侧部署、低成本快速路径、可解释工具轨迹和可持续扩展的数学结构层。它构成了
