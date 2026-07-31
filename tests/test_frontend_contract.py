@@ -27,6 +27,11 @@ def test_history_run_log_and_data_portability_controls_are_wired():
         "run-log-operation",
         "run-log-status",
         "btn-load-more-runs",
+        "btn-refresh-history",
+        "btn-refresh-runs",
+        "ocr-status",
+        "inference-timeout-input",
+        "api-timeout-input",
         "btn-export-backup",
         "btn-import-backup",
         "btn-export-history",
@@ -59,9 +64,72 @@ def test_history_run_log_and_data_portability_controls_are_wired():
     assert "typeof run.valid === 'boolean'" in JAVASCRIPT
 
 
+def test_primary_tabs_and_async_results_are_accessible():
+    assert 'id="tab-bar" role="tablist"' in HTML
+    assert HTML.count('role="tab"') == 6
+    assert HTML.count('role="tabpanel"') == 6
+    assert 'id="ocr-status" role="status" aria-live="polite"' in HTML
+    assert 'id="history-list" role="status" aria-live="polite"' in HTML
+    assert 'id="run-log-list" role="status" aria-live="polite"' in HTML
+    assert "item.setAttribute('aria-selected', String(selected))" in JAVASCRIPT
+    assert "panel.setAttribute('aria-hidden', String(!selected))" in JAVASCRIPT
+    assert "if (e.key === 'ArrowRight')" in JAVASCRIPT
+
+
+def test_slow_operations_show_progress_and_recoverable_load_errors():
+    for message_key in (
+        "ocr.processing",
+        "ocr.failed",
+        "history.loading",
+        "history.loadError",
+        "runs.loading",
+        "runs.loadError",
+    ):
+        assert f"'{message_key}'" in JAVASCRIPT
+
+    assert "ocrElapsedTimer = setInterval(update, 1000)" in JAVASCRIPT
+    assert "els.historyList.setAttribute('aria-busy', 'true')" in JAVASCRIPT
+    assert "els.runLogList.setAttribute('aria-busy', 'true')" in JAVASCRIPT
+    assert "if (!ready && isDesktop) waitForBackendStartup()" in JAVASCRIPT
+
+
+def test_bundled_backend_startup_wait_covers_slow_frozen_imports():
+    assert "let backendStartupPromise = null" in JAVASCRIPT
+    assert "if (backendStartupPromise) return backendStartupPromise" in JAVASCRIPT
+    assert "attempt < 80" in JAVASCRIPT
+    assert "window.location.protocol === 'tauri:'" in JAVASCRIPT
+    assert "if (!ready && isDesktop) waitForBackendStartup()" in JAVASCRIPT
+
+
+def test_frozen_sidecar_collects_the_native_katex_runtime():
+    build_script = (
+        ROOT / "scripts" / "build-backend-sidecar.py"
+    ).read_text(encoding="utf-8")
+
+    assert '"--collect-all"' in build_script
+    assert '"py_mini_racer"' in build_script
+
+
 def test_frontend_uses_the_same_placeholder_macro_as_backend_katex():
     assert "'\\\\placeholder': '\\\\square'" in JAVASCRIPT
     assert "macros: KATEX_MACROS" in JAVASCRIPT
+
+
+def test_shorthand_grid_keeps_katex_previews_inside_the_window():
+    stylesheet = (ROOT / "tauri-shell" / "src" / "style.css").read_text(
+        encoding="utf-8"
+    )
+
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr));" in stylesheet
+    assert re.search(r"\.shorthand-card\s*\{[^}]*min-width:\s*0;", stylesheet, re.S)
+    assert re.search(
+        r"\.shorthand-render\s*\{[^}]*overflow-x:\s*auto;", stylesheet, re.S
+    )
+    assert re.search(
+        r"\.shorthand-render \.katex\s*\{[^}]*margin-inline:\s*auto;",
+        stylesheet,
+        re.S,
+    )
 
 
 def test_agent_trace_count_includes_runtime_guard_tool_observations():

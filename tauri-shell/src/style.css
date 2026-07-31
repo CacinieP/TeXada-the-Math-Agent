@@ -143,6 +143,7 @@ body {
   flex: 0 0 auto;
 }
 .tab-item {
+  appearance: none;
   flex: 1;
   padding: 8px 0;
   text-align: center;
@@ -150,7 +151,10 @@ body {
   font-weight: 500;
   color: var(--text-muted);
   cursor: pointer;
+  background: transparent;
+  border: 0;
   border-bottom: 2px solid transparent;
+  font-family: var(--font-ui);
   transition: var(--transition);
   display: flex;
   align-items: center;
@@ -645,7 +649,7 @@ body {
 }
 .shorthand-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   padding: 0 14px 14px;
   max-height: none;
@@ -655,6 +659,7 @@ body {
   margin: 0 auto;
 }
 .shorthand-card {
+  min-width: 0;
   background: var(--raised-gradient);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -700,12 +705,22 @@ body {
   background: rgba(3,13,28,.46);
   display: flex;
   align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  justify-content: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
   color: #fff;
 }
 .shorthand-render .katex {
+  flex: 0 0 auto;
+  margin-inline: auto;
   font-size: 1.08em;
+}
+.shorthand-render::-webkit-scrollbar {
+  height: 3px;
+}
+.shorthand-render::-webkit-scrollbar-thumb {
+  background: rgba(85,168,255,.36);
+  border-radius: 999px;
 }
 .shorthand-val {
   font-size: 10px;
@@ -725,6 +740,14 @@ body {
   min-height: 24px;
   padding: 3px 7px;
   font-size: 10px;
+}
+
+.operation-status {
+  min-height: 24px;
+  padding: 5px 14px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* History and request-level run logs */
@@ -768,6 +791,14 @@ body {
   min-width: 160px;
   width: auto;
   margin: 0;
+}
+.history-refresh {
+  flex: 0 0 32px;
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  justify-content: center;
+  font-size: 17px;
 }
 .history-filter {
   display: flex;
@@ -1109,6 +1140,11 @@ body {
 }
 .empty-state .icon { font-size: 32px; color: var(--text-muted); }
 .empty-state .text { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+
+.setting-number {
+  width: 110px;
+  flex: 0 0 110px;
+}
 
 /* Pure latex preview */
 .pure-latex {

@@ -119,6 +119,8 @@ class BackendSettingsResponse(BaseModel):
     openai_model_name: str
     openai_vision_model_name: str
     openai_api_key_set: bool
+    inference_timeout_seconds: float
+    api_request_timeout_seconds: float
 
 class BackendSettingsUpdate(BaseModel):
     backend: str | None = Field(default=None, pattern="^(ollama|openai_compatible)$")
@@ -129,6 +131,8 @@ class BackendSettingsUpdate(BaseModel):
     openai_model_name: str | None = Field(default=None, max_length=300)
     openai_vision_model_name: str | None = Field(default=None, max_length=300)
     openai_api_key: str | None = Field(default=None, max_length=4000)
+    inference_timeout_seconds: float | None = Field(default=None, ge=10.0, le=600.0)
+    api_request_timeout_seconds: float | None = Field(default=None, ge=30.0, le=900.0)
 
 
 class UiSettingsResponse(BaseModel):
@@ -222,7 +226,7 @@ def _app_version() -> str:
     try:
         return version("texada")
     except PackageNotFoundError:
-        return "0.3.2"
+        return "0.3.3"
 
 
 def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
@@ -235,6 +239,8 @@ def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
         openai_model_name=config.openai_model_name,
         openai_vision_model_name=config.openai_vision_model_name,
         openai_api_key_set=bool(config.openai_api_key),
+        inference_timeout_seconds=config.inference_timeout_seconds,
+        api_request_timeout_seconds=config.api_request_timeout_seconds,
     )
 
 

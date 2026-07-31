@@ -110,7 +110,7 @@ async def test_runtime_accepts_direct_final_then_applies_guard_tools(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_runtime_rejects_invalid_final_after_deterministic_repair(tmp_path):
+async def test_runtime_returns_invalid_final_with_diagnostics_after_repair(tmp_path):
     planner = FakePlanner([PlannerTurn(content="...")])
     runtime = TeXadaAgentRuntime(
         TeXadaConfig(data_dir=tmp_path),
@@ -119,8 +119,24 @@ async def test_runtime_rejects_invalid_final_after_deterministic_repair(tmp_path
     disable_deterministic_candidates(runtime)
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
 
-    with pytest.raises(RuntimeError, match="failed compile_tex validation"):
-        await runtime.run("unknown request")
+    result = await runtime.run("unknown request")
+
+    assert result.valid is False
+    assert result.latex == "..."
+    assert result.stop_reason == "validation_failed_after_repair"
+    guard = result.trace[-1]
+    assert guard["origin"] == "runtime_guard"
+    assert guard["content"] == "..."
+    assert [item["tool"] for item in guard["observations"]] == [
+        "compile_tex",
+        "repair_tex",
+        "compile_tex",
+    ]
+    assert any(
+        diagnostic["type"] == "non_formula_content"
+        for item in guard["observations"]
+        for diagnostic in item.get("output", {}).get("diagnostics", [])
+    )
 
 
 @pytest.mark.asyncio
@@ -162,6 +178,37 @@ async def test_runtime_uses_zero_model_named_concept_fast_path(tmp_path):
     assert result.tokens_used == 0
     assert result.trace[0]["candidate_rule"] == "nl_canonical_concept"
     assert r"\frac" in result.latex
+    assert planner.seen_messages == []
+    runtime.backend.ensure_ready.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "required"),
+    [
+        ("二重积分", (r"\iint", r"\placeholder")),
+        ("三重积分", (r"\iiint", r"\placeholder")),
+        ("分段函数", (r"\begin{cases}", r"\placeholder")),
+    ],
+)
+async def test_runtime_uses_zero_model_structural_concepts(
+    tmp_path,
+    text,
+    required,
+):
+    planner = FakePlanner([])
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path),
+        model=planner,
+    )
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run(text)
+
+    assert result.valid is True
+    assert result.tokens_used == 0
+    assert result.stop_reason == "deterministic_candidate"
+    assert all(fragment in result.latex for fragment in required)
     assert planner.seen_messages == []
     runtime.backend.ensure_ready.assert_not_awaited()
 

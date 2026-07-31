@@ -65,7 +65,7 @@ def test_release_version_is_synchronized_across_python_node_and_tauri():
         uv_lock_version,
         __version__,
         _app_version(),
-    } == {"0.3.2"}
+    } == {"0.3.3"}
     assert f"v{python_version}" in frontend
 
 
@@ -89,6 +89,14 @@ def test_run_logs_are_unlimited_by_default_but_caps_remain_configurable():
     assert fields["run_log_max_days"].default == 0
     assert fields["run_log_max_items"].default == 0
     assert {"run_log_max_days", "run_log_max_items"} <= SAVED_CONFIG_FIELDS
+
+
+def test_defaults_allow_slow_local_vision_inference_and_dev_origin():
+    fields = TeXadaConfig.model_fields
+
+    assert fields["inference_timeout_seconds"].default == 90.0
+    assert fields["api_request_timeout_seconds"].default == 240.0
+    assert "http://127.0.0.1:1420" in fields["api_allowed_origins"].default
 
 
 def test_invalid_operational_settings_are_rejected():

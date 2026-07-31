@@ -2,6 +2,66 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.3.3 - 2026-07-31
+
+### English
+
+- Fixed the Agent finalization regression introduced in v0.3.1. A candidate
+  that remained invalid after deterministic repair was raised as a generic
+  runtime exception, turning a recoverable validation result into HTTP 503 and
+  discarding the formula, diagnostics, and Agent trace. The runtime now
+  returns a structured `valid=false` result with
+  `validation_failed_after_repair`, preserving observability and allowing the
+  desktop UI to show the candidate and diagnostics.
+- Fixed packaged KaTeX validation on macOS and Windows. PyInstaller previously
+  copied the Python `py_mini_racer` module but omitted its native MiniRacer
+  library and ICU data, so source-tree tests passed while the packaged
+  sidecar reported `KaTeX parser unavailable`. Sidecar builds now collect the
+  complete MiniRacer runtime.
+- Fixed the desktop startup bridge. The frontend expected
+  `window.__TAURI__.core.invoke`, while the Tauri bundle did not expose the
+  global bridge; this made a running sidecar appear as `No API`. The bridge is
+  now enabled, detected defensively, and retried for up to 60 seconds during
+  backend startup.
+- Fixed preset KaTeX cards in compact windows with bounded two-column sizing,
+  non-overflowing cards, and horizontal scrolling for long formulas. Added an
+  explicit Use action without removing LaTeX and Markdown copy actions.
+- Added zero-token deterministic candidates for double integrals, triple
+  integrals, and piecewise functions in Chinese and English. These common
+  prompts still run through the real compile and render tools.
+- Improved desktop reliability with configurable inference/request timeouts,
+  OCR elapsed and retry states, history/run-log refresh and loading states,
+  and keyboard/ARIA tab behavior.
+- Verified the release with 263 passing tests and 11 optional skips, Ruff,
+  JavaScript syntax checks, Rust `cargo check`, a signed local macOS arm64
+  application build, and real desktop GUI checks. `二重积分` and `分段函数`
+  both produced valid KaTeX with zero model tokens, and all built-in presets
+  rendered in the corrected grid.
+
+### 中文
+
+- 修复 v0.3.1 引入的 Agent 收尾回归。候选公式在确定性修复后仍未通过验证时，旧逻辑
+  会抛出通用运行时异常，把本可返回的验证结果变成 HTTP 503，并丢失公式、诊断和
+  Agent 轨迹。现在会返回结构化的 `valid=false` 结果及
+  `validation_failed_after_repair` 停止原因，桌面端和运行日志能够保留完整现场。
+- 修复 macOS 与 Windows 打包版的 KaTeX 验证。PyInstaller 过去只收集了
+  `py_mini_racer` Python 模块，没有带上原生 MiniRacer 动态库和 ICU 数据，导致
+  源码环境测试正常、桌面 sidecar 却报告 `KaTeX parser unavailable`。现在 sidecar
+  构建会完整收集 MiniRacer 运行时。
+- 修复桌面启动桥接。前端依赖 `window.__TAURI__.core.invoke`，但 Tauri 包未暴露
+  全局桥接，因此已经运行的 sidecar 仍会显示 `No API`。现在已启用桥接、增加稳健
+  检测，并在后端启动阶段最多重试 60 秒。
+- 修复紧凑窗口中的预设 KaTeX 卡片：双列宽度有界、卡片不再溢出，长公式可横向
+  滚动；同时新增明确的“使用”操作，并保留 LaTeX 与 Markdown 复制。
+- 为中英文“二重积分”“三重积分”和“分段函数”增加零 token 确定性候选；这些候选
+  仍会经过真实的编译与渲染工具验证。
+- 提升桌面可靠性：支持配置推理/请求超时，补充 OCR 计时与重试状态、历史和运行
+  日志刷新/加载状态，以及键盘和 ARIA 标签页行为。
+- 发版候选已通过 263 项测试（另有 11 项可选跳过）、Ruff、JavaScript 语法检查、
+  Rust `cargo check`、本地签名的 macOS arm64 应用构建和真实桌面 GUI 测试。
+  “二重积分”和“分段函数”均以零模型 token 生成有效 KaTeX，全部内置预设也在修正
+  后的网格中正常渲染。
+
 ## 0.3.2 - 2026-07-28
 
 ### English

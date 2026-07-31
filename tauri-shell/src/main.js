@@ -1,9 +1,13 @@
 // TeXada Shell Frontend
 (async () => {
-  const isTauri = typeof window.__TAURI__ !== 'undefined';
-  const invoke = isTauri ? window.__TAURI__.core.invoke : null;
+  const tauriApi = window.__TAURI__;
+  const invoke = typeof tauriApi?.core?.invoke === 'function'
+    ? tauriApi.core.invoke
+    : null;
+  const isTauri = Boolean(invoke);
+  const isDesktop = isTauri || window.location.protocol === 'tauri:';
   const API_BASE = await window.TeXadaRuntime.resolveApiBase({ invoke });
-  const DEFAULT_REQUEST_TIMEOUT_MS = 120000;
+  const DEFAULT_REQUEST_TIMEOUT_MS = 240000;
 
   // ── State ──
   let currentTab = 'nl';
@@ -12,6 +16,7 @@
   let isProcessing = false;
   let isOcrSetup = false;
   let ocrRunId = 0;
+  let ocrElapsedTimer = null;
   let allShorthands = [];
   let uiLanguage = 'zh';
   let uiZoom = 1.0;
@@ -19,6 +24,7 @@
   let historyType = 'all';
   let historyView = 'results';
   let pendingDataImport = null;
+  let backendStartupPromise = null;
   let runtimeConfig = {
     maxOcrBytes: null,
     allowedImageTypes: new Set(),
@@ -38,6 +44,7 @@
       'tab.complete': '补全',
       'tab.shorthand': '预设',
       'tab.history': '历史',
+      'tab.settings': '设置',
       'nl.placeholder': '输入数学描述…  如: 二重积分 f(x,y) 在 D 上',
       'nl.hint': 'Enter 发送 · Shift+Enter 换行 · Esc 关闭',
       'intent.waiting': '等待输入',
@@ -70,6 +77,8 @@
       'ocr.dropHintMac': '点击选择 · Cmd+V 粘贴剪贴板图片',
       'ocr.dropHintWin': '点击选择 · Ctrl+V 粘贴剪贴板图片',
       'ocr.chooseAnother': '再次识别',
+      'ocr.processing': '正在识别… {seconds}s',
+      'ocr.failed': '识别失败，请重试',
       'ocr.unsupportedType': '不支持的图片类型',
       'ocr.tooLarge': '图片过大，请使用 {limit} MB 以内的图片',
       'complete.placeholder': '输入部分 LaTeX… 如: \\\\sum_{i=1}^{',
@@ -88,6 +97,7 @@
       'shorthand.deleted': '已删除',
       'shorthand.deleteTitle': '删除预设',
       'shorthand.insertTitle': '点击在光标处键入预设公式',
+      'shorthand.use': '使用',
       'shorthand.copyLatex': '复制 LaTeX',
       'shorthand.copyMarkdown': '复制 Markdown',
       'shorthand.copied': '已复制',
@@ -95,7 +105,10 @@
       'history.resultsView': '结果历史',
       'history.runsView': '运行日志',
       'history.empty': '暂无历史记录',
+      'history.loading': '正在加载历史记录…',
       'history.loadError': '无法加载历史记录',
+      'history.refresh': '刷新历史',
+      'history.view': '查看',
       'history.viewTitle': '点击查看历史结果',
       'history.filterAll': '全部',
       'history.filterNl': '自然语言',
@@ -117,7 +130,9 @@
       'runs.success': '成功',
       'runs.error': '失败',
       'runs.empty': '暂无运行日志',
+      'runs.loading': '正在加载运行日志…',
       'runs.loadError': '无法加载运行日志',
+      'runs.refresh': '刷新日志',
       'runs.detailLoadError': '无法加载运行详情',
       'runs.loadingDetail': '正在加载运行详情…',
       'runs.loadMore': '加载更多',
@@ -143,6 +158,10 @@
       'settings.cloudModel': '云端模型名',
       'settings.cloudVisionModel': '云端视觉模型',
       'settings.cloudApiKey': '云端 API Key',
+      'settings.inferenceTimeout': '单次推理超时（秒）',
+      'settings.inferenceTimeoutDesc': '本地模型较慢时可适当增加',
+      'settings.apiTimeout': '整次请求超时（秒）',
+      'settings.apiTimeoutDesc': '应高于单次推理超时，OCR 可能包含多次调用',
       'settings.sameModelPlaceholder': '留空则使用同一模型',
       'settings.keepKeyPlaceholder': '留空则保持不变',
       'settings.keySavedPlaceholder': '已保存，留空则保持不变',
@@ -198,6 +217,7 @@
       'tab.complete': 'Complete',
       'tab.shorthand': 'Presets',
       'tab.history': 'History',
+      'tab.settings': 'Settings',
       'nl.placeholder': 'Describe a formula… e.g. double integral of f(x,y) over D',
       'nl.hint': 'Enter to send · Shift+Enter newline · Esc close',
       'intent.waiting': 'Waiting',
@@ -230,6 +250,8 @@
       'ocr.dropHintMac': 'Click to choose · Cmd+V to paste a clipboard image',
       'ocr.dropHintWin': 'Click to choose · Ctrl+V to paste a clipboard image',
       'ocr.chooseAnother': 'Recognize another',
+      'ocr.processing': 'Recognizing… {seconds}s',
+      'ocr.failed': 'Recognition failed. Try again',
       'ocr.unsupportedType': 'Unsupported image type',
       'ocr.tooLarge': 'Image is too large. Use an image under {limit} MB',
       'complete.placeholder': 'Enter partial LaTeX… e.g. \\\\sum_{i=1}^{',
@@ -248,6 +270,7 @@
       'shorthand.deleted': 'Deleted',
       'shorthand.deleteTitle': 'Delete preset',
       'shorthand.insertTitle': 'Click to type the preset formula at the cursor',
+      'shorthand.use': 'Use',
       'shorthand.copyLatex': 'Copy LaTeX',
       'shorthand.copyMarkdown': 'Copy Markdown',
       'shorthand.copied': 'Copied',
@@ -255,7 +278,10 @@
       'history.resultsView': 'Results',
       'history.runsView': 'Run logs',
       'history.empty': 'No history yet',
+      'history.loading': 'Loading history…',
       'history.loadError': 'Unable to load history',
+      'history.refresh': 'Refresh history',
+      'history.view': 'View',
       'history.viewTitle': 'Click to view this history result',
       'history.filterAll': 'All',
       'history.filterNl': 'Natural',
@@ -277,7 +303,9 @@
       'runs.success': 'Success',
       'runs.error': 'Failed',
       'runs.empty': 'No run logs yet',
+      'runs.loading': 'Loading run logs…',
       'runs.loadError': 'Unable to load run logs',
+      'runs.refresh': 'Refresh run logs',
       'runs.detailLoadError': 'Unable to load run detail',
       'runs.loadingDetail': 'Loading run detail…',
       'runs.loadMore': 'Load more',
@@ -303,6 +331,10 @@
       'settings.cloudModel': 'Cloud model',
       'settings.cloudVisionModel': 'Cloud vision model',
       'settings.cloudApiKey': 'Cloud API key',
+      'settings.inferenceTimeout': 'Inference timeout (seconds)',
+      'settings.inferenceTimeoutDesc': 'Increase this for slower local models',
+      'settings.apiTimeout': 'Request timeout (seconds)',
+      'settings.apiTimeoutDesc': 'Keep this above inference timeout; OCR can make multiple calls',
       'settings.sameModelPlaceholder': 'Leave blank to use the same model',
       'settings.keepKeyPlaceholder': 'Leave blank to keep unchanged',
       'settings.keySavedPlaceholder': 'Saved; leave blank to keep unchanged',
@@ -385,11 +417,13 @@
     historyFilter: document.getElementById('history-filter'),
     historyViewSwitch: document.getElementById('history-view-switch'),
     historyResultsPanel: document.getElementById('history-results-panel'),
+    refreshHistoryBtn: document.getElementById('btn-refresh-history'),
     runLogsPanel: document.getElementById('run-logs-panel'),
     runLogList: document.getElementById('run-log-list'),
     runLogSearch: document.getElementById('run-log-search'),
     runLogOperation: document.getElementById('run-log-operation'),
     runLogStatus: document.getElementById('run-log-status'),
+    refreshRunsBtn: document.getElementById('btn-refresh-runs'),
     loadMoreRunsBtn: document.getElementById('btn-load-more-runs'),
     ocrTab: document.getElementById('tab-ocr'),
     ocrDrop: document.getElementById('ocr-drop'),
@@ -399,6 +433,7 @@
     ocrFilename: document.getElementById('ocr-filename'),
     ocrSize: document.getElementById('ocr-size'),
     ocrProcessing: document.getElementById('ocr-processing'),
+    ocrStatus: document.getElementById('ocr-status'),
     ocrResult: document.getElementById('ocr-result'),
     completeInput: document.getElementById('complete-input'),
     completeProcessing: document.getElementById('complete-processing'),
@@ -411,6 +446,8 @@
     openaiModelInput: document.getElementById('openai-model-input'),
     openaiVisionModelInput: document.getElementById('openai-vision-model-input'),
     openaiKeyInput: document.getElementById('openai-key-input'),
+    inferenceTimeoutInput: document.getElementById('inference-timeout-input'),
+    apiTimeoutInput: document.getElementById('api-timeout-input'),
     backendSaveStatus: document.getElementById('backend-save-status'),
     uiLanguageSelect: document.getElementById('ui-language-select'),
     uiZoomInput: document.getElementById('ui-zoom-input'),
@@ -467,6 +504,7 @@
     });
     document.querySelectorAll('[data-i18n-title]').forEach(el => {
       el.title = t(el.dataset.i18nTitle);
+      if (el.hasAttribute('aria-label')) el.setAttribute('aria-label', el.title);
     });
     if (els.uiLanguageSelect) els.uiLanguageSelect.value = uiLanguage;
     updateZoomControl();
@@ -696,26 +734,55 @@
       const info = isTauri ? await invoke('get_status') : await apiJson('/api/status');
       const isOnline = Boolean(info.ready) || info.status === 'ok' || info.status === 'ready' || info.status === 'partial_ready';
       setStatus(isOnline, backendStatusText(info), info.status, info);
+      return isOnline;
     } catch (e) {
       if (isTauri) {
         try {
           const info = await invoke('get_status');
           const isOnline = Boolean(info.ready) || info.status === 'ok' || info.status === 'ready' || info.status === 'partial_ready';
           setStatus(isOnline, backendStatusText(info), info.status, info);
+          return isOnline;
         } catch (e2) {
           setStatus(false, t('status.noApi'));
         }
       } else {
         setStatus(false, t('status.noApi'));
       }
+      return false;
     }
+  }
+
+  function waitForBackendStartup() {
+    if (backendStartupPromise) return backendStartupPromise;
+    backendStartupPromise = (async () => {
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 750));
+        if (await checkBackend()) {
+          await loadRuntimeConfig();
+          return true;
+        }
+      }
+      return false;
+    })().finally(() => {
+      backendStartupPromise = null;
+    });
+    return backendStartupPromise;
   }
 
   // ── Tabs ──
   function switchTab(tab) {
     currentTab = tab;
-    $$('.tab-item').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-    $$('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
+    $$('.tab-item').forEach(item => {
+      const selected = item.dataset.tab === tab;
+      item.classList.toggle('active', selected);
+      item.setAttribute('aria-selected', String(selected));
+      item.tabIndex = selected ? 0 : -1;
+    });
+    $$('.tab-content').forEach(panel => {
+      const selected = panel.id === 'tab-' + tab;
+      panel.classList.toggle('active', selected);
+      panel.setAttribute('aria-hidden', String(!selected));
+    });
 
     if (tab === 'shorthand') loadShorthands();
     if (tab === 'history') {
@@ -734,6 +801,20 @@
   els.tabBar.addEventListener('click', e => {
     const item = e.target.closest('.tab-item');
     if (item) switchTab(item.dataset.tab);
+  });
+  els.tabBar.addEventListener('keydown', e => {
+    const tabs = Array.from(els.tabBar.querySelectorAll('[role="tab"]'));
+    const index = tabs.indexOf(document.activeElement);
+    if (index < 0) return;
+    let next = null;
+    if (e.key === 'ArrowRight') next = tabs[(index + 1) % tabs.length];
+    if (e.key === 'ArrowLeft') next = tabs[(index - 1 + tabs.length) % tabs.length];
+    if (e.key === 'Home') next = tabs[0];
+    if (e.key === 'End') next = tabs[tabs.length - 1];
+    if (!next) return;
+    e.preventDefault();
+    switchTab(next.dataset.tab);
+    next.focus();
   });
 
   // ── API helpers ──
@@ -1515,6 +1596,9 @@
       els.openaiModelInput.value = cfg.openai_model_name || '';
       els.openaiVisionModelInput.value = cfg.openai_vision_model_name || '';
       els.openaiKeyInput.value = '';
+      els.inferenceTimeoutInput.value = String(cfg.inference_timeout_seconds || 90);
+      els.apiTimeoutInput.value = String(cfg.api_request_timeout_seconds || 240);
+      requestTimeoutMs = Number(cfg.api_request_timeout_seconds) * 1000 || DEFAULT_REQUEST_TIMEOUT_MS;
       els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? t('settings.keySavedPlaceholder') : t('settings.keyEnterPlaceholder');
       els.backendSaveStatus.textContent = '';
     } catch (e) {
@@ -1532,6 +1616,8 @@
       openai_base_url: els.openaiEndpointInput.value.trim(),
       openai_model_name: els.openaiModelInput.value.trim(),
       openai_vision_model_name: els.openaiVisionModelInput.value.trim(),
+      inference_timeout_seconds: Number(els.inferenceTimeoutInput.value),
+      api_request_timeout_seconds: Number(els.apiTimeoutInput.value),
     };
     const key = els.openaiKeyInput.value.trim();
     if (key) payload.openai_api_key = key;
@@ -1541,6 +1627,9 @@
       const cfg = await apiSaveBackendSettings(payload);
       els.openaiKeyInput.value = '';
       els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? t('settings.keySavedPlaceholder') : t('settings.keyEnterPlaceholder');
+      els.inferenceTimeoutInput.value = String(cfg.inference_timeout_seconds);
+      els.apiTimeoutInput.value = String(cfg.api_request_timeout_seconds);
+      requestTimeoutMs = Number(cfg.api_request_timeout_seconds) * 1000 || DEFAULT_REQUEST_TIMEOUT_MS;
       els.backendSaveStatus.textContent = t('settings.saved');
       await checkBackend();
     } catch (e) {
@@ -1564,7 +1653,28 @@
     return null;
   }
 
+  function stopOcrElapsed({ clearStatus = false } = {}) {
+    if (ocrElapsedTimer !== null) {
+      clearInterval(ocrElapsedTimer);
+      ocrElapsedTimer = null;
+    }
+    if (clearStatus && els.ocrStatus) els.ocrStatus.textContent = '';
+  }
+
+  function startOcrElapsed() {
+    stopOcrElapsed({ clearStatus: true });
+    const startedAt = Date.now();
+    const update = () => {
+      if (!els.ocrStatus) return;
+      const seconds = Math.floor((Date.now() - startedAt) / 1000);
+      els.ocrStatus.textContent = t('ocr.processing', { seconds });
+    };
+    update();
+    ocrElapsedTimer = setInterval(update, 1000);
+  }
+
   function resetOcrUi({ clearResult = true } = {}) {
+    stopOcrElapsed({ clearStatus: true });
     if (els.ocrDrop) {
       els.ocrDrop.style.display = 'block';
       els.ocrDrop.classList.remove('drag-over', 'busy');
@@ -1588,6 +1698,7 @@
     if (els.ocrFilename) els.ocrFilename.textContent = file.name || 'clipboard-image.png';
     if (els.ocrSize) els.ocrSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
     if (els.ocrProcessing) els.ocrProcessing.classList.add('active');
+    startOcrElapsed();
     if (els.ocrResult) {
       els.ocrResult.style.display = 'none';
       els.ocrResult.innerHTML = '';
@@ -1596,7 +1707,16 @@
 
   function showOcrError(message) {
     resetOcrUi({ clearResult: false });
-    showErrorIn(els.ocrResult, message);
+    if (els.ocrStatus) els.ocrStatus.textContent = t('ocr.failed');
+    els.ocrResult.style.display = 'block';
+    els.ocrResult.innerHTML = `
+      <div class="error-box"><span class="icon">⚠️</span><div>${escapeHtml(message)}</div></div>
+      <div class="action-row"><button class="action-btn" data-reset-ocr>${t('action.retry')}</button></div>
+    `;
+    els.ocrResult.querySelector('[data-reset-ocr]').addEventListener('click', () => {
+      resetOcrUi();
+      els.ocrFileInput?.click();
+    });
   }
 
   function setupOcr() {
@@ -1684,6 +1804,7 @@
     } finally {
       if (runId === ocrRunId) {
         isProcessing = false;
+        stopOcrElapsed();
         if (els.ocrDrop) els.ocrDrop.classList.remove('busy');
         if (els.ocrProcessing) els.ocrProcessing.classList.remove('active');
       }
@@ -1691,6 +1812,7 @@
   }
 
   function showOcrResult(res) {
+    stopOcrElapsed({ clearStatus: true });
     els.ocrResult.style.display = 'block';
     els.ocrResult.innerHTML = `
       <div class="result-section">
@@ -1804,7 +1926,8 @@
         </div>
         <div class="shorthand-render" data-shorthand-render="${index}">${escapeHtml(i.value)}</div>
         <div class="shorthand-val">${escapeHtml(i.value)}</div>
-        <div class="shorthand-actions">
+      <div class="shorthand-actions">
+          <button class="action-btn shorthand-action" data-shorthand-use="${index}" title="${t('shorthand.insertTitle')}" aria-label="${t('shorthand.insertTitle')}">${t('shorthand.use')}</button>
           <button class="action-btn shorthand-action" data-shorthand-copy-latex="${index}" title="${t('shorthand.copyLatex')}" aria-label="${t('shorthand.copyLatex')}">LaTeX</button>
           <button class="action-btn shorthand-action" data-shorthand-copy-markdown="${index}" title="${t('shorthand.copyMarkdown')}" aria-label="${t('shorthand.copyMarkdown')}">MD</button>
         </div>
@@ -1820,6 +1943,13 @@
       renderKatexPreview(target, latexForRender(item.value), '', false);
     });
     bindFormulaInsertHandlers(els.shorthandGrid);
+    els.shorthandGrid.querySelectorAll('[data-shorthand-use]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const item = items[Number(e.currentTarget.dataset.shorthandUse)];
+        insertAtCursor(markdownFormula(item.value));
+      });
+    });
     els.shorthandGrid.querySelectorAll('[data-shorthand-copy-latex]').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
@@ -1911,6 +2041,10 @@
   async function loadRunLogs({ append = false } = {}) {
     if (!els.runLogList || runLogLoading) return;
     runLogLoading = true;
+    els.runLogList.setAttribute('aria-busy', 'true');
+    if (!append) {
+      els.runLogList.innerHTML = `<div class="empty-state"><div class="text">${t('runs.loading')}</div></div>`;
+    }
     if (els.loadMoreRunsBtn) els.loadMoreRunsBtn.disabled = true;
     const offset = append ? runLogOffset : 0;
     try {
@@ -1931,6 +2065,7 @@
       }
     } finally {
       runLogLoading = false;
+      els.runLogList.setAttribute('aria-busy', 'false');
       if (els.loadMoreRunsBtn) {
         els.loadMoreRunsBtn.disabled = false;
         els.loadMoreRunsBtn.hidden = !runLogHasMore;
@@ -2102,13 +2237,22 @@
 
   async function loadHistory() {
     const q = (els.historySearch?.value || '').trim();
+    els.historyList.setAttribute('aria-busy', 'true');
+    els.historyList.innerHTML = `<div class="empty-state"><div class="text">${t('history.loading')}</div></div>`;
     try {
       const items = await apiHistory(q, historyType);
       historyData = items.map(normalizeHistoryItem);
       renderHistory(historyData);
     } catch (e) {
       loadHistoryLocal();
-      renderHistory(filterHistoryItems(historyData));
+      const fallback = filterHistoryItems(historyData);
+      if (fallback.length) {
+        renderHistory(fallback);
+      } else {
+        els.historyList.innerHTML = `<div class="empty-state"><div class="text">${t('history.loadError')}</div></div>`;
+      }
+    } finally {
+      els.historyList.setAttribute('aria-busy', 'false');
     }
   }
 
@@ -2211,6 +2355,7 @@
           </div>
         </div>
         <div class="history-actions">
+          <button class="action-btn history-action" data-history-view-result="${index}" title="${t('history.viewTitle')}" aria-label="${t('history.viewTitle')}">${t('history.view')}</button>
           ${canReuse ? `<button class="action-btn history-action" data-history-reuse="${index}" title="${t('history.reuseInput')}" aria-label="${t('history.reuseInput')}">${t('history.reuseInput')}</button>` : ''}
           <button class="action-btn history-action" data-history-copy-latex="${index}" title="${t('history.copyLatex')}" aria-label="${t('history.copyLatex')}">LaTeX</button>
           <button class="action-btn history-action" data-history-copy-markdown="${index}" title="${t('history.copyMarkdown')}" aria-label="${t('history.copyMarkdown')}">MD</button>
@@ -2229,6 +2374,12 @@
       btn.addEventListener('click', e => {
         e.stopPropagation();
         reuseHistoryInput(items[Number(e.currentTarget.dataset.historyReuse)]);
+      });
+    });
+    els.historyList.querySelectorAll('[data-history-view-result]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        viewHistoryResult(items[Number(e.currentTarget.dataset.historyViewResult)]);
       });
     });
     els.historyList.querySelectorAll('[data-history-copy-latex]').forEach(btn => {
@@ -2273,6 +2424,9 @@
       if (btn) setHistoryView(btn.dataset.historyView);
     });
   }
+  if (els.refreshHistoryBtn) {
+    els.refreshHistoryBtn.addEventListener('click', () => loadHistory());
+  }
 
   if (els.runLogSearch) {
     let runSearchTimer = null;
@@ -2291,6 +2445,9 @@
     els.loadMoreRunsBtn.addEventListener('click', () => {
       loadRunLogs({ append: true });
     });
+  }
+  if (els.refreshRunsBtn) {
+    els.refreshRunsBtn.addEventListener('click', () => loadRunLogs());
   }
 
   function escapeHtml(str) {
@@ -2312,7 +2469,8 @@
 
   // ── Auto-focus & clipboard on show ──
   async function onWindowShown() {
-    await checkBackend();
+    const ready = await checkBackend();
+    if (!ready && isDesktop) waitForBackendStartup();
     if (currentTab === 'nl') {
       const clip = await pasteFromClipboard();
       // Only auto-fill if clipboard looks like a math description (heuristic)

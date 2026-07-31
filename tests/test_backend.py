@@ -7,7 +7,13 @@ from texada.core.backend import BackendManager
 
 @pytest.mark.asyncio
 async def test_openai_compatible_requires_endpoint_key_and_model(tmp_path):
-    config = TeXadaConfig(data_dir=tmp_path, backend="openai_compatible")
+    config = TeXadaConfig(
+        data_dir=tmp_path,
+        backend="openai_compatible",
+        openai_base_url="",
+        openai_api_key="",
+        openai_model_name="",
+    )
     manager = BackendManager(config)
 
     with pytest.raises(RuntimeError) as exc:
@@ -23,6 +29,7 @@ async def test_openai_compatible_requires_endpoint_key_and_model(tmp_path):
 async def test_ollama_status_reports_partial_ready_for_missing_vision_model(monkeypatch, tmp_path):
     config = TeXadaConfig(
         data_dir=tmp_path,
+        backend="ollama",
         ollama_host="localhost:11435",
         model_name="text-model",
         vision_model_name="vision-model",
@@ -54,6 +61,7 @@ async def test_ollama_status_reports_partial_ready_for_missing_vision_model(monk
 async def test_ollama_status_reports_missing_text_model(monkeypatch, tmp_path):
     config = TeXadaConfig(
         data_dir=tmp_path,
+        backend="ollama",
         model_name="text-model",
         vision_model_name="vision-model",
     )
@@ -81,6 +89,7 @@ async def test_ollama_status_reports_missing_text_model(monkeypatch, tmp_path):
 async def test_remote_ollama_endpoint_does_not_autostart_local_daemon(monkeypatch, tmp_path):
     config = TeXadaConfig(
         data_dir=tmp_path,
+        backend="ollama",
         ollama_host="http://192.168.1.20:11434",
         model_name="text-model",
     )
@@ -109,6 +118,7 @@ async def test_remote_ollama_endpoint_does_not_autostart_local_daemon(monkeypatc
 async def test_remote_ollama_status_points_to_remote_endpoint_check(monkeypatch, tmp_path):
     config = TeXadaConfig(
         data_dir=tmp_path,
+        backend="ollama",
         ollama_host="http://192.168.1.20:11434",
         model_name="text-model",
         vision_model_name="vision-model",
@@ -133,6 +143,7 @@ async def test_remote_ollama_status_points_to_remote_endpoint_check(monkeypatch,
 async def test_ocr_readiness_does_not_require_text_model(monkeypatch, tmp_path):
     config = TeXadaConfig(
         data_dir=tmp_path,
+        backend="ollama",
         model_name="missing-text-model",
         vision_model_name="vision-model",
     )

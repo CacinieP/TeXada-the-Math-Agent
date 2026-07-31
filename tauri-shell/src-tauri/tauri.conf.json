@@ -1,13 +1,14 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "TeXada",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "identifier": "com.texada.desktop",
   "build": {
     "frontendDist": "../src",
     "devUrl": "http://localhost:1420"
   },
   "app": {
+    "withGlobalTauri": true,
     "macOSPrivateApi": true,
     "windows": [
       {

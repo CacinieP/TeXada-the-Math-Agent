@@ -329,6 +329,30 @@ class DeterministicCandidateEngine:
             "inner product": (
                 r"\langle \placeholder{},\placeholder{} \rangle"
             ),
+            "二重积分": (
+                r"\iint_{\placeholder{}} \placeholder{}\,dA"
+            ),
+            "double integral": (
+                r"\iint_{\placeholder{}} \placeholder{}\,dA"
+            ),
+            "三重积分": (
+                r"\iiint_{\placeholder{}} \placeholder{}\,dV"
+            ),
+            "triple integral": (
+                r"\iiint_{\placeholder{}} \placeholder{}\,dV"
+            ),
+            "分段函数": (
+                r"f(x)=\begin{cases}"
+                r"\placeholder{},&x\ge 0\\"
+                r"\placeholder{},&x<0"
+                r"\end{cases}"
+            ),
+            "piecewise function": (
+                r"f(x)=\begin{cases}"
+                r"\placeholder{},&x\ge 0\\"
+                r"\placeholder{},&x<0"
+                r"\end{cases}"
+            ),
             "导数定义": (
                 r"f'(x)=\lim_{h\to 0}"
                 r"\frac{f(x+h)-f(x)}{h}"

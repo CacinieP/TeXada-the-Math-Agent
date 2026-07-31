@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:* http://localhost:* http://[::1]:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
 <title>TeXada</title>
-<link rel="stylesheet" href="vendor/katex/katex.min.css?v=0.3.2-20260728">
-<link rel="stylesheet" href="style.css?v=0.3.2-20260728">
+<link rel="stylesheet" href="vendor/katex/katex.min.css?v=0.3.3-20260731">
+<link rel="stylesheet" href="style.css?v=0.3.3-20260731">
 </head>
 <body>
 <div id="app">
   <!-- Header -->
   <div class="panel-header" data-tauri-drag-region>
-    <img class="panel-logo" src="app-icon.png?v=0.3.2-20260728" alt="TeXada" data-tauri-drag-region>
+    <img class="panel-logo" src="app-icon.png?v=0.3.3-20260731" alt="TeXada" data-tauri-drag-region>
     <div class="panel-title" data-tauri-drag-region>TeXada</div>
     <div class="panel-status" id="status-dot" data-tauri-drag-region>
       <div class="dot offline"></div>
@@ -22,17 +22,17 @@
   </div>
 
   <!-- Tabs -->
-  <div class="tab-bar" id="tab-bar">
-    <div class="tab-item active" data-tab="nl"><span class="icon">✏️</span> NL <span class="tab-shortcut">1</span></div>
-    <div class="tab-item" data-tab="ocr"><span class="icon">📷</span> OCR <span class="tab-shortcut">2</span></div>
-    <div class="tab-item" data-tab="complete"><span class="icon">{ }</span> <span data-i18n="tab.complete">补全</span> <span class="tab-shortcut">3</span></div>
-    <div class="tab-item" data-tab="shorthand"><span class="icon">⚡</span> <span data-i18n="tab.shorthand">预设</span> <span class="tab-shortcut">4</span></div>
-    <div class="tab-item" data-tab="history"><span class="icon">🕐</span> <span data-i18n="tab.history">历史</span> <span class="tab-shortcut">5</span></div>
-    <div class="tab-item" data-tab="settings"><span class="icon">⚙️</span> <span class="tab-shortcut">6</span></div>
+  <div class="tab-bar" id="tab-bar" role="tablist" aria-label="TeXada">
+    <button type="button" class="tab-item active" id="tab-button-nl" role="tab" aria-controls="tab-nl" aria-selected="true" tabindex="0" data-tab="nl"><span class="icon">✏️</span> NL <span class="tab-shortcut">1</span></button>
+    <button type="button" class="tab-item" id="tab-button-ocr" role="tab" aria-controls="tab-ocr" aria-selected="false" tabindex="-1" data-tab="ocr"><span class="icon">📷</span> OCR <span class="tab-shortcut">2</span></button>
+    <button type="button" class="tab-item" id="tab-button-complete" role="tab" aria-controls="tab-complete" aria-selected="false" tabindex="-1" data-tab="complete"><span class="icon">{ }</span> <span data-i18n="tab.complete">补全</span> <span class="tab-shortcut">3</span></button>
+    <button type="button" class="tab-item" id="tab-button-shorthand" role="tab" aria-controls="tab-shorthand" aria-selected="false" tabindex="-1" data-tab="shorthand"><span class="icon">⚡</span> <span data-i18n="tab.shorthand">预设</span> <span class="tab-shortcut">4</span></button>
+    <button type="button" class="tab-item" id="tab-button-history" role="tab" aria-controls="tab-history" aria-selected="false" tabindex="-1" data-tab="history"><span class="icon">🕐</span> <span data-i18n="tab.history">历史</span> <span class="tab-shortcut">5</span></button>
+    <button type="button" class="tab-item" id="tab-button-settings" role="tab" aria-controls="tab-settings" aria-selected="false" tabindex="-1" data-tab="settings"><span class="icon">⚙️</span> <span data-i18n="tab.settings">设置</span> <span class="tab-shortcut">6</span></button>
   </div>
 
   <!-- NL Tab -->
-  <div class="tab-content active" id="tab-nl">
+  <div class="tab-content active" id="tab-nl" role="tabpanel" aria-labelledby="tab-button-nl" aria-hidden="false">
     <div class="input-area">
       <textarea class="input-box" id="nl-input" data-i18n-placeholder="nl.placeholder" placeholder="输入数学描述…  如: 二重积分 f(x,y) 在 D 上" rows="1"></textarea>
       <div class="input-hint">
@@ -96,7 +96,7 @@
   </div>
 
   <!-- OCR Tab -->
-  <div class="tab-content" id="tab-ocr">
+  <div class="tab-content" id="tab-ocr" role="tabpanel" aria-labelledby="tab-button-ocr" aria-hidden="true">
     <div class="drop-zone" id="ocr-drop">
       <div class="icon">📷</div>
       <div class="text" data-i18n="ocr.dropText">拖放图片或粘贴截图</div>
@@ -111,11 +111,12 @@
       </div>
     </div>
     <div class="processing-bar" id="ocr-processing"></div>
+    <div class="operation-status" id="ocr-status" role="status" aria-live="polite"></div>
     <div id="ocr-result" style="display:none"></div>
   </div>
 
   <!-- Completion Tab -->
-  <div class="tab-content" id="tab-complete">
+  <div class="tab-content" id="tab-complete" role="tabpanel" aria-labelledby="tab-button-complete" aria-hidden="true">
     <div class="input-area">
       <textarea class="input-box completion-input" id="complete-input" data-i18n-placeholder="complete.placeholder" placeholder="输入部分 LaTeX… 如: \\sum_{i=1}^{" rows="1"></textarea>
       <div class="input-hint"><span data-i18n="complete.hint">Enter 补全 · Esc 关闭</span></div>
@@ -125,7 +126,7 @@
   </div>
 
   <!-- Shorthand Tab -->
-  <div class="tab-content" id="tab-shorthand">
+  <div class="tab-content" id="tab-shorthand" role="tabpanel" aria-labelledby="tab-button-shorthand" aria-hidden="true">
     <div class="shorthand-editor">
       <input type="text" id="shorthand-key-input" data-i18n-placeholder="shorthand.keyPlaceholder" placeholder="预设键…">
       <input type="text" id="shorthand-value-input" data-i18n-placeholder="shorthand.valuePlaceholder" placeholder="LaTeX 预设公式…">
@@ -140,7 +141,7 @@
   </div>
 
   <!-- History Tab -->
-  <div class="tab-content" id="tab-history">
+  <div class="tab-content" id="tab-history" role="tabpanel" aria-labelledby="tab-button-history" aria-hidden="true">
     <div class="history-view-switch" id="history-view-switch">
       <button class="history-view-btn active" type="button" data-history-view="results" data-i18n="history.resultsView">结果历史</button>
       <button class="history-view-btn" type="button" data-history-view="runs" data-i18n="history.runsView">运行日志</button>
@@ -157,8 +158,9 @@
           <button class="history-filter-btn" type="button" data-history-type="completion" data-i18n="history.filterCompletion">补全</button>
           <button class="history-filter-btn" type="button" data-history-type="ocr" data-i18n="history.filterOcr">OCR</button>
         </div>
+        <button class="action-btn history-refresh" id="btn-refresh-history" type="button" data-i18n-title="history.refresh" title="刷新历史" aria-label="刷新历史">↻</button>
       </div>
-      <div class="history-list" id="history-list"></div>
+      <div class="history-list" id="history-list" role="status" aria-live="polite"></div>
     </div>
     <div id="run-logs-panel" hidden>
       <div class="history-toolbar">
@@ -179,8 +181,9 @@
           <option value="success" data-i18n="runs.success">成功</option>
           <option value="error" data-i18n="runs.error">失败</option>
         </select>
+        <button class="action-btn history-refresh" id="btn-refresh-runs" type="button" data-i18n-title="runs.refresh" title="刷新日志" aria-label="刷新日志">↻</button>
       </div>
-      <div class="history-list" id="run-log-list"></div>
+      <div class="history-list" id="run-log-list" role="status" aria-live="polite"></div>
       <div class="run-log-more">
         <button class="action-btn" id="btn-load-more-runs" type="button" hidden data-i18n="runs.loadMore">加载更多</button>
       </div>
@@ -188,7 +191,7 @@
   </div>
 
   <!-- Settings Tab -->
-  <div class="tab-content" id="tab-settings">
+  <div class="tab-content" id="tab-settings" role="tabpanel" aria-labelledby="tab-button-settings" aria-hidden="true">
     <div class="settings-section">
       <div class="settings-title" data-i18n="settings.interface">界面</div>
       <div class="setting-row form-row">
@@ -259,6 +262,20 @@
         <label class="setting-label" for="openai-key-input" data-i18n="settings.cloudApiKey">云端 API Key</label>
         <input class="setting-control" id="openai-key-input" type="password" data-i18n-placeholder="settings.keepKeyPlaceholder" placeholder="留空则保持不变" autocomplete="off">
       </div>
+      <div class="setting-row form-row">
+        <div>
+          <label class="setting-label" for="inference-timeout-input" data-i18n="settings.inferenceTimeout">单次推理超时</label>
+          <div class="setting-desc" data-i18n="settings.inferenceTimeoutDesc">本地模型较慢时可适当增加</div>
+        </div>
+        <input class="setting-control setting-number" id="inference-timeout-input" type="number" min="10" max="600" step="5" inputmode="numeric">
+      </div>
+      <div class="setting-row form-row">
+        <div>
+          <label class="setting-label" for="api-timeout-input" data-i18n="settings.apiTimeout">整次请求超时</label>
+          <div class="setting-desc" data-i18n="settings.apiTimeoutDesc">应高于单次推理超时，OCR 可能包含多次调用</div>
+        </div>
+        <input class="setting-control setting-number" id="api-timeout-input" type="number" min="30" max="900" step="10" inputmode="numeric">
+      </div>
       <div class="settings-actions">
         <button class="action-btn primary" id="btn-save-backend" data-i18n="action.save">保存</button>
         <span class="setting-desc" id="backend-save-status"></span>
@@ -328,14 +345,14 @@
       <div class="settings-title" data-i18n="settings.about">关于</div>
       <div class="setting-row">
         <div class="setting-label">TeXada Shell</div>
-        <div class="setting-value">v0.3.2</div>
+        <div class="setting-value">v0.3.3</div>
       </div>
     </div>
   </div>
 </div>
 
-<script src="vendor/katex/katex.min.js?v=0.3.2-20260728"></script>
-<script src="api-config.js?v=0.3.2-20260728"></script>
-<script src="main.js?v=0.3.2-20260728"></script>
+<script src="vendor/katex/katex.min.js?v=0.3.3-20260731"></script>
+<script src="api-config.js?v=0.3.3-20260731"></script>
+<script src="main.js?v=0.3.3-20260731"></script>
 </body>
 </html>

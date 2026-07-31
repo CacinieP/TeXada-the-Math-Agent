@@ -3,6 +3,7 @@
 
 use std::env;
 use std::net::IpAddr;
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -24,7 +25,7 @@ const SHORTCUT: &str = "Option+Command+T";
 #[cfg(not(target_os = "macos"))]
 const SHORTCUT: &str = "Ctrl+Alt+T";
 
-const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 120;
+const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 240;
 const BACKEND_STARTUP_PROBE_MS: u64 = 900;
 const BUNDLED_BACKEND_NAME: &str = "texada-backend";
 
@@ -68,8 +69,22 @@ fn request_timeout() -> Duration {
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
         .filter(|value| *value > 0)
+        .or_else(saved_request_timeout_secs)
         .unwrap_or(DEFAULT_REQUEST_TIMEOUT_SECS);
     Duration::from_secs(secs)
+}
+
+fn saved_request_timeout_secs() -> Option<u64> {
+    let home = env::var_os("HOME")?;
+    let path = PathBuf::from(home).join(".texada").join("config.json");
+    let contents = std::fs::read_to_string(path).ok()?;
+    let settings: serde_json::Value = serde_json::from_str(&contents).ok()?;
+    let seconds = settings.get("api_request_timeout_seconds")?.as_f64()?;
+    if seconds.is_finite() && seconds > 0.0 && seconds <= 900.0 {
+        Some(seconds.ceil() as u64)
+    } else {
+        None
+    }
 }
 
 fn http_client() -> Result<reqwest::Client, String> {

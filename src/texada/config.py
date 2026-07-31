@@ -67,8 +67,8 @@ class TeXadaConfig(BaseSettings):
     openai_vision_model_name: str = ""
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
     max_tokens: int = Field(default=2048, ge=64, le=32768)
-    inference_timeout_seconds: float = Field(default=45.0, gt=0.0, le=600.0)
-    api_request_timeout_seconds: float = Field(default=120.0, gt=0.0, le=900.0)
+    inference_timeout_seconds: float = Field(default=90.0, gt=0.0, le=600.0)
+    api_request_timeout_seconds: float = Field(default=240.0, gt=0.0, le=900.0)
 
     # ── Agent Runtime ──
     agent_max_steps: int = Field(default=3, ge=1, le=8)
@@ -87,6 +87,7 @@ class TeXadaConfig(BaseSettings):
     api_allowed_origins: list[str] = [
         "http://127.0.0.1:5173",
         "http://localhost:5173",
+        "http://127.0.0.1:1420",
         "http://localhost:1420",
         "http://tauri.localhost",
         "https://tauri.localhost",

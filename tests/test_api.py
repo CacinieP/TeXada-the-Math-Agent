@@ -203,6 +203,74 @@ async def test_completion_endpoint_runs_candidate_through_agent(
     assert run["trace"]
 
 
+async def test_agent_endpoint_returns_invalid_candidate_with_trace(
+    tmp_path,
+    monkeypatch,
+):
+    from texada.api import create_app
+
+    config = TeXadaConfig(data_dir=tmp_path)
+    invalid_latex = "..."
+    trace = [
+        {
+            "step": 1,
+            "origin": "runtime_guard",
+            "content": invalid_latex,
+            "tool_calls": [],
+            "observations": [
+                {
+                    "tool": "compile_tex",
+                    "ok": True,
+                    "output": {
+                        "valid": False,
+                        "diagnostics": [
+                            {
+                                "type": "non_formula_content",
+                                "detail": "输出只有省略号，不是可用的数学公式",
+                                "error": "",
+                            }
+                        ],
+                    },
+                }
+            ],
+        }
+    ]
+
+    async def fake_run(self, text, **kwargs):
+        return AgentRunResult(
+            latex=invalid_latex,
+            valid=False,
+            render=RenderEngine(config).render(
+                invalid_latex,
+                mode_override=RenderMode.KATEX,
+            ),
+            semantic_document={"latex": invalid_latex},
+            trace=trace,
+            tokens_used=12,
+            stop_reason="validation_failed_after_repair",
+        )
+
+    monkeypatch.setattr(TeXadaAgentRuntime, "run", fake_run)
+    client = TestClient(create_app(config))
+
+    response = client.post(
+        "/api/agent",
+        json={"text": "unknown request", "render_mode": "katex"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["valid"] is False
+    assert body["latex"] == invalid_latex
+    assert body["agent_trace"] == trace
+    assert body["stop_reason"] == "validation_failed_after_repair"
+    run = client.get(f"/api/runs/{body['run_id']}").json()
+    assert run["status"] == "success"
+    assert run["valid"] is False
+    assert run["output_latex"] == invalid_latex
+    assert run["trace"] == trace
+
+
 async def test_ocr_endpoint_runs_vision_candidate_through_agent(
     tmp_path,
     monkeypatch,
@@ -525,6 +593,33 @@ async def test_backend_settings_do_not_echo_key(tmp_path):
     assert "openai_api_key" not in body
 
 
+async def test_backend_settings_expose_and_persist_request_timeouts(tmp_path):
+    from texada.api import create_app
+
+    app = create_app(TeXadaConfig(data_dir=tmp_path))
+    client = TestClient(app)
+
+    defaults = client.get("/api/settings/backend")
+    assert defaults.status_code == 200
+    assert defaults.json()["inference_timeout_seconds"] == 90.0
+    assert defaults.json()["api_request_timeout_seconds"] == 240.0
+
+    response = client.post(
+        "/api/settings/backend",
+        json={
+            "inference_timeout_seconds": 135,
+            "api_request_timeout_seconds": 360,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["inference_timeout_seconds"] == 135.0
+    assert response.json()["api_request_timeout_seconds"] == 360.0
+    persisted = client.get("/api/settings/backend").json()
+    assert persisted["inference_timeout_seconds"] == 135.0
+    assert persisted["api_request_timeout_seconds"] == 360.0
+
+
 async def test_backend_settings_key_is_preserved_when_blank(tmp_path):
     from texada.api import create_app
 
@@ -581,14 +676,22 @@ async def test_ui_zoom_setting_is_persisted(tmp_path):
 
 
 async def test_ollama_host_accepts_custom_port_without_scheme(tmp_path):
-    config = TeXadaConfig(data_dir=tmp_path, ollama_host="localhost:11435")
+    config = TeXadaConfig(
+        data_dir=tmp_path,
+        backend="ollama",
+        ollama_host="localhost:11435",
+    )
 
     assert config.ollama_host == "http://localhost:11435"
     assert config.active_base_url == "http://localhost:11435/v1"
 
 
 async def test_ollama_host_strips_openai_suffix(tmp_path):
-    config = TeXadaConfig(data_dir=tmp_path, ollama_host="http://localhost:11435/v1")
+    config = TeXadaConfig(
+        data_dir=tmp_path,
+        backend="ollama",
+        ollama_host="http://localhost:11435/v1",
+    )
 
     assert config.ollama_host == "http://localhost:11435"
     assert config.active_base_url == "http://localhost:11435/v1"

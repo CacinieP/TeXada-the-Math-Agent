@@ -130,6 +130,8 @@ def build_pyinstaller(target: str) -> Path:
         str(work_dir),
         "--specpath",
         str(work_dir),
+        "--collect-all",
+        "py_mini_racer",
         "--add-data",
         f"{KATEX_JAVASCRIPT}{os.pathsep}texada/semantic/vendor",
         str(ENTRYPOINT),

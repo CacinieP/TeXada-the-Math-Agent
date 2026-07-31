@@ -703,14 +703,26 @@ class TeXadaAgentRuntime:
                 {
                     "step": len(trace) + 1,
                     "origin": "runtime_guard",
-                    "content": "",
+                    "content": latex,
                     "tool_calls": [],
                     "observations": observations,
                 }
             )
-            raise RuntimeError(
-                "Agent candidate failed compile_tex validation after "
-                "deterministic repair"
+            render_result = self.renderer.render(
+                latex,
+                mode_override=render_mode,
+            )
+            document = self.parser.parse(latex).to_dict()
+            return AgentRunResult(
+                latex=latex,
+                valid=False,
+                render=render_result,
+                semantic_document=document,
+                trace=trace,
+                semantic_diff=semantic_diff,
+                tokens_used=tokens_used,
+                latency_ms=(time.monotonic() - start) * 1000,
+                stop_reason="validation_failed_after_repair",
             )
 
         render = await self.tools.execute(
