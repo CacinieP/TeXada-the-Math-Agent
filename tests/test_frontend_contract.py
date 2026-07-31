@@ -110,6 +110,28 @@ def test_frozen_sidecar_collects_the_native_katex_runtime():
     assert '"py_mini_racer"' in build_script
 
 
+def test_signed_macos_sidecar_allows_the_v8_jit_runtime():
+    build_script = (
+        ROOT / "scripts" / "build-backend-sidecar.py"
+    ).read_text(encoding="utf-8")
+    entitlements = (
+        ROOT / "scripts" / "macos-sidecar-entitlements.plist"
+    ).read_text(encoding="utf-8")
+    release_workflow = (
+        ROOT / ".github" / "workflows" / "release-desktop.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "MACOS_SIDECAR_ENTITLEMENTS" in build_script
+    assert "candidate == path / \"texada-backend\"" in build_script
+    assert "com.apple.security.cs.allow-jit" in entitlements
+    assert "com.apple.security.cs.allow-unsigned-executable-memory" in entitlements
+    assert "Verify macOS sidecar JIT entitlements" in release_workflow
+    assert "com.apple.security.cs.allow-jit" in release_workflow
+    assert "com.apple.security.cs.allow-unsigned-executable-memory" in release_workflow
+    assert "Smoke test signed macOS KaTeX sidecar" in release_workflow
+    assert '"parser_backend"] == "katex-0.17.0-v8"' in release_workflow
+
+
 def test_frontend_uses_the_same_placeholder_macro_as_backend_katex():
     assert "'\\\\placeholder': '\\\\square'" in JAVASCRIPT
     assert "macros: KATEX_MACROS" in JAVASCRIPT

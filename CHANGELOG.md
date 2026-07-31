@@ -2,6 +2,51 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.3.4 - 2026-07-31
+
+### English
+
+- Fixed a macOS Hardened Runtime crash found by launching the notarized v0.3.3
+  DMG through the real desktop GUI. The backend initially reported ready, but
+  the first KaTeX request terminated the sidecar with
+  `Failed to reserve virtual memory for CodeRange`; the UI then returned to
+  `No API` and showed a network error.
+- The packaged MiniRacer/V8 runtime requires executable-memory permissions
+  when its entrypoint is signed with Developer ID and Hardened Runtime. The
+  macOS sidecar entrypoint is now signed with
+  `com.apple.security.cs.allow-jit` and
+  `com.apple.security.cs.allow-unsigned-executable-memory`; all native
+  libraries remain signed by the same Developer ID so library validation
+  stays enabled.
+- Added release gates that inspect the signed sidecar entitlements and execute
+  a real zero-token `二重积分` Agent request against the signed frozen sidecar.
+  The smoke test requires `valid=true`,
+  `stop_reason=deterministic_candidate`, and the
+  `katex-0.17.0-v8` parser backend before desktop packaging can continue.
+- Reproduced the v0.3.3 failure from the official notarized DMG, then verified
+  the entitlement fix in a Hardened Runtime copy through the real GUI:
+  backend startup stayed online, `二重积分` and `分段函数` rendered as valid
+  KaTeX, and all built-in preset formulas rendered successfully.
+
+### 中文
+
+- 修复通过真实桌面 GUI 启动 v0.3.3 已公证 DMG 时发现的 macOS Hardened
+  Runtime 崩溃。后端最初会显示已就绪，但第一次 KaTeX 请求会令 sidecar 以
+  `Failed to reserve virtual memory for CodeRange` 退出，随后界面回到
+  `No API` 并显示网络错误。
+- MiniRacer/V8 在 Developer ID 与 Hardened Runtime 签名下需要可执行内存权限。
+  现在 macOS sidecar 入口会带
+  `com.apple.security.cs.allow-jit` 和
+  `com.apple.security.cs.allow-unsigned-executable-memory` 权限签名；所有
+  原生库仍由同一 Developer ID 签名，因此不会关闭 library validation。
+- 新增发布门禁：检查正式签名 sidecar 的 JIT 权限，并对签名后的冻结 sidecar
+  执行真实的零 token“二重积分”Agent 请求。只有同时满足 `valid=true`、
+  `stop_reason=deterministic_candidate` 和 `katex-0.17.0-v8` 解析后端，才允许
+  继续桌面打包。
+- 已从 v0.3.3 官方公证 DMG 复现该故障，并在 Hardened Runtime 修复副本上通过
+  真实 GUI 验证：后端持续在线，“二重积分”和“分段函数”均生成有效 KaTeX，全部
+  内置预设公式正常渲染。
+
 ## 0.3.3 - 2026-07-31
 
 ### English

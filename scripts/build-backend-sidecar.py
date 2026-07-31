@@ -14,6 +14,7 @@ BIN_DIR = ROOT / "tauri-shell" / "src-tauri" / "binaries"
 RESOURCE_BACKEND_DIR = ROOT / "tauri-shell" / "src-tauri" / "resources" / "texada-backend"
 ENTRYPOINT = ROOT / "src" / "texada" / "sidecar.py"
 KATEX_JAVASCRIPT = ROOT / "tauri-shell" / "src" / "vendor" / "katex" / "katex.min.js"
+MACOS_SIDECAR_ENTITLEMENTS = ROOT / "scripts" / "macos-sidecar-entitlements.plist"
 MACHO_MAGICS = {
     b"\xfe\xed\xfa\xce",
     b"\xfe\xed\xfa\xcf",
@@ -56,8 +57,15 @@ def make_executable(path: Path) -> None:
     path.chmod(current | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
-def codesign_macos_item(path: Path, identity: str) -> None:
+def codesign_macos_item(
+    path: Path,
+    identity: str,
+    *,
+    entitlements: Path | None = None,
+) -> None:
     cmd = ["codesign", "--force", "--options", "runtime", "--sign", identity]
+    if entitlements is not None:
+        cmd.extend(["--entitlements", str(entitlements)])
     if identity != "-":
         cmd.append("--timestamp")
     cmd.append(str(path))
@@ -80,7 +88,16 @@ def codesign_macos_tree(path: Path) -> None:
             or any(part.endswith(".framework") for part in candidate.parts)
         ):
             continue
-        codesign_macos_item(candidate, identity)
+        entitlements = (
+            MACOS_SIDECAR_ENTITLEMENTS
+            if candidate == path / "texada-backend"
+            else None
+        )
+        codesign_macos_item(
+            candidate,
+            identity,
+            entitlements=entitlements,
+        )
     for framework in frameworks:
         codesign_macos_item(framework, identity)
 

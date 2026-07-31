@@ -1,6 +1,6 @@
 [package]
 name = "texada-shell"
-version = "0.3.3"
+version = "0.3.4"
 description = "TeXada floating shell — math formula agent"
 authors = ["TeXada"]
 license = "GPL-3.0-or-later"

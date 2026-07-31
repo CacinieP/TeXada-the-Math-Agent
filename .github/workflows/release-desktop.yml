@@ -160,6 +160,57 @@ jobs:
           PYINSTALLER_CODESIGN_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: python scripts/build-backend-sidecar.py --mode pyinstaller --target ${{ matrix.rust-targets }}
 
+      - name: Verify macOS sidecar JIT entitlements
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sidecar="tauri-shell/src-tauri/resources/texada-backend/texada-backend"
+          test -x "$sidecar" || { echo "::error::Bundled macOS sidecar not found."; exit 1; }
+          entitlements="$(codesign -d --entitlements - "$sidecar" 2>/dev/null)"
+          grep -F "com.apple.security.cs.allow-jit" <<< "$entitlements"
+          grep -F "com.apple.security.cs.allow-unsigned-executable-memory" <<< "$entitlements"
+
+      - name: Smoke test signed macOS KaTeX sidecar
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sidecar="tauri-shell/src-tauri/resources/texada-backend/texada-backend"
+          response="$RUNNER_TEMP/texada-agent-response.json"
+          log="$RUNNER_TEMP/texada-sidecar.log"
+          "$sidecar" > "$log" 2>&1 &
+          sidecar_pid=$!
+          trap 'kill "$sidecar_pid" 2>/dev/null || true; wait "$sidecar_pid" 2>/dev/null || true' EXIT
+
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:18732/api/status >/dev/null; then
+              break
+            fi
+            if ! kill -0 "$sidecar_pid" 2>/dev/null; then
+              cat "$log"
+              echo "::error::Signed macOS sidecar exited during startup."
+              exit 1
+            fi
+            sleep 1
+          done
+
+          curl --fail --silent \
+            --header 'Content-Type: application/json' \
+            --data '{"text":"二重积分","render_mode":"katex"}' \
+            http://127.0.0.1:18732/api/agent > "$response"
+          RESPONSE_PATH="$response" python -c '
+          import json
+          import os
+          from pathlib import Path
+
+          result = json.loads(Path(os.environ["RESPONSE_PATH"]).read_text())
+          assert result["valid"] is True, result
+          assert result["tokens_used"] == 0, result
+          assert result["stop_reason"] == "deterministic_candidate", result
+          assert result["semantic_document"]["parser_backend"] == "katex-0.17.0-v8", result
+          '
+
       - name: Build desktop bundle
         uses: tauri-apps/tauri-action@v1
         env:
