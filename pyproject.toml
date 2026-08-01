@@ -1,6 +1,6 @@
 [project]
 name = "texada"
-version = "0.3.4"
+version = "0.3.5"
 description = "Local math formula agent powered by MiniCPM"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.12"
