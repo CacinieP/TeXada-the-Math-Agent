@@ -2,6 +2,33 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.3.5 - 2026-08-01
+
+### English
+
+- Fixed the desktop bridge routing loopback FastAPI requests through the
+  operating system proxy. On proxy-enabled macOS systems this made a healthy
+  backend and Ollama connection appear as `No API`, while formula requests
+  failed with `502 Bad Gateway`.
+- Tauri HTTP clients now disable proxy discovery when the configured TeXada API
+  base uses `localhost`, an IPv4/IPv6 loopback address, or an unspecified local
+  address. Explicit remote API bases retain normal system-proxy support.
+- Added Rust regression tests covering local IPv4, IPv6, and hostname variants,
+  plus remote and malformed API bases. Reproduced the original 502 through the
+  active macOS proxy and verified direct FastAPI and Ollama requests before the
+  fix.
+
+### 中文
+
+- 修复桌面桥接把回环 FastAPI 请求发送到操作系统代理的问题。在启用代理的 macOS
+  上，健康的 TeXada 后端与 Ollama 连接会被显示为 `No API`，公式请求则返回
+  `502 Bad Gateway`。
+- 当 TeXada API 地址使用 `localhost`、IPv4/IPv6 回环地址或未指定的本地地址时，
+  Tauri HTTP 客户端现在会禁用代理发现；显式配置的远程 API 地址仍保留正常的系统
+  代理支持。
+- 新增 Rust 回归测试，覆盖本地 IPv4、IPv6、主机名、远程地址和非法地址。修复前
+  已通过当前 macOS 代理复现 502，并分别验证 FastAPI 与 Ollama 直连正常。
+
 ## 0.3.4 - 2026-07-31
 
 ### English

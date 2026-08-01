@@ -87,20 +87,6 @@ fn saved_request_timeout_secs() -> Option<u64> {
     }
 }
 
-fn http_client() -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .timeout(request_timeout())
-        .build()
-        .map_err(|e| format!("HTTP client setup failed: {}", e))
-}
-
-fn startup_probe_client() -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .timeout(Duration::from_millis(BACKEND_STARTUP_PROBE_MS))
-        .build()
-        .map_err(|e| format!("HTTP client setup failed: {}", e))
-}
-
 fn env_flag_enabled(name: &str) -> bool {
     env::var(name)
         .map(|value| {
@@ -113,12 +99,47 @@ fn env_flag_enabled(name: &str) -> bool {
 }
 
 fn is_local_api_host(host: &str) -> bool {
+    let host = host
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(host);
     if host.eq_ignore_ascii_case("localhost") {
         return true;
     }
     host.parse::<IpAddr>()
         .map(|addr| addr.is_loopback() || addr.is_unspecified())
         .unwrap_or(false)
+}
+
+fn is_local_api_base(value: &str) -> bool {
+    let Ok(url) = reqwest::Url::parse(value.trim()) else {
+        return false;
+    };
+    url.host_str().map(is_local_api_host).unwrap_or(false)
+}
+
+fn api_client_for_base(timeout: Duration, api_base: &str) -> Result<reqwest::Client, String> {
+    let mut builder = reqwest::Client::builder().timeout(timeout);
+    if is_local_api_base(api_base) {
+        // The desktop bridge only calls this API base. Loopback traffic must
+        // never pass through a macOS or Windows system proxy.
+        builder = builder.no_proxy();
+    }
+    builder
+        .build()
+        .map_err(|e| format!("HTTP client setup failed: {}", e))
+}
+
+fn api_client(timeout: Duration) -> Result<reqwest::Client, String> {
+    api_client_for_base(timeout, &configured_api_base())
+}
+
+fn http_client() -> Result<reqwest::Client, String> {
+    api_client(request_timeout())
+}
+
+fn startup_probe_client() -> Result<reqwest::Client, String> {
+    api_client(Duration::from_millis(BACKEND_STARTUP_PROBE_MS))
 }
 
 fn explicit_api_base_is_remote() -> bool {
@@ -617,4 +638,63 @@ fn main() {
             stop_bundled_backend(app_handle);
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::{api_client_for_base, is_local_api_base};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[test]
+    fn local_api_base_detection_covers_loopback_variants() {
+        assert!(is_local_api_base("http://127.0.0.1:18732"));
+        assert!(is_local_api_base("http://localhost:18732/"));
+        assert!(is_local_api_base("http://[::1]:18732"));
+        assert!(is_local_api_base("http://0.0.0.0:18732"));
+        assert!(is_local_api_base("http://[::]:18732"));
+    }
+
+    #[test]
+    fn local_api_base_detection_preserves_proxy_support_for_remote_hosts() {
+        assert!(!is_local_api_base("https://api.example.com/v1"));
+        assert!(!is_local_api_base("http://192.168.1.10:18732"));
+        assert!(!is_local_api_base("not a URL"));
+    }
+
+    #[tokio::test]
+    async fn local_api_client_reaches_loopback_directly() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind loopback test server");
+        let address = listener.local_addr().expect("read loopback address");
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.expect("accept local request");
+            let mut request = [0_u8; 1024];
+            stream.read(&mut request).await.expect("read local request");
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 6\r\nConnection: close\r\n\r\ndirect",
+                )
+                .await
+                .expect("write local response");
+        });
+
+        let api_base = format!("http://{address}");
+        let client = api_client_for_base(Duration::from_secs(2), &api_base)
+            .expect("build direct local client");
+        let response = client
+            .get(format!("{api_base}/api/status"))
+            .send()
+            .await
+            .expect("request local API without a proxy");
+
+        assert!(response.status().is_success());
+        assert_eq!(
+            response.text().await.expect("read local response"),
+            "direct"
+        );
+        server.await.expect("join loopback test server");
+    }
 }
