@@ -202,6 +202,7 @@
       'settings.clearConfirm': '确定要清空全部历史记录吗？此操作不可撤销。',
       'settings.clearRunsConfirm': '确定要清空全部运行日志吗？此操作不可撤销。',
       'status.ready': 'Ready',
+      'status.starting': 'API 启动中…',
       'status.noApi': 'No API',
       'status.error': 'Error',
       'status.offline': 'Offline',
@@ -375,6 +376,7 @@
       'settings.clearConfirm': 'Clear all history? This cannot be undone.',
       'settings.clearRunsConfirm': 'Clear all run logs? This cannot be undone.',
       'status.ready': 'Ready',
+      'status.starting': 'Starting API…',
       'status.noApi': 'No API',
       'status.error': 'Error',
       'status.offline': 'Offline',
@@ -668,8 +670,10 @@
     const dot = els.statusDot.querySelector('.dot');
     const span = els.statusDot.querySelector('span');
     dot.className = 'dot';
-    if (!online) dot.classList.add('offline');
-    if (online && state === 'partial_ready') dot.classList.add('warning');
+    if (!online && state !== 'starting') dot.classList.add('offline');
+    if (state === 'starting' || (online && state === 'partial_ready')) {
+      dot.classList.add('warning');
+    }
     span.textContent = text || (online ? t('status.online') : t('status.offline'));
     els.statusDot.title = backendStatusTitle(details);
   }
@@ -729,7 +733,7 @@
     }
   }
 
-  async function checkBackend() {
+  async function checkBackend({ starting = false } = {}) {
     try {
       const info = isTauri ? await invoke('get_status') : await apiJson('/api/status');
       const isOnline = Boolean(info.ready) || info.status === 'ok' || info.status === 'ready' || info.status === 'partial_ready';
@@ -743,10 +747,10 @@
           setStatus(isOnline, backendStatusText(info), info.status, info);
           return isOnline;
         } catch (e2) {
-          setStatus(false, t('status.noApi'));
+          setStatus(false, t(starting ? 'status.starting' : 'status.noApi'), starting ? 'starting' : '');
         }
       } else {
-        setStatus(false, t('status.noApi'));
+        setStatus(false, t(starting ? 'status.starting' : 'status.noApi'), starting ? 'starting' : '');
       }
       return false;
     }
@@ -755,13 +759,15 @@
   function waitForBackendStartup() {
     if (backendStartupPromise) return backendStartupPromise;
     backendStartupPromise = (async () => {
+      setStatus(false, t('status.starting'), 'starting');
       for (let attempt = 0; attempt < 80; attempt += 1) {
         await new Promise(resolve => setTimeout(resolve, 750));
-        if (await checkBackend()) {
+        if (await checkBackend({ starting: true })) {
           await loadRuntimeConfig();
           return true;
         }
       }
+      setStatus(false, t('status.noApi'));
       return false;
     })().finally(() => {
       backendStartupPromise = null;
@@ -1151,22 +1157,6 @@
       await invoke('write_clipboard', { text });
     } else {
       await navigator.clipboard.writeText(text);
-    }
-  }
-
-  async function pasteFromClipboard() {
-    if (isTauri) {
-      try {
-        return await invoke('read_clipboard');
-      } catch (e) {
-        return '';
-      }
-    } else {
-      try {
-        return await navigator.clipboard.readText();
-      } catch (e) {
-        return '';
-      }
     }
   }
 
@@ -2467,16 +2457,11 @@
   await loadRuntimeConfig();
   await loadUiSettings();
 
-  // ── Auto-focus & clipboard on show ──
+  // ── Auto-focus on show ──
   async function onWindowShown() {
-    const ready = await checkBackend();
+    const ready = await checkBackend({ starting: isDesktop });
     if (!ready && isDesktop) waitForBackendStartup();
     if (currentTab === 'nl') {
-      const clip = await pasteFromClipboard();
-      // Only auto-fill if clipboard looks like a math description (heuristic)
-      if (clip && clip.length > 0 && clip.length < 500 && !els.nlInput.value) {
-        els.nlInput.value = clip;
-      }
       els.nlInput.focus();
     }
   }

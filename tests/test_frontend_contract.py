@@ -99,6 +99,16 @@ def test_bundled_backend_startup_wait_covers_slow_frozen_imports():
     assert "attempt < 80" in JAVASCRIPT
     assert "window.location.protocol === 'tauri:'" in JAVASCRIPT
     assert "if (!ready && isDesktop) waitForBackendStartup()" in JAVASCRIPT
+    assert "'status.starting': 'API 启动中…'" in JAVASCRIPT
+    assert "checkBackend({ starting: true })" in JAVASCRIPT
+    assert "setStatus(false, t('status.noApi'))" in JAVASCRIPT
+
+
+def test_natural_language_input_is_never_prefilled_from_clipboard():
+    assert "pasteFromClipboard()" not in JAVASCRIPT
+    assert "navigator.clipboard.readText()" not in JAVASCRIPT
+    assert "invoke('read_clipboard')" not in JAVASCRIPT
+    assert "clip.length > 0 && clip.length < 500" not in JAVASCRIPT
 
 
 def test_frozen_sidecar_collects_the_native_katex_runtime():

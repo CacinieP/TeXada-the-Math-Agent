@@ -2,6 +2,34 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.3.6 - 2026-08-02
+
+### English
+
+- Removed automatic clipboard reads and natural-language input prefill when the
+  desktop window opens or regains focus. The input now stays empty until the
+  user types, so copied setup commands such as `ollama pull ...` can no longer
+  appear in the formula field.
+- Replaced the misleading transient `No API` state during bundled backend cold
+  starts with `Starting API…`. After the sidecar becomes ready, the existing
+  detailed status remains unchanged and continues to show the endpoint, text
+  model, and vision model.
+- Added frontend regression coverage and verified the packaged flow with
+  Computer Use: a clipboard containing Ollama pull commands left the input
+  empty, cold start transitioned from `Starting API…` to the detailed ready
+  state, and manually entered formulas still completed successfully.
+
+### 中文
+
+- 移除桌面窗口打开或重新获得焦点时自动读取剪贴板并预填自然语言输入框的行为。
+  输入框现在会一直保持空白，直到用户主动输入，因此复制的
+  `ollama pull ...` 等安装命令不会再出现在公式输入框中。
+- 将内置后端冷启动期间容易误解的临时 `No API` 状态改为“API 启动中…”。
+  sidecar 就绪后仍保留原有完整状态详情，继续显示 Endpoint、文本模型和视觉模型。
+- 新增前端回归测试，并通过 Computer Use 验证打包流程：剪贴板包含 Ollama pull
+  命令时输入框仍为空，冷启动会从“API 启动中…”切换到原有详细完成态，用户手动
+  输入的公式仍可正常转换。
+
 ## 0.3.5 - 2026-08-01
 
 ### English
