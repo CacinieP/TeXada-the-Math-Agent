@@ -3914,7 +3914,7 @@ dependencies = [
 
 [[package]]
 name = "texada-shell"
-version = "0.3.5"
+version = "0.3.6"
 dependencies = [
  "reqwest 0.12.28",
  "serde",
