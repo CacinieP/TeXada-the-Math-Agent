@@ -2,6 +2,20 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## Unreleased
+
+### English
+
+- Relicensed TeXada from `GPL-3.0-or-later` to `AGPL-3.0-or-later` and
+  synchronized the canonical license text, Python/npm/Tauri package metadata,
+  README badge, documentation, and release-facing hero artwork.
+
+### 中文
+
+- 将 TeXada 的许可证从 `GPL-3.0-or-later` 变更为
+  `AGPL-3.0-or-later`，并同步更新规范许可证正文、Python/npm/Tauri
+  包元数据、README 徽章、文档和面向发布的宣传图。
+
 ## 0.3.6 - 2026-08-02
 
 ### English

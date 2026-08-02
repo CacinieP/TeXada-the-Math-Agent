@@ -9,10 +9,10 @@
 <p align="center">
   <a href="https://github.com/CacinieP/TeXada-the-Math-Agent/releases"><img alt="Release" src="https://img.shields.io/github/v/release/CacinieP/TeXada-the-Math-Agent?label=release"></a>
   <a href="https://github.com/CacinieP/TeXada-the-Math-Agent/actions/workflows/audit.yml"><img alt="Audit" src="https://github.com/CacinieP/TeXada-the-Math-Agent/actions/workflows/audit.yml/badge.svg"></a>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue"></a>
 </p>
 
-![TeXada local-first math agent hero](assets/texada-hero.png)
+![TeXada local-first math agent hero](assets/texada-hero-agpl.png)
 
 <a id="english"></a>
 
@@ -351,7 +351,7 @@ The current `main` branch has no known blocking issue after the latest audit pas
 
 ### License
 
-TeXada-the-Math-Agent is released under `GPL-3.0-or-later`. See [LICENSE](LICENSE).
+TeXada-the-Math-Agent is released under `AGPL-3.0-or-later`. See [LICENSE](LICENSE).
 
 </details>
 
@@ -683,6 +683,6 @@ GitHub Actions 可以手动从 `main` 构建安装包，也会在版本 tag 上�
 
 ### 开源协议
 
-TeXada-the-Math-Agent 使用 `GPL-3.0-or-later` 协议发布，详见 [LICENSE](LICENSE)。
+TeXada-the-Math-Agent 使用 `AGPL-3.0-or-later` 协议发布，详见 [LICENSE](LICENSE)。
 
 </details>

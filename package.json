@@ -6,7 +6,7 @@
     "type": "git",
     "url": "git+https://github.com/CacinieP/TeXada-the-Math-Agent.git"
   },
-  "license": "GPL-3.0-or-later",
+  "license": "AGPL-3.0-or-later",
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/CacinieP/TeXada-the-Math-Agent/issues"

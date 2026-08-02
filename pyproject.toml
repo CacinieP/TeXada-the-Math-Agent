@@ -2,7 +2,7 @@
 name = "texada"
 version = "0.3.6"
 description = "Local math formula agent powered by MiniCPM"
-license = "GPL-3.0-or-later"
+license = "AGPL-3.0-or-later"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.111",

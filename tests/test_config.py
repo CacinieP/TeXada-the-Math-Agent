@@ -69,6 +69,35 @@ def test_release_version_is_synchronized_across_python_node_and_tauri():
     assert f"v{python_version}" in frontend
 
 
+def test_license_is_synchronized_as_agpl_v3_or_later():
+    expected = "AGPL-3.0-or-later"
+    python_license = tomllib.loads(
+        (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )["project"]["license"]
+    package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+    package_lock = json.loads(
+        (ROOT / "package-lock.json").read_text(encoding="utf-8")
+    )
+    cargo_license = tomllib.loads(
+        (ROOT / "tauri-shell/src-tauri/Cargo.toml").read_text(encoding="utf-8")
+    )["package"]["license"]
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
+
+    assert {
+        python_license,
+        package["license"],
+        package_lock["packages"][""]["license"],
+        cargo_license,
+    } == {expected}
+    assert "license-AGPL--3.0--or--later-blue" in readme
+    assert "`AGPL-3.0-or-later`" in readme
+    assert "assets/texada-hero-agpl.png" in readme
+    assert (ROOT / "assets/texada-hero-agpl.png").is_file()
+    assert "GNU AFFERO GENERAL PUBLIC LICENSE" in license_text
+    assert "Version 3, 19 November 2007" in license_text
+
+
 def test_default_product_has_exactly_two_minicpm_model_roles():
     fields = TeXadaConfig.model_fields
 
