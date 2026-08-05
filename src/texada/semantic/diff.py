@@ -5,7 +5,9 @@ from __future__ import annotations
 from collections import Counter
 
 from texada.semantic.model import (
+    MAX_SEMANTIC_DEPTH,
     SemanticChange,
+    SemanticDepthError,
     SemanticDiff,
     SemanticDocument,
     SemanticUnit,
@@ -50,9 +52,16 @@ class SemanticDiffer:
         "subscript",
         "superscript",
     }
+    # Product of the two remaining-child lists beyond which the O(m·n)
+    # dynamic program becomes too expensive (a long flat formula like
+    # "x_1 + x_2 + ... + x_300" can exceed it). Above the budget the diff
+    # degrades to a linear sequential alignment and reports
+    # `degraded: true` instead of stalling the request.
+    _MAX_ALIGN_PAIRS = 10_000
 
     def __init__(self, parser: SemanticParser | None = None):
         self.parser = parser or SemanticParser()
+        self._degraded = False
 
     def diff(
         self,
@@ -61,8 +70,10 @@ class SemanticDiffer:
     ) -> SemanticDiff:
         before_doc = self.parser.parse(before) if isinstance(before, str) else before
         after_doc = self.parser.parse(after) if isinstance(after, str) else after
+        self._degraded = False
         changes: list[SemanticChange] = []
         weighted_cost = self._compare(before_doc.root, after_doc.root, "root", changes)
+        degraded = self._degraded
         if before_doc.diagnostics != after_doc.diagnostics:
             syntax_cost = self._KIND_WEIGHTS["syntax"]
             changes.append(
@@ -91,6 +102,7 @@ class SemanticDiffer:
             normalization_weight=normalization_weight,
             normalized_distance=normalized_distance,
             semantic_similarity=max(0.0, 1.0 - normalized_distance),
+            degraded=degraded,
         )
 
     def _compare(
@@ -225,6 +237,9 @@ class SemanticDiffer:
         parent_path: str,
         changes: list[SemanticChange],
     ) -> float:
+        if len(before) * len(after) > self._MAX_ALIGN_PAIRS:
+            self._degraded = True
+            return self._degraded_align(before, after, parent_path, changes)
         rows = len(before) + 1
         columns = len(after) + 1
         costs = [[0.0] * columns for _ in range(rows)]
@@ -330,6 +345,95 @@ class SemanticDiffer:
                 total += change_cost
         return total
 
+    def _degraded_align(
+        self,
+        before: list[tuple[int, SemanticUnit]],
+        after: list[tuple[int, SemanticUnit]],
+        parent_path: str,
+        changes: list[SemanticChange],
+    ) -> float:
+        """Linear-time fallback alignment for oversized child lists.
+
+        Pairs children by position: identical subtrees are compared normally
+        (their fingerprints prune to zero cost), anything else is recorded as
+        an add + remove. This is much coarser than the DP but bounded by
+        O(len(before) + len(after)) instead of O(m·n).
+        """
+        total = 0.0
+        common = min(len(before), len(after))
+        for index in range(common):
+            before_item = before[index]
+            after_item = after[index]
+            before_child = before_item[1]
+            after_child = after_item[1]
+            if before_child.fingerprint() == after_child.fingerprint():
+                child_path = self._paired_path(
+                    parent_path,
+                    before_child,
+                    after_child,
+                    before_item[0],
+                    after_item[0],
+                )
+                total += self._compare(
+                    before_child,
+                    after_child,
+                    child_path,
+                    changes,
+                )
+            else:
+                remove_cost = self._tree_weight(before_child)
+                add_cost = self._tree_weight(after_child)
+                changes.append(
+                    SemanticChange(
+                        operation="remove",
+                        path=self._child_path(parent_path, before_child, before_item[0]),
+                        unit_kind=before_child.kind,
+                        role=before_child.role,
+                        before=before_child.label,
+                        cost=remove_cost,
+                    )
+                )
+                changes.append(
+                    SemanticChange(
+                        operation="add",
+                        path=self._child_path(parent_path, after_child, after_item[0]),
+                        unit_kind=after_child.kind,
+                        role=after_child.role,
+                        after=after_child.label,
+                        cost=add_cost,
+                    )
+                )
+                total += remove_cost + add_cost
+        for before_item in before[common:]:
+            child = before_item[1]
+            change_cost = self._tree_weight(child)
+            changes.append(
+                SemanticChange(
+                    operation="remove",
+                    path=self._child_path(parent_path, child, before_item[0]),
+                    unit_kind=child.kind,
+                    role=child.role,
+                    before=child.label,
+                    cost=change_cost,
+                )
+            )
+            total += change_cost
+        for after_item in after[common:]:
+            child = after_item[1]
+            change_cost = self._tree_weight(child)
+            changes.append(
+                SemanticChange(
+                    operation="add",
+                    path=self._child_path(parent_path, child, after_item[0]),
+                    unit_kind=child.kind,
+                    role=child.role,
+                    after=child.label,
+                    cost=change_cost,
+                )
+            )
+            total += change_cost
+        return total
+
     def _pairing_cost(self, before: SemanticUnit, after: SemanticUnit) -> float:
         if before.fingerprint() == after.fingerprint():
             return 0.0
@@ -352,9 +456,13 @@ class SemanticDiffer:
         )
         return min(estimate or self._node_weight(after), delete_and_add)
 
-    def _tree_weight(self, unit: SemanticUnit) -> float:
+    def _tree_weight(self, unit: SemanticUnit, _depth: int = 0) -> float:
+        if _depth > MAX_SEMANTIC_DEPTH:
+            raise SemanticDepthError(
+                f"semantic tree exceeds depth {MAX_SEMANTIC_DEPTH}"
+            )
         return self._node_weight(unit) + sum(
-            self._tree_weight(child) for child in unit.children
+            self._tree_weight(child, _depth=_depth + 1) for child in unit.children
         )
 
     def _node_weight(self, unit: SemanticUnit) -> float:

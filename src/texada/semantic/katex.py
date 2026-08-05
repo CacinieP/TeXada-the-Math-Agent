@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import atexit
 import json
 import sys
 import threading
@@ -12,6 +13,15 @@ from pathlib import Path
 from typing import Any
 
 from py_mini_racer import MiniRacer
+
+# Structural depth safety budget. KaTeX's recursive parser, the semantic
+# mapper, the tolerant fallback parser, and every recursive serializer
+# (to_dict / fingerprint / tree weights / json.dumps) share this ceiling.
+# A nesting depth above this budget can hang or crash the in-process V8 on
+# some platforms, so it is checked before any bridge call.
+MAX_NESTING_DEPTH = 100
+# Consecutive V8 context failures before the bridge stays unavailable.
+MAX_CONTEXT_REBUILDS = 3
 
 _WRAPPER = r"""
 var texadaKaTeXOptions = {
@@ -82,6 +92,36 @@ class KaTeXRenderResult:
     version: str = ""
 
 
+def max_nesting_depth(latex: str) -> int:
+    """Return the maximum ``{``/``[`` nesting depth, ignoring escaped chars.
+
+    This is a cheap O(n) structural scan used as a pre-flight guard before
+    any V8/KaTeX call. Braces and brackets are both counted because both can
+    drive unbounded recursion in KaTeX's parser, the semantic mapper, and the
+    tolerant fallback parser. Escaped delimiters (``\\{``, ``\\[``, ...) are
+    skipped so balanced display-math or literal delimiters do not inflate the
+    depth.
+    """
+    depth = 0
+    max_depth = 0
+    index = 0
+    length = len(latex)
+    while index < length:
+        char = latex[index]
+        if char == "\\":
+            index += 2
+            continue
+        if char in "{[":
+            depth += 1
+            if depth > max_depth:
+                max_depth = depth
+        elif char in "}]":
+            if depth:
+                depth -= 1
+        index += 1
+    return max_depth
+
+
 class KaTeXASTParser:
     """Load the vendored KaTeX build once and expose its internal parse tree."""
 
@@ -89,13 +129,30 @@ class KaTeXASTParser:
         self.javascript_path = javascript_path or self._find_javascript()
         self._context: MiniRacer | None = None
         self._lock = threading.RLock()
+        self._rebuild_count = 0
+        self._permanently_failed = False
 
     def parse(self, latex: str) -> KaTeXParseResult:
+        if max_nesting_depth(latex) > MAX_NESTING_DEPTH:
+            return KaTeXParseResult(
+                ok=False,
+                error=(
+                    f"maximum nesting depth exceeded "
+                    f"(limit {MAX_NESTING_DEPTH})"
+                ),
+            )
         with self._lock:
             self._ensure_context()
             if self._context is None:
                 return KaTeXParseResult(ok=False, error="KaTeX V8 context is unavailable")
-            raw = self._context.call("texadaParseKaTeX", latex)
+            try:
+                raw = self._context.call("texadaParseKaTeX", latex)
+            except Exception as exc:
+                self._note_context_failure(exc)
+                return KaTeXParseResult(
+                    ok=False,
+                    error=f"KaTeX V8 context failed: {exc}",
+                )
         data = json.loads(str(raw))
         return KaTeXParseResult(
             ok=bool(data.get("ok")),
@@ -106,6 +163,14 @@ class KaTeXASTParser:
 
     def render(self, latex: str) -> KaTeXRenderResult:
         """Render with the same vendored KaTeX context and macro policy."""
+        if max_nesting_depth(latex) > MAX_NESTING_DEPTH:
+            return KaTeXRenderResult(
+                ok=False,
+                error=(
+                    f"maximum nesting depth exceeded "
+                    f"(limit {MAX_NESTING_DEPTH})"
+                ),
+            )
         with self._lock:
             self._ensure_context()
             if self._context is None:
@@ -113,7 +178,14 @@ class KaTeXASTParser:
                     ok=False,
                     error="KaTeX V8 context is unavailable",
                 )
-            raw = self._context.call("texadaRenderKaTeX", latex)
+            try:
+                raw = self._context.call("texadaRenderKaTeX", latex)
+            except Exception as exc:
+                self._note_context_failure(exc)
+                return KaTeXRenderResult(
+                    ok=False,
+                    error=f"KaTeX V8 context failed: {exc}",
+                )
         data = json.loads(str(raw))
         return KaTeXRenderResult(
             ok=bool(data.get("ok")),
@@ -128,10 +200,33 @@ class KaTeXASTParser:
             context = self._context
             self._context = None
         if context is not None:
-            context.close()
+            try:
+                context.close()
+            except Exception:
+                pass
+
+    def _note_context_failure(self, exc: Exception) -> None:
+        """Drop a failed V8 context so the next call rebuilds it.
+
+        mini-racer destroys the isolate when the hard memory limit is hit;
+        calling the dead context afterwards fails forever. Rebuild up to
+        MAX_CONTEXT_REBUILDS times, then stay unavailable instead of
+        rebuilding in a tight loop.
+        """
+        with self._lock:
+            context = self._context
+            self._context = None
+            self._rebuild_count += 1
+            if self._rebuild_count >= MAX_CONTEXT_REBUILDS:
+                self._permanently_failed = True
+        if context is not None:
+            try:
+                context.close()
+            except Exception:
+                pass
 
     def _ensure_context(self) -> None:
-        if self._context is not None:
+        if self._context is not None or self._permanently_failed:
             return
         source = self.javascript_path.read_text(encoding="utf-8")
         # mini-racer binds a new context to the currently running asyncio loop.
@@ -174,3 +269,19 @@ class KaTeXASTParser:
 def shared_katex_parser() -> KaTeXASTParser:
     """Return the process-wide reusable V8/KaTeX parser."""
     return KaTeXASTParser()
+
+
+def _close_shared_parser() -> None:
+    """Release V8 at interpreter exit so CLI/script/test processes exit cleanly.
+
+    mini-racer keeps a non-daemon worker thread alive; without close() the
+    process hangs until SIGTERM. The FastAPI lifespan also calls close(), and
+    close() is idempotent, so double shutdown is harmless.
+    """
+    try:
+        shared_katex_parser().close()
+    except Exception:
+        pass
+
+
+atexit.register(_close_shared_parser)

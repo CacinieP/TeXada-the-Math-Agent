@@ -7,6 +7,15 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
+# Defense-in-depth recursion budget for serializers and tree traversals.
+# The parse-time nesting guard (semantic/katex.py) normally keeps trees far
+# shallower than this; the budget protects every other tree-building path.
+MAX_SEMANTIC_DEPTH = 200
+
+
+class SemanticDepthError(RuntimeError):
+    """Tree recursion exceeded the safety budget."""
+
 
 @dataclass
 class SemanticUnit:
@@ -19,13 +28,23 @@ class SemanticUnit:
     attributes: dict[str, Any] = field(default_factory=dict)
     source: str = ""
 
-    def to_dict(self, *, include_source: bool = True) -> dict[str, Any]:
+    def to_dict(self, *, include_source: bool = True, _depth: int = 0) -> dict[str, Any]:
+        if _depth > MAX_SEMANTIC_DEPTH:
+            raise SemanticDepthError(
+                f"semantic tree exceeds depth {MAX_SEMANTIC_DEPTH}"
+            )
         data: dict[str, Any] = {
             "kind": self.kind,
             "value": self.value,
             "role": self.role,
             "attributes": self.attributes,
-            "children": [child.to_dict(include_source=include_source) for child in self.children],
+            "children": [
+                child.to_dict(
+                    include_source=include_source,
+                    _depth=_depth + 1,
+                )
+                for child in self.children
+            ],
         }
         if include_source:
             data["source"] = self.source
@@ -37,14 +56,18 @@ class SemanticUnit:
             return f"{self.kind}:{self.value}"
         return self.kind
 
-    def fingerprint(self) -> str:
+    def fingerprint(self, _depth: int = 0) -> str:
         """Return a stable hash of semantic content, excluding source spelling."""
+        if _depth > MAX_SEMANTIC_DEPTH:
+            raise SemanticDepthError(
+                f"semantic tree exceeds depth {MAX_SEMANTIC_DEPTH}"
+            )
         payload = {
             "kind": self.kind,
             "value": self.value,
             "role": self.role,
             "attributes": self.attributes,
-            "children": [child.fingerprint() for child in self.children],
+            "children": [child.fingerprint(_depth=_depth + 1) for child in self.children],
         }
         encoded = json.dumps(
             payload,
@@ -112,6 +135,7 @@ class SemanticDiff:
     normalization_weight: float = 1.0
     normalized_distance: float = 0.0
     semantic_similarity: float = 1.0
+    degraded: bool = False
 
     def to_dict(self, *, include_documents: bool = False) -> dict[str, Any]:
         structure_kinds = {
@@ -135,6 +159,7 @@ class SemanticDiff:
             "normalized_distance": round(self.normalized_distance, 6),
             "semantic_similarity": round(self.semantic_similarity, 6),
             "reward": round(self.semantic_similarity, 6),
+            "degraded": self.degraded,
             "changes": [change.to_dict() for change in self.changes],
         }
         if include_documents:

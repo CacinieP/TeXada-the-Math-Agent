@@ -21,6 +21,7 @@ from texada.core.operator_guard import OperatorDriftGuard
 from texada.core.symbols import SymbolEngine
 from texada.render.engine import RenderEngine
 from texada.semantic import SemanticParser
+from texada.semantic.model import SemanticDepthError
 from texada.tools import TeXToolset, ToolObservation, ToolRouter
 from texada.types import RenderMode, RenderResult
 
@@ -113,7 +114,10 @@ class TeXadaAgentRuntime:
     ):
         self.config = config
         self.model = model or MiniCPMModel(config)
-        self.tools = tool_router or ToolRouter(TeXToolset(config))
+        self.tools = tool_router or ToolRouter(
+            TeXToolset(config),
+            timeout_seconds=config.tool_timeout_seconds,
+        )
         self.backend = backend or BackendManager(config)
         self.symbol_engine = SymbolEngine()
         self.operator_guard = OperatorDriftGuard()
@@ -658,7 +662,7 @@ class TeXadaAgentRuntime:
             proposal.latex,
             mode_override=render_mode,
         )
-        document = self.parser.parse(proposal.latex).to_dict()
+        document = self._safe_semantic_document(proposal.latex)
         return AgentRunResult(
             latex=proposal.latex,
             valid=True,
@@ -712,7 +716,7 @@ class TeXadaAgentRuntime:
                 latex,
                 mode_override=render_mode,
             )
-            document = self.parser.parse(latex).to_dict()
+            document = self._safe_semantic_document(latex)
             return AgentRunResult(
                 latex=latex,
                 valid=False,
@@ -741,7 +745,7 @@ class TeXadaAgentRuntime:
         )
 
         render_result = self.renderer.render(latex, mode_override=render_mode)
-        document = self.parser.parse(latex).to_dict()
+        document = self._safe_semantic_document(latex)
         return AgentRunResult(
             latex=latex,
             valid=valid,
@@ -968,3 +972,23 @@ class TeXadaAgentRuntime:
         if not callable(consume):
             return 0
         return int(consume() or 0)
+
+    def _safe_semantic_document(self, latex: str) -> dict[str, Any]:
+        """Serialize a semantic document without ever crashing the runtime.
+
+        The parser and serializers are depth-bounded, but this path is called
+        directly (outside the tool router) so it keeps its own guard: any
+        structural failure degrades to an empty document instead of a 500.
+        """
+        try:
+            return self.parser.parse(latex).to_dict()
+        except (RecursionError, SemanticDepthError):
+            return {
+                "schema_version": 1,
+                "latex": latex,
+                "parser_backend": "depth-guard",
+                "root": {"kind": "sequence", "children": []},
+                "diagnostics": [
+                    "semantic tree exceeded structural limits"
+                ],
+            }

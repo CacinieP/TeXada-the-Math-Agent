@@ -10,7 +10,11 @@ import re
 from dataclasses import replace
 from typing import Any
 
-from texada.semantic.katex import shared_katex_parser
+from texada.semantic.katex import (
+    MAX_NESTING_DEPTH,
+    max_nesting_depth,
+    shared_katex_parser,
+)
 from texada.semantic.model import SemanticDocument, SemanticUnit
 
 _OPERATOR_KINDS = {
@@ -45,6 +49,19 @@ class SemanticParser:
         self.use_katex = use_katex
 
     def parse(self, latex: str) -> SemanticDocument:
+        # Pre-flight structural guard: deeply nested input can hang or crash
+        # the in-process V8/KaTeX parser and overflows every recursive layer
+        # (mapper, tolerant fallback, serializers). Refuse it before any
+        # recursion happens.
+        if max_nesting_depth(latex) > MAX_NESTING_DEPTH:
+            return SemanticDocument(
+                latex=latex,
+                root=SemanticUnit(kind="sequence"),
+                diagnostics=[
+                    f"maximum nesting depth exceeded (limit {MAX_NESTING_DEPTH})"
+                ],
+                parser_backend="depth-guard",
+            )
         if self.use_katex:
             try:
                 result = shared_katex_parser().parse(latex)
@@ -62,7 +79,12 @@ class SemanticParser:
             katex_error = ""
 
         state = _ParserState(latex)
-        root = state.parse_sequence()
+        try:
+            root = state.parse_sequence()
+        except RecursionError:
+            # Defense in depth: the tolerant parser is recursive too.
+            root = SemanticUnit(kind="sequence")
+            state.diagnostics.append("tolerant parser exceeded recursion depth")
         diagnostics = list(state.diagnostics)
         if katex_error:
             diagnostics.insert(0, katex_error)

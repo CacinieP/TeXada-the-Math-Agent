@@ -72,6 +72,9 @@ class TeXadaConfig(BaseSettings):
 
     # ── Agent Runtime ──
     agent_max_steps: int = Field(default=3, ge=1, le=8)
+    # Wall-clock budget for one TeX tool call; a pathological input cannot
+    # pin the service beyond this bound.
+    tool_timeout_seconds: float = Field(default=10.0, gt=0.0, le=120.0)
 
     # ── Render ──
     default_render_mode: Literal["katex", "latex"] = "katex"

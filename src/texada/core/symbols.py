@@ -132,31 +132,44 @@ SYMBOL_MAP: dict[str, str] = {
 }
 
 # Suffixes that indicate a word is used in a non-math compound (e.g. 积分学, 矩阵论)
-_COMPOUND_SUFFIXES = frozenset("学论法方程式表系理性质义题体器列种项定密")
+# "空" protects compound terms like 向量空间 / 概率空间 from partial symbol hits.
+_COMPOUND_SUFFIXES = frozenset("学论法方程式表系理性质义题体器列种项定密空")
 
 
 class SymbolEngine:
     """Deterministic pre-translation: Chinese math terms → LaTeX symbols."""
 
+    def __init__(self) -> None:
+        # Single-pass longest-match alternation. Python's regex engine tries
+        # alternatives left to right at each position, so sorting keys by
+        # descending length makes "三重积分" win over "积分" without multiple
+        # passes. One pass also means replaced text is never rescanned, which
+        # eliminates double-translation of the replacement itself (the old
+        # sequential re.sub loop turned "argmax" → \arg\max and then
+        # re-translated "max" → \arg\\max, and "limsup" → \lim\sup).
+        suffix_class = "".join(_COMPOUND_SUFFIXES)
+        cjk_patterns: list[str] = []
+        ascii_patterns: list[str] = []
+        for key in sorted(SYMBOL_MAP, key=lambda k: -len(k)):
+            escaped = re.escape(key)
+            if key.isascii():
+                # Word boundaries keep already-escaped LaTeX (e.g. "\sin x")
+                # and English words ("sine") untouched.
+                ascii_patterns.append(rf"(?<![\\A-Za-z0-9]){escaped}(?![A-Za-z0-9])")
+            else:
+                # Negative lookahead only: not followed by a compound suffix.
+                cjk_patterns.append(rf"{escaped}(?![{suffix_class}])")
+        self._pattern = re.compile("|".join([*cjk_patterns, *ascii_patterns]))
+
     def pre_translate(self, text: str) -> str:
         """Replace Chinese terms with LaTeX, preserving unknown parts for the model.
 
-        Uses regex with negative lookahead to avoid breaking compound words.
         E.g. "积分学" stays intact, but "积分 f(x)" becomes "\\int f(x)".
-        Note: prefix protection is NOT used — it caused false negatives like
-        "高概率" failing to translate "概率". Compound suffix protection alone
-        is sufficient (e.g. "积分学" → suffix "学" blocks translation).
+        Compound suffix protection alone is sufficient (e.g. "积分学" → suffix
+        "学" blocks translation); prefix protection is not used because it
+        caused false negatives like "高概率" failing to translate "概率".
         """
-        result = text
-        suffix_class = "".join(_COMPOUND_SUFFIXES)
-        # Sort by descending key length so "三重积分" matches before "积分".
-        # Bind `latex` as the lambda default arg so the closure captures the
-        # current value rather than the loop variable (avoids late-binding bugs).
-        for cn, latex in sorted(SYMBOL_MAP.items(), key=lambda x: -len(x[0])):
-            # Negative lookahead only: not followed by compound suffix
-            pattern = f"{re.escape(cn)}(?![{suffix_class}])"
-            result = re.sub(pattern, lambda m, repl=latex: repl, result)
-        return result
+        return self._pattern.sub(lambda m: SYMBOL_MAP[m.group(0)], text)
 
     def translate(self, term: str) -> str | None:
         """Look up a single term's LaTeX equivalent. Used by the lookup_symbol tool."""

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -12,9 +13,15 @@ from texada.core.repair import DeterministicRepairService
 from texada.core.validator import LaTeXValidator
 from texada.render.engine import RenderEngine
 from texada.semantic import SemanticDiffer, SemanticParser
+from texada.semantic.model import SemanticDepthError
 from texada.types import RenderMode
 
-ToolHandler = Callable[..., Awaitable[dict[str, Any]]]
+# Tools are CPU-bound and synchronous internally; each one runs on a worker
+# thread with this wall-clock budget so one pathological input (e.g. a huge
+# structural diff) cannot pin the whole service.
+DEFAULT_TOOL_TIMEOUT_SECONDS = 10.0
+
+ToolHandler = Callable[..., dict[str, Any]]
 MAX_TEX_LENGTH = 4000
 
 
@@ -165,12 +172,12 @@ class TeXToolset:
         self.renderer = RenderEngine(config)
         self.repair_service = repair_service or DeterministicRepairService()
 
-    async def parse_tex(self, latex: str) -> dict[str, Any]:
+    def parse_tex(self, latex: str) -> dict[str, Any]:
         latex = self._tex(latex)
         document = self.parser.parse(latex)
         return {"semantic_document": document.to_dict()}
 
-    async def compile_tex(self, latex: str) -> dict[str, Any]:
+    def compile_tex(self, latex: str) -> dict[str, Any]:
         latex = self._tex(latex)
         validation = self.validator.validate(latex)
         document = self.parser.parse(latex)
@@ -188,14 +195,14 @@ class TeXToolset:
             "semantic_document": document.to_dict(),
         }
 
-    async def repair_tex(self, latex: str) -> dict[str, Any]:
+    def repair_tex(self, latex: str) -> dict[str, Any]:
         latex = self._tex(latex)
         result = self.repair_service.repair(latex)
         output = result.to_dict()
         output["semantic_document"] = self.parser.parse(result.latex).to_dict()
         return output
 
-    async def semantic_diff(self, before: str, after: str) -> dict[str, Any]:
+    def semantic_diff(self, before: str, after: str) -> dict[str, Any]:
         before = self._tex(before, label="before")
         after = self._tex(after, label="after")
         result = self.differ.diff(before, after)
@@ -203,7 +210,7 @@ class TeXToolset:
         output["semantic_document"] = result.after.to_dict() if result.after else None
         return output
 
-    async def render_math(self, latex: str, mode: str = "katex") -> dict[str, Any]:
+    def render_math(self, latex: str, mode: str = "katex") -> dict[str, Any]:
         latex = self._tex(latex)
         validation = self.validator.validate(latex)
         if not validation.valid:
@@ -229,7 +236,7 @@ class TeXToolset:
             "semantic_document": self.parser.parse(latex).to_dict(),
         }
 
-    async def export(self, latex: str, format: str = "latex") -> dict[str, Any]:
+    def export(self, latex: str, format: str = "latex") -> dict[str, Any]:
         latex = self._tex(latex)
         formats = {
             "latex": latex,
@@ -261,8 +268,14 @@ class TeXToolset:
 class ToolRouter:
     """Validate a requested tool name and turn execution into an observation."""
 
-    def __init__(self, toolset: TeXToolset):
+    def __init__(
+        self,
+        toolset: TeXToolset,
+        *,
+        timeout_seconds: float = DEFAULT_TOOL_TIMEOUT_SECONDS,
+    ):
         self.toolset = toolset
+        self.timeout_seconds = timeout_seconds
         self._handlers: dict[str, ToolHandler] = {
             definition.name: getattr(toolset, definition.name) for definition in toolset.DEFINITIONS
         }
@@ -292,11 +305,43 @@ class ToolRouter:
                 duration_ms=(time.monotonic() - start) * 1000,
             )
         try:
-            output = await self._handlers[name](**arguments)
+            # Tools are synchronous and CPU-bound; run them on a worker thread
+            # so a slow tool cannot block the event loop, and enforce a
+            # wall-clock budget so one pathological input cannot pin the
+            # service. Note: a timed-out worker thread keeps running until it
+            # finishes — the timeout bounds the request, not the thread.
+            output = await asyncio.wait_for(
+                asyncio.to_thread(self._handlers[name], **arguments),
+                timeout=self.timeout_seconds,
+            )
             return ToolObservation(
                 name=name,
                 ok=True,
                 output=output,
+                duration_ms=(time.monotonic() - start) * 1000,
+            )
+        except TimeoutError:
+            return ToolObservation(
+                name=name,
+                ok=False,
+                error=(
+                    f"Tool '{name}' timed out after "
+                    f"{self.timeout_seconds:g}s"
+                ),
+                duration_ms=(time.monotonic() - start) * 1000,
+            )
+        except SemanticDepthError as exc:
+            return ToolObservation(
+                name=name,
+                ok=False,
+                error=f"Tool '{name}' exceeded structural limits: {exc}",
+                duration_ms=(time.monotonic() - start) * 1000,
+            )
+        except RecursionError:
+            return ToolObservation(
+                name=name,
+                ok=False,
+                error=f"Tool '{name}' exceeded recursion depth",
                 duration_ms=(time.monotonic() - start) * 1000,
             )
         except (TypeError, ValueError, RuntimeError) as exc:

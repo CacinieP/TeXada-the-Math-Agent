@@ -37,7 +37,14 @@ jobs:
         run: uv run --extra dev --extra cas-eval pytest
 
       - name: Python dependency audit
-        run: uvx pip-audit --strict
+        # Audit the real project dependency tree. `uvx pip-audit`
+        # alone runs inside an ephemeral environment and only audits
+        # pip-audit's own dependencies; export the project's resolved
+        # requirements instead. The editable project line (`-e .`) is
+        # filtered because pip-audit cannot resolve it from PyPI.
+        run: |
+          uv export --extra dev --extra cas-eval --format requirements-txt --no-hashes | grep -v '^-e ' > /tmp/texada-requirements.txt
+          uvx --from pip-audit pip-audit -r /tmp/texada-requirements.txt --strict
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
