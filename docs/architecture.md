@@ -1,6 +1,6 @@
 # TeXada Architecture
 
-Version: v0.3.2. TeXada is an on-device, agent-driven structured
+Version: v0.3.8. TeXada is an on-device, agent-driven structured
 math editor. It is not a LaTeX input method with an LLM bolted on.
 
 TeXada has exactly two model roles:
@@ -163,10 +163,10 @@ The diff algorithm is a role-aware weighted ordered-tree edit:
 
 ## Experimental CAS Capability Boundary
 
-`src/texada/cas/` is an optional v0.3.2 developer capability, not a seventh
-public TeX tool. It is not imported by the Agent, API, desktop UI, or bundled
-sidecar. The default release behavior and installer dependency set therefore
-remain unchanged.
+`src/texada/cas/` is an optional developer capability (introduced in v0.3.2,
+still unregistered as of v0.3.8), not a seventh public TeX tool. It is not
+imported by the Agent, API, desktop UI, or bundled sidecar. The default
+release behavior and installer dependency set therefore remain unchanged.
 
 The production direction is deliberately one-way:
 

@@ -995,17 +995,16 @@ planner 替代。这样可以测试状态机而不引入采样随机性。
 
 ### 12.4 构建与依赖门禁
 
-当前验证包括：
+当前 CI（`.github/workflows/audit.yml` 与 `release-desktop.yml`）验证包括：
 
 - Ruff；
-- pytest；
-- `pip-audit --strict`；
+- pytest（含版本同步与前端契约测试）；
+- `pip-audit --strict`（经 `uv export` 审计真实依赖树，而非 `uvx` 临时环境）；
 - npm audit；
-- JavaScript syntax check；
-- Cargo format/check；
-- wheel 构建并检查 vendored KaTeX 是否进入包；
-- sidecar stub 解析与 Tauri externalBin；
-- 本地浏览器 CORS 预检。
+- JavaScript syntax check（`node --check`）；
+- Cargo check（macOS 与 Windows 双矩阵）；
+- 桌面发布流水线：PyInstaller sidecar 构建、macOS 签名/公证与安装包
+  smoke test、Windows NSIS 安装包。
 
 这些证据分别覆盖源代码、依赖供应链、Python 包、前端脚本和桌面壳，不能用“单元测试
 全绿”替代。

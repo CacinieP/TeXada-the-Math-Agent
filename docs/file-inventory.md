@@ -45,7 +45,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | File | Purpose |
 |------|---------|
 | `docs/README.md` | Documentation index grouping technical docs and root-level community/release files. |
-| `docs/design-evolution.md` | Long-form Chinese design rationale and verified per-version architecture Diff from the original prototype through v0.3.2. |
+| `docs/design-evolution.md` | Long-form Chinese design rationale and verified per-version architecture Diff from the original prototype through v0.3.8. |
 | `docs/architecture.md` | High-level architecture, model/backend choices, desktop shell, configuration, and CI overview. |
 | `docs/e2e-manual.md` | Human and automated local E2E checklist for the Agent Runtime path. |
 | `docs/audit.md` | Source audit scope, stale-code removals, remediation history, and intentional defaults. |
