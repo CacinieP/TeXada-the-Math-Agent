@@ -28,6 +28,8 @@ const SHORTCUT: &str = "Ctrl+Alt+T";
 const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 240;
 const BACKEND_STARTUP_PROBE_MS: u64 = 900;
 const BUNDLED_BACKEND_NAME: &str = "texada-backend";
+#[cfg(target_os = "macos")]
+const WINDOW_CORNER_RADIUS: f64 = 14.0;
 
 #[derive(Default)]
 struct BackendSidecarState(Mutex<Option<CommandChild>>);
@@ -142,6 +144,19 @@ fn startup_probe_client() -> Result<reqwest::Client, String> {
     api_client(Duration::from_millis(BACKEND_STARTUP_PROBE_MS))
 }
 
+fn is_startup_probe_request(method: &str, path: &str) -> bool {
+    method.eq_ignore_ascii_case("GET")
+        && matches!(path, "/api/status" | "/api/runtime" | "/api/settings/ui")
+}
+
+fn api_client_for_request(method: &str, path: &str) -> Result<reqwest::Client, String> {
+    if is_startup_probe_request(method, path) {
+        startup_probe_client()
+    } else {
+        http_client()
+    }
+}
+
 fn explicit_api_base_is_remote() -> bool {
     let Ok(value) = env::var("TEXADA_API_BASE") else {
         return false;
@@ -222,7 +237,7 @@ async fn api_json(
     body: Option<serde_json::Value>,
 ) -> Result<serde_json::Value, String> {
     let url = api_url(&path)?;
-    let client = http_client()?;
+    let client = api_client_for_request(&method, &path)?;
     let request = match method.to_uppercase().as_str() {
         "GET" => client.get(url),
         "POST" => client.post(url),
@@ -331,7 +346,7 @@ async fn convert_image(
 
 #[tauri::command]
 async fn get_status() -> Result<serde_json::Value, String> {
-    let client = http_client()?;
+    let client = startup_probe_client()?;
     let res = client
         .get(api_url("/api/status")?)
         .send()
@@ -597,6 +612,30 @@ fn setup_shortcut(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
+fn configure_rounded_macos_window(
+    window: &tauri::WebviewWindow,
+) -> Result<(), Box<dyn std::error::Error>> {
+    window.with_webview(|webview| unsafe {
+        use objc2_app_kit::{NSColor, NSWindow};
+
+        let native_window: &NSWindow = &*webview.ns_window().cast();
+        let clear_color = NSColor::clearColor();
+        native_window.setOpaque(false);
+        native_window.setHasShadow(false);
+        native_window.setBackgroundColor(Some(&clear_color));
+
+        if let Some(content_view) = native_window.contentView() {
+            content_view.setWantsLayer(true);
+            if let Some(layer) = content_view.layer() {
+                layer.setCornerRadius(WINDOW_CORNER_RADIUS);
+                layer.setMasksToBounds(true);
+            }
+        }
+    })?;
+    Ok(())
+}
+
 fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -625,6 +664,10 @@ fn main() {
             // Hide dock icon on macOS for popup-style app
             #[cfg(target_os = "macos")]
             {
+                let main_window = app
+                    .get_webview_window("main")
+                    .ok_or("main webview window is unavailable")?;
+                configure_rounded_macos_window(&main_window)?;
                 app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             }
 
@@ -644,7 +687,7 @@ fn main() {
 mod tests {
     use std::time::Duration;
 
-    use super::{api_client_for_base, is_local_api_base};
+    use super::{api_client_for_base, is_local_api_base, is_startup_probe_request};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     #[test]
@@ -663,6 +706,16 @@ mod tests {
         assert!(!is_local_api_base("not a URL"));
     }
 
+    #[test]
+    fn only_startup_reads_use_the_short_startup_timeout() {
+        assert!(is_startup_probe_request("GET", "/api/status"));
+        assert!(is_startup_probe_request("GET", "/api/runtime"));
+        assert!(is_startup_probe_request("GET", "/api/settings/ui"));
+        assert!(!is_startup_probe_request("POST", "/api/settings/ui"));
+        assert!(!is_startup_probe_request("GET", "/api/agent"));
+        assert!(!is_startup_probe_request("GET", "/api/settings/backend"));
+    }
+
     #[tokio::test]
     async fn local_api_client_reaches_loopback_directly() {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -672,7 +725,8 @@ mod tests {
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.expect("accept local request");
             let mut request = [0_u8; 1024];
-            stream.read(&mut request).await.expect("read local request");
+            let bytes_read = stream.read(&mut request).await.expect("read local request");
+            assert!(bytes_read > 0, "local request must not be empty");
             stream
                 .write_all(
                     b"HTTP/1.1 200 OK\r\nContent-Length: 6\r\nConnection: close\r\n\r\ndirect",

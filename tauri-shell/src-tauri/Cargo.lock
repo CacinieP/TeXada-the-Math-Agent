@@ -2151,6 +2151,7 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-core-graphics",
  "objc2-foundation",
+ "objc2-quartz-core",
 ]
 
 [[package]]
@@ -3914,8 +3915,10 @@ dependencies = [
 
 [[package]]
 name = "texada-shell"
-version = "0.3.6"
+version = "0.3.7"
 dependencies = [
+ "objc2-app-kit",
+ "objc2-quartz-core",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

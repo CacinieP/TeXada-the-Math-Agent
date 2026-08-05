@@ -20,7 +20,7 @@ environment:
     version: "7.2.2"
 
 policy:
-  version: "cas-policy-v1"
+  version: "cas-policy-v2"
   default_seed: 0
   equals_false_is_observation: true
   non_finite_v1_status: unknown
@@ -28,6 +28,7 @@ policy:
 worker_resources:
   rss_monitor: parent_pid_psutil
   rss_unit: bytes
+  default_startup_timeout_ms: 10000
   default_max_rss_bytes: 536870912
   poll_interval_ms: 50
   platforms:

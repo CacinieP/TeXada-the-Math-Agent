@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "TeXada",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "identifier": "com.texada.desktop",
   "build": {
     "frontendDist": "../src",
@@ -29,10 +29,7 @@
         "center": false,
         "visible": true,
         "focus": true,
-        "shadow": true,
-        "windowEffects": {
-          "effects": ["hudWindow", "popover"]
-        }
+        "shadow": false
       }
     ],
     "security": {

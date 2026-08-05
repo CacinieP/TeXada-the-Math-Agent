@@ -7,7 +7,7 @@ from typing import Any
 from texada.cas.model import CASBasis, CASEvidenceGrade, CASResult, CASStatus
 
 _WITNESS_VALUES = (0, 1, -1, 2, -2)
-POLICY_VERSION = "cas-policy-v1"
+POLICY_VERSION = "cas-policy-v2"
 
 
 def compare_expressions(
@@ -18,9 +18,18 @@ def compare_expressions(
 ) -> CASResult:
     """Compare controlled SymPy objects without trusting ``equals(False)``."""
     import sympy as sp
+    from sympy.core.relational import Relational
 
     assumptions = assumptions or []
     convergence = _convergence_observations(lhs, rhs)
+    if (isinstance(lhs, Relational) and not isinstance(lhs, sp.Equality)) or (
+        isinstance(rhs, Relational) and not isinstance(rhs, sp.Equality)
+    ):
+        return _unsupported(
+            assumptions,
+            "unsupported_relation",
+            "non-equality relations are outside the v2 comparison policy",
+        )
     if isinstance(lhs, sp.Equality) or isinstance(rhs, sp.Equality):
         if not isinstance(lhs, sp.Equality) or not isinstance(rhs, sp.Equality):
             return _unknown(
@@ -48,9 +57,7 @@ def compare_expressions(
         )
 
     exact_difference = _exact_difference(lhs_evaluated, rhs_evaluated)
-    if exact_difference is not None and (
-        exact_difference == 0 or exact_difference.is_zero is True
-    ):
+    if exact_difference is not None and (exact_difference == 0 or exact_difference.is_zero is True):
         return CASResult(
             status=CASStatus.EQUIVALENT,
             basis=CASBasis.EXACT_NORMALIZATION,
@@ -185,11 +192,7 @@ def _exact_ratio(lhs: Any, rhs: Any) -> Any | None:
     if lhs.has(sp.Function) or rhs.has(sp.Function):
         return None
     factor = sp.cancel(sp.together(lhs / rhs))
-    if (
-        not factor.free_symbols
-        and factor.is_zero is False
-        and _is_finite_exact(factor)
-    ):
+    if not factor.free_symbols and factor.is_zero is False and _is_finite_exact(factor):
         return factor
     return None
 
@@ -234,13 +237,9 @@ def _find_counterexample(lhs: Any, rhs: Any) -> tuple[dict[str, Any], Any, Any] 
             value = sp.Integer(raw_value)
             if not _candidate_allowed(symbol, value):
                 continue
-            substitutions = {
-                item: value if item == symbol else sp.Integer(1)
-                for item in symbols
-            }
+            substitutions = {item: value if item == symbol else sp.Integer(1) for item in symbols}
             if any(
-                not _candidate_allowed(item, candidate)
-                for item, candidate in substitutions.items()
+                not _candidate_allowed(item, candidate) for item, candidate in substitutions.items()
             ):
                 continue
             lhs_value = sp.simplify(lhs.subs(substitutions).doit())
@@ -250,8 +249,7 @@ def _find_counterexample(lhs: Any, rhs: Any) -> tuple[dict[str, Any], Any, Any] 
             difference = sp.simplify(lhs_value - rhs_value)
             if difference.is_zero is False:
                 witness = {
-                    item.name: _json_exact(candidate)
-                    for item, candidate in substitutions.items()
+                    item.name: _json_exact(candidate) for item, candidate in substitutions.items()
                 }
                 return witness, lhs_value, rhs_value
     return None
@@ -269,13 +267,9 @@ def _find_equation_counterexample(
             value = sp.Integer(raw_value)
             if not _candidate_allowed(symbol, value):
                 continue
-            substitutions = {
-                item: value if item == symbol else sp.Integer(1)
-                for item in symbols
-            }
+            substitutions = {item: value if item == symbol else sp.Integer(1) for item in symbols}
             if any(
-                not _candidate_allowed(item, candidate)
-                for item, candidate in substitutions.items()
+                not _candidate_allowed(item, candidate) for item, candidate in substitutions.items()
             ):
                 continue
             lhs_values = (
@@ -292,8 +286,7 @@ def _find_equation_counterexample(
             rhs_truth = sp.simplify(rhs_values[0] - rhs_values[1]).is_zero
             if lhs_truth is not None and rhs_truth is not None and lhs_truth != rhs_truth:
                 witness = {
-                    item.name: _json_exact(candidate)
-                    for item, candidate in substitutions.items()
+                    item.name: _json_exact(candidate) for item, candidate in substitutions.items()
                 }
                 return witness, bool(lhs_truth), bool(rhs_truth)
     return None
@@ -368,6 +361,21 @@ def _unknown(
         evidence_grade=CASEvidenceGrade.OBSERVATION,
         assumptions=assumptions,
         observation=observation or {},
+        reason=reason,
+        reason_code=reason_code,
+    )
+
+
+def _unsupported(
+    assumptions: list[str],
+    reason_code: str,
+    reason: str,
+) -> CASResult:
+    return CASResult(
+        status=CASStatus.UNSUPPORTED,
+        basis=CASBasis.UNSUPPORTED_SEMANTIC_UNIT,
+        evidence_grade=CASEvidenceGrade.NONE,
+        assumptions=assumptions,
         reason=reason,
         reason_code=reason_code,
     )

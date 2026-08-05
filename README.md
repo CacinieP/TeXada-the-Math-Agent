@@ -79,7 +79,9 @@ The Ollama port is configurable. The default is `http://localhost:11434`, but Se
 
 ### Download
 
-Version `0.3.6` is released from the `main` branch.
+The latest tagged desktop release is `v0.3.6`. Those artifacts retain the
+`GPL-3.0-or-later` license recorded in that immutable tag. Current unreleased
+`main` development is version `0.3.7` under `AGPL-3.0-or-later`.
 
 | Platform | Package |
 |----------|---------|
@@ -351,7 +353,8 @@ The current `main` branch has no known blocking issue after the latest audit pas
 
 ### License
 
-TeXada-the-Math-Agent is released under `AGPL-3.0-or-later`. See [LICENSE](LICENSE).
+Current `main` development is licensed under `AGPL-3.0-or-later`; tagged
+releases retain the license recorded in their immutable tag. See [LICENSE](LICENSE).
 
 </details>
 
@@ -415,7 +418,9 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 
 ### 下载
 
-版本 `0.3.6` 从 `main` 分支发布。
+最新的桌面正式版本是标签 `v0.3.6`。该标签及其安装包继续适用标签内记录的
+`GPL-3.0-or-later`；当前尚未发布的 `main` 开发版本为 `0.3.7`，适用
+`AGPL-3.0-or-later`。
 
 | 平台 | 安装包 |
 |------|--------|
@@ -683,6 +688,7 @@ GitHub Actions 可以手动从 `main` 构建安装包，也会在版本 tag 上�
 
 ### 开源协议
 
-TeXada-the-Math-Agent 使用 `AGPL-3.0-or-later` 协议发布，详见 [LICENSE](LICENSE)。
+当前 `main` 开发版本使用 `AGPL-3.0-or-later`；既有正式标签继续适用各自标签内
+记录的许可证。详见 [LICENSE](LICENSE)。
 
 </details>

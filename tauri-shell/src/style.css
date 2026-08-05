@@ -38,6 +38,7 @@ html, body {
   width: 100%;
   height: 100%;
   min-height: 100%;
+  border-radius: var(--window-radius);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -46,7 +47,7 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-  padding: 1px;
+  padding: 0;
 }
 
 @media (min-width: 561px) and (min-height: 601px) {
@@ -62,12 +63,11 @@ body {
     var(--panel-gradient);
   border-radius: var(--window-radius);
   border: 1px solid var(--border);
-  background-clip: padding-box;
+  background-clip: border-box;
   clip-path: inset(0 round var(--window-radius));
-  box-shadow: var(--shadow);
   overflow: hidden;
-  width: calc(100vw - 2px);
-  height: calc(100vh - 2px);
+  width: 100vw;
+  height: 100vh;
   max-height: 100vh;
   display: flex;
   flex-direction: column;

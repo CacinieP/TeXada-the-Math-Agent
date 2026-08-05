@@ -74,7 +74,7 @@ These backends are not used by the production adapter. Parsed means only that th
 
 ## Worker resource boundary
 
-RSS is observed as **bytes** by `parent_pid_psutil`. `RLIMIT_AS` is not treated as the cross-platform authority. The default ceiling is **536870912 bytes**, sampled every **50 ms**.
+RSS is observed as **bytes** by `parent_pid_psutil`. `RLIMIT_AS` is not treated as the cross-platform authority. The default ceiling is **536870912 bytes**, sampled every **50 ms**. Worker startup is allowed **10000 ms** so cold SymPy imports remain reliable under CPU pressure.
 
 | Platform | RLIMIT_AS authority | Reason |
 | --- | --- | --- |

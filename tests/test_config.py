@@ -2,11 +2,13 @@
 
 import json
 import tomllib
+from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
+import texada.api as api_module
 from texada import __version__
 from texada.api import _app_version
 from texada.config import (
@@ -19,15 +21,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_release_version_is_synchronized_across_python_node_and_tauri():
-    python_version = tomllib.loads(
-        (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    )["project"]["version"]
-    package_version = json.loads(
-        (ROOT / "package.json").read_text(encoding="utf-8")
-    )["version"]
-    package_lock = json.loads(
-        (ROOT / "package-lock.json").read_text(encoding="utf-8")
-    )
+    python_version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
+        "project"
+    ]["version"]
+    package_version = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
+    package_lock = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))
     package_lock_version = package_lock["version"]
     package_lock_root_version = package_lock["packages"][""]["version"]
     cargo_version = tomllib.loads(
@@ -37,20 +35,14 @@ def test_release_version_is_synchronized_across_python_node_and_tauri():
         (ROOT / "tauri-shell/src-tauri/Cargo.lock").read_text(encoding="utf-8")
     )
     cargo_lock_version = next(
-        package["version"]
-        for package in cargo_lock["package"]
-        if package["name"] == "texada-shell"
+        package["version"] for package in cargo_lock["package"] if package["name"] == "texada-shell"
     )
     uv_lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
     uv_lock_version = next(
-        package["version"]
-        for package in uv_lock["package"]
-        if package["name"] == "texada"
+        package["version"] for package in uv_lock["package"] if package["name"] == "texada"
     )
     tauri_version = json.loads(
-        (ROOT / "tauri-shell/src-tauri/tauri.conf.json").read_text(
-            encoding="utf-8"
-        )
+        (ROOT / "tauri-shell/src-tauri/tauri.conf.json").read_text(encoding="utf-8")
     )["version"]
     frontend = (ROOT / "tauri-shell/src/index.html").read_text(encoding="utf-8")
 
@@ -65,19 +57,26 @@ def test_release_version_is_synchronized_across_python_node_and_tauri():
         uv_lock_version,
         __version__,
         _app_version(),
-    } == {"0.3.6"}
+    } == {"0.3.7"}
     assert f"v{python_version}" in frontend
+
+
+def test_app_version_fallback_matches_source_version(monkeypatch):
+    def missing_distribution(_: str) -> str:
+        raise PackageNotFoundError
+
+    monkeypatch.setattr(api_module, "version", missing_distribution)
+
+    assert _app_version() == "0.3.7"
 
 
 def test_license_is_synchronized_as_agpl_v3_or_later():
     expected = "AGPL-3.0-or-later"
-    python_license = tomllib.loads(
-        (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    )["project"]["license"]
+    python_license = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
+        "project"
+    ]["license"]
     package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
-    package_lock = json.loads(
-        (ROOT / "package-lock.json").read_text(encoding="utf-8")
-    )
+    package_lock = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))
     cargo_license = tomllib.loads(
         (ROOT / "tauri-shell/src-tauri/Cargo.toml").read_text(encoding="utf-8")
     )["package"]["license"]

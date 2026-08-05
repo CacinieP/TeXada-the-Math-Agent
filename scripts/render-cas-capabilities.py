@@ -74,8 +74,7 @@ def render(matrix: dict[str, Any]) -> str:
         result_type = expected.get("type") or expected.get("exception") or "—"
         warning = expected.get("semantic_warning") or "—"
         lines.append(
-            "| {id} | {backend} | {strict} | {outcome} | `{result_type}` | "
-            "`{warning}` |".format(
+            "| {id} | {backend} | {strict} | {outcome} | `{result_type}` | `{warning}` |".format(
                 id=_escape(case["id"]),
                 backend=case["backend"],
                 strict=str(case["strict"]).lower(),
@@ -95,12 +94,8 @@ def render(matrix: dict[str, Any]) -> str:
         ]
     )
     for case in matrix["sympy_contract_probes"]:
-        expected = ", ".join(
-            f"{key}={value}" for key, value in case["expected"].items()
-        )
-        lines.append(
-            f"| {_escape(case['id'])} | {case['tier']} | `{_escape(expected)}` |"
-        )
+        expected = ", ".join(f"{key}={value}" for key, value in case["expected"].items())
+        lines.append(f"| {_escape(case['id'])} | {case['tier']} | `{_escape(expected)}` |")
 
     lines.extend(
         [
@@ -112,14 +107,8 @@ def render(matrix: dict[str, Any]) -> str:
         ]
     )
     for case in matrix["sympy_random_probes"]:
-        outcomes = ", ".join(
-            f"{seed}→{value}"
-            for seed, value in case["expected_by_seed"].items()
-        )
-        lines.append(
-            f"| {_escape(case['id'])} | `{_escape(outcomes)}` | "
-            f"{case['repetitions']} |"
-        )
+        outcomes = ", ".join(f"{seed}→{value}" for seed, value in case["expected_by_seed"].items())
+        lines.append(f"| {_escape(case['id'])} | `{_escape(outcomes)}` | {case['repetitions']} |")
 
     resources = matrix["worker_resources"]
     lines.extend(
@@ -131,7 +120,9 @@ def render(matrix: dict[str, Any]) -> str:
             f"`{resources['rss_monitor']}`. `RLIMIT_AS` is not treated as the "
             "cross-platform authority. The default ceiling is "
             f"**{resources['default_max_rss_bytes']} bytes**, sampled every "
-            f"**{resources['poll_interval_ms']} ms**.",
+            f"**{resources['poll_interval_ms']} ms**. Worker startup is allowed "
+            f"**{resources['default_startup_timeout_ms']} ms** so cold SymPy imports "
+            "remain reliable under CPU pressure.",
             "",
             "| Platform | RLIMIT_AS authority | Reason |",
             "| --- | --- | --- |",
@@ -161,8 +152,7 @@ def render(matrix: dict[str, Any]) -> str:
             "",
             "## Acceptance red lines",
             "",
-            f"- Maximum observed false verified: "
-            f"**{acceptance['maximum_false_verified']}**.",
+            f"- Maximum observed false verified: **{acceptance['maximum_false_verified']}**.",
             f"- Unsupported input reaches the comparator: "
             f"**{str(acceptance['unsupported_reaches_comparator']).lower()}**.",
             f"- Verified requires an evidence basis: "

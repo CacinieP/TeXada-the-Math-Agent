@@ -8,6 +8,8 @@
   const isDesktop = isTauri || window.location.protocol === 'tauri:';
   const API_BASE = await window.TeXadaRuntime.resolveApiBase({ invoke });
   const DEFAULT_REQUEST_TIMEOUT_MS = 240000;
+  const BACKEND_STARTUP_WAIT_MS = 60000;
+  const BACKEND_STARTUP_POLL_MS = 750;
 
   // ── State ──
   let currentTab = 'nl';
@@ -740,18 +742,7 @@
       setStatus(isOnline, backendStatusText(info), info.status, info);
       return isOnline;
     } catch (e) {
-      if (isTauri) {
-        try {
-          const info = await invoke('get_status');
-          const isOnline = Boolean(info.ready) || info.status === 'ok' || info.status === 'ready' || info.status === 'partial_ready';
-          setStatus(isOnline, backendStatusText(info), info.status, info);
-          return isOnline;
-        } catch (e2) {
-          setStatus(false, t(starting ? 'status.starting' : 'status.noApi'), starting ? 'starting' : '');
-        }
-      } else {
-        setStatus(false, t(starting ? 'status.starting' : 'status.noApi'), starting ? 'starting' : '');
-      }
+      setStatus(false, t(starting ? 'status.starting' : 'status.noApi'), starting ? 'starting' : '');
       return false;
     }
   }
@@ -760,8 +751,9 @@
     if (backendStartupPromise) return backendStartupPromise;
     backendStartupPromise = (async () => {
       setStatus(false, t('status.starting'), 'starting');
-      for (let attempt = 0; attempt < 80; attempt += 1) {
-        await new Promise(resolve => setTimeout(resolve, 750));
+      const deadline = Date.now() + BACKEND_STARTUP_WAIT_MS;
+      while (Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, BACKEND_STARTUP_POLL_MS));
         if (await checkBackend({ starting: true })) {
           await loadRuntimeConfig();
           return true;

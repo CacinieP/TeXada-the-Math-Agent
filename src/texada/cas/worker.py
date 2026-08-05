@@ -31,8 +31,7 @@ class CASWorkerMemoryExceeded(RuntimeError):
         self.peak_rss_bytes = peak_rss_bytes
         self.limit_bytes = limit_bytes
         super().__init__(
-            f"CAS worker RSS {peak_rss_bytes} exceeded limit {limit_bytes} bytes "
-            "and was restarted"
+            f"CAS worker RSS {peak_rss_bytes} exceeded limit {limit_bytes} bytes and was restarted"
         )
 
 
@@ -43,7 +42,7 @@ class CASWorker:
         self,
         *,
         timeout_ms: int = 1000,
-        startup_timeout_ms: int = 3000,
+        startup_timeout_ms: int = 10_000,
         max_rss_bytes: int | None = 512 * 1024**2,
         rss_poll_interval_ms: int = 50,
         context: BaseContext | None = None,
@@ -139,7 +138,9 @@ class CASWorker:
             ready = self._outbox.get(timeout=self.startup_timeout_ms / 1000)
         except queue.Empty as exc:
             self._reset(force=True)
-            raise CASWorkerError("CAS worker did not become ready") from exc
+            raise CASWorkerError(
+                f"CAS worker did not become ready within {self.startup_timeout_ms} ms"
+            ) from exc
         if not ready.get("ready"):
             error = str(ready.get("error") or "CAS worker failed during startup")
             self._reset(force=True)

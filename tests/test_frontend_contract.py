@@ -96,12 +96,15 @@ def test_slow_operations_show_progress_and_recoverable_load_errors():
 def test_bundled_backend_startup_wait_covers_slow_frozen_imports():
     assert "let backendStartupPromise = null" in JAVASCRIPT
     assert "if (backendStartupPromise) return backendStartupPromise" in JAVASCRIPT
-    assert "attempt < 80" in JAVASCRIPT
+    assert "const BACKEND_STARTUP_WAIT_MS = 60000" in JAVASCRIPT
+    assert "const deadline = Date.now() + BACKEND_STARTUP_WAIT_MS" in JAVASCRIPT
+    assert "while (Date.now() < deadline)" in JAVASCRIPT
     assert "window.location.protocol === 'tauri:'" in JAVASCRIPT
     assert "if (!ready && isDesktop) waitForBackendStartup()" in JAVASCRIPT
     assert "'status.starting': 'API 启动中…'" in JAVASCRIPT
     assert "checkBackend({ starting: true })" in JAVASCRIPT
     assert "setStatus(false, t('status.noApi'))" in JAVASCRIPT
+    assert JAVASCRIPT.count("await invoke('get_status')") == 1
 
 
 def test_natural_language_input_is_never_prefilled_from_clipboard():
@@ -162,6 +165,37 @@ def test_shorthand_grid_keeps_katex_previews_inside_the_window():
         stylesheet,
         re.S,
     )
+
+
+def test_transparent_window_uses_clean_edge_to_edge_rounded_chrome():
+    stylesheet = (ROOT / "tauri-shell" / "src" / "style.css").read_text(
+        encoding="utf-8"
+    )
+    tauri_config = (
+        ROOT / "tauri-shell" / "src-tauri" / "tauri.conf.json"
+    ).read_text(encoding="utf-8")
+
+    assert re.search(
+        r"html,\s*body\s*\{[^}]*border-radius:\s*var\(--window-radius\);",
+        stylesheet,
+        re.S,
+    )
+    assert re.search(r"body\s*\{[^}]*padding:\s*0;", stylesheet, re.S)
+    assert re.search(r"#app\s*\{[^}]*background-clip:\s*border-box;", stylesheet, re.S)
+    assert re.search(r"#app\s*\{[^}]*width:\s*100vw;", stylesheet, re.S)
+    assert re.search(r"#app\s*\{[^}]*height:\s*100vh;", stylesheet, re.S)
+    assert '"transparent": true' in tauri_config
+    assert '"decorations": false' in tauri_config
+    assert '"shadow": false' in tauri_config
+    assert '"windowEffects"' not in tauri_config
+
+    rust_shell = (
+        ROOT / "tauri-shell" / "src-tauri" / "src" / "main.rs"
+    ).read_text(encoding="utf-8")
+    assert "configure_rounded_macos_window" in rust_shell
+    assert "native_window.setBackgroundColor(Some(&clear_color))" in rust_shell
+    assert "layer.setCornerRadius(WINDOW_CORNER_RADIUS)" in rust_shell
+    assert "layer.setMasksToBounds(true)" in rust_shell
 
 
 def test_agent_trace_count_includes_runtime_guard_tool_observations():

@@ -30,9 +30,7 @@ def test_capability_matrix_locks_environment_and_schema(matrix):
     environment = matrix["environment"]
 
     assert sp.__version__ == environment["sympy"]["version"]
-    assert version("antlr4-python3-runtime") == environment[
-        "antlr4-python3-runtime"
-    ]["version"]
+    assert version("antlr4-python3-runtime") == environment["antlr4-python3-runtime"]["version"]
     assert version("lark") == environment["lark"]["version"]
     assert version("psutil") == environment["psutil"]["version"]
     assert environment["sympy"]["pin"] == "==1.14.0"
@@ -42,11 +40,9 @@ def test_capability_matrix_locks_environment_and_schema(matrix):
     assert matrix["policy"]["version"] == POLICY_VERSION
     assert matrix["policy"]["default_seed"] == 0
     assert matrix["worker_resources"]["rss_unit"] == "bytes"
+    assert matrix["worker_resources"]["default_startup_timeout_ms"] == 10_000
     assert matrix["worker_resources"]["default_max_rss_bytes"] == 512 * 1024**2
-    assert (
-        matrix["worker_resources"]["platforms"]["macos"]["rlimit_as_authority"]
-        is False
-    )
+    assert matrix["worker_resources"]["platforms"]["macos"]["rlimit_as_authority"] is False
     assert matrix["cache"]["key_fields"] == [
         "fingerprint_a",
         "fingerprint_b",
@@ -168,10 +164,9 @@ def test_sympy_equals_contract_probes(matrix):
             assert result.status.value == expected["policy_status"], case["id"]
             assert result.basis.value == expected["policy_basis"], case["id"]
             assert result.reason_code == expected["policy_reason_code"], case["id"]
-            assert (
-                result.observation["lhs_convergence"]
-                == expected["convergence_observation"]
-            ), case["id"]
+            assert result.observation["lhs_convergence"] == expected["convergence_observation"], (
+                case["id"]
+            )
             assert result.status.value not in expected["forbidden_statuses"], case["id"]
 
 

@@ -124,6 +124,27 @@ def test_convergence_is_auxiliary_evidence_not_an_infinity_comparison():
     assert result.observation["lhs_convergence"] == "convergent"
 
 
+@pytest.mark.parametrize(
+    "relation",
+    [
+        lambda x: sp.Gt(x, 3),
+        lambda x: sp.Ge(x, 3),
+        lambda x: sp.Lt(x, 3),
+        lambda x: sp.Le(x, 3),
+        lambda x: sp.Ne(x, 3),
+    ],
+)
+def test_non_equality_relations_are_unsupported_without_raising(relation):
+    x = sp.Symbol("x")
+
+    result = compare_expressions(relation(x), relation(x))
+
+    assert result.status is CASStatus.UNSUPPORTED
+    assert result.basis is CASBasis.UNSUPPORTED_SEMANTIC_UNIT
+    assert result.evidence_grade is CASEvidenceGrade.NONE
+    assert result.reason_code == "unsupported_relation"
+
+
 def test_unsupported_semantic_unit_never_reaches_worker():
     parser = SemanticParser()
     checker = AlgebraChecker(worker=_UnexpectedWorker())
@@ -161,7 +182,7 @@ def test_process_timeout_kills_worker_and_next_request_restarts_it():
     context = multiprocessing.get_context("spawn")
     worker = CASWorker(
         timeout_ms=100,
-        startup_timeout_ms=2000,
+        startup_timeout_ms=10_000,
         context=context,
         target=_controllable_worker,
     )
@@ -182,7 +203,7 @@ def test_parent_pid_rss_limit_kills_worker():
     context = multiprocessing.get_context("spawn")
     worker = CASWorker(
         timeout_ms=1000,
-        startup_timeout_ms=2000,
+        startup_timeout_ms=10_000,
         max_rss_bytes=1,
         rss_poll_interval_ms=20,
         context=context,
@@ -229,7 +250,7 @@ def test_cache_key_canonicalizes_assumptions_and_tracks_seed_and_versions():
         "lhs": lhs,
         "rhs": rhs,
         "sympy_version": sp.__version__,
-        "policy_version": "cas-policy-v1",
+        "policy_version": "cas-policy-v2",
     }
 
     first = build_cache_key(

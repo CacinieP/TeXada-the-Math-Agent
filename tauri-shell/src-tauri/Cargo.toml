@@ -1,6 +1,6 @@
 [package]
 name = "texada-shell"
-version = "0.3.6"
+version = "0.3.7"
 description = "TeXada floating shell — math formula agent"
 authors = ["TeXada"]
 license = "AGPL-3.0-or-later"
@@ -21,6 +21,18 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", features = ["json", "multipart"] }
 tokio = { version = "1", features = ["full"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+    "NSColor",
+    "NSView",
+    "NSWindow",
+    "objc2-quartz-core",
+] }
+objc2-quartz-core = { version = "0.3", default-features = false, features = [
+    "CALayer",
+    "objc2-core-foundation",
+] }
 
 [profile.release]
 strip = true

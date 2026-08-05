@@ -2,19 +2,43 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
-## Unreleased
+## 0.3.7 - 2026-08-05
 
 ### English
 
 - Relicensed TeXada from `GPL-3.0-or-later` to `AGPL-3.0-or-later` and
   synchronized the canonical license text, Python/npm/Tauri package metadata,
   README badge, documentation, and release-facing hero artwork.
+- Advanced unreleased source metadata to `0.3.7` so the AGPL development tree
+  cannot be confused with the GPL-licensed `v0.3.6` release tag.
+- Bounded desktop startup probes with a short HTTP timeout and a 60-second
+  polling deadline, removing the duplicate status request that could leave
+  the startup UI waiting behind the normal long-running request timeout.
+- Corrected the API's package-metadata fallback version and added direct
+  regression coverage for the missing-metadata branch.
+- Made non-equality SymPy relations return an auditable `unsupported` result
+  instead of raising `TypeError`, advanced the CAS cache policy identity to
+  `cas-policy-v2`, and increased the cold worker startup allowance to 10 seconds.
+- Removed the transparent one-pixel window gutter, rectangular native shadow,
+  and full-window native material layer, then applied transparent native
+  `NSWindow`/`CALayer` clipping so all four frameless desktop corners render as
+  clean, edge-to-edge rounded corners.
 
 ### 中文
 
 - 将 TeXada 的许可证从 `GPL-3.0-or-later` 变更为
   `AGPL-3.0-or-later`，并同步更新规范许可证正文、Python/npm/Tauri
   包元数据、README 徽章、文档和面向发布的宣传图。
+- 将未发布源码版本提升为 `0.3.7`，避免 AGPL 开发分支与仍使用 GPL 的
+  `v0.3.6` 正式标签产生版本身份混淆。
+- 为桌面启动探测使用短 HTTP 超时和真实的 60 秒截止时间，并移除重复状态请求，
+  避免启动界面被正常推理请求的长超时拖住。
+- 修正 API 在缺少包元数据时返回的回退版本，并为该异常分支增加直接回归测试。
+- 让非等式 SymPy 关系返回可审计的 `unsupported`，不再抛出 `TypeError`；
+  同时将 CAS 缓存策略标识提升为 `cas-policy-v2`，并把冷启动等待提高到 10 秒。
+- 移除透明的一像素窗口边槽、矩形原生阴影和铺满窗口的原生材质层，使无边框桌面
+  窗口不再暴露矩形背景；同时在原生 `NSWindow`/`CALayer` 上设置透明背景与裁剪，
+  使四个角都呈现为干净、贴边的圆角。
 
 ## 0.3.6 - 2026-08-02
 
