@@ -2,6 +2,56 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.3.8 - 2026-08-05
+
+### English
+
+- Bounded three verified failure modes reachable by ordinary user input:
+  deeply nested formulas (a legal 3151-character `\frac` chain previously
+  crashed or hung the process), oversized `semantic_diff` inputs (the O(m·n)
+  alignment previously ran ~65s at n=1200 and exhausted memory at n=2000),
+  and tool calls with no execution bound.
+- Added a pre-flight nesting depth limit (`MAX_NESTING_DEPTH`, 100) checked
+  before any V8/KaTeX call, with depth budgets and `RecursionError` handling
+  in the tolerant parser, serializers, and diff as defense in depth.
+- `semantic_diff` now degrades to a linear sequential alignment above a 10k
+  child-pair budget and reports `degraded: true` instead of stalling.
+- TeX tools now run on worker threads with a configurable wall-clock timeout
+  (`tool_timeout_seconds`, default 10s) instead of blocking the event loop.
+- The in-process V8/KaTeX context now self-heals after failure (up to 3
+  rebuilds) and is released at interpreter exit via `atexit`, so CLI,
+  script, and backend processes exit cleanly.
+- Rewrote `SymbolEngine` as a single-pass longest-match translator with word
+  boundaries for ASCII keys, fixing double translation ("argmax" →
+  `\arg\\max`, "limsup" → `\lim\sup`) and compound corruption
+  ("向量空间" → `\vec空间`).
+- Fixed the CI dependency audit to scan the real project tree via `uv export`
+  instead of the ephemeral `uvx` environment (previously only ~28 packages
+  were audited instead of the full locked set).
+- Added 19 regression tests in `tests/test_safety_guards.py`.
+
+### 中文
+
+- 为三条经实测确认、普通用户输入即可触发的故障路径加上边界：深嵌套公式
+  （3151 字符的合法 `\frac` 链此前可让进程崩溃或挂死）、超大
+  `semantic_diff` 输入（O(m·n) 对齐在 n=1200 时约 65 秒、n=2000 时内存耗尽）、
+  以及没有任何执行上限的工具调用。
+- 新增前置嵌套深度上限（`MAX_NESTING_DEPTH`，100），在任何 V8/KaTeX
+  调用之前检查；容错解析器、序列化器和 diff 另加深度预算与
+  `RecursionError` 兜底，形成纵深防御。
+- `semantic_diff` 在子节点配对预算超过 10k 时降级为线性顺序对齐，并报告
+  `degraded: true`，不再卡住请求。
+- TeX 工具改为在 worker 线程上执行，并带可配置的墙钟超时
+  （`tool_timeout_seconds`，默认 10 秒），不再阻塞事件循环。
+- 进程内 V8/KaTeX 上下文失败后现在可以自愈（最多重建 3 次），并在解释器
+  退出时通过 `atexit` 释放，CLI、脚本与后端进程都能干净退出。
+- 将 `SymbolEngine` 重写为单遍最长匹配翻译器，并为 ASCII 键增加词边界，
+  修复二次替换（"argmax" → `\arg\\max`、"limsup" → `\lim\sup`）和复合词
+  误替换（"向量空间" → `\vec空间`）。
+- 修正 CI 依赖审计：改为通过 `uv export` 审计真实项目依赖树，而不是
+  `uvx` 的临时环境（此前只审计约 28 个包，而非完整的锁定依赖集）。
+- 新增 19 个回归测试，位于 `tests/test_safety_guards.py`。
+
 ## 0.3.7 - 2026-08-05
 
 ### English

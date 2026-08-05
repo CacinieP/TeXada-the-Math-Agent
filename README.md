@@ -79,15 +79,17 @@ The Ollama port is configurable. The default is `http://localhost:11434`, but Se
 
 ### Download
 
-The latest tagged desktop release is `v0.3.6`. Those artifacts retain the
-`GPL-3.0-or-later` license recorded in that immutable tag. Current unreleased
-`main` development is version `0.3.7` under `AGPL-3.0-or-later`.
+The latest tagged desktop release is `v0.3.8`, licensed
+`AGPL-3.0-or-later`. Tagged releases retain the license recorded in their
+immutable tag: earlier `v0.3.6` artifacts are `GPL-3.0-or-later`, while
+`v0.3.7` and later are `AGPL-3.0-or-later`. Current `main` development is
+version `0.3.8`.
 
 | Platform | Package |
 |----------|---------|
-| macOS Apple Silicon | `TeXada_0.3.6_aarch64.dmg` |
-| macOS Intel | `TeXada_0.3.6_x64.dmg` |
-| Windows x64 | `TeXada_0.3.6_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.3.8_aarch64.dmg` |
+| macOS Intel | `TeXada_0.3.8_x64.dmg` |
+| Windows x64 | `TeXada_0.3.8_x64-setup.exe` |
 
 Release page: [github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
@@ -418,15 +420,16 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 
 ### 下载
 
-最新的桌面正式版本是标签 `v0.3.6`。该标签及其安装包继续适用标签内记录的
-`GPL-3.0-or-later`；当前尚未发布的 `main` 开发版本为 `0.3.7`，适用
-`AGPL-3.0-or-later`。
+最新的桌面正式版本是标签 `v0.3.8`，适用 `AGPL-3.0-or-later`。每个标签及其
+安装包继续适用标签内记录的许可证：`v0.3.6` 及更早产物为
+`GPL-3.0-or-later`，`v0.3.7` 起为 `AGPL-3.0-or-later`。当前 `main` 开发
+版本为 `0.3.8`。
 
 | 平台 | 安装包 |
 |------|--------|
-| macOS Apple Silicon | `TeXada_0.3.6_aarch64.dmg` |
-| macOS Intel | `TeXada_0.3.6_x64.dmg` |
-| Windows x64 | `TeXada_0.3.6_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.3.8_aarch64.dmg` |
+| macOS Intel | `TeXada_0.3.8_x64.dmg` |
+| Windows x64 | `TeXada_0.3.8_x64-setup.exe` |
 
 Release 页面：[github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 

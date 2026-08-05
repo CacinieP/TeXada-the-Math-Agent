@@ -1,6 +1,6 @@
 {
   "name": "texada-the-math-agent",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "Local math formula agent powered by MiniCPM",
   "repository": {
     "type": "git",
