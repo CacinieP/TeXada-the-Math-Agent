@@ -8,6 +8,8 @@ This directory keeps technical and maintenance documentation. Community health f
 
 | Document | Purpose |
 |----------|---------|
+| [Why TeXada?](comparison.md) / [为什么选择 TeXada](comparison.md) | Product-focus comparison with links to the official documentation of adjacent tools. |
+| [Design philosophy](design-philosophy.md) / [设计哲学](design-philosophy.md) | Why the planner decides, deterministic tools execute, and the compiler verifies. |
 | [Design evolution](design-evolution.md) / [设计思路与版本迭代](design-evolution.md) | Long-form product, architecture, algorithm, and per-version Diff rationale from the original prototype through v0.3.8. |
 | [Architecture](architecture.md) / [架构文档](architecture.md) | System layout, backend model flow, frontend shell, configuration, CI and release shape. |
 | [SymPy capability matrix](sympy-capability-matrix.md) / [SymPy 能力矩阵](sympy-capability-matrix.md) | Generated boundary declaration for the optional, unregistered CAS scaffold, including parser drift, deterministic seed policy, and acceptance red lines. |
@@ -22,6 +24,7 @@ This directory keeps technical and maintenance documentation. Community health f
 | Document | Purpose |
 |----------|---------|
 | [README](../README.md) | User guide, installation package path, Ollama quick start, cloud mode and hardware notes. |
+| [Recorded examples](../examples/README.md) | Short desktop runs for natural-language conversion, OCR, and deterministic repair. |
 | [Contributing](../.github/CONTRIBUTING.md) | Contribution rules, validation checklist, and no hard-coded interface policy. |
 | [Security](../.github/SECURITY.md) | Supported versions and private vulnerability reporting. |
 | [Support](../.github/SUPPORT.md) | Bug-report checklist and model/Ollama troubleshooting entry point. |

@@ -45,6 +45,8 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | File | Purpose |
 |------|---------|
 | `docs/README.md` | Documentation index grouping technical docs and root-level community/release files. |
+| `docs/comparison.md` | Product-focus comparison with direct links to official adjacent-product documentation. |
+| `docs/design-philosophy.md` | Rationale for separating planner decisions, deterministic tool execution, and compiler verification. |
 | `docs/design-evolution.md` | Long-form Chinese design rationale and verified per-version architecture Diff from the original prototype through v0.3.8. |
 | `docs/architecture.md` | High-level architecture, model/backend choices, desktop shell, configuration, and CI overview. |
 | `docs/e2e-manual.md` | Human and automated local E2E checklist for the Agent Runtime path. |
@@ -53,6 +55,15 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `docs/technical-report.md` | Technical rationale, model selection, deterministic pipeline design, performance measurements, and known limitations. |
 | `docs/technical-report-v0.1.md` | Archived pre-Agent technical report retained as historical design evidence. |
 | `docs/sympy-capability-matrix.md` | Generated human-readable view of the optional CAS capability and reproducibility matrix. |
+
+## Recorded Examples / 实录示例
+
+| File | Purpose |
+|------|---------|
+| `examples/README.md` | Index for the recorded natural-language, OCR, and repair examples. |
+| `examples/01-natural-language/README.md` | Probability-density example showing structured LaTeX, compilation, and rendering. |
+| `examples/02-image-ocr/README.md` | Handwritten definite-integral example showing the MiniCPM-V and Agent review path. |
+| `examples/03-latex-repair/README.md` | Incomplete Gaussian-PDF example showing bounded deterministic syntax repair. |
 
 ## Python Backend / Python 后端
 
@@ -128,6 +139,12 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `assets/clipboard-screenshot.png` | README screenshot of the current desktop UI. |
 | `assets/texada-hero.png` | Original GPL-labelled hero artwork retained as the source reference for the updated license variant. |
 | `assets/texada-hero-agpl.png` | README hero image updated from the original artwork to display the AGPL-3.0 license. |
+| `assets/demo/texada-demo.gif` | Combined 30-second desktop product tour embedded below the original README hero. |
+| `assets/demo/natural-language.gif` | Recorded natural-language to validated probability-density formula segment. |
+| `assets/demo/image-ocr.gif` | Recorded handwritten-formula OCR and Agent review segment. |
+| `assets/demo/latex-repair.gif` | Recorded incomplete Gaussian-PDF repair and render segment. |
+| `assets/demo/local-runtime.gif` | Recorded local Ollama and MiniCPM model settings segment. |
+| `assets/demo/ocr-integral-input.png` | Handwritten definite-integral input created for the OCR demo. |
 
 ## Launch, Build, And Release / 启动、构建与发布
 

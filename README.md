@@ -14,6 +14,17 @@
 
 ![TeXada local-first math agent hero](assets/texada-hero-agpl.png)
 
+<p align="center">
+  <strong>Your local AI copilot for LaTeX and structured mathematical writing.</strong><br>
+  Generate formulas, read handwritten math, repair broken TeX, and validate the result before it renders.
+</p>
+
+![TeXada 30-second local math agent demo](assets/demo/texada-demo.gif)
+
+<p align="center">
+  Natural language → structured LaTeX · Image → formula · Broken TeX → valid TeX · Local by default
+</p>
+
 <a id="english"></a>
 
 <details open>
@@ -21,12 +32,20 @@
 
 ## TeXada
 
-TeXada is an on-device, agent-driven structured math editor for converting
-natural language, partial LaTeX, and screenshots into usable formula blocks.
+TeXada is a local AI copilot for LaTeX and scientific writing. Write math in
+natural language, paste a screenshot or handwritten formula, or give it an
+incomplete TeX expression. TeXada turns the input into a structured formula,
+checks it with deterministic tools, and renders a result you can inspect and
+copy.
+
+It is not a chat wrapper. TeXada is an on-device, agent-driven structured math
+editor whose planner can call narrow, independently testable TeX tools.
 It deliberately has only two model roles: MiniCPM5-1B handles planning and
 text generation, while MiniCPM-V 4.6 handles image understanding and formula
 OCR. Independently testable TeX tools own parsing, validation, deterministic
 repair, semantic diffing, rendering and export.
+
+**Not a chatbot. A tool-using math agent.**
 
 ```text
 MiniCPM5 Planner → TeX Tool → Observation → MiniCPM5 Planner
@@ -57,6 +76,17 @@ formula exists. Raw natural language is never treated as a reference AST.
 | Desktop insertion | Click a formula block to type it at the system cursor |
 | UI controls | Switch language, zoom from 80% to 140%, and drag the floating window |
 | Release packages | macOS DMGs and Windows x64 NSIS installers from GitHub Actions |
+
+### Examples
+
+| Workflow | Demo | What is verified |
+|----------|------|------------------|
+| Natural language | [Probability density function](examples/01-natural-language/README.md) | Structured LaTeX is compiled and rendered |
+| Formula OCR | [Handwritten definite integral](examples/02-image-ocr/README.md) | MiniCPM-V output is reviewed by the shared Agent runtime |
+| LaTeX repair | [Incomplete Gaussian PDF](examples/03-latex-repair/README.md) | Missing closing groups are repaired, recompiled, and rendered |
+
+See [all recorded examples](examples/README.md), [Why TeXada?](docs/comparison.md),
+and [the design philosophy](docs/design-philosophy.md).
 
 ### Agent Technical Highlights
 
@@ -367,10 +397,16 @@ releases retain the license recorded in their immutable tag. See [LICENSE](LICEN
 
 ## TeXada
 
-TeXada 是一个基于端侧 Agent 的结构化数学编辑器，用于把自然语言、不完整
-LaTeX 和截图转为可用公式块。产品明确只有两个模型角色：MiniCPM5-1B 负责规划、
-工具选择和文本生成，MiniCPM-V 4.6 负责图片理解与公式 OCR；解析、校验、确定性
-修复、语义 Diff、渲染与导出由可独立测试的 TeX 工具负责。
+TeXada 是一个面向 LaTeX 与科研写作的本地 AI Copilot。你可以输入自然语言、
+粘贴截图或手写公式，也可以交给它一段不完整的 TeX；TeXada 会把输入转换为
+结构化公式，用确定性工具检查，再渲染为可核对、可复制的结果。
+
+它不是聊天界面套壳，而是基于端侧 Agent 的结构化数学编辑器。产品明确只有两个
+模型角色：MiniCPM5-1B 负责规划、工具选择和文本生成，MiniCPM-V 4.6 负责图片
+理解与公式 OCR；解析、校验、确定性修复、语义 Diff、渲染与导出由可独立测试的
+TeX 工具负责。
+
+**不是聊天机器人，而是会调用工具的数学 Agent。**
 
 ```text
 MiniCPM5 Planner → TeX Tool → Observation → MiniCPM5 Planner
@@ -399,6 +435,17 @@ Level 1，但只在明确存在 before/after 公式时启用，不会把自然�
 | 桌面键入 | 点击公式块即可在系统当前光标处键入公式 |
 | 界面控制 | 设置页切换中英文、80% 到 140% 缩放、拖动浮窗 |
 | 安装包发布 | GitHub Actions 构建 macOS DMG 和 Windows x64 NSIS 安装包 |
+
+### 示例
+
+| 工作流 | 演示 | 实际验证 |
+|--------|------|----------|
+| 自然语言 | [概率密度函数](examples/01-natural-language/README.md) | 结构化 LaTeX 经过编译与渲染 |
+| 公式 OCR | [手写定积分](examples/02-image-ocr/README.md) | MiniCPM-V 候选经过统一 Agent Runtime 审查 |
+| LaTeX 修复 | [未闭合的 Gaussian PDF](examples/03-latex-repair/README.md) | 补全缺失分组后重新编译并渲染 |
+
+更多内容见[全部实录示例](examples/README.md)、[为什么选择 TeXada](docs/comparison.md)
+和[设计哲学](docs/design-philosophy.md)。
 
 ### Agent 技术亮点
 
