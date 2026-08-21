@@ -477,7 +477,9 @@ async def test_runtime_falls_back_after_two_consecutive_tool_errors(tmp_path):
 
     result = await runtime.run("x plus one")
 
-    assert result.stop_reason == "tool_error_limit"
+    # Unknown tool names are the planner hallucinating, not the tool layer
+    # failing: the classified breaker reports model_error_limit.
+    assert result.stop_reason == "model_error_limit"
     assert result.latex == "x+1"
     assert any(item["origin"] == "compatibility_fallback" for item in result.trace)
 
@@ -706,3 +708,156 @@ async def test_runtime_restores_integral_domain_after_compile_observation(tmp_pa
     assert result.latex == r"\iint_{D} f(x,y)\,dx\,dy"
     assert result.stop_reason == "operator_drift_deterministic_restore"
     assert len(planner.seen_messages) == 1
+
+
+@pytest.mark.asyncio
+async def test_token_budget_halts_before_next_model_call(tmp_path):
+    """The run-level token budget is checked before each planner call; on
+    exhaustion the loop halts and flows into the fallback ladder."""
+    planner = FakePlanner(
+        [
+            PlannerTurn(
+                tool_calls=[
+                    PlannerToolCall(
+                        id="compile_1",
+                        name="compile_tex",
+                        arguments={"latex": "x+1"},
+                    )
+                ],
+                tokens_used=500,
+            ),
+            # Never reached: the budget pre-check must stop the second call.
+            PlannerTurn(content="x+2", tokens_used=1),
+        ]
+    )
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, agent_token_budget=100),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("x plus one")
+
+    assert result.stop_reason == "token_budget_exceeded"
+    assert len(planner.seen_messages) == 1
+
+
+@pytest.mark.asyncio
+async def test_unknown_tool_twice_reports_model_error_limit(tmp_path):
+    planner = FakePlanner(
+        [
+            PlannerTurn(
+                tool_calls=[
+                    PlannerToolCall(
+                        id="b1", name="bogus_tool", arguments={"x": 1}
+                    )
+                ]
+            ),
+            PlannerTurn(
+                tool_calls=[
+                    PlannerToolCall(
+                        id="b2", name="bogus_tool", arguments={"x": 2}
+                    )
+                ]
+            ),
+        ]
+    )
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("hello world")
+
+    assert result.stop_reason == "model_error_limit"
+    model_errors = [
+        obs.get("error_class")
+        for step in result.trace
+        for obs in step.get("observations", [])
+        if not obs.get("ok")
+    ]
+    assert model_errors == ["model", "model"]
+
+
+@pytest.mark.asyncio
+async def test_tool_failures_report_tool_error_limit(tmp_path):
+    planner = FakePlanner(
+        [
+            PlannerTurn(
+                tool_calls=[
+                    PlannerToolCall(
+                        id="c1", name="compile_tex", arguments={"latex": "x+1"}
+                    )
+                ]
+            ),
+            PlannerTurn(
+                tool_calls=[
+                    PlannerToolCall(
+                        id="c2", name="compile_tex", arguments={"latex": "x+2"}
+                    )
+                ]
+            ),
+        ]
+    )
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    async def fail_internally(name, arguments):
+        # Fail the in-loop compile calls so the breaker trips, but let later
+        # calls (the _finalize verification chain) hit the real router.
+        nonlocal internal_failures
+        if name == "compile_tex" and internal_failures > 0:
+            internal_failures -= 1
+            return ToolObservation(
+                name=name, ok=False, error="simulated internal failure",
+                error_class="tool",
+            )
+        return await real_execute(name, arguments)
+
+    real_execute = runtime.tools.execute
+    internal_failures = 2
+    runtime.tools.execute = fail_internally
+
+    result = await runtime.run("hello world")
+
+    assert result.stop_reason == "tool_error_limit"
+
+
+@pytest.mark.asyncio
+async def test_crash_preserves_partial_trace_on_exception(tmp_path):
+    class ExplodingPlanner(FakePlanner):
+        async def plan(self, messages, tools):
+            self.seen_messages.append(messages)
+            if len(self.seen_messages) == 1:
+                return PlannerTurn(
+                    tool_calls=[
+                        PlannerToolCall(
+                            id="compile_1",
+                            name="compile_tex",
+                            arguments={"latex": "x+1"},
+                        )
+                    ]
+                )
+            raise RuntimeError("planner exploded mid-run")
+
+    planner = ExplodingPlanner([])
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    with pytest.raises(RuntimeError, match="planner exploded") as excinfo:
+        await runtime.run("x plus one")
+
+    partial = getattr(excinfo.value, "texada_partial_trace", None)
+    assert partial, "crash must attach the partial trace to the exception"
+    assert partial[0]["origin"] == "planner"

@@ -35,6 +35,7 @@ SAVED_CONFIG_FIELDS = frozenset({
     "inference_timeout_seconds",
     "api_request_timeout_seconds",
     "agent_max_steps",
+    "agent_token_budget",
     "run_log_max_days",
     "run_log_max_items",
 })
@@ -72,6 +73,10 @@ class TeXadaConfig(BaseSettings):
 
     # ── Agent Runtime ──
     agent_max_steps: int = Field(default=3, ge=1, le=8)
+    # Run-level cumulative planner-token budget. Checked before each model
+    # call; exhaustion halts the loop and flows into the deterministic
+    # fallback ladder instead of silently continuing. Zero disables it.
+    agent_token_budget: int = Field(default=32768, ge=0)
     # Wall-clock budget for one TeX tool call; a pathological input cannot
     # pin the service beyond this bound.
     tool_timeout_seconds: float = Field(default=10.0, gt=0.0, le=120.0)

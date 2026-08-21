@@ -85,3 +85,27 @@ async def test_tool_router_rejects_unknown_tools(tool_router):
 
     assert not result.ok
     assert "Unknown tool" in result.error
+
+
+@pytest.mark.asyncio
+async def test_router_classifies_model_versus_tool_errors(tool_router):
+    unknown = await tool_router.execute("no_such_tool", {})
+    assert unknown.ok is False
+    assert unknown.error_class == "model"
+
+    invalid_args = await tool_router.execute("compile_tex", {"latex": ""})
+    assert invalid_args.ok is False
+    assert invalid_args.error_class == "model"
+    assert invalid_args.error == "latex must not be empty"
+
+    def _boom(**_kwargs):
+        raise TimeoutError("simulated timeout")
+
+    tool_router._handlers["boom"] = _boom
+    internal = await tool_router.execute("boom", {})
+    assert internal.ok is False
+    assert internal.error_class == "tool"
+
+    success = await tool_router.execute("compile_tex", {"latex": "x+1"})
+    assert success.ok is True
+    assert success.error_class == ""

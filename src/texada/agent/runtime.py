@@ -126,6 +126,10 @@ class TeXadaAgentRuntime:
         self.parser = SemanticParser()
         self.renderer = RenderEngine(config)
         self.max_steps = config.agent_max_steps
+        # Run-level cumulative planner-token budget (0 disables). Checked
+        # before each model call so exhaustion lands in the deterministic
+        # fallback ladder instead of one more expensive planner turn.
+        self.token_budget = config.agent_token_budget
 
     async def run(
         self,
@@ -136,6 +140,35 @@ class TeXadaAgentRuntime:
         _task: str = "nl",
         _initial_candidate: str = "",
         _initial_tokens_used: int = 0,
+    ) -> AgentRunResult:
+        # The trace list is created here and filled by _run_inner so that an
+        # unexpected crash can still hand the partial trajectory to the API
+        # layer's error row instead of losing it with the exception.
+        trace: list[dict[str, Any]] = []
+        try:
+            return await self._run_inner(
+                user_input,
+                context=context,
+                render_mode=render_mode,
+                _task=_task,
+                _initial_candidate=_initial_candidate,
+                _initial_tokens_used=_initial_tokens_used,
+                _trace=trace,
+            )
+        except BaseException as exc:
+            exc.texada_partial_trace = trace
+            raise
+
+    async def _run_inner(
+        self,
+        user_input: str,
+        *,
+        context: str = "",
+        render_mode: RenderMode = RenderMode.KATEX,
+        _task: str = "nl",
+        _initial_candidate: str = "",
+        _initial_tokens_used: int = 0,
+        _trace: list[dict[str, Any]] | None = None,
     ) -> AgentRunResult:
         start = time.monotonic()
         initial_candidate = self.operator_guard.normalize_candidate(
@@ -187,12 +220,15 @@ class TeXadaAgentRuntime:
                 ),
             },
         ]
-        trace: list[dict[str, Any]] = []
+        trace: list[dict[str, Any]] = (
+            _trace if _trace is not None else []
+        )
         latest_latex = initial_candidate
         semantic_diff: dict[str, Any] = {}
         tokens_used = _initial_tokens_used
         call_fingerprints: set[str] = set()
         consecutive_errors = 0
+        last_error_class = "tool"
         operator_drift_attempts = 0
         halt_reason = ""
         drift_fallback_latex = ""
@@ -247,6 +283,9 @@ class TeXadaAgentRuntime:
             )
 
         for step_index in range(1, self.max_steps + 1):
+            if self.token_budget and tokens_used >= self.token_budget:
+                halt_reason = "token_budget_exceeded"
+                break
             turn = await self.model.plan(messages, self.tools.schemas)
             tokens_used += turn.tokens_used
             trace_item: dict[str, Any] = {
@@ -400,8 +439,13 @@ class TeXadaAgentRuntime:
                     consecutive_errors = 0
                 else:
                     consecutive_errors += 1
+                    last_error_class = observation.error_class or "tool"
                 if halt_reason or consecutive_errors >= 2:
-                    halt_reason = halt_reason or "tool_error_limit"
+                    halt_reason = halt_reason or (
+                        "model_error_limit"
+                        if last_error_class == "model"
+                        else "tool_error_limit"
+                    )
                     break
             if halt_reason:
                 break

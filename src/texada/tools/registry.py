@@ -34,6 +34,12 @@ class ToolObservation:
     output: dict[str, Any] = field(default_factory=dict)
     error: str = ""
     duration_ms: float = 0.0
+    # "model" marks malformed usage the model can correct (unknown tool,
+    # invalid arguments); "tool" marks the tool itself failing (timeout,
+    # structural limits, internal error). Drives the runtime's error-breaker
+    # stop reason so run logs distinguish a confused planner from an unhealthy
+    # tool layer.
+    error_class: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -42,6 +48,7 @@ class ToolObservation:
             "output": self.output,
             "error": self.error,
             "duration_ms": round(self.duration_ms, 3),
+            "error_class": self.error_class,
         }
 
 
@@ -296,6 +303,7 @@ class ToolRouter:
                 ok=False,
                 error=f"Unknown tool '{name}'. Available: {', '.join(self.names)}",
                 duration_ms=(time.monotonic() - start) * 1000,
+                error_class="model",
             )
         if not isinstance(arguments, dict):
             return ToolObservation(
@@ -303,6 +311,7 @@ class ToolRouter:
                 ok=False,
                 error="Tool arguments must be a JSON object",
                 duration_ms=(time.monotonic() - start) * 1000,
+                error_class="model",
             )
         try:
             # Tools are synchronous and CPU-bound; run them on a worker thread
@@ -329,6 +338,7 @@ class ToolRouter:
                     f"{self.timeout_seconds:g}s"
                 ),
                 duration_ms=(time.monotonic() - start) * 1000,
+                error_class="tool",
             )
         except SemanticDepthError as exc:
             return ToolObservation(
@@ -336,6 +346,7 @@ class ToolRouter:
                 ok=False,
                 error=f"Tool '{name}' exceeded structural limits: {exc}",
                 duration_ms=(time.monotonic() - start) * 1000,
+                error_class="tool",
             )
         except RecursionError:
             return ToolObservation(
@@ -343,11 +354,29 @@ class ToolRouter:
                 ok=False,
                 error=f"Tool '{name}' exceeded recursion depth",
                 duration_ms=(time.monotonic() - start) * 1000,
+                error_class="tool",
             )
-        except (TypeError, ValueError, RuntimeError) as exc:
+        except TypeError as exc:
             return ToolObservation(
                 name=name,
                 ok=False,
                 error=str(exc),
                 duration_ms=(time.monotonic() - start) * 1000,
+                error_class="model",
+            )
+        except ValueError as exc:
+            return ToolObservation(
+                name=name,
+                ok=False,
+                error=str(exc),
+                duration_ms=(time.monotonic() - start) * 1000,
+                error_class="model",
+            )
+        except RuntimeError as exc:
+            return ToolObservation(
+                name=name,
+                ok=False,
+                error=str(exc),
+                duration_ms=(time.monotonic() - start) * 1000,
+                error_class="tool",
             )

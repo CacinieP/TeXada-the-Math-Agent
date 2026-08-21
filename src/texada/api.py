@@ -1,6 +1,7 @@
 """FastAPI backend — HTTP API for the shell UI."""
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -46,6 +47,7 @@ EXPORTABLE_SETTINGS_FIELDS = frozenset({
     "inference_timeout_seconds",
     "api_request_timeout_seconds",
     "agent_max_steps",
+    "agent_token_budget",
     "run_log_max_days",
     "run_log_max_items",
 })
@@ -365,6 +367,7 @@ def _exportable_settings(config: TeXadaConfig) -> dict:
         "inference_timeout_seconds": config.inference_timeout_seconds,
         "api_request_timeout_seconds": config.api_request_timeout_seconds,
         "agent_max_steps": config.agent_max_steps,
+        "agent_token_budget": config.agent_token_budget,
         "run_log_max_days": config.run_log_max_days,
         "run_log_max_items": config.run_log_max_items,
     }
@@ -543,6 +546,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 input_text=req.text, model_role="text",
                 model_name=config.active_model_name, backend=config.backend,
                 status="error", status_code=503, render_mode=req_mode.value,
+                stop_reason="backend_unavailable",
                 latency_ms=(time.monotonic() - started) * 1000,
                 error_message=str(e),
             ))
@@ -553,8 +557,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 input_text=req.text, model_role="text",
                 model_name=config.active_model_name, backend=config.backend,
                 status="error", status_code=500, render_mode=req_mode.value,
+                stop_reason=f"crashed:{type(e).__name__}",
                 latency_ms=(time.monotonic() - started) * 1000,
                 error_message=str(e),
+                trace=getattr(e, "texada_partial_trace", []),
             ))
             raise
         try:
@@ -601,12 +607,30 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 context=req.context,
                 render_mode=req_mode,
             )
+        except asyncio.CancelledError as e:
+            # CancelledError is a BaseException: without this handler a client
+            # disconnect would vanish from run logs entirely.
+            try:
+                await asyncio.shield(record_run(RunLogEntry(
+                    run_id=run_id, operation="agent", input_type="nl",
+                    input_text=req.text, model_role="planner",
+                    model_name=config.active_model_name, backend=config.backend,
+                    status="cancelled", status_code=499, render_mode=req_mode.value,
+                    stop_reason="crashed:CancelledError",
+                    latency_ms=(time.monotonic() - started) * 1000,
+                    error_message="request cancelled (client disconnect or shutdown)",
+                    trace=getattr(e, "texada_partial_trace", []),
+                )))
+            except asyncio.CancelledError:
+                pass
+            raise
         except RuntimeError as e:
             await record_run(RunLogEntry(
                 run_id=run_id, operation="agent", input_type="nl",
                 input_text=req.text, model_role="planner",
                 model_name=config.active_model_name, backend=config.backend,
                 status="error", status_code=503, render_mode=req_mode.value,
+                stop_reason="backend_unavailable",
                 latency_ms=(time.monotonic() - started) * 1000,
                 error_message=str(e),
             ))
@@ -617,8 +641,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 input_text=req.text, model_role="planner",
                 model_name=config.active_model_name, backend=config.backend,
                 status="error", status_code=500, render_mode=req_mode.value,
+                stop_reason=f"crashed:{type(e).__name__}",
                 latency_ms=(time.monotonic() - started) * 1000,
                 error_message=str(e),
+                trace=getattr(e, "texada_partial_trace", []),
             ))
             raise
         try:
@@ -697,6 +723,23 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 render_mode=ocr_mode,
                 initial_tokens_used=vision_tokens,
             )
+        except asyncio.CancelledError as e:
+            # Client disconnect / shutdown during a long OCR agent run.
+            try:
+                await asyncio.shield(record_run(RunLogEntry(
+                    run_id=run_id, operation="ocr", input_type="ocr",
+                    input_text=image.filename or "[image]", input_bytes=len(data),
+                    input_mime=image.content_type or "", model_role="planner",
+                    model_name=model_chain, backend=config.backend,
+                    status="cancelled", status_code=499, render_mode=ocr_mode.value,
+                    stop_reason="crashed:CancelledError",
+                    latency_ms=(time.monotonic() - started) * 1000,
+                    error_message="request cancelled (client disconnect or shutdown)",
+                    trace=getattr(e, "texada_partial_trace", []),
+                )))
+            except asyncio.CancelledError:
+                pass
+            raise
         except RuntimeError as e:
             await record_run(RunLogEntry(
                 run_id=run_id, operation="ocr", input_type="ocr",
@@ -704,6 +747,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 input_mime=image.content_type or "", model_role="planner",
                 model_name=model_chain, backend=config.backend,
                 status="error", status_code=503, render_mode=ocr_mode.value,
+                stop_reason="backend_unavailable",
                 latency_ms=(time.monotonic() - started) * 1000,
                 error_message=str(e),
             ))
@@ -715,8 +759,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 input_mime=image.content_type or "", model_role="planner",
                 model_name=model_chain, backend=config.backend,
                 status="error", status_code=500, render_mode=ocr_mode.value,
+                stop_reason=f"crashed:{type(e).__name__}",
                 latency_ms=(time.monotonic() - started) * 1000,
                 error_message=str(e),
+                trace=getattr(e, "texada_partial_trace", []),
             ))
             raise
         try:

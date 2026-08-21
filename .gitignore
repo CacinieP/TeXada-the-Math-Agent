@@ -32,3 +32,4 @@ submissions/
 
 # Intermediate iconset sources; compiled bundle icons live under tauri-shell/src-tauri/icons/
 assets/TeXada.iconset/
+.venv-test/
