@@ -257,8 +257,8 @@ jobs:
           grep -F "Developer ID Application:" /tmp/texada-dmg-codesign.txt
 
           mount_dir="$(mktemp -d)"
-          if hdiutil attach "$dmg" -mountpoint "$mount_dir" -nobrowse -quiet; then
-            trap 'hdiutil detach "$mount_dir" -quiet || true' EXIT
+          if printf 'Y\n' | hdiutil attach "$dmg" -mountpoint "$mount_dir" -nobrowse -readonly -quiet; then
+            trap 'hdiutil detach "$mount_dir" -quiet || true; /usr/bin/trash "$mount_dir" 2>/dev/null || true' EXIT
             app="$(find "$mount_dir" -maxdepth 1 -name '*.app' -print -quit)"
             if [ -n "$app" ]; then
               codesign --verify --deep --strict --verbose=2 "$app"
@@ -269,6 +269,7 @@ jobs:
               echo "::warning::Signed DMG verified, but no .app was found after mounting."
             fi
           else
+            /usr/bin/trash "$mount_dir" 2>/dev/null || true
             echo "::warning::Signed DMG verified, but CI could not mount it for inner app verification."
           fi
 
