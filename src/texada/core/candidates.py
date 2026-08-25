@@ -94,6 +94,11 @@ class DeterministicCandidateEngine:
         rf"(?:(?P<operator>加上?|减去?|乘以?)\s*"
         rf"(?P<right>{_ATOM}))?\s*$"
     )
+    _SIMPLE_SUM_EN = re.compile(
+        rf"^\s*(?:(?:write|express|represent|typeset)\s+)?"
+        rf"(?:the\s+)?sum of (?P<left>{_ATOM}) and (?P<right>{_ATOM})\s*$",
+        re.IGNORECASE,
+    )
     _DOT_PRODUCT_EN = re.compile(
         rf"^\s*dot\s+product\s*\(\s*(?P<left>{_IDENT})\s*,\s*"
         rf"(?P<right>{_IDENT})\s*\)\s*$",
@@ -107,8 +112,8 @@ class DeterministicCandidateEngine:
         rf"^\s*(?:向量\s*)?(?P<left>{_IDENT})\s*(?:和|与)\s*"
         rf"(?P<right>{_IDENT})\s*的?内积\s*$"
     )
-    _TRAILING_PUNCTUATION = " \t\r\n,，。;；"
-    _TRAILING_NL_PUNCTUATION = " \t\r\n,，。;；!！?？"
+    _TRAILING_PUNCTUATION = " \t\r\n,，。.;；"
+    _TRAILING_NL_PUNCTUATION = " \t\r\n,，。.;；!！?？"
 
     def propose(self, text: str) -> DeterministicCandidate | None:
         """Return a candidate only when a local rule has high confidence."""
@@ -174,6 +179,12 @@ class DeterministicCandidateEngine:
             return DeterministicCandidate(
                 latex=radical,
                 rule="nl_simple_radical",
+            )
+        simple_sum_en = self._simple_sum_en(structured_text)
+        if simple_sum_en:
+            return DeterministicCandidate(
+                latex=simple_sum_en,
+                rule="nl_simple_sum_en",
             )
         return None
 
@@ -308,6 +319,12 @@ class DeterministicCandidateEngine:
             )
             radicand += f"{operator}{match.group('right')}"
         return rf"\sqrt{{{radicand}}}"
+
+    def _simple_sum_en(self, text: str) -> str:
+        match = self._SIMPLE_SUM_EN.fullmatch(text)
+        if not match:
+            return ""
+        return f"{match.group('left')}+{match.group('right')}"
 
     def _canonical_concept(self, text: str) -> str:
         """Return a standard formula only for an explicit named concept."""

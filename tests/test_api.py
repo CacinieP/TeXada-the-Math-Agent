@@ -425,7 +425,9 @@ async def test_history_endpoint_filters_by_type_and_query(tmp_path):
 async def test_history_export_import_and_clear_endpoints(tmp_path):
     from texada.api import create_app
 
-    app = create_app(TeXadaConfig(data_dir=tmp_path))
+    app = create_app(
+        TeXadaConfig(data_dir=tmp_path, history_max_days=0)
+    )
     client = TestClient(app)
     payload = {
         "mode": "merge",
@@ -715,6 +717,8 @@ async def test_agent_endpoint_exposes_trace_and_semantic_document(tmp_path, monk
             tokens_used=9,
             latency_ms=12.5,
             stop_reason="planner_final",
+            revision=2,
+            committed=True,
         )
 
     monkeypatch.setattr(TeXadaAgentRuntime, "run", fake_run)
@@ -733,3 +737,5 @@ async def test_agent_endpoint_exposes_trace_and_semantic_document(tmp_path, monk
     assert body["semantic_document"]["root"]["kind"] == "sequence"
     assert body["agent_trace"][0]["origin"] == "planner"
     assert body["stop_reason"] == "planner_final"
+    assert body["revision"] == 2
+    assert body["committed"] is True

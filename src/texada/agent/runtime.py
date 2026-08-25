@@ -20,6 +20,7 @@ from texada.core.model import MiniCPMModel
 from texada.core.operator_guard import OperatorDriftGuard
 from texada.core.symbols import SymbolEngine
 from texada.render.engine import RenderEngine
+from texada.runtime import CommitBarrierError, FormulaState
 from texada.semantic import SemanticParser
 from texada.semantic.model import SemanticDepthError
 from texada.tools import TeXToolset, ToolObservation, ToolRouter
@@ -28,12 +29,24 @@ from texada.types import RenderMode, RenderResult
 PLANNER_SYSTEM_PROMPT = """\
 You are TeXada's MiniCPM5 planner for structured mathematical editing.
 
-Your job is planning, tool selection, multi-step execution, and state tracking.
+Your job is planning, tool selection, and multi-step execution. The Formula
+Runtime owns the authoritative formula state and revision history.
 You may infer an initial candidate LaTeX expression from the user's request,
 but you MUST NOT repair invalid LaTeX yourself. Use the deterministic repair_tex
 tool for every syntax repair. It is a local rule tool, not another model.
 The deterministic symbol translation and required operator anchors in the user
 message are authoritative. Never drop or downgrade those operators.
+
+Syntax validity is necessary but not sufficient. Before choosing a tool, make
+an inventory of every requested operator, variable, Greek symbol, subscript,
+superscript, delimiter, matrix row, and piecewise branch. Preserve that
+structure exactly. Do not replace LaTeX commands with ASCII words such as
+``frac``, ``sum``, ``int``, ``tan``, ``beta``, or ``nu``. Do not silently
+simplify notation, change explicit to implicit multiplication, change matrix or
+interval delimiters, or substitute a related formula for the requested one.
+Never place a paraphrase such as ``transpose of S`` inside ``\text{...}``;
+text commands are only for literal labels the user requested, such as
+``otherwise`` in a cases expression.
 
 Preferred workflow:
 1. Build or identify a candidate LaTeX expression.
@@ -44,8 +57,9 @@ Preferred workflow:
 6. Call render_math before finishing.
 7. Return only the final bare LaTeX expression after the tools confirm it.
 
-Tool observations contain semantic_document objects. Treat those objects as the
-state passed from one step to the next. Do not invent tool names.
+Tool observations are evidence for the revision shown in the observation. Their
+semantic_document objects describe structure but are not mutable state owned by
+you. Do not invent tool names.
 """
 
 OCR_AGENT_PROMPT = """\
@@ -99,6 +113,9 @@ class AgentRunResult:
     tokens_used: int = 0
     latency_ms: float = 0.0
     stop_reason: str = "completed"
+    revision: int | None = None
+    committed: bool = False
+    formula_ledger: dict[str, Any] = field(default_factory=dict)
 
 
 class TeXadaAgentRuntime:
@@ -146,6 +163,10 @@ class TeXadaAgentRuntime:
             if _task != "nl"
             else self.symbol_engine.pre_translate(user_input)
         )
+        formula_state = FormulaState(
+            initial_candidate,
+            origin=f"{_task}_candidate",
+        )
         if _task == "nl":
             proposal = self.candidate_engine.propose(user_input)
             if (
@@ -153,6 +174,7 @@ class TeXadaAgentRuntime:
                 and not self.operator_guard.check(
                     preprocessed,
                     proposal.latex,
+                    user_input=user_input,
                 )
             ):
                 deterministic = await self._run_deterministic_candidate(
@@ -183,21 +205,59 @@ class TeXadaAgentRuntime:
                         initial_candidate,
                     )
                     if initial_candidate
-                    else self._user_prompt(user_input, context, preprocessed)
+                    else self._user_prompt(
+                        user_input,
+                        context,
+                        preprocessed,
+                        self.operator_guard.forced_operators(
+                            preprocessed,
+                            user_input,
+                        ),
+                    )
                 ),
             },
         ]
         trace: list[dict[str, Any]] = []
-        latest_latex = initial_candidate
         semantic_diff: dict[str, Any] = {}
         tokens_used = _initial_tokens_used
         call_fingerprints: set[str] = set()
         consecutive_errors = 0
         operator_drift_attempts = 0
         halt_reason = ""
-        drift_fallback_latex = ""
+        drift_fallback_revision: int | None = None
         intake_valid = True
         candidate_changed_by_tool = False
+
+        def reject_model_budget() -> AgentRunResult:
+            return self._runtime_rejection(
+                latex=formula_state.latex,
+                trace=trace,
+                render_mode=render_mode,
+                semantic_diff=semantic_diff,
+                tokens_used=tokens_used,
+                start=start,
+                stop_reason="runtime_budget_exhausted",
+                formula_state=formula_state,
+                observation={
+                    "tool": "runtime_policy",
+                    "ok": False,
+                    "output": {
+                        "candidate": formula_state.latex,
+                        "api_request_timeout_seconds": (
+                            self.config.api_request_timeout_seconds
+                        ),
+                        "inference_timeout_seconds": (
+                            self.config.inference_timeout_seconds
+                        ),
+                    },
+                    "error": (
+                        "not enough request budget remains for another model call; "
+                        "candidate was not committed"
+                    ),
+                    "duration_ms": 0.0,
+                    "revision": formula_state.revision,
+                },
+            )
 
         if initial_candidate:
             intake_call = PlannerToolCall(
@@ -209,7 +269,12 @@ class TeXadaAgentRuntime:
                 intake_call.name,
                 intake_call.arguments,
             )
-            compact_intake = self._compact_observation(intake_observation)
+            compact_intake = self._record_formula_evidence(
+                formula_state,
+                intake_observation,
+                revision=formula_state.revision,
+            )
+            planner_intake = self._planner_observation(compact_intake)
             intake_valid = bool(
                 intake_observation.ok
                 and intake_observation.output.get("valid")
@@ -239,7 +304,7 @@ class TeXadaAgentRuntime:
                         "tool_call_id": intake_call.id,
                         "name": intake_call.name,
                         "content": json.dumps(
-                            compact_intake,
+                            planner_intake,
                             ensure_ascii=False,
                         ),
                     },
@@ -247,7 +312,48 @@ class TeXadaAgentRuntime:
             )
 
         for step_index in range(1, self.max_steps + 1):
-            turn = await self.model.plan(messages, self.tools.schemas)
+            if not self._model_call_budget_available(start):
+                return reject_model_budget()
+            try:
+                turn = await self.model.plan(messages, self.tools.schemas)
+            except RuntimeError as exc:
+                trace.append(
+                    {
+                        "step": len(trace) + 1,
+                        "origin": "planner_error",
+                        "content": formula_state.latex,
+                        "tool_calls": [],
+                        "observations": [
+                            {
+                                "tool": "model_runtime",
+                                "ok": False,
+                                "output": {"candidate": formula_state.latex},
+                                "error": str(exc),
+                                "duration_ms": 0.0,
+                                "revision": formula_state.revision,
+                            }
+                        ],
+                    }
+                )
+                tokens_used += self._consume_model_tokens()
+                return self._runtime_rejection(
+                    latex=formula_state.latex,
+                    trace=trace,
+                    render_mode=render_mode,
+                    semantic_diff=semantic_diff,
+                    tokens_used=tokens_used,
+                    start=start,
+                    stop_reason="model_request_failed",
+                    formula_state=formula_state,
+                    observation={
+                        "tool": "runtime_policy",
+                        "ok": False,
+                        "output": {"candidate": formula_state.latex},
+                        "error": "model request failed; candidate was not committed",
+                        "duration_ms": 0.0,
+                        "revision": formula_state.revision,
+                    },
+                )
             tokens_used += turn.tokens_used
             trace_item: dict[str, Any] = {
                 "step": len(trace) + 1,
@@ -271,7 +377,7 @@ class TeXadaAgentRuntime:
                         initial_candidate
                         and not intake_valid
                         and not candidate_changed_by_tool
-                        and normalized_candidate != latest_latex
+                        and normalized_candidate != formula_state.latex
                     )
                     if direct_repair_blocked:
                         trace_item["observations"].append(
@@ -280,7 +386,7 @@ class TeXadaAgentRuntime:
                                 "ok": False,
                                 "output": {
                                     "candidate": normalized_candidate,
-                                    "retained_candidate": latest_latex,
+                                    "retained_candidate": formula_state.latex,
                                     "required_tool": "repair_tex",
                                 },
                                 "error": (
@@ -291,24 +397,30 @@ class TeXadaAgentRuntime:
                             }
                         )
                     else:
-                        latest_latex = normalized_candidate
-                if latest_latex:
+                        self._adopt_formula(
+                            formula_state,
+                            normalized_candidate,
+                            origin="planner_final",
+                        )
+                if formula_state.latex:
                     deterministic = self.operator_guard.restore_required_operators(
                         preprocessed,
-                        latest_latex,
+                        formula_state.latex,
                     )
                     if (
                         deterministic
-                        and deterministic != latest_latex
+                        and deterministic != formula_state.latex
                         and not self.operator_guard.check(
                             preprocessed,
                             deterministic,
+                            user_input=user_input,
                         )
                     ):
                         trace_item["observations"].append(
                             self._deterministic_restore_observation(
                                 preprocessed,
                                 deterministic,
+                                user_input=user_input,
                             )
                         )
                         return await self._finalize(
@@ -319,13 +431,23 @@ class TeXadaAgentRuntime:
                             tokens_used=tokens_used,
                             start=start,
                             stop_reason="operator_drift_deterministic_restore",
+                            formula_state=formula_state,
+                            preprocessed=preprocessed,
+                            user_input=user_input,
                         )
-                    if self.operator_guard.check(preprocessed, latest_latex):
-                        drift_fallback_latex = drift_fallback_latex or latest_latex
+                    if self.operator_guard.check(
+                        preprocessed,
+                        formula_state.latex,
+                        user_input=user_input,
+                    ):
+                        drift_fallback_revision = (
+                            drift_fallback_revision or formula_state.revision
+                        )
                         operator_drift_attempts += 1
                         feedback = self._operator_drift_feedback(
                             preprocessed,
-                            latest_latex,
+                            formula_state.latex,
+                            user_input=user_input,
                         )
                         trace_item["observations"].append(feedback)
                         if operator_drift_attempts >= 2:
@@ -342,13 +464,16 @@ class TeXadaAgentRuntime:
                         )
                         continue
                     return await self._finalize(
-                        latest_latex,
+                        formula_state.latex,
                         trace=trace,
                         render_mode=render_mode,
                         semantic_diff=semantic_diff,
                         tokens_used=tokens_used,
                         start=start,
                         stop_reason="planner_final",
+                        formula_state=formula_state,
+                        preprocessed=preprocessed,
+                        user_input=user_input,
                     )
                 break
 
@@ -363,6 +488,10 @@ class TeXadaAgentRuntime:
             for call in turn.tool_calls:
                 call = self._normalize_call(call)
                 trace_item["tool_calls"].append(self._trace_call(call))
+                evidence_revision = self._prepare_tool_state(
+                    formula_state,
+                    call,
+                )
                 fingerprint = self._call_fingerprint(call)
                 if fingerprint in call_fingerprints:
                     observation = ToolObservation(
@@ -374,12 +503,27 @@ class TeXadaAgentRuntime:
                 else:
                     call_fingerprints.add(fingerprint)
                     observation = await self.tools.execute(call.name, call.arguments)
-                observation_data = self._compact_observation(observation)
+                observation_data = self._record_formula_evidence(
+                    formula_state,
+                    observation,
+                    revision=evidence_revision,
+                )
                 trace_item["observations"].append(observation_data)
-                latest_latex = self._latest_latex(
-                    latest_latex,
+                observed_latex = self._latest_latex(
+                    formula_state.latex,
                     call.name,
                     observation,
+                )
+                self._adopt_formula(
+                    formula_state,
+                    observed_latex,
+                    origin=f"tool:{call.name}",
+                )
+                observation_data["formula_state"] = (
+                    formula_state.planner_projection()
+                )
+                planner_observation = self._planner_observation(
+                    observation_data
                 )
                 if call.name == "semantic_diff" and observation.ok:
                     semantic_diff = observation.output
@@ -393,7 +537,10 @@ class TeXadaAgentRuntime:
                         "role": "tool",
                         "tool_call_id": call.id,
                         "name": call.name,
-                        "content": json.dumps(observation_data, ensure_ascii=False),
+                        "content": json.dumps(
+                            planner_observation,
+                            ensure_ascii=False,
+                        ),
                     }
                 )
                 if observation.ok:
@@ -405,20 +552,25 @@ class TeXadaAgentRuntime:
                     break
             if halt_reason:
                 break
-            if latest_latex:
+            if formula_state.latex:
                 deterministic = self.operator_guard.restore_required_operators(
                     preprocessed,
-                    latest_latex,
+                    formula_state.latex,
                 )
                 if (
                     deterministic
-                    and deterministic != latest_latex
-                    and not self.operator_guard.check(preprocessed, deterministic)
+                    and deterministic != formula_state.latex
+                    and not self.operator_guard.check(
+                        preprocessed,
+                        deterministic,
+                        user_input=user_input,
+                    )
                 ):
                     trace_item["observations"].append(
                         self._deterministic_restore_observation(
                             preprocessed,
                             deterministic,
+                            user_input=user_input,
                         )
                     )
                     return await self._finalize(
@@ -429,11 +581,24 @@ class TeXadaAgentRuntime:
                         tokens_used=tokens_used,
                         start=start,
                         stop_reason="operator_drift_deterministic_restore",
+                        formula_state=formula_state,
+                        preprocessed=preprocessed,
+                        user_input=user_input,
                     )
-            if latest_latex and self.operator_guard.check(preprocessed, latest_latex):
-                drift_fallback_latex = drift_fallback_latex or latest_latex
+            if formula_state.latex and self.operator_guard.check(
+                preprocessed,
+                formula_state.latex,
+                user_input=user_input,
+            ):
+                drift_fallback_revision = (
+                    drift_fallback_revision or formula_state.revision
+                )
                 operator_drift_attempts += 1
-                feedback = self._operator_drift_feedback(preprocessed, latest_latex)
+                feedback = self._operator_drift_feedback(
+                    preprocessed,
+                    formula_state.latex,
+                    user_input=user_input,
+                )
                 trace_item["observations"].append(feedback)
                 if operator_drift_attempts >= 2:
                     halt_reason = "operator_drift_retry_limit"
@@ -445,19 +610,25 @@ class TeXadaAgentRuntime:
                     }
                 )
                 continue
-            if render_confirmed and latest_latex:
+            if render_confirmed and formula_state.latex:
                 return await self._finalize(
-                    latest_latex,
+                    formula_state.latex,
                     trace=trace,
                     render_mode=render_mode,
                     semantic_diff=semantic_diff,
                     tokens_used=tokens_used,
                     start=start,
                     stop_reason="render_confirmed",
+                    formula_state=formula_state,
+                    preprocessed=preprocessed,
+                    user_input=user_input,
                 )
 
-        if not latest_latex:
-            forced = self.operator_guard.forced_operators(preprocessed)
+        if not formula_state.latex:
+            forced = self.operator_guard.forced_operators(
+                preprocessed,
+                user_input,
+            )
             deterministic = self.operator_guard.restore_required_operators(
                 preprocessed,
                 "",
@@ -465,21 +636,57 @@ class TeXadaAgentRuntime:
             if forced and deterministic and not self.operator_guard.check(
                 preprocessed,
                 deterministic,
+                user_input=user_input,
             ):
-                latest_latex = deterministic
+                self._adopt_formula(
+                    formula_state,
+                    deterministic,
+                    origin="deterministic_anchor_fallback",
+                )
                 halt_reason = "operator_drift_deterministic_restore"
                 observation = self._deterministic_restore_observation(
                     preprocessed,
                     deterministic,
+                    user_input=user_input,
                 )
             else:
                 intent = self.intent_classifier.classify(user_input).intent
-                latest_latex = await self.model.generate_latex(
-                    preprocessed,
-                    intent,
-                )
+                if not self._model_call_budget_available(start):
+                    return reject_model_budget()
+                try:
+                    generated_latex = await self.model.generate_latex(
+                        preprocessed,
+                        intent,
+                    )
+                except RuntimeError as exc:
+                    tokens_used += self._consume_model_tokens()
+                    return self._runtime_rejection(
+                        latex=formula_state.latex,
+                        trace=trace,
+                        render_mode=render_mode,
+                        semantic_diff=semantic_diff,
+                        tokens_used=tokens_used,
+                        start=start,
+                        stop_reason="model_request_failed",
+                        formula_state=formula_state,
+                        observation={
+                            "tool": "model_runtime",
+                            "ok": False,
+                            "output": {"candidate": formula_state.latex},
+                            "error": str(exc),
+                            "duration_ms": 0.0,
+                            "revision": formula_state.revision,
+                        },
+                    )
                 tokens_used += self._consume_model_tokens()
-                latest_latex = self.operator_guard.normalize_candidate(latest_latex)
+                generated_latex = self.operator_guard.normalize_candidate(
+                    generated_latex
+                )
+                self._adopt_formula(
+                    formula_state,
+                    generated_latex,
+                    origin="compatibility_fallback",
+                )
                 observation = None
             trace.append(
                 {
@@ -489,24 +696,61 @@ class TeXadaAgentRuntime:
                         if observation
                         else "compatibility_fallback"
                     ),
-                    "content": latest_latex,
+                    "content": formula_state.latex,
                     "tool_calls": [],
                     "observations": [observation] if observation else [],
                 }
             )
-        if self.operator_guard.check(preprocessed, latest_latex):
-            forced = self.operator_guard.forced_operators(preprocessed)
-            intent = self.intent_classifier.classify(user_input).intent
-            constrained = await self.model.generate_latex(
+        if self.operator_guard.check(
+            preprocessed,
+            formula_state.latex,
+            user_input=user_input,
+        ):
+            forced = self.operator_guard.forced_operators(
                 preprocessed,
-                intent,
-                force_operators=forced,
+                user_input,
             )
+            intent = self.intent_classifier.classify(user_input).intent
+            if not self._model_call_budget_available(start):
+                return reject_model_budget()
+            try:
+                constrained = await self.model.generate_latex(
+                    preprocessed,
+                    intent,
+                    force_operators=forced,
+                )
+            except RuntimeError as exc:
+                tokens_used += self._consume_model_tokens()
+                return self._runtime_rejection(
+                    latex=formula_state.latex,
+                    trace=trace,
+                    render_mode=render_mode,
+                    semantic_diff=semantic_diff,
+                    tokens_used=tokens_used,
+                    start=start,
+                    stop_reason="model_request_failed",
+                    formula_state=formula_state,
+                    observation={
+                        "tool": "model_runtime",
+                        "ok": False,
+                        "output": {
+                            "candidate": formula_state.latex,
+                            "required_operators": forced,
+                        },
+                        "error": str(exc),
+                        "duration_ms": 0.0,
+                        "revision": formula_state.revision,
+                    },
+                )
             tokens_used += self._consume_model_tokens()
             constrained = self.operator_guard.normalize_candidate(constrained)
             recovered = bool(
                 constrained
-                and not self.operator_guard.check(preprocessed, constrained)
+                and not self.operator_guard.check(
+                    preprocessed,
+                    constrained,
+                    user_input=user_input,
+                )
             )
             trace.append(
                 {
@@ -529,34 +773,58 @@ class TeXadaAgentRuntime:
                 }
             )
             if recovered:
-                latest_latex = constrained
+                self._adopt_formula(
+                    formula_state,
+                    constrained,
+                    origin="operator_drift_fallback",
+                )
                 halt_reason = "operator_drift_recovered"
             else:
-                fallback = drift_fallback_latex or latest_latex
+                fallback = (
+                    formula_state.latex_at(drift_fallback_revision)
+                    if drift_fallback_revision is not None
+                    else formula_state.latex
+                )
                 restored = self.operator_guard.restore_required_operators(
                     preprocessed,
                     fallback,
                 )
-                if restored and not self.operator_guard.check(preprocessed, restored):
-                    latest_latex = restored
+                if restored and not self.operator_guard.check(
+                    preprocessed,
+                    restored,
+                    user_input=user_input,
+                ):
+                    self._adopt_formula(
+                        formula_state,
+                        restored,
+                        origin="operator_drift_restore",
+                    )
                     halt_reason = "operator_drift_deterministic_restore"
                     trace[-1]["observations"].append(
                         self._deterministic_restore_observation(
                             preprocessed,
                             restored,
+                            user_input=user_input,
                         )
                     )
                 else:
-                    latest_latex = fallback
+                    self._adopt_formula(
+                        formula_state,
+                        fallback,
+                        origin="operator_drift_unresolved",
+                    )
                     halt_reason = halt_reason or "operator_drift_unresolved"
         return await self._finalize(
-            latest_latex,
+            formula_state.latex,
             trace=trace,
             render_mode=render_mode,
             semantic_diff=semantic_diff,
             tokens_used=tokens_used,
             start=start,
             stop_reason=halt_reason or "max_steps_or_empty_final",
+            formula_state=formula_state,
+            preprocessed=preprocessed,
+            user_input=user_input,
         )
 
     async def run_candidate(
@@ -640,6 +908,24 @@ class TeXadaAgentRuntime:
         if not render_observation.ok:
             return None
 
+        formula_state = FormulaState(
+            proposal.latex,
+            origin=f"{task}_deterministic_candidate",
+        )
+        compile_data = self._record_formula_evidence(
+            formula_state,
+            compile_observation,
+            revision=formula_state.revision,
+        )
+        render_data = self._record_formula_evidence(
+            formula_state,
+            render_observation,
+            revision=formula_state.revision,
+        )
+        if formula_state.revision is None:
+            return None
+        formula_state.commit(expected_revision=formula_state.revision)
+
         trace = [
             {
                 "step": 1,
@@ -650,8 +936,8 @@ class TeXadaAgentRuntime:
                     self._trace_call(render_call),
                 ],
                 "observations": [
-                    self._compact_observation(compile_observation),
-                    self._compact_observation(render_observation),
+                    compile_data,
+                    render_data,
                 ],
                 "preprocessed_input": preprocessed,
                 "task": task,
@@ -672,6 +958,9 @@ class TeXadaAgentRuntime:
             tokens_used=0,
             latency_ms=(time.monotonic() - start) * 1000,
             stop_reason="deterministic_candidate",
+            revision=formula_state.revision,
+            committed=formula_state.committed,
+            formula_ledger=formula_state.to_dict(),
         )
 
     async def _finalize(
@@ -684,21 +973,104 @@ class TeXadaAgentRuntime:
         tokens_used: int,
         start: float,
         stop_reason: str,
+        formula_state: FormulaState,
+        preprocessed: str = "",
+        user_input: str = "",
     ) -> AgentRunResult:
+        latex = self._adopt_formula(
+            formula_state,
+            latex,
+            origin="runtime_finalize_input",
+        )
+        if formula_state.revision is None:
+            return self._runtime_rejection(
+                latex="",
+                trace=trace,
+                render_mode=render_mode,
+                semantic_diff=semantic_diff,
+                tokens_used=tokens_used,
+                start=start,
+                stop_reason="empty_formula_state",
+                formula_state=formula_state,
+                observation={
+                    "tool": "runtime_policy",
+                    "ok": False,
+                    "output": {"candidate": ""},
+                    "error": "planner and compatibility fallback produced no formula",
+                    "duration_ms": 0.0,
+                    "revision": None,
+                },
+            )
+
+        missing = self.operator_guard.missing_requirements(
+            preprocessed,
+            latex,
+            user_input=user_input,
+        )
+        if missing:
+            return self._runtime_rejection(
+                latex=latex,
+                trace=trace,
+                render_mode=render_mode,
+                semantic_diff=semantic_diff,
+                tokens_used=tokens_used,
+                start=start,
+                stop_reason="semantic_anchor_unresolved",
+                formula_state=formula_state,
+                observation={
+                    "tool": "operator_drift_guard",
+                    "ok": False,
+                    "output": {
+                        "candidate": latex,
+                        "missing_requirements": missing,
+                        "required_operators": self.operator_guard.forced_operators(
+                            preprocessed,
+                            user_input,
+                        ),
+                    },
+                    "error": "required request structure remains unresolved",
+                    "duration_ms": 0.0,
+                    "revision": formula_state.revision,
+                },
+            )
+
         observations: list[dict[str, Any]] = []
         compile_observation = await self.tools.execute("compile_tex", {"latex": latex})
-        observations.append(self._compact_observation(compile_observation))
+        observations.append(
+            self._record_formula_evidence(
+                formula_state,
+                compile_observation,
+                revision=formula_state.revision,
+            )
+        )
         valid = bool(compile_observation.output.get("valid")) if compile_observation.ok else False
 
         if not valid:
+            repair_revision = formula_state.revision
             repair = await self.tools.execute("repair_tex", {"latex": latex})
-            observations.append(self._compact_observation(repair))
+            observations.append(
+                self._record_formula_evidence(
+                    formula_state,
+                    repair,
+                    revision=repair_revision,
+                )
+            )
             if repair.ok:
-                latex = repair.output.get("latex", latex)
+                latex = self._adopt_formula(
+                    formula_state,
+                    repair.output.get("latex", latex),
+                    origin="tool:repair_tex",
+                )
                 semantic_diff = repair.output.get("semantic_diff", semantic_diff)
                 valid = bool(repair.output.get("valid"))
             recompile = await self.tools.execute("compile_tex", {"latex": latex})
-            observations.append(self._compact_observation(recompile))
+            observations.append(
+                self._record_formula_evidence(
+                    formula_state,
+                    recompile,
+                    revision=formula_state.revision,
+                )
+            )
             if recompile.ok:
                 valid = bool(recompile.output.get("valid"))
 
@@ -727,13 +1099,38 @@ class TeXadaAgentRuntime:
                 tokens_used=tokens_used,
                 latency_ms=(time.monotonic() - start) * 1000,
                 stop_reason="validation_failed_after_repair",
+                revision=formula_state.revision,
+                committed=False,
+                formula_ledger=formula_state.to_dict(),
             )
 
         render = await self.tools.execute(
             "render_math",
             {"latex": latex, "mode": render_mode.value},
         )
-        observations.append(self._compact_observation(render))
+        observations.append(
+            self._record_formula_evidence(
+                formula_state,
+                render,
+                revision=formula_state.revision,
+            )
+        )
+        commit_error = ""
+        try:
+            formula_state.commit(expected_revision=formula_state.revision)
+        except CommitBarrierError as exc:
+            commit_error = str(exc)
+            stop_reason = "commit_barrier_failed"
+            observations.append(
+                {
+                    "tool": "commit_barrier",
+                    "ok": False,
+                    "output": {"revision": formula_state.revision},
+                    "error": commit_error,
+                    "duration_ms": 0.0,
+                    "revision": formula_state.revision,
+                }
+            )
         trace.append(
             {
                 "step": len(trace) + 1,
@@ -756,6 +1153,47 @@ class TeXadaAgentRuntime:
             tokens_used=tokens_used,
             latency_ms=(time.monotonic() - start) * 1000,
             stop_reason=stop_reason,
+            revision=formula_state.revision,
+            committed=formula_state.committed,
+            formula_ledger=formula_state.to_dict(),
+        )
+
+    def _runtime_rejection(
+        self,
+        *,
+        latex: str,
+        trace: list[dict[str, Any]],
+        render_mode: RenderMode,
+        semantic_diff: dict[str, Any],
+        tokens_used: int,
+        start: float,
+        stop_reason: str,
+        formula_state: FormulaState,
+        observation: dict[str, Any],
+    ) -> AgentRunResult:
+        """Return a controlled, uncommitted result for a runtime policy failure."""
+        trace.append(
+            {
+                "step": len(trace) + 1,
+                "origin": "runtime_guard",
+                "content": latex,
+                "tool_calls": [],
+                "observations": [observation],
+            }
+        )
+        return AgentRunResult(
+            latex=latex,
+            valid=False,
+            render=self.renderer.render(latex, mode_override=render_mode),
+            semantic_document=self._safe_semantic_document(latex),
+            trace=trace,
+            semantic_diff=semantic_diff,
+            tokens_used=tokens_used,
+            latency_ms=(time.monotonic() - start) * 1000,
+            stop_reason=stop_reason,
+            revision=formula_state.revision,
+            committed=False,
+            formula_ledger=formula_state.to_dict(),
         )
 
     @classmethod
@@ -766,6 +1204,59 @@ class TeXadaAgentRuntime:
         if isinstance(output, dict):
             data["output"] = cls._compact_output(output)
         return data
+
+    def _record_formula_evidence(
+        self,
+        formula_state: FormulaState,
+        observation: ToolObservation,
+        *,
+        revision: int | None,
+    ) -> dict[str, Any]:
+        """Bind a tool observation to the exact formula revision it inspected."""
+        data = self._compact_observation(observation)
+        data["revision"] = revision
+        if revision is not None:
+            formula_state.add_evidence(
+                revision=revision,
+                kind=observation.name,
+                ok=observation.ok,
+                output=data.get("output", {}),
+                error=observation.error,
+            )
+        data["formula_state"] = formula_state.planner_projection()
+        return data
+
+    @staticmethod
+    def _adopt_formula(
+        formula_state: FormulaState,
+        latex: Any,
+        *,
+        origin: str,
+    ) -> str:
+        """Accept a candidate through the state authority and return its value."""
+        if not isinstance(latex, str) or not latex.strip():
+            return formula_state.latex
+        formula_state.revise(
+            latex,
+            expected_revision=formula_state.revision,
+            origin=origin,
+        )
+        return formula_state.latex
+
+    def _prepare_tool_state(
+        self,
+        formula_state: FormulaState,
+        call: PlannerToolCall,
+    ) -> int | None:
+        """Create a revision for the formula a planner-selected tool will inspect."""
+        key = "after" if call.name == "semantic_diff" else "latex"
+        candidate = call.arguments.get(key)
+        self._adopt_formula(
+            formula_state,
+            candidate,
+            origin=f"planner_tool:{call.name}",
+        )
+        return formula_state.revision
 
     @classmethod
     def _compact_output(cls, value: Any) -> Any:
@@ -790,6 +1281,80 @@ class TeXadaAgentRuntime:
         return compact
 
     @classmethod
+    def _planner_observation(
+        cls,
+        observation: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Project evidence into a bounded view without a full Semantic tree."""
+        projected = {
+            "tool": observation.get("tool", ""),
+            "ok": bool(observation.get("ok")),
+            "output": cls._planner_value(observation.get("output", {})),
+            "error": observation.get("error", ""),
+            "revision": observation.get("revision"),
+            "formula_state": observation.get("formula_state", {}),
+        }
+        return projected
+
+    @classmethod
+    def _planner_value(cls, value: Any) -> Any:
+        if isinstance(value, list):
+            items = [cls._planner_value(item) for item in value[:32]]
+            if len(value) > 32:
+                items.append({"truncated_items": len(value) - 32})
+            return items
+        if not isinstance(value, dict):
+            return value
+        if "root" in value and "parser_backend" in value:
+            return cls._semantic_projection(value)
+        projected: dict[str, Any] = {}
+        for key, item in value.items():
+            if key in {"katex_html", "latex_highlighted"}:
+                continue
+            projected_key = (
+                "semantic_summary" if key == "semantic_document" else key
+            )
+            projected[projected_key] = cls._planner_value(item)
+        return projected
+
+    @classmethod
+    def _semantic_projection(cls, document: dict[str, Any]) -> dict[str, Any]:
+        """Summarize a SemanticDocument without exposing its mutable full tree."""
+        root = document.get("root")
+        stack = [root] if isinstance(root, dict) else []
+        kinds: set[str] = set()
+        roles: set[str] = set()
+        node_count = 0
+        truncated = False
+        while stack:
+            unit = stack.pop()
+            node_count += 1
+            if node_count > 64:
+                truncated = True
+                break
+            kind = unit.get("kind")
+            role = unit.get("role")
+            if isinstance(kind, str) and kind:
+                kinds.add(kind)
+            if isinstance(role, str) and role:
+                roles.add(role)
+            children = unit.get("children")
+            if isinstance(children, list):
+                stack.extend(
+                    child for child in children if isinstance(child, dict)
+                )
+        return {
+            "schema_version": document.get("schema_version", 1),
+            "parser_backend": document.get("parser_backend", ""),
+            "root_kind": root.get("kind", "") if isinstance(root, dict) else "",
+            "node_count": min(node_count, 64),
+            "kinds": sorted(kinds),
+            "roles": sorted(roles),
+            "diagnostics": document.get("diagnostics", []),
+            "truncated": truncated,
+        }
+
+    @classmethod
     def _compact_semantic_unit(cls, unit: Any) -> dict[str, Any]:
         if not isinstance(unit, dict):
             return {}
@@ -808,7 +1373,12 @@ class TeXadaAgentRuntime:
         return compact
 
     @staticmethod
-    def _user_prompt(user_input: str, context: str, preprocessed: str) -> str:
+    def _user_prompt(
+        user_input: str,
+        context: str,
+        preprocessed: str,
+        required_anchors: list[str] | None = None,
+    ) -> str:
         sections = []
         if context:
             sections.append(f"Context:\n{context}")
@@ -817,6 +1387,12 @@ class TeXadaAgentRuntime:
             sections.append(
                 "Deterministic symbol translation (authoritative):\n"
                 f"{preprocessed}"
+            )
+        if required_anchors:
+            sections.append(
+                "Runtime request anchors (all must appear in equivalent "
+                "LaTeX structure):\n"
+                + "\n".join(f"- {anchor}" for anchor in required_anchors)
             )
         return "\n\n".join(sections)
 
@@ -907,14 +1483,25 @@ class TeXadaAgentRuntime:
         self,
         preprocessed: str,
         candidate: str,
+        *,
+        user_input: str = "",
     ) -> dict[str, Any]:
-        forced = self.operator_guard.forced_operators(preprocessed)
+        forced = self.operator_guard.forced_operators(
+            preprocessed,
+            user_input,
+        )
+        missing = self.operator_guard.missing_requirements(
+            preprocessed,
+            candidate,
+            user_input=user_input,
+        )
         rendered = ", ".join(forced)
         instruction = (
-            "Runtime guard rejected the candidate because a deterministic "
-            f"operator anchor was lost or downgraded. The next candidate MUST "
-            f"preserve these operators exactly: {rendered}. Use tools again "
-            "if validation or repair is needed."
+            "Runtime guard rejected the candidate because required request "
+            f"structure was lost or downgraded. The next candidate MUST "
+            f"preserve these LaTeX anchors: {rendered}. Re-read the original "
+            "request, restore every named symbol and delimiter, then use tools "
+            "again if validation or repair is needed."
         )
         return {
             "tool": "operator_drift_guard",
@@ -922,6 +1509,7 @@ class TeXadaAgentRuntime:
             "output": {
                 "candidate": candidate,
                 "required_operators": forced,
+                "missing_requirements": missing,
                 "retry_instruction": instruction,
             },
             "error": "operator anchor lost or downgraded",
@@ -932,13 +1520,16 @@ class TeXadaAgentRuntime:
         self,
         preprocessed: str,
         candidate: str,
+        *,
+        user_input: str = "",
     ) -> dict[str, Any]:
         return {
             "tool": "operator_drift_guard",
             "ok": True,
             "output": {
                 "required_operators": self.operator_guard.forced_operators(
-                    preprocessed
+                    preprocessed,
+                    user_input,
                 ),
                 "candidate": candidate,
                 "method": "deterministic_integral_rank_restore",
@@ -972,6 +1563,17 @@ class TeXadaAgentRuntime:
         if not callable(consume):
             return 0
         return int(consume() or 0)
+
+    def _model_call_budget_available(self, start: float) -> bool:
+        """Reserve enough wall time for the API bridge to return a response."""
+        request_timeout = self.config.api_request_timeout_seconds
+        inference_timeout = self.config.inference_timeout_seconds
+        response_reserve = max(5.0, min(30.0, request_timeout * 0.10))
+        latest_safe_start = max(
+            1.0,
+            request_timeout - inference_timeout - response_reserve,
+        )
+        return (time.monotonic() - start) < latest_safe_start
 
     def _safe_semantic_document(self, latex: str) -> dict[str, Any]:
         """Serialize a semantic document without ever crashing the runtime.

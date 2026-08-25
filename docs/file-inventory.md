@@ -49,6 +49,9 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `docs/design-philosophy.md` | Rationale for separating planner decisions, deterministic tool execution, and compiler verification. |
 | `docs/design-evolution.md` | Long-form Chinese design rationale and verified per-version architecture Diff from the original prototype through v0.3.8. |
 | `docs/architecture.md` | High-level architecture, model/backend choices, desktop shell, configuration, and CI overview. |
+| `docs/architecture-freeze-v0.4.md` | Frozen permanent layers, milestone boundaries, change gate, and v0.4 Runtime invariants. |
+| `docs/adr/011-formula-runtime-ledger.md` | ADR for revision-bound FormulaState, evidence, Planner Projection, and Commit Barrier. |
+| `docs/adr/012-planner-projection.md` | ADR for bounded model-facing observations and full-tree exclusion. |
 | `docs/e2e-manual.md` | Human and automated local E2E checklist for the Agent Runtime path. |
 | `docs/audit.md` | Source audit scope, stale-code removals, remediation history, and intentional defaults. |
 | `docs/file-inventory.md` | This file-by-file source map. |
@@ -78,6 +81,8 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `src/texada/agent/__init__.py` | Lightweight Agent Runtime package marker. |
 | `src/texada/agent/protocol.py` | Official MiniCPM5 XML and OpenAI tool-call normalization. |
 | `src/texada/agent/runtime.py` | Planner, tool routing, observations, state, and final runtime guard. |
+| `src/texada/runtime/__init__.py` | Public exports for the authoritative Formula Runtime. |
+| `src/texada/runtime/formula.py` | Append-only FormulaState revisions, revision-bound evidence, Planner Projection, and Commit Barrier. |
 | `src/texada/cas/__init__.py` | Public exports for the optional, unregistered CAS scaffold. |
 | `src/texada/cas/model.py` | Auditable CAS statuses, evidence basis/grade, assumptions, witness, seed, version, and cache-key result model. |
 | `src/texada/cas/translator.py` | Conservative KaTeX Semantic Unit to SymPy whitelist translator; never parses raw LaTeX in the production direction. |
@@ -86,16 +91,17 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `src/texada/cas/checker.py` | Capability orchestration, optional-dependency degradation, translation gate, worker result mapping, and reproducible cache keys. |
 | `src/texada/core/__init__.py` | Core package marker. |
 | `src/texada/core/backend.py` | Ollama/OpenAI-compatible readiness checks, model presence detection, custom port handling, and status payloads. |
+| `src/texada/core/candidates.py` | Narrow zero-model candidates for explicit LaTeX hints and unambiguous structured requests, including simple English sums. |
 | `src/texada/core/fixer.py` | Deterministic LaTeX repair for common brace, environment, and command mistakes. |
 | `src/texada/core/intent.py` | Regex-based intent classifier for math categories without model calls. |
 | `src/texada/core/model.py` | OpenAI-compatible chat wrapper for text, completion, vision OCR, timeout handling, and LaTeX extraction. |
-| `src/texada/core/operator_guard.py` | Shared Level 0 operator-preservation guard for the router and Agent Runtime. |
+| `src/texada/core/operator_guard.py` | Shared Level 0 request-structure guard for operator rank, commands, Greek symbols, subscripts, delimiters, and multi-part formula shape. |
 | `src/texada/core/ocr.py` | OCR pipeline wrapper around the configured vision model. |
 | `src/texada/core/prompts.py` | System prompts and intent-specific few-shot examples for NL, completion, and OCR. |
 | `src/texada/core/repair.py` | Deterministic repair service used by `repair_tex`; no model invocation. |
 | `src/texada/core/router.py` | Request routing across natural language, completion, OCR, shorthand, validation/fix, rendering, and drift retry. |
 | `src/texada/core/symbols.py` | Deterministic Chinese math term to LaTeX pre-translation table. |
-| `src/texada/core/validator.py` | Multi-layer LaTeX validation using braces, environments, commands, and optional KaTeX parsing. |
+| `src/texada/core/validator.py` | Multi-layer LaTeX validation using braces, environments, formula-content rules, and in-process KaTeX parsing. |
 | `src/texada/semantic/__init__.py` | Semantic math-unit public exports. |
 | `src/texada/semantic/model.py` | Semantic document, unit, change, and diff data model. |
 | `src/texada/semantic/katex.py` | Pinned KaTeX AST bridge in a reusable mini-racer V8 context. |
@@ -171,6 +177,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `tests/test_e2e.py` | Optional live API E2E tests gated by `TEXADA_RUN_E2E=1`. |
 | `tests/test_fixer.py` | LaTeX auto-fixer tests. |
 | `tests/test_frontend_contract.py` | Static desktop DOM-ID and data-portability wiring contracts. |
+| `tests/test_formula_runtime.py` | Formula revision, stale-write, evidence-binding, projection, and commit-barrier invariants. |
 | `tests/test_highlighter.py` | Pure LaTeX syntax highlighter tests. |
 | `tests/test_history.py` | SQLite history store tests. |
 | `tests/test_run_log.py` | Run-ledger persistence, legacy migration, trace correlation, failure logging, and preset portability tests. |

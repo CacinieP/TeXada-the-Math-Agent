@@ -8,6 +8,7 @@ integral few-shot example and returned ``\\int \\sin(x)dx`` — losing the
 router can trigger one constrained retry.
 """
 from texada.config import TeXadaConfig
+from texada.core.operator_guard import OperatorDriftGuard
 from texada.core.router import InputRouter
 
 
@@ -83,6 +84,112 @@ def test_empty_output_not_drift_but_handled_elsewhere():
     # detection only concerns itself with non-empty wrong answers.
     r = _router()
     assert not r._check_operator_drift(r"\sum x_i", "")
+
+
+def test_request_level_anchors_detect_plain_text_math_commands():
+    guard = OperatorDriftGuard()
+    request = "Express the tangent function applied to lowercase Greek nu."
+
+    assert guard.check("", "tan(nu)", user_input=request)
+    assert not guard.check("", r"\tan(\nu)", user_input=request)
+    assert guard.missing_requirements(
+        "", "tan(nu)", user_input=request
+    ) == [r"\tan", r"\nu"]
+
+
+def test_request_level_anchors_cover_observed_dataset_drift():
+    guard = OperatorDriftGuard()
+    cases = [
+        ("Write the fraction with numerator a and denominator b.", "a/b"),
+        ("Represent the product over j from 1 to m of g subscript j.", "jg^j"),
+        ("Write an open interval between negative 3 and 5.", "-3,5"),
+        ("Write that Y follows a normal distribution with mean mu.", r"\mu=0"),
+        ("Write a matrix in parentheses with two rows.", "(a,b),(c,d)"),
+        ("Define f piecewise with two branches.", "f(x)=x"),
+    ]
+
+    for request, candidate in cases:
+        assert guard.check("", candidate, user_input=request), request
+
+
+def test_sum_of_and_implicit_product_do_not_require_big_operators():
+    guard = OperatorDriftGuard()
+
+    assert not guard.check("", "u+f", user_input="Write the sum of u and f.")
+    assert not guard.check(
+        "",
+        r"\beta w",
+        user_input="Write the implicit product of lowercase beta and w.",
+    )
+
+
+def test_named_subscript_anchor_is_bound_to_the_requested_variable():
+    guard = OperatorDriftGuard()
+    request = "Express the sum over n from 0 to N of p subscript n."
+
+    assert guard.check("", r"\sum_{n=0}^{N}p^n", user_input=request)
+    assert not guard.check("", r"\sum_{n=0}^{N}p_n", user_input=request)
+
+
+def test_structural_request_anchors_reject_keyword_only_matches():
+    guard = OperatorDriftGuard()
+    cases = [
+        (
+            "Write the sum of u and f.",
+            r"\sum_{i=1}^{n}x_i",
+            "u+f",
+        ),
+        (
+            "A fraction has numerator exp o and denominator ln v.",
+            r"\frac\exp(o)\ln(v)",
+            r"\frac{\exp(o)}{\ln(v)}",
+        ),
+        (
+            "An indefinite integral of a fraction with numerator 1 and denominator s.",
+            r"\frac{1}{s}\int s\,ds",
+            r"\int\frac{1}{s}\,ds",
+        ),
+        (
+            "Write the implicit product of lowercase beta and w.",
+            r"\beta\cdot w",
+            r"\beta w",
+        ),
+        (
+            "Write 1 times q using a centered dot.",
+            r"\cdot 1*q",
+            r"1\cdot q",
+        ),
+    ]
+
+    for request, wrong, right in cases:
+        assert guard.check("", wrong, user_input=request), request
+        assert not guard.check("", right, user_input=request), request
+
+
+def test_derivative_transpose_and_grouped_power_keep_requested_structure():
+    guard = OperatorDriftGuard()
+    cases = [
+        (
+            "Write the second derivative with respect to v of the function g of v.",
+            r"\frac{df}{dx}",
+            r"\frac{d^2}{dv^2}g(v)",
+        ),
+        (
+            "Typeset the transpose of uppercase S equals a matrix in parentheses.",
+            r"\text{transpose of uppercase S}=\begin{pmatrix}e\end{pmatrix}",
+            r"S^{\mathsf{T}}=\begin{pmatrix}e\end{pmatrix}",
+        ),
+        (
+            "Represent the number 5 raised to the power given by the variable t "
+            "with subscript m plus 3.",
+            r"5^{\sum_m t_m}+3",
+            r"5^{t_m+3}",
+        ),
+    ]
+
+    for request, wrong, right in cases:
+        assert guard.check("", wrong, user_input=request), request
+        assert not guard.check("", right, user_input=request), request
 
 
 def test_guard_normalizes_ollama_escape_growth_and_repeated_integrals():

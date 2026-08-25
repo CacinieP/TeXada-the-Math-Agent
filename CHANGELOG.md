@@ -2,6 +2,57 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## 0.4.0 - 2026-08-25
+
+### English
+
+- Added an append-only `FormulaState` runtime with monotonic revisions,
+  revision-bound evidence, stale-write rejection, and an auditable ledger.
+- Added a commit barrier: only the current revision may be returned, and it
+  must pass both compilation and rendering on that exact revision.
+- Replaced the agent's shadow `latest_latex` state with the runtime ledger and
+  exposed `revision` plus `committed` in agent API responses.
+- Bounded planner projections so planning receives compact summaries while
+  richer evidence remains available in runtime traces.
+- Recorded the architecture freeze and runtime decisions in ADR-011 and
+  ADR-012, with regression coverage for revision, projection, and commit rules.
+- Calibrated formula-content validation against 2,496 held-out targets: paired
+  inequalities are no longer mistaken for markup, while ``:=`` definitions
+  and postfix factorials remain valid mathematical content.
+- Added request-derived semantic anchors for operators, Greek symbols,
+  subscripts, delimiters, matrices, derivatives, and multi-part structures.
+  Candidates that still violate the request after bounded retries are returned
+  as invalid and uncommitted instead of passing the syntax-only commit path.
+- Converted empty planner states and model inference timeouts into auditable
+  HTTP 200 failure results, preventing those expected model failures from
+  surfacing as service-level 503 responses.
+- Added a deterministic fast path for unambiguous English binary sums and a
+  request-wide model-call budget, so a late retry cannot overrun the desktop
+  bridge timeout.
+- Added the macOS sidecar library-validation entitlement required for the
+  Hardened Runtime to load PyInstaller's bundled Python dynamic library.
+
+### 中文
+
+- 新增仅追加的 `FormulaState` 运行时：版本单调递增、证据绑定版本、拒绝过期写入，
+  并保留可审计账本。
+- 新增提交屏障：只能返回当前版本，且该版本必须同时通过编译与渲染验证。
+- 用运行时账本替代 Agent 内部的 `latest_latex` 影子状态，并在 Agent API 响应中
+  暴露 `revision` 与 `committed`。
+- 限制 Planner 投影，只向规划器提供紧凑摘要，同时在运行时轨迹中保留更丰富证据。
+- 以 ADR-011、ADR-012 固化架构冻结与运行时决策，并补充版本、投影和提交规则的
+  回归测试。
+- 使用 2,496 条留出目标校准公式内容校验：成对不等式不再被误判为 HTML/XML，
+  同时正确接受 ``:=`` 定义符号与后缀阶乘。
+- 新增由用户请求推导的语义锚点，覆盖算子、希腊字母、下标、定界符、矩阵、导数和
+  多段结构；有限重试后仍不满足请求的候选会以未提交失败返回，不再仅凭语法通过提交。
+- 将 Planner 空状态与模型推理超时转换为可审计的 HTTP 200 失败结果，避免预期内的
+  模型失败继续表现为服务级 503。
+- 为无歧义英文二元加法增加确定性快速路径，并增加请求级模型调用总预算，防止末尾
+  重试越过桌面桥接超时。
+- 为 macOS sidecar 增加 Hardened Runtime 加载 PyInstaller 内置 Python 动态库所需的
+  library-validation entitlement。
+
 ## 0.3.8 - 2026-08-05
 
 ### English

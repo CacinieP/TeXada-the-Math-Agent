@@ -110,3 +110,33 @@ def test_ellipsis_and_markup_are_not_formula_content():
         result = validator.validate(value)
         assert not result.valid
         assert any(error.type == "non_formula_content" for error in result.errors)
+
+
+def test_inequalities_are_not_misclassified_as_markup():
+    validator = LaTeXValidator()
+
+    for value in [
+        r"m<o\vee m>f",
+        r"\begin{cases}x,&x<0\\x^2,&0\le x<1\end{cases}",
+    ]:
+        assert validator.validate(value).valid, value
+
+
+def test_definition_and_factorial_operators_are_formula_content():
+    validator = LaTeXValidator()
+
+    for value in [
+        r"f(x):=x^2",
+        r"\frac{N!}{k!(N-k)!}",
+        r"\prod_{j=1}^{N}\frac{j}{N!}",
+    ]:
+        assert validator.validate(value).valid, value
+
+
+def test_sentence_punctuation_and_real_markup_remain_rejected():
+    validator = LaTeXValidator()
+
+    for value in ["Answer: x+1", "x+1! Is that right?", "<script>x+1</script>"]:
+        result = validator.validate(value)
+        assert not result.valid
+        assert any(error.type == "non_formula_content" for error in result.errors)

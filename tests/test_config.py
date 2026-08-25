@@ -57,7 +57,7 @@ def test_release_version_is_synchronized_across_python_node_and_tauri():
         uv_lock_version,
         __version__,
         _app_version(),
-    } == {"0.3.8"}
+    } == {"0.4.0"}
     assert f"v{python_version}" in frontend
 
 
@@ -67,7 +67,7 @@ def test_app_version_fallback_matches_source_version(monkeypatch):
 
     monkeypatch.setattr(api_module, "version", missing_distribution)
 
-    assert _app_version() == "0.3.8"
+    assert _app_version() == "0.4.0"
 
 
 def test_license_is_synchronized_as_agpl_v3_or_later():

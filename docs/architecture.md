@@ -1,7 +1,13 @@
 # TeXada Architecture
 
-Version: v0.3.8. TeXada is an on-device, agent-driven structured
-math editor. It is not a LaTeX input method with an LLM bolted on.
+Released baseline: v0.3.8. Active milestone: v0.4.0 Runtime Foundation.
+TeXada is an on-device, agent-driven structured math editor. It is not a LaTeX
+input method with an LLM bolted on.
+
+The v0.4-v1.0 layer vocabulary and scope are frozen in
+[`architecture-freeze-v0.4.md`](architecture-freeze-v0.4.md). v0.4 migrates
+the existing bounded Agent loop so `FormulaState`, rather than Planner context
+or a local `latest_latex` variable, is the authority for formula revisions.
 
 TeXada has exactly two model roles:
 
@@ -20,6 +26,9 @@ Image / Keyboard
     OCR / Input
         |
         v
+Formula Runtime (FormulaState / Revision / Ledger)
+        |
+        v
 MiniCPM5-1B Planner
         |
         +--> parse_tex
@@ -30,17 +39,19 @@ MiniCPM5-1B Planner
         +--> export
         |
         v
-    Observation
+Revision-bound Evidence
         |
         +----> MiniCPM5 decides whether to call another tool
         |
         v
-Structured final formula
+Commit Barrier -> Structured final formula
 ```
 
-The primary loop is `Planner → Tool → Observation → Planner`. Its state is a
-`SemanticDocument`, so the stronger invariant is `Semantic Unit → Tool →
-Semantic Unit`. Natural language, OCR, and completion all converge on this
+The primary loop remains `Planner → Tool → Observation → Planner`, but its
+authoritative state is now migrating to the Formula Runtime. A tool observation
+is evidence for one exact formula revision; it is not itself mutable state.
+`SemanticDocument` remains the structural math representation within the
+Semantic Layer. Natural language, OCR, and completion all converge on this
 runtime; `/api/convert` remains a non-Agent compatibility route for older
 clients.
 
@@ -54,7 +65,7 @@ clients.
 “Agentized” does not mean every request must spend a model inference. Before
 MiniCPM5 is invoked, a deliberately narrow deterministic candidate engine may
 recognize an explicit trailing LaTeX hint or an unambiguous structured pattern
-such as `求k从1到n的k平方`. The candidate still goes through `compile_tex` and
+such as `求k从1到n的k平方` or `Write the sum of u and f.`. The candidate still goes through `compile_tex` and
 `render_math`, and both calls remain visible in the Agent trace. Invalid or
 operator-drifting candidates fall back to the normal MiniCPM5 planner loop.
 This preserves the Planner/Tool contract while making exact structured inputs
@@ -81,16 +92,19 @@ SymbolEngine
     -> Validator / Deterministic Fixer / Render
 ```
 
-Level 0 keeps the original repository's fast substring/rank check and feeds a
-failed anchor back into the bounded planner loop. If all planner turns still
-drift, the original intent-specific constrained generation path gets one final
-attempt and is adopted only when every pinned operator is present. For the
-narrow `integrand 在区域 D 上` integral form, a final deterministic template
-may restore an authoritative SymbolEngine integral rank after the 1B model
-returns prose, a full LaTeX document, or an empty retry. Level 1 does
-not pretend that raw natural language is a reference AST: it runs for explicit
-before/after formulas, repairs and edit operations where both semantic
-documents exist.
+Level 0 combines the original fast SymbolEngine substring/rank check with
+request-derived structural anchors. English requests can pin named operators,
+Greek symbols, variable-specific subscripts, interval or matrix delimiters,
+derivative order, and command argument shape. A failed anchor is fed back into
+the bounded planner loop. If all planner turns still drift, the constrained
+generation path gets one final attempt and is adopted only when every pinned
+structure is satisfied. An unresolved candidate is returned as invalid and
+uncommitted. For the narrow `integrand 在区域 D 上` integral form, a final
+deterministic template may restore an authoritative SymbolEngine integral rank
+after the 1B model returns prose, a full LaTeX document, or an empty retry.
+Level 1 does not pretend that raw natural language is a reference AST: it runs
+for explicit before/after formulas, repairs and edit operations where both
+semantic documents exist.
 
 ## Agent Runtime
 
@@ -109,6 +123,20 @@ The runtime lives in `src/texada/agent/`.
   guard still validates the final formula.
 - A final runtime guard always compiles, repairs through `repair_tex` when
   needed, and renders the result even after a planner circuit breaker.
+- Empty planner states, unresolved request anchors, and model inference
+  failures return controlled invalid/uncommitted results rather than throwing
+  service-level errors.
+- Before every model request, the runtime reserves a bounded share of the API
+  request window for validation and response delivery. A call that cannot fit
+  returns `runtime_budget_exhausted` instead of overrunning the desktop bridge.
+- `FormulaState` is the sole formula authority. Accepted candidates create
+  append-only revisions; the Agent loop keeps no parallel `latest_latex` state.
+- Tool evidence and trace observations name the revision they inspected.
+- Planner Tool messages contain a bounded FormulaState/Semantic projection,
+  never the complete Semantic Unit root tree.
+- A revision is committed only when successful compile and render evidence both
+  belong to that exact revision. Agent API responses expose `revision` and
+  `committed`.
 - `PlannerBackend` is a deliberately narrow code seam; MiniCPM5 remains the
   production implementation rather than a promise of generic model parity.
 - The Agent path reuses `SymbolEngine` and the extracted
@@ -220,6 +248,7 @@ The FastAPI address and the Ollama address are separate layers. `TEXADA_API_HOST
 | `sidecar.py` | Packaged FastAPI entry point used by desktop installers |
 | `agent/runtime.py` | MiniCPM5 planning and multi-step observation loop |
 | `agent/protocol.py` | Official MiniCPM5 XML / OpenAI tool-call normalization |
+| `runtime/formula.py` | Formula revisions, evidence ledger, Planner Projection, and Commit Barrier |
 | `tools/` | Single-purpose TeX tool registry and router |
 | `semantic/` | Semantic math unit parser and structural diff |
 | `core/router.py` | Routes natural language, completion, OCR, and shorthand requests |

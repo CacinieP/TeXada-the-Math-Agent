@@ -137,6 +137,16 @@ def test_radical_scopes_the_full_following_expression():
     assert candidate.latex == r"\sqrt{x+1}"
 
 
+def test_simple_english_sum_is_zero_model_safe():
+    candidate = DeterministicCandidateEngine().propose(
+        "Write the sum of u and f."
+    )
+
+    assert candidate is not None
+    assert candidate.rule == "nl_simple_sum_en"
+    assert candidate.latex == "u+f"
+
+
 def test_structured_nl_ignores_sentence_ending_punctuation():
     engine = DeterministicCandidateEngine()
 

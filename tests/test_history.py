@@ -132,8 +132,12 @@ async def test_history_cleanup(tmp_path):
 
 @pytest.mark.asyncio
 async def test_history_export_import_merge_and_clear(tmp_path):
-    source = HistoryStore(TeXadaConfig(data_dir=tmp_path / "source"))
-    target = HistoryStore(TeXadaConfig(data_dir=tmp_path / "target"))
+    source = HistoryStore(
+        TeXadaConfig(data_dir=tmp_path / "source", history_max_days=0)
+    )
+    target = HistoryStore(
+        TeXadaConfig(data_dir=tmp_path / "target", history_max_days=0)
+    )
 
     entry = HistoryEntry(
         input_text="integral",
@@ -198,7 +202,9 @@ async def test_history_import_replace_clears_existing_rows(tmp_path):
 
 @pytest.mark.asyncio
 async def test_history_import_keeps_same_second_runs_with_distinct_run_ids(tmp_path):
-    store = HistoryStore(TeXadaConfig(data_dir=tmp_path))
+    store = HistoryStore(
+        TeXadaConfig(data_dir=tmp_path, history_max_days=0)
+    )
     common = {
         "input_text": "same request",
         "input_type": "nl",

@@ -77,6 +77,8 @@ class AgentResponse(LaTeXResponse):
     semantic_diff: dict = Field(default_factory=dict)
     agent_trace: list[dict] = Field(default_factory=list)
     stop_reason: str = "completed"
+    revision: int | None = Field(default=None, ge=1)
+    committed: bool = False
 
 class ValidateRequest(BaseModel):
     latex: str = Field(min_length=1, max_length=4000)
@@ -226,7 +228,7 @@ def _app_version() -> str:
     try:
         return version("texada")
     except PackageNotFoundError:
-        return "0.3.8"
+        return "0.4.0"
 
 
 def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
@@ -664,6 +666,8 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             semantic_diff=result.semantic_diff,
             agent_trace=result.trace,
             stop_reason=result.stop_reason,
+            revision=result.revision,
+            committed=result.committed,
         )
 
     @app.post("/api/ocr", response_model=AgentResponse)
@@ -758,6 +762,8 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             semantic_diff=result.semantic_diff,
             agent_trace=result.trace,
             stop_reason=result.stop_reason,
+            revision=result.revision,
+            committed=result.committed,
         )
 
     @app.post("/api/complete", response_model=AgentResponse)
@@ -837,6 +843,8 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             semantic_diff=result.semantic_diff,
             agent_trace=result.trace,
             stop_reason=result.stop_reason,
+            revision=result.revision,
+            committed=result.committed,
         )
 
     @app.post("/api/validate", response_model=ValidateResponse)

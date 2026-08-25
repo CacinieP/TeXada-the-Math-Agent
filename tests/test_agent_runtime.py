@@ -89,6 +89,20 @@ async def test_runtime_executes_multistep_tools_and_repairs_only_through_tool(tm
     assert "latex_highlighted" not in serialized_trace
     tool_message = planner.seen_messages[-1][-1]
     assert "katex_html" not in tool_message["content"]
+    planner_observation = json.loads(tool_message["content"])
+    assert planner_observation["revision"] == 1
+    assert planner_observation["formula_state"]["revision"] == 2
+    assert planner_observation["formula_state"]["latex"] == r"\frac{a}{b}"
+    assert '"root"' not in tool_message["content"]
+    assert "semantic_document" not in tool_message["content"]
+    assert result.revision == 2
+    assert result.committed is True
+    assert result.formula_ledger["current_revision"] == 2
+    assert all(
+        item["revision"] in {1, 2}
+        for item in result.formula_ledger["evidence"]
+    )
+    assert result.formula_ledger["commits"][0]["revision"] == 2
 
 
 @pytest.mark.asyncio
@@ -140,6 +154,117 @@ async def test_runtime_returns_invalid_final_with_diagnostics_after_repair(tmp_p
 
 
 @pytest.mark.asyncio
+async def test_runtime_returns_controlled_result_for_empty_formula_state(tmp_path):
+    planner = FakePlanner([PlannerTurn(content="")])
+    planner.generate_latex = AsyncMock(return_value="")
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("piecewise request with no model output")
+
+    assert result.latex == ""
+    assert result.valid is False
+    assert result.committed is False
+    assert result.revision is None
+    assert result.stop_reason == "empty_formula_state"
+    assert result.trace[-1]["origin"] == "runtime_guard"
+    assert result.trace[-1]["observations"][0]["tool"] == "runtime_policy"
+
+
+@pytest.mark.asyncio
+async def test_runtime_returns_controlled_result_for_model_timeout(tmp_path):
+    planner = FakePlanner([])
+    planner.plan = AsyncMock(side_effect=RuntimeError("model request timed out"))
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("set expression")
+
+    assert result.valid is False
+    assert result.committed is False
+    assert result.stop_reason == "model_request_failed"
+    assert result.trace[-2]["origin"] == "planner_error"
+    assert result.trace[-1]["origin"] == "runtime_guard"
+
+
+@pytest.mark.asyncio
+async def test_runtime_stops_before_starting_a_model_call_without_budget(tmp_path):
+    planner = FakePlanner([PlannerTurn(content="must not run")])
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+    runtime._model_call_budget_available = lambda _start: False
+
+    result = await runtime.run("request that would exceed the bridge budget")
+
+    assert result.valid is False
+    assert result.committed is False
+    assert result.stop_reason == "runtime_budget_exhausted"
+    assert planner.seen_messages == []
+
+
+@pytest.mark.asyncio
+async def test_runtime_does_not_commit_unresolved_request_anchors(tmp_path):
+    planner = FakePlanner(
+        [PlannerTurn(content="tan(nu)"), PlannerTurn(content="tan(nu)")]
+    )
+    planner.generate_latex = AsyncMock(return_value="tan(nu)")
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run(
+        "Express the tangent function applied to lowercase Greek letter nu."
+    )
+
+    assert result.valid is False
+    assert result.committed is False
+    assert result.stop_reason == "semantic_anchor_unresolved"
+    guard = result.trace[-1]["observations"][0]
+    assert guard["tool"] == "operator_drift_guard"
+    assert guard["output"]["missing_requirements"] == [r"\tan", r"\nu"]
+
+
+@pytest.mark.asyncio
+async def test_runtime_recovers_request_anchors_before_commit(tmp_path):
+    planner = FakePlanner(
+        [PlannerTurn(content="tan(nu)"), PlannerTurn(content=r"\tan(\nu)")]
+    )
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run(
+        "Express the tangent function applied to lowercase Greek letter nu."
+    )
+
+    assert result.latex == r"\tan(\nu)"
+    assert result.valid is True
+    assert result.committed is True
+    first_prompt = planner.seen_messages[0][1]["content"]
+    assert "Runtime request anchors" in first_prompt
+    assert r"- \tan" in first_prompt
+    assert r"- \nu" in first_prompt
+
+
+@pytest.mark.asyncio
 async def test_runtime_uses_zero_model_range_sum_fast_path(tmp_path):
     planner = FakePlanner([])
     runtime = TeXadaAgentRuntime(
@@ -161,6 +286,11 @@ async def test_runtime_uses_zero_model_range_sum_fast_path(tmp_path):
     ] == ["compile_tex", "render_math"]
     assert planner.seen_messages == []
     runtime.backend.ensure_ready.assert_not_awaited()
+    assert result.revision == 1
+    assert result.committed is True
+    assert {
+        item["kind"] for item in result.formula_ledger["evidence"]
+    } == {"compile_tex", "render_math"}
 
 
 @pytest.mark.asyncio
@@ -270,6 +400,11 @@ async def test_runtime_restores_inline_bare_sum_without_model(tmp_path):
             r"\sqrt{x+1}",
             "nl_simple_radical",
         ),
+        (
+            "Write the sum of u and f.",
+            "u+f",
+            "nl_simple_sum_en",
+        ),
     ],
 )
 async def test_runtime_uses_structured_math_fast_paths(
@@ -362,6 +497,12 @@ async def test_ocr_candidate_enters_planner_with_compile_observation(tmp_path):
     assert "OCR review task" in first_messages[0]["content"]
     assert first_messages[2]["tool_calls"][0]["function"]["name"] == "compile_tex"
     assert first_messages[3]["role"] == "tool"
+    intake_projection = json.loads(first_messages[3]["content"])
+    assert intake_projection["revision"] == 1
+    assert "semantic_document" not in first_messages[3]["content"]
+    assert intake_projection["output"]["semantic_summary"]["root_kind"] == (
+        "sequence"
+    )
 
 
 @pytest.mark.asyncio

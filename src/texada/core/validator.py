@@ -19,7 +19,15 @@ class LaTeXValidator:
     _WORD = re.compile(r"[A-Za-z]{2,}")
     _MATH_SIGNAL = re.compile(r"[\\=+\-*/^_<>&|()[\]{}]|\d")
     _SENTENCE_PUNCTUATION = re.compile(r"[?!。？！：:]")
-    _MARKUP = re.compile(r"<[^>]+>|<!\[CDATA\[", re.IGNORECASE)
+    # A mathematical comparison such as ``m<o\vee m>f`` is not markup.  Tag
+    # detection therefore requires a plausible XML/HTML tag name and closing
+    # delimiter instead of treating every ``<...>`` span as a tag.
+    _MARKUP = re.compile(
+        r"<!\[CDATA\[|</?[A-Za-z][A-Za-z0-9:_-]*"
+        r"(?:\s+[A-Za-z_:][^<>]*)?\s*/?>",
+        re.IGNORECASE,
+    )
+    _FACTORIAL = re.compile(r"(?<=[A-Za-z0-9}\)])!+")
     _ENV_TOKEN = re.compile(
         r"\\(?P<kind>begin|end)\{(?P<environment>[^{}]+)\}"
     )
@@ -130,7 +138,12 @@ class LaTeXValidator:
                 type="non_formula_content",
                 detail="公式包含未放入 \\text{...} 的中文说明文字",
             )
-        if self._SENTENCE_PUNCTUATION.search(outside_text):
+        # ``:=`` and postfix ``!`` are mathematical operators, not prose
+        # punctuation.  Keep the sentence guard for a bare colon/question/
+        # exclamation mark after removing only those unambiguous math uses.
+        punctuation_probe = outside_text.replace(":=", "")
+        punctuation_probe = self._FACTORIAL.sub("", punctuation_probe)
+        if self._SENTENCE_PUNCTUATION.search(punctuation_probe):
             return CheckResult(
                 ok=False,
                 type="non_formula_content",

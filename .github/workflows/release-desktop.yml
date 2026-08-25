@@ -177,6 +177,7 @@ jobs:
           entitlements="$(codesign -d --entitlements - "$sidecar" 2>/dev/null)"
           grep -F "com.apple.security.cs.allow-jit" <<< "$entitlements"
           grep -F "com.apple.security.cs.allow-unsigned-executable-memory" <<< "$entitlements"
+          grep -F "com.apple.security.cs.disable-library-validation" <<< "$entitlements"
 
       - name: Smoke test signed macOS KaTeX sidecar
         if: runner.os == 'macOS'
@@ -257,7 +258,7 @@ jobs:
 
           mount_dir="$(mktemp -d)"
           if hdiutil attach "$dmg" -mountpoint "$mount_dir" -nobrowse -quiet; then
-            trap 'hdiutil detach "$mount_dir" -quiet || true; rm -rf "$mount_dir"' EXIT
+            trap 'hdiutil detach "$mount_dir" -quiet || true' EXIT
             app="$(find "$mount_dir" -maxdepth 1 -name '*.app' -print -quit)"
             if [ -n "$app" ]; then
               codesign --verify --deep --strict --verbose=2 "$app"
@@ -268,7 +269,6 @@ jobs:
               echo "::warning::Signed DMG verified, but no .app was found after mounting."
             fi
           else
-            rm -rf "$mount_dir"
             echo "::warning::Signed DMG verified, but CI could not mount it for inner app verification."
           fi
 
@@ -441,13 +441,19 @@ jobs:
             printf '%s\n' 'Author: CacinieP'
           } > /tmp/texada-release-notes.md
 
-          gh release delete "$release_tag" --cleanup-tag -y || true
-          gh release delete "desktop-v${version}" --cleanup-tag -y || true
+          if gh release view "$release_tag" >/dev/null 2>&1; then
+            echo "::error::Release $release_tag already exists; refusing to overwrite it."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$release_tag" >/dev/null 2>&1; then
+            echo "::error::Tag $release_tag already exists; refusing to overwrite it."
+            exit 1
+          fi
 
           git config user.name "CacinieP"
           git config user.email "129482851+CacinieP@users.noreply.github.com"
-          git tag -f "$release_tag" "$GITHUB_SHA"
-          git push origin "refs/tags/$release_tag" --force
+          git tag "$release_tag" "$GITHUB_SHA"
+          git push origin "refs/tags/$release_tag"
 
           gh release create "$release_tag" "${assets[@]}" \
             --title "TeXada Desktop v${version}" \
