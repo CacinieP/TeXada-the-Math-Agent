@@ -1,14 +1,15 @@
 # MiniCPM5-2B local validation / 本机实测 — 2026-09-12
 
-The current source replaces the default MiniCPM5-1B text/planner checkpoint
+v0.4.1 replaces the default MiniCPM5-1B text/planner checkpoint
 with MiniCPM5-2B Q4_K_M. This note records local integration measurements,
 the failures that led to compatibility fixes, and the limits of the evidence.
-It does not announce a new installer release.
+The measurements were collected before the v0.4.1 installer release and
+are not a separate acceptance report for the release artifacts.
 
 中文摘要：在 A18 Pro、8GB 统一内存上，2B Q4_K_M 可以运行。最终六例开发用例平均
 7.71 秒，全部通过编译、渲染和提交；严格结构匹配为 5/6，人工数学核对为 6/6。
 这些题在开发中反复使用，不能据此声称通用准确率为 100%。本次只更新文本/规划模型，
-没有验证 OCR，也没有发布新版本安装包。
+没有验证 OCR；这里的实测发生在 v0.4.1 安装包发布之前。
 
 ## Environment and model
 
@@ -149,7 +150,7 @@ for text/retry paths, unaffected OCR/other-model requests, Chinese operator
 anchors, and full planner-tool compile/render/commit regressions.
 
 The local desktop check retained the existing 0.3.8 shell and rebuilt its
-bundled backend from current 0.4.0 source plus these changes. Strict recursive
+bundled backend from then-current 0.4.0 source plus these changes. Strict recursive
 code-signature validation passed. Native UI inspection showed the 2B model
 and `Text ready · OCR missing`. Subsequent UI automation timed out, so the
 final generation check called the installed app's automatically started
@@ -160,5 +161,5 @@ constitute a completed visual inspection of that final rendered formula.
 
 Existing saved settings are not silently migrated by changing the source
 default. Select the 2B model in Settings when upgrading; retain the separate
-vision setting for OCR. Existing release installers retain their original
-code until a new package is built and distributed.
+vision setting for OCR. Upgrade older installers to v0.4.1 to receive the
+model compatibility fixes; changing a model setting alone does not update code.

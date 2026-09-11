@@ -28,7 +28,7 @@ changing the default must not rewrite it.
   "_meta": {
     "app": "TeXada",
     "schema_version": 2,
-    "version": "0.4.0",
+    "version": "0.4.1",
     "exported_at": "2026-09-12T08:00:00.000000+00:00"
   },
   "settings": {

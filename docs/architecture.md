@@ -1,7 +1,7 @@
 # TeXada Architecture
 
-Source baseline: v0.4.0 Runtime Foundation. Model-default update: 2026-09-12
-(unreleased source change).
+Source baseline: v0.4.1, built on the v0.4.0 Runtime Foundation.
+Model-default update: 2026-09-12.
 TeXada is an on-device, agent-driven structured math editor. It is not a LaTeX
 input method with an LLM bolted on.
 
@@ -16,9 +16,9 @@ TeXada has exactly two model roles:
 - `MiniCPM-V 4.6`: image understanding and formula OCR.
 
 The source default changed to MiniCPM5-2B Q4_K_M on 2026-09-12. Existing saved
-model settings remain in effect until changed. The change and its local desktop
-verification do not imply that a new official installer has been published;
-see [the local model comparison](local-model-benchmark-2026-09-12.md).
+model settings remain in effect until changed. Upgrade to v0.4.1 for the
+model compatibility fixes; [the local model comparison](local-model-benchmark-2026-09-12.md)
+records the measurements collected before the installer release.
 
 Parsing, validation, repair, diffing, rendering, and export are deterministic
 software tools. In particular, `repair_tex` is not a model endpoint.

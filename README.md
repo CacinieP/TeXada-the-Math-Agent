@@ -109,17 +109,17 @@ The Ollama port is configurable. The default is `http://localhost:11434`, but Se
 
 ### Download
 
-The latest tagged desktop release is `v0.4.0`, licensed
+The `v0.4.1` desktop release is licensed
 `AGPL-3.0-or-later`. Tagged releases retain the license recorded in their
 immutable tag: earlier `v0.3.6` artifacts are `GPL-3.0-or-later`, while
 `v0.3.7` and later are `AGPL-3.0-or-later`. Current `main` development is
-version `0.4.0`.
+version `0.4.1`.
 
 | Platform | Package |
 |----------|---------|
-| macOS Apple Silicon | `TeXada_0.4.0_aarch64.dmg` |
-| macOS Intel | `TeXada_0.4.0_x64.dmg` |
-| Windows x64 | `TeXada_0.4.0_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.4.1_aarch64.dmg` |
+| macOS Intel | `TeXada_0.4.1_x64.dmg` |
+| Windows x64 | `TeXada_0.4.1_x64-setup.exe` |
 
 Release page: [github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
@@ -158,10 +158,9 @@ TeXada release packages are built for end users. You do not need Python, Node.js
 
 ### Quick Start With Ollama
 
-The 2B default and compatibility fixes below apply to current source builds.
-Previously published installers keep the code/defaults from their release;
-changing their model setting alone does not install these fixes. See
-[Unreleased changes](CHANGELOG.md#unreleased---2026-09-12).
+The 2B default and compatibility fixes are included from v0.4.1 onward.
+Upgrade older installers to receive the code fixes; changing their model
+setting alone does not install them. See the [v0.4.1 changelog](CHANGELOG.md#041---2026-09-12).
 
 1. Install Ollama from [ollama.com/download](https://ollama.com/download).
    - macOS: use the official download app.
@@ -503,16 +502,16 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 
 ### 下载
 
-最新的桌面正式版本是标签 `v0.4.0`，适用 `AGPL-3.0-or-later`。每个标签及其
+`v0.4.1` 桌面版本适用 `AGPL-3.0-or-later`。每个标签及其
 安装包继续适用标签内记录的许可证：`v0.3.6` 及更早产物为
 `GPL-3.0-or-later`，`v0.3.7` 起为 `AGPL-3.0-or-later`。当前 `main` 开发
-版本为 `0.4.0`。
+版本为 `0.4.1`。
 
 | 平台 | 安装包 |
 |------|--------|
-| macOS Apple Silicon | `TeXada_0.4.0_aarch64.dmg` |
-| macOS Intel | `TeXada_0.4.0_x64.dmg` |
-| Windows x64 | `TeXada_0.4.0_x64-setup.exe` |
+| macOS Apple Silicon | `TeXada_0.4.1_aarch64.dmg` |
+| macOS Intel | `TeXada_0.4.1_x64.dmg` |
+| Windows x64 | `TeXada_0.4.1_x64-setup.exe` |
 
 Release 页面：[github.com/CacinieP/TeXada-the-Math-Agent/releases](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)
 
@@ -551,8 +550,8 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 
 ### Ollama 快速启动
 
-以下 2B 默认值与兼容修复适用于当前源码构建。既有发布安装包保留其发布时的代码和默认值；
-只切换旧安装包的模型设置不会安装这些修复。详见[未发布变更](CHANGELOG.md#unreleased---2026-09-12)。
+以下 2B 默认值与兼容修复从 v0.4.1 起提供。旧版本安装包需要升级才能获得代码修复；
+只切换模型设置不会安装这些修复。详见 [v0.4.1 变更记录](CHANGELOG.md#041---2026-09-12)。
 
 1. 从 [ollama.com/download](https://ollama.com/download) 安装 Ollama。
    - macOS：使用官方下载版应用。

@@ -84,8 +84,8 @@ tools stateless and independently testable.
 
 - Agent runs retain more internal metadata than one `latest_latex` string.
 - Existing planner calls that provide a new formula to an observational tool
-  currently create an explicit revision. v0.4.1's state-bound argument binder
-  can later remove this model-owned copying without changing the ledger.
+  currently create an explicit revision. A future state-bound argument binder
+  can remove this model-owned copying without changing the ledger.
 - The first barrier recognizes only compile and render evidence. Reliability,
   visual fidelity, and future CAS evidence need separate policies rather than
   being inferred from a generic success flag.

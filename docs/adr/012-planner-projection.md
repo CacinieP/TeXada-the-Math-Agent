@@ -79,7 +79,7 @@ size bounds.
 
 ## Future
 
-- v0.4.1 can bind state-owned Tool arguments so the Planner no longer repeats
+- A future release can bind state-owned Tool arguments so the Planner no longer repeats
   the current LaTeX in observational calls.
 - Capability-specific projections may replace the shared projection after Tool
   execution contracts stabilize.
