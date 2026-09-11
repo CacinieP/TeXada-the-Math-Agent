@@ -2,6 +2,20 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## Unreleased / 未发布
+
+### English
+
+- Add macOS local model notes to both README languages: native Ollama with
+  Metal on Apple Silicon, the Docker Desktop container limitation, the tested
+  A18 Pro / 8GB text-model memory usage, and the lack of Intel performance tests.
+
+### 中文
+
+- 在中英文 README 补充 macOS 本地模型说明：Apple Silicon 原生 Ollama 的 Metal
+  加速、Docker Desktop 容器限制、A18 Pro / 8GB 文本模型内存实测，以及 Intel
+  性能尚未实测。
+
 ## 0.4.1 - 2026-09-12
 
 ### English

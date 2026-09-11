@@ -187,6 +187,20 @@ ollama pull openbmb/minicpm-v4.6:latest
    - `Model missing`: pull the text model shown in the status tooltip.
    - `Disconnected`: start Ollama or check the configured port.
 
+### macOS Local Model Notes
+
+- **Apple Silicon:** run the native Ollama app or CLI to use automatic Metal
+  GPU acceleration. Running Ollama inside a Docker Desktop container on macOS
+  does not provide GPU acceleration; see the [Ollama FAQ](https://docs.ollama.com/faq#how-do-i-use-ollama-with-gpu-acceleration-in-docker).
+- **8GB memory:** local text inference was validated on an A18 Pro Mac with
+  8GB unified memory using MiniCPM5-2B Q4_K_M and a 4096-token context. Ollama
+  reported about 1.66 GiB of model residency; the app, macOS and other programs
+  need additional memory. See the [local measurements](docs/local-model-benchmark-2026-09-12.md)
+  for the tested configuration and scope; OCR memory requirements were not tested.
+- **Intel Macs:** use the Intel installer. Local model performance has not been
+  measured on Intel Macs; the Apple Silicon acceleration and timing results
+  documented here do not establish Intel performance.
+
 ### Connection Map And Ports
 
 TeXada uses two local HTTP layers. They should normally use different ports:
@@ -577,6 +591,18 @@ ollama pull openbmb/minicpm-v4.6:latest
    - `文本可用 · OCR 缺模型`：文本可用，按状态 tooltip 里的命令拉取视觉模型。
    - `模型缺失`：按状态 tooltip 里的命令拉取文本模型。
    - `未连接`：启动 Ollama，或检查配置的端口。
+
+### macOS 本地模型使用说明
+
+- **Apple Silicon：**使用原生 Ollama 应用或 CLI，会自动使用 Metal GPU 加速。
+  在 macOS 的 Docker Desktop 容器内运行 Ollama 不提供 GPU 加速，详见
+  [Ollama 官方说明](https://docs.ollama.com/faq#how-do-i-use-ollama-with-gpu-acceleration-in-docker)。
+- **8GB 内存：**已在 A18 Pro、8GB 统一内存的 Mac 上验证 MiniCPM5-2B Q4_K_M
+  配合 4096 token 上下文可用于本地文本推理。Ollama 报告模型驻留约 1.66 GiB；
+  应用、macOS 和其他程序还需要额外内存。测试配置和范围见
+  [本机实测记录](docs/local-model-benchmark-2026-09-12.md)；本次未测试 OCR 的内存需求。
+- **Intel Mac：**请使用 Intel 安装包。本项目尚未实测 Intel Mac 的本地模型性能，
+  本文记录的 Apple Silicon 加速和耗时数据不能作为 Intel 机型的性能结论。
 
 ### 连接层级与端口
 
