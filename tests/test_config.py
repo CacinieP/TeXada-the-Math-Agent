@@ -100,7 +100,7 @@ def test_license_is_synchronized_as_agpl_v3_or_later():
 def test_default_product_has_exactly_two_minicpm_model_roles():
     fields = TeXadaConfig.model_fields
 
-    assert fields["model_name"].default == "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M"
+    assert fields["model_name"].default == "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M"
     assert fields["vision_model_name"].default == "openbmb/minicpm-v4.6:latest"
     assert "tex2tex_model_path" not in fields
     assert "tex2tex_max_new_tokens" not in fields

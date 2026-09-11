@@ -1459,7 +1459,7 @@ class TeXadaAgentRuntime:
         )
 
     def _sanitize_latex_argument(self, value: str) -> str:
-        """Remove prompt labels accidentally copied into a tool argument."""
+        """Remove copied prompt labels and one complete math-mode wrapper."""
         sanitized = value.strip()
         markers = (
             "Deterministic symbol translation (authoritative):",
@@ -1477,7 +1477,25 @@ class TeXadaAgentRuntime:
             sanitized,
             flags=re.IGNORECASE,
         )
-        return self.operator_guard.normalize_candidate(sanitized)
+        sanitized = self.operator_guard.normalize_candidate(sanitized)
+        # Exactly two unescaped delimiter tokens must cover the whole argument.
+        # This preserves literal \$ and leaves multi-part/embedded math intact.
+        delimiters = list(re.finditer(
+            r"(?<!\\)(?:\\\\)*(?P<delimiter>\$\$|\$|\\(?:\(|\)|\[|\]))",
+            sanitized,
+        ))
+        if len(delimiters) == 2:
+            opening, closing = delimiters
+            pairs = {"$": "$", "$$": "$$", r"\(": r"\)", r"\[": r"\]"}
+            if (
+                opening.start("delimiter") == 0
+                and closing.end("delimiter") == len(sanitized)
+                and pairs.get(opening.group("delimiter")) == closing.group("delimiter")
+            ):
+                body = sanitized[opening.end("delimiter"):closing.start("delimiter")].strip()
+                if body:
+                    return body
+        return sanitized
 
     def _operator_drift_feedback(
         self,

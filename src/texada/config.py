@@ -59,7 +59,7 @@ class TeXadaConfig(BaseSettings):
     # ── Ollama backend (MiniCPM) ──
     backend: Literal["ollama", "openai_compatible"] = "ollama"
     ollama_host: str = "http://localhost:11434"
-    model_name: str = "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M"  # Text: MiniCPM5-1B
+    model_name: str = "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M"  # Text: MiniCPM5-2B
     vision_model_name: str = "openbmb/minicpm-v4.6:latest"  # MiniCPM-V 4.6 OCR
     openai_base_url: str = ""
     openai_api_key: str = ""

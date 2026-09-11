@@ -1,22 +1,25 @@
 # TeXada Local E2E Manual
 
-This checklist validates the primary desktop/browser flow after the Agent
-Runtime migration.
+This checklist validates the primary desktop/browser flow against the current
+source defaults. The [2026-09-12 local model comparison](local-model-benchmark-2026-09-12.md)
+records the MiniCPM5-2B change separately from official installer releases.
 
 ## 1. Prepare the model
 
 ```bash
-ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
+ollama pull hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M
 ollama serve
 ```
 
 If Ollama is already running, the second command will report that the port is
 in use; keep the existing process.
 
-For the production-quality native tool-call path, use MiniCPM5-1B through
-SGLang with `--tool-call-parser minicpm5`, then select OpenAI-compatible mode in
-TeXada Settings. Ollama remains the easiest local E2E route and TeXada parses
-raw MiniCPM5 XML when it is exposed in response content.
+If saved settings still select MiniCPM5-1B, set the local text model to
+`hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M` in TeXada Settings and save. For OCR tests,
+also install the separately configured vision model, `openbmb/minicpm-v4.6:latest`.
+TeXada accepts normalized OpenAI tool calls and raw MiniCPM5 XML. Local Ollama
+MiniCPM5-2B text requests disable thinking; the setting does not apply to OCR
+or an OpenAI-compatible backend.
 
 ## 2. Start the backend
 
@@ -55,8 +58,9 @@ Open [http://localhost:1420](http://localhost:1420).
      `in region D`, `operator_drift_guard` restores this narrow,
      SymbolEngine-anchored structure without another model call.
 
-3. Enter `a 除以 b 的分数`.
-   - The result contains `\frac`.
+3. Enter `请把 a 与 b 的和除以 c 写成分式。`.
+   - The result is structurally equivalent to `\frac{a+b}{c}`; `a+b\div c`
+     changes the grouping and must not be accepted as the requested formula.
    - Expanding the trace shows semantic/tool observations rather than a plain
      model-only conversion.
 
@@ -81,8 +85,8 @@ Open [http://localhost:1420](http://localhost:1420).
      full trace on demand.
    - After more than 40 matching rows exist, `Load more` appends the next page.
    - OCR and completion rows are marked `ocr` / `planner` and
-     `completion` / `planner`; both contain candidate-intake and runtime-guard
-     tool calls and a non-empty trace.
+     `completion` / `planner`; both expose tool observations and a non-empty
+     trace, including any deterministic candidate path used.
 
 8. In Settings -> Data, verify all four groups.
    - Full backup includes `history`, `run_logs`, `shorthands`, and safe
@@ -113,6 +117,11 @@ The JSON response must contain:
 - `run_id`
 - valid final `latex`
 
+Also check `valid: true` and `committed: true`; HTTP success and a non-empty
+trace alone do not prove that the formula is usable. When comparing text models,
+confirm that the trace actually includes planner requests and provider tokens:
+some deterministic candidates intentionally complete with no model inference.
+
 Then inspect the correlated ledger row:
 
 ```bash
@@ -121,9 +130,11 @@ curl -s http://127.0.0.1:18732/api/runs/<run_id>
 
 For the NL path, `operation` is `agent`, `model_role` is `planner`, and
 `trace` is non-empty. `/api/complete` and `/api/ocr` return the same Agent
-fields. Their first trace item is `candidate_intake`, their last item is
-`runtime_guard`, and their run-log role is also `planner`. The OCR log's model
-name records the `MiniCPM-V 4.6 → MiniCPM5-1B` chain.
+fields, and their run-log role is also `planner`. OCR and model-reviewed
+completion use `candidate_intake` and a final `runtime_guard`; a rule-only
+completion can instead finish through the `deterministic_candidate` path.
+The OCR log's model name records the configured vision-to-text chain, currently
+`MiniCPM-V 4.6 → MiniCPM5-2B` by default.
 
 ## 6. Automated gates
 

@@ -40,7 +40,7 @@ copy.
 
 It is not a chat wrapper. TeXada is an on-device, agent-driven structured math
 editor whose planner can call narrow, independently testable TeX tools.
-It deliberately has only two model roles: MiniCPM5-1B handles planning and
+It deliberately has only two model roles: MiniCPM5-2B handles planning and
 text generation, while MiniCPM-V 4.6 handles image understanding and formula
 OCR. Independently testable TeX tools own parsing, validation, deterministic
 repair, semantic diffing, rendering and export.
@@ -158,18 +158,29 @@ TeXada release packages are built for end users. You do not need Python, Node.js
 
 ### Quick Start With Ollama
 
+The 2B default and compatibility fixes below apply to current source builds.
+Previously published installers keep the code/defaults from their release;
+changing their model setting alone does not install these fixes. See
+[Unreleased changes](CHANGELOG.md#unreleased---2026-09-12).
+
 1. Install Ollama from [ollama.com/download](https://ollama.com/download).
    - macOS: use the official download app.
    - Windows: use the official Windows installer, then launch Ollama once from the Start menu.
 
-2. Pull the default local models. The text model is required for local text conversion; the vision model is required only for local OCR:
+2. Pull the required text model from the official [OpenBMB Hugging Face repository](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF). Ollama can download the Hugging Face GGUF directly with this model reference:
 
 ```bash
-ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
+ollama pull hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M
+```
+
+   Optional: install the separate vision model if you also want local OCR:
+
+```bash
 ollama pull openbmb/minicpm-v4.6:latest
 ```
 
 3. Open TeXada from the downloaded `.dmg` or `.exe`. The packaged app includes the TeXada FastAPI backend and starts it automatically; no separate Python install or manual API server is needed.
+   - Existing saved settings keep their model selection. To switch, set the text model in Settings → Backend to `hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M` and save.
 
 4. Check the status in the title bar.
    - `Ready`: text conversion and OCR are available.
@@ -195,8 +206,13 @@ Do not set the FastAPI address and Ollama address to the same port unless you ar
 
 | Role | Default | Notes |
 |------|---------|-------|
-| Text | `hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M` | Natural language conversion and completion |
+| Text | `hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M` | Planning, natural language conversion and completion |
 | Vision | `openbmb/minicpm-v4.6:latest` | OCR from screenshots and images |
+
+Local Ollama MiniCPM5-2B text requests disable thinking to fit the existing
+output budgets. OCR and other model/backend configurations retain their
+existing behavior. The local validation used a 4096-token context; this is a
+benchmark setting, not a new TeXada environment variable.
 
 These are the only two supported model roles. OpenAI-compatible configuration
 is a transport option for serving the same MiniCPM models through vLLM, SGLang,
@@ -248,7 +264,7 @@ Persistent config lives at `~/.texada/config.json`.
 {
   "backend": "ollama",
   "ollama_host": "http://localhost:11434",
-  "model_name": "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M",
+  "model_name": "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M",
   "vision_model_name": "openbmb/minicpm-v4.6:latest",
   "api_host": "127.0.0.1",
   "api_port": 18732,
@@ -355,7 +371,27 @@ GitHub Actions builds release installers manually from `main` and automatically 
 
 ### Hardware And Measurements
 
-The numbers below are real local measurements from 2026-07-07, not synthetic benchmark data. Latency depends on model size, quantization, machine load and whether the model is warm.
+Validated on 2026-09-12 with Apple A18 Pro, 8GB unified memory, macOS
+26.6.2 and Ollama 0.32.15. MiniCPM5-2B Q4_K_M ran on Metal with a 4096-token
+context; Ollama reported about **1.66 GiB of model residency**, not total
+application/system memory.
+
+| Six development regression cases | Mean request time | Strict structure match | Compile/render commit |
+|---------------------------------|-------------------|------------------------|-----------------------|
+| Previous 1B path, default thinking | 38.59s | 1/6 | 3/6 |
+| 1B control, thinking disabled | 13.39s | 1/6 | 5/6 |
+| Adapted 2B path, thinking disabled | **7.71s** | **5/6** | **6/6** |
+
+Manual review found all six final 2B formulas mathematically faithful; the
+strict mismatch was extra condition-label text in a piecewise expression.
+These are small, repair-driven development samples, not a held-out accuracy
+benchmark or an isolated comparison of model speed. Warm state, thinking
+settings and code fixes affect the results. Complex formulas can still be
+wrong. See the [test setup, individual cases and limitations](docs/local-model-benchmark-2026-09-12.md).
+
+#### Historical 1B Measurements
+
+The numbers below are historical local measurements from 2026-07-07 using MiniCPM5-1B for text. They do not measure the current MiniCPM5-2B default. Latency depends on model size, quantization, machine load and whether the model is warm.
 
 Measured environment: Mac Neo, macOS 26.5.1, arm64, Apple A18 Pro, 8GB RAM, local Ollama models.
 
@@ -402,7 +438,7 @@ TeXada 是一个面向 LaTeX 与科研写作的本地 AI Copilot。你可以输�
 结构化公式，用确定性工具检查，再渲染为可核对、可复制的结果。
 
 它不是聊天界面套壳，而是基于端侧 Agent 的结构化数学编辑器。产品明确只有两个
-模型角色：MiniCPM5-1B 负责规划、工具选择和文本生成，MiniCPM-V 4.6 负责图片
+模型角色：MiniCPM5-2B 负责规划、工具选择和文本生成，MiniCPM-V 4.6 负责图片
 理解与公式 OCR；解析、校验、确定性修复、语义 Diff、渲染与导出由可独立测试的
 TeX 工具负责。
 
@@ -515,18 +551,27 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 
 ### Ollama 快速启动
 
+以下 2B 默认值与兼容修复适用于当前源码构建。既有发布安装包保留其发布时的代码和默认值；
+只切换旧安装包的模型设置不会安装这些修复。详见[未发布变更](CHANGELOG.md#unreleased---2026-09-12)。
+
 1. 从 [ollama.com/download](https://ollama.com/download) 安装 Ollama。
    - macOS：使用官方下载版应用。
    - Windows：使用官方 Windows 安装器，安装后先从开始菜单启动一次 Ollama。
 
-2. 拉取默认本地模型。文本模型用于本地文本转换；视觉模型只在本地 OCR 时必需：
+2. 从 [OpenBMB 官方 Hugging Face 仓库](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF)拉取必需的文本模型。Ollama 可以通过以下模型地址直接下载 Hugging Face 上的 GGUF：
 
 ```bash
-ollama pull hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
+ollama pull hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M
+```
+
+   可选：如果需要本地 OCR，再安装独立的视觉模型：
+
+```bash
 ollama pull openbmb/minicpm-v4.6:latest
 ```
 
 3. 打开下载好的 TeXada `.dmg` 或 `.exe` 安装包。安装包内置 TeXada FastAPI 后端，并会在应用启动时自动拉起；不需要单独安装 Python 或手动启动 API 服务。
+   - 已保存的设置会保留原来的模型选择。需要切换时，在设置页 → 后端连接中将文本模型改为 `hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M` 并保存。
 
 4. 看标题栏状态。
    - `Ready`：文本转换和 OCR 都可用。
@@ -552,8 +597,10 @@ TeXada 使用两层本地 HTTP 服务。它们通常应该是不同端口：
 
 | 角色 | 默认模型 | 说明 |
 |------|----------|------|
-| 文本 | `hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M` | 自然语言转换和补全 |
+| 文本 | `hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M` | 规划、自然语言转换和补全 |
 | 视觉 | `openbmb/minicpm-v4.6:latest` | 从截图和图片识别公式 |
+
+本地 Ollama 的 MiniCPM5-2B 文本请求关闭思考，以适配现有输出预算；OCR 与其他模型/后端配置保留原有行为。本机测试使用 4096 token 上下文，这是测试配置，不是新增的 TeXada 环境变量。
 
 产品只支持这两个模型角色。OpenAI-compatible 配置只是让同一组 MiniCPM 模型可以
 通过 vLLM、SGLang 或其他兼容 endpoint 部署，不会引入第三个产品模型。
@@ -604,7 +651,7 @@ StepFun Step Plan 示例：
 {
   "backend": "ollama",
   "ollama_host": "http://localhost:11434",
-  "model_name": "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M",
+  "model_name": "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M",
   "vision_model_name": "openbmb/minicpm-v4.6:latest",
   "api_host": "127.0.0.1",
   "api_port": 18732,
@@ -708,7 +755,24 @@ GitHub Actions 可以手动从 `main` 构建安装包，也会在版本 tag 上�
 
 ### 硬件与实测
 
-下面是 2026-07-07 的本地实测，不是合成跑分。响应时间会受模型大小、量化方式、机器负载和模型是否已预热影响。
+2026-09-12 在 Apple A18 Pro、8GB 统一内存、macOS 26.6.2、Ollama 0.32.15
+上完成本机验证。MiniCPM5-2B Q4_K_M 使用 Metal、4096 token 上下文；Ollama
+报告的**模型驻留约 1.66 GiB**，不是应用或系统的全部内存占用。
+
+| 六例开发回归用例 | 平均请求耗时 | 严格结构匹配 | 编译、渲染并提交 |
+|----------------|-------------|-------------|-----------------|
+| 原 1B 路径，默认思考 | 38.59 秒 | 1/6 | 3/6 |
+| 1B 对照，关闭思考 | 13.39 秒 | 1/6 | 5/6 |
+| 适配后的 2B 路径，关闭思考 | **7.71 秒** | **5/6** | **6/6** |
+
+人工核对最终六例数学含义均正确；严格匹配的唯一差异是分段函数条件中的展示文字。
+这组小样本在修复过程中反复使用，不代表独立测试集的准确率，也不是单独比较模型速度。
+预热状态、思考设置和代码修复都会影响结果，复杂公式仍可能出错。
+详见[测试设置、逐例结果与局限](docs/local-model-benchmark-2026-09-12.md)。
+
+#### 历史 1B 测量
+
+下面是 2026-07-07 的历史本地实测，文本模型使用 MiniCPM5-1B，并非当前默认 MiniCPM5-2B 的测试结果。响应时间会受模型大小、量化方式、机器负载和模型是否已预热影响。
 
 实测环境：Mac Neo，macOS 26.5.1，arm64，Apple A18 Pro，8GB RAM，本地 Ollama 模型。
 

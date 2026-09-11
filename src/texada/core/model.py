@@ -86,6 +86,15 @@ class MiniCPMModel:
             raise RuntimeError("Text model name is not configured")
         return self.model
 
+    def _text_request_options(self) -> dict[str, Any]:
+        """Keep local MiniCPM5-2B text answers within the existing token budget."""
+        if (
+            self.config.backend == "ollama"
+            and "minicpm5-2b" in self._text_model_name().casefold()
+        ):
+            return {"extra_body": {"reasoning_effort": "none"}}
+        return {}
+
     def _vision_model_name(self) -> str:
         if not self._vision_model:
             raise RuntimeError("Vision model name is not configured")
@@ -110,6 +119,7 @@ class MiniCPMModel:
             "tool_choice": "auto",
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
+            **self._text_request_options(),
         }
         try:
             response = await asyncio.to_thread(self._completion_create, **kwargs)
@@ -161,6 +171,7 @@ class MiniCPMModel:
             messages=messages,
             temperature=self.temperature,
             max_tokens=min(self.max_tokens, FORMULA_MAX_TOKENS),
+            **self._text_request_options(),
         )
         self._record_response_tokens(response)
         raw = response.choices[0].message.content if response.choices else ""
@@ -197,6 +208,7 @@ class MiniCPMModel:
                     ],
                     temperature=0.1,
                     max_tokens=min(self.max_tokens, FORMULA_MAX_TOKENS),
+                    **self._text_request_options(),
                 )
                 self._record_response_tokens(retry)
                 rraw = retry.choices[0].message.content if retry.choices else ""
@@ -214,9 +226,9 @@ class MiniCPMModel:
     async def complete_latex(self, partial: str) -> str:
         """LaTeX completion — rules first for common patterns, model otherwise.
 
-        MiniCPM5-1B is unreliable at completing arbitrary fragments (it tends
-        to emit empty braces), so high-frequency patterns are matched by rule
-        first (accurate, zero latency); the model handles the rest.
+        Earlier MiniCPM5-1B experiments sometimes emitted empty braces.
+        Keep common patterns on the deterministic rule path; the model handles
+        fragments that do not match a rule.
         """
         self._reset_tokens()
         ruled = self.rule_complete(partial)
@@ -233,6 +245,7 @@ class MiniCPMModel:
             messages=messages,
             temperature=0.05,
             max_tokens=min(self.max_tokens, FORMULA_MAX_TOKENS),
+            **self._text_request_options(),
         )
         self._record_response_tokens(response)
         raw = response.choices[0].message.content if response.choices else ""

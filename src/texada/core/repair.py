@@ -1,7 +1,7 @@
 """Deterministic LaTeX repair used by the ``repair_tex`` tool.
 
 This module is deliberately not a model adapter. TeXada has exactly two model
-roles: MiniCPM5-1B for planning/text generation and MiniCPM-V 4.6 for vision
+roles: MiniCPM5-2B for planning/text generation and MiniCPM-V 4.6 for vision
 OCR. Syntax repair remains a small, local, deterministic tool.
 """
 

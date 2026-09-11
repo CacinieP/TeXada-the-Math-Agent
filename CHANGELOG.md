@@ -2,6 +2,48 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## Unreleased - 2026-09-12
+
+### English
+
+- Change the default local text/planner model to MiniCPM5-2B Q4_K_M. Existing
+  saved model selections remain unchanged until explicitly updated.
+- Disable thinking for local Ollama MiniCPM5-2B text requests, including
+  planning, generation, completion and retries. Send `reasoning_effort: none`
+  through `extra_body` for the declared OpenAI SDK range; retain other models'
+  and OCR's existing behavior.
+- Match the complete Chinese division phrase “除以” and require a structured
+  fraction for explicit Chinese fraction requests, excluding negated requests.
+- Strip complete outer math delimiters from planner tool arguments before
+  validation, preserving escaped dollars, internal delimiters and multiple
+  math segments.
+- Align the example timeout settings with existing 90-second inference and
+  240-second request defaults; update current model/deployment documentation
+  while keeping historical 1B measurements labeled as such.
+- Record [A18 Pro / 8GB local validation](docs/local-model-benchmark-2026-09-12.md):
+  six development cases averaged 7.71 seconds, with 6/6 compile/render commits
+  and 5/6 strict structure matches; manual mathematical review passed all six.
+  This small development set is not a general accuracy benchmark.
+- Validate with 384 passing Python tests and 8 skipped tests, focused Ruff and
+  diff checks, plus a generation/KaTeX check against a locally rebuilt desktop
+  backend. These changes do not publish a new installer or release tag.
+
+### 中文
+
+- 默认本地文本与规划模型改为 MiniCPM5-2B Q4_K_M；已保存的模型选择需手动切换。
+- 仅对本地 Ollama 的 MiniCPM5-2B 规划、生成、补全及重试关闭思考，通过 `extra_body`
+  发送 `reasoning_effort: none`，兼容已声明的 SDK 版本范围；其他模型与 OCR 行为保留。
+- 修复“除以”的不完整替换，并对中文明确分式请求增加结构约束，排除否定指令。
+- 清理工具参数完整的外层数学定界符，保留转义美元、内部定界符和多段内容，避免正确公式
+  因外层 `$…$` 无法渲染。
+- 示例超时配置同步为现有的推理 90 秒、请求 240 秒；更新当前模型与部署文档，保留历史
+  1B 测量的版本说明。
+- 补充 [A18 Pro / 8GB 本机实测](docs/local-model-benchmark-2026-09-12.md)：六例开发样例
+  平均 7.71 秒，6/6 编译渲染并提交，严格结构匹配 5/6，人工数学核对 6/6。
+  小样本结果不代表通用准确率。
+- 384 项 Python 测试通过、8 项跳过；相关 Ruff、diff 检查及本机重建桌面后端的真实生成、
+  KaTeX 验证通过。本次变更不创建新安装包发布或版本标签。
+
 ## 0.4.0 - 2026-08-25
 
 ### English

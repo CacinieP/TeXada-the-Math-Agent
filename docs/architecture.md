@@ -1,18 +1,24 @@
 # TeXada Architecture
 
-Released baseline: v0.3.8. Active milestone: v0.4.0 Runtime Foundation.
+Source baseline: v0.4.0 Runtime Foundation. Model-default update: 2026-09-12
+(unreleased source change).
 TeXada is an on-device, agent-driven structured math editor. It is not a LaTeX
 input method with an LLM bolted on.
 
 The v0.4-v1.0 layer vocabulary and scope are frozen in
-[`architecture-freeze-v0.4.md`](architecture-freeze-v0.4.md). v0.4 migrates
-the existing bounded Agent loop so `FormulaState`, rather than Planner context
-or a local `latest_latex` variable, is the authority for formula revisions.
+[`architecture-freeze-v0.4.md`](architecture-freeze-v0.4.md). The bounded Agent
+loop uses `FormulaState`, rather than Planner context or a local `latest_latex`
+variable, as the authority for formula revisions.
 
 TeXada has exactly two model roles:
 
-- `MiniCPM5-1B`: text generation, planning, tool selection, and state control.
+- `MiniCPM5-2B`: text generation, planning, and tool selection.
 - `MiniCPM-V 4.6`: image understanding and formula OCR.
+
+The source default changed to MiniCPM5-2B Q4_K_M on 2026-09-12. Existing saved
+model settings remain in effect until changed. The change and its local desktop
+verification do not imply that a new official installer has been published;
+see [the local model comparison](local-model-benchmark-2026-09-12.md).
 
 Parsing, validation, repair, diffing, rendering, and export are deterministic
 software tools. In particular, `repair_tex` is not a model endpoint.
@@ -29,7 +35,7 @@ Image / Keyboard
 Formula Runtime (FormulaState / Revision / Ledger)
         |
         v
-MiniCPM5-1B Planner
+MiniCPM5-2B Planner
         |
         +--> parse_tex
         +--> compile_tex
@@ -47,8 +53,8 @@ Revision-bound Evidence
 Commit Barrier -> Structured final formula
 ```
 
-The primary loop remains `Planner → Tool → Observation → Planner`, but its
-authoritative state is now migrating to the Formula Runtime. A tool observation
+The primary loop remains `Planner → Tool → Observation → Planner`, and its
+authoritative state belongs to the Formula Runtime. A tool observation
 is evidence for one exact formula revision; it is not itself mutable state.
 `SemanticDocument` remains the structural math representation within the
 Semantic Layer. Natural language, OCR, and completion all converge on this
@@ -57,9 +63,9 @@ clients.
 
 | Product path | Model role | Agent loop |
 |--------------|------------|------------|
-| Natural language (`/api/agent`) | Deterministic candidate or MiniCPM5-1B planner | Yes |
-| OCR (`/api/ocr`) | MiniCPM-V 4.6 candidate → MiniCPM5-1B planner | Yes |
-| Completion (`/api/complete`) | rule/MiniCPM5 candidate → MiniCPM5-1B planner | Yes |
+| Natural language (`/api/agent`) | Deterministic candidate or MiniCPM5-2B planner | Yes |
+| OCR (`/api/ocr`) | MiniCPM-V 4.6 candidate → MiniCPM5-2B planner | Yes |
+| Completion (`/api/complete`) | rule/MiniCPM5 candidate → MiniCPM5-2B planner | Yes |
 | Validation (`/api/validate`) | Deterministic local code | No model |
 
 “Agentized” does not mean every request must spend a model inference. Before
@@ -101,7 +107,7 @@ generation path gets one final attempt and is adopted only when every pinned
 structure is satisfied. An unresolved candidate is returned as invalid and
 uncommitted. For the narrow `integrand 在区域 D 上` integral form, a final
 deterministic template may restore an authoritative SymbolEngine integral rank
-after the 1B model returns prose, a full LaTeX document, or an empty retry.
+after the planner returns prose, a full LaTeX document, or an empty retry.
 Level 1 does not pretend that raw natural language is a reference AST: it runs
 for explicit before/after formulas, repairs and edit operations where both
 semantic documents exist.
@@ -284,14 +290,23 @@ Clipboard, paste and notifications are handled in the Tauri shell for desktop bu
 
 | Role | Default | Notes |
 |------|---------|-------|
-| Local planner | `hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M` | Planning, tool selection and fallback completion |
+| Local planner | `hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M` | Planning, tool selection and fallback completion |
 | Local vision | `openbmb/minicpm-v4.6:latest` | OCR for handwritten or screenshot formulas |
 | Compatibility | User-provided OpenAI-compatible endpoint | Migration path; MiniCPM5 is the runtime contract |
 
-MiniCPM5 can emit the answer in a `reasoning` field with empty `content`, so
-the model wrapper falls back to extracting LaTeX from either field. For tool
-calling, SGLang is the preferred production runtime; the Ollama/GGUF path is
-kept for on-device accessibility and raw XML compatibility.
+For the Ollama backend, text requests whose model name contains `minicpm5-2b`
+disable thinking with `reasoning_effort: "none"`, sent through the SDK's
+`extra_body`. This applies to planning, generation, completion, and retries;
+it does not change OCR or other models' reasoning settings. The response budget
+remains 2048 tokens for planning and at most 768 for formula generation and
+completion. Thinking can still consume the visible-answer budget on other
+reasoning-enabled models; generation/completion retain their existing fallback
+for answers in the `reasoning` field.
+
+The planner accepts normalized OpenAI `tool_calls` and raw MiniCPM5 XML. The
+2026-09-12 comparison covers local Ollama; it does not certify other serving
+runtimes or prove arbitrary mathematical correctness. Text and OCR retain
+separate model names on the same configured endpoint.
 
 ## Frontend
 

@@ -97,6 +97,45 @@ def test_request_level_anchors_detect_plain_text_math_commands():
     ) == [r"\tan", r"\nu"]
 
 
+def test_explicit_chinese_fraction_requests_require_a_structured_fraction():
+    guard = OperatorDriftGuard()
+    requests = [
+        "请把 a 与 b 的和除以 c 写成分式。",
+        "把结果写为分式。",
+        "请表示为分式。",
+        "请使用分式。",
+        "把结果写成分数。",
+        "写为 分数形式。",
+        "表示为 分数。",
+        "使用 分数表示。",
+        "不要化简，请把结果写成分式。",
+    ]
+    for request in requests:
+        assert r"\frac" in guard.forced_operators("", request), request
+        assert guard.check("", r"a+b\div c", user_input=request), request
+        assert not guard.check("", r"\frac{a+b}{c}", user_input=request), request
+
+
+def test_negated_chinese_fraction_requests_do_not_force_a_fraction():
+    guard = OperatorDriftGuard()
+    requests = [
+        "不要写成分式。",
+        "不用分式。",
+        "不要 写为 分数。",
+        "不要表示为分式。",
+        "不要使用分数。",
+        "请勿写成分式。",
+        "无需写为分数。",
+        "不必使用分式。",
+        "不要把结果写成分式。",
+        "不用分式，保留除号。",
+        "检查这两个分数。",
+    ]
+    for request in requests:
+        assert r"\frac" not in guard.forced_operators("", request), request
+        assert not guard.check("", r"(a+b)\div c", user_input=request), request
+
+
 def test_request_level_anchors_cover_observed_dataset_drift():
     guard = OperatorDriftGuard()
     cases = [

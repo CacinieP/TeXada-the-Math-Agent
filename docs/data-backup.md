@@ -14,18 +14,27 @@ conversion history, and request-level run logs.
 
 完整备份包含元数据、非敏感设置、用户自定义预设、转换历史和请求级运行日志。
 
+The example below uses current source-default settings alongside an older
+MiniCPM5-1B run. It illustrates the schema, not measured latency or an official
+release. A historical run's `model_name` records the model used at that time;
+changing the default must not rewrite it.
+
+下例使用当前源码默认设置，同时保留较早的 MiniCPM5-1B 运行记录；数值仅用于说明
+格式，不代表实测性能或官方发布。历史记录的 `model_name` 应保留当时实际使用的模型，
+不能随默认模型切换而改写。
+
 ```json
 {
   "_meta": {
     "app": "TeXada",
     "schema_version": 2,
-    "version": "0.3.0",
-    "exported_at": "2026-07-20T15:00:00.000000+00:00"
+    "version": "0.4.0",
+    "exported_at": "2026-09-12T08:00:00.000000+00:00"
   },
   "settings": {
     "backend": "ollama",
     "ollama_host": "http://localhost:11434",
-    "model_name": "hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M",
+    "model_name": "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M",
     "vision_model_name": "openbmb/minicpm-v4.6:latest",
     "openai_base_url": "",
     "openai_model_name": "",
@@ -36,8 +45,8 @@ conversion history, and request-level run logs.
     "delimiter": "$$",
     "ui_language": "zh",
     "ui_zoom": 1.0,
-    "inference_timeout_seconds": 45.0,
-    "api_request_timeout_seconds": 120.0
+    "inference_timeout_seconds": 90.0,
+    "api_request_timeout_seconds": 240.0
   },
   "shorthands": {
     "my-formula": "\\frac{a}{b}"

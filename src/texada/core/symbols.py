@@ -11,6 +11,7 @@ SYMBOL_MAP: dict[str, str] = {
     "正负": r"\pm",
     "负正": r"\mp",
     "乘": r"\times",
+    "除以": r"\div",
     "除": r"\div",
     "加": "+",
     "减": "-",

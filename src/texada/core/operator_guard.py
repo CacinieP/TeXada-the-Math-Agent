@@ -135,6 +135,14 @@ class OperatorDriftGuard:
             if pattern.search(request):
                 forced.append(operator)
 
+        for match in re.finditer(r"(?:写成|写为|表示为|使用)\s*(?:分式|分数)", request):
+            # Keep this request anchor narrow. A negation earlier in the same
+            # clause (including "不要把结果写成分式") makes it non-mandatory.
+            prefix = re.split(r"[，,。；;！!？?\n]", request[:match.start()])[-1]
+            if not re.search(r"不要|不用|无需|不必|不能|禁止|勿|别|不", prefix):
+                forced.append(r"\frac")
+                break
+
         for name in self.GREEK_NAMES:
             if re.search(
                 rf"\b(?:lowercase(?:\s+Greek(?:\s+letter)?)?"

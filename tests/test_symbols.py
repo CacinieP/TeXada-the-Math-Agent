@@ -14,6 +14,10 @@ def test_long_match_priority():
     eng = SymbolEngine()
     result = eng.pre_translate("三重积分")
     assert result == "\\iiint"
+    # A partial match used to leave an extra Chinese character ("\\div以")
+    # in the planner's authoritative preprocessed prompt.
+    assert eng.pre_translate("a 与 b 的和除以 c") == r"a 与 b 的和\div c"
+    assert eng.pre_translate(r"a \div c") == r"a \div c"
 
 
 def test_multiple_terms():

@@ -3,7 +3,7 @@
 > LLM decides. Tools execute. Compiler verifies.
 
 TeXada uses a small local model where judgment is useful and ordinary software
-where correctness can be checked. MiniCPM5-1B can decide which operation to
+where correctness can be checked. MiniCPM5-2B can decide which operation to
 perform next, but parsing, syntax validation, bounded repair, semantic diffing,
 rendering, and export belong to independently testable tools.
 
@@ -43,8 +43,14 @@ This boundary matters for three reasons:
 
 The planner does not need to memorize a LaTeX compiler. It needs to select a
 small tool, read the observation, and decide whether another bounded step is
-needed. That division makes a 1B local model useful without pretending it is a
+needed. That division makes a small local model useful without pretending it is a
 proof engine.
+
+The current source default is MiniCPM5-2B Q4_K_M. The
+[2026-09-12 local comparison](local-model-benchmark-2026-09-12.md) motivated that
+change and the bounded text path's thinking setting; its development cases do
+not establish a general accuracy rate. Historical reports retain their original
+MiniCPM5-1B results.
 
 High-confidence structured inputs may skip model inference entirely. They
 still pass through the same compile and render tools, so "zero token" is an

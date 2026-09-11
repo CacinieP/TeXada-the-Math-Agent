@@ -53,9 +53,10 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `docs/adr/011-formula-runtime-ledger.md` | ADR for revision-bound FormulaState, evidence, Planner Projection, and Commit Barrier. |
 | `docs/adr/012-planner-projection.md` | ADR for bounded model-facing observations and full-tree exclusion. |
 | `docs/e2e-manual.md` | Human and automated local E2E checklist for the Agent Runtime path. |
+| `docs/local-model-benchmark-2026-09-12.md` | Local MiniCPM5-1B/2B Q4 comparison, development-regression results, thinking tradeoffs, and local deployment evidence, distinct from official release artifacts. |
 | `docs/audit.md` | Source audit scope, stale-code removals, remediation history, and intentional defaults. |
 | `docs/file-inventory.md` | This file-by-file source map. |
-| `docs/technical-report.md` | Technical rationale, model selection, deterministic pipeline design, performance measurements, and known limitations. |
+| `docs/technical-report.md` | v0.3.2 technical baseline, historical performance measurements, known limitations, and current model-default notes. |
 | `docs/technical-report-v0.1.md` | Archived pre-Agent technical report retained as historical design evidence. |
 | `docs/sympy-capability-matrix.md` | Generated human-readable view of the optional CAS capability and reproducibility matrix. |
 

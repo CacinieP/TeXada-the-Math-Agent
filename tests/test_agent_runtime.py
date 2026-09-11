@@ -671,6 +671,87 @@ def test_runtime_sanitizes_prompt_labels_in_tool_arguments(tmp_path):
     assert normalized.arguments["latex"] == r"\sum_{i=1}^{n}i"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("opening", "closing"), [
+    ("$", "$"), ("$$", "$$"), (r"\(", r"\)"), (r"\[", r"\]"),
+])
+async def test_wrapped_planner_tool_arguments_compile_render_and_commit(tmp_path, opening, closing):
+    latex = r"\sum_{k=2}^{m}\frac{a_k+b_k}{\sqrt{k+1}}"
+    planner = FakePlanner([
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            id=f"wrapped_{name}", name=name,
+            arguments={"latex": f"{opening}{latex}{closing}"},
+        )])
+        for name in ("parse_tex", "compile_tex", "render_math")
+    ])
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("请排版这个有限求和。")
+
+    assert len(planner.seen_messages) == 3
+    assert result.latex == latex
+    assert result.valid is True
+    assert result.committed is True
+    assert result.semantic_document["parser_backend"].startswith("katex-")
+    assert '<span class="katex">' in result.render.katex_html
+    assert result.render.copy_text == f"$${latex}$$"
+    for step in result.trace[:3]:
+        assert step["tool_calls"][0]["arguments"]["latex"] == latex
+        assert step["observations"][0]["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_wrapped_sum_replay_commits_after_the_observed_repeated_compile(tmp_path):
+    latex = r"\sum_{k=2}^{m}\frac{a_k+b_k}{\sqrt{k+1}}"
+    planner = FakePlanner([
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            id=f"observed_{index}", name=name, arguments={"latex": f"${latex}$"},
+        )])
+        for index, name in enumerate(("parse_tex", "compile_tex", "compile_tex"))
+    ])
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("请排版这个有限求和。")
+
+    assert result.latex == latex
+    assert result.valid is True
+    assert result.committed is True
+    assert '<span class="katex">' in result.render.katex_html
+    assert "Repeated identical tool call" in result.trace[2]["observations"][0]["error"]
+    assert [observation["tool"] for observation in result.trace[-1]["observations"]] == [
+        "compile_tex", "render_math",
+    ]
+
+
+@pytest.mark.parametrize(("source", "expected"), [
+    (r"$\text{price: \$5}$", r"\text{price: \$5}"),
+    (r"\(\text{price: \$5}\)", r"\text{price: \$5}"),
+    ("  LaTeX: $ x+1 $  ", "x+1"),
+    (r"\$x\$", r"\$x\$"),
+    (r"$x\$", r"$x\$"),
+    (r"$x\\$", r"x\\"),
+    (r"$x$ + $y$", r"$x$ + $y$"),
+    (r"$$x$$ $$y$$", r"$$x$$ $$y$$"),
+    (r"\(x\) + \(y\)", r"\(x\) + \(y\)"),
+    (r"\[x\]\[y\]", r"\[x\]\[y\]"),
+    (r"$x$ and text", r"$x$ and text"),
+    (r"prefix $x$", r"prefix $x$"),
+    (r"$x$y$", r"$x$y$"),
+    (r"$$x$", r"$$x$"),
+    (r"\(x\]", r"\(x\]"),
+    (r"\[x + $y$\]", r"\[x + $y$\]"),
+    (r"$$", r"$$"),
+    (r"\(\)", r"\(\)"),
+])
+def test_tool_argument_wrapper_boundaries_preserve_content(tmp_path, source, expected):
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path))
+    assert runtime._sanitize_latex_argument(source) == expected
+
+
 def test_non_candidate_tool_outputs_do_not_replace_latest_latex(tmp_path):
     runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path))
     observation = ToolObservation(

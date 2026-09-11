@@ -17,8 +17,9 @@ This directory keeps technical and maintenance documentation. Community health f
 | [ADR-012 Planner Projection](adr/012-planner-projection.md) | Bounded model-facing state and Semantic summaries without full trees. |
 | [SymPy capability matrix](sympy-capability-matrix.md) / [SymPy 能力矩阵](sympy-capability-matrix.md) | Generated boundary declaration for the optional, unregistered CAS scaffold, including parser drift, deterministic seed policy, and acceptance red lines. |
 | [Local E2E](e2e-manual.md) / [本地端到端测试](e2e-manual.md) | Human and automated validation for the MiniCPM5 Agent Runtime path. |
+| [Local model comparison, 2026-09-12](local-model-benchmark-2026-09-12.md) / [本机模型对照](local-model-benchmark-2026-09-12.md) | MiniCPM5-1B/2B Q4 local measurements, development-regression scope, thinking tradeoffs, and deployment evidence; not an official installer release announcement. |
 | [Data backup](data-backup.md) / [数据备份](data-backup.md) | JSON export/import format, history merge rules, preset handling, and API key safety. |
-| [Technical report](technical-report.md) / [技术报告](technical-report.md) | Model choice, deterministic pipeline, performance measurements, limitations and future direction. |
+| [Technical report](technical-report.md) / [技术报告](technical-report.md) | v0.3.2 technical baseline with current model notes; historical measurements remain attributed to their original models. |
 | [Source audit](audit.md) / [源码审计](audit.md) | Cleanup scope, removed stale paths, current release surface and intentional defaults. |
 | [File inventory](file-inventory.md) / [文件清单](file-inventory.md) | Purpose of every tracked file that remains in the repository. |
 

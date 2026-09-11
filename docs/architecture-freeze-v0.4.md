@@ -6,6 +6,11 @@ Frozen on: 2026-08-25
 
 Current milestone: v0.4.0 Runtime Foundation
 
+Model note (2026-09-12): the current source default is MiniCPM5-2B Q4_K_M.
+The MiniCPM5-1B label below records the model at the 2026-08-25 freeze; the
+layer ownership and commit invariants are unchanged. See
+[current architecture](architecture.md) and [local comparison](local-model-benchmark-2026-09-12.md).
+
 This document freezes TeXada's core architectural vocabulary. New code must fit
 one layer and serve the active milestone. A change that cannot answer both
 questions is deferred rather than turned into another core abstraction.
