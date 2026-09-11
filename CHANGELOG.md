@@ -6,6 +6,8 @@ All notable changes to TeXada-the-Math-Agent are recorded here.
 
 ### English
 
+- Update the HTTPX2 development dependency and its locked HTTPCore2 transport
+  to 2.12.0, addressing the dependency audit findings from the first CI run.
 - Change the default local text/planner model to MiniCPM5-2B Q4_K_M. Existing
   saved model selections remain unchanged until explicitly updated.
 - Disable thinking for local Ollama MiniCPM5-2B text requests, including
@@ -30,6 +32,8 @@ All notable changes to TeXada-the-Math-Agent are recorded here.
 
 ### 中文
 
+- 将开发依赖 HTTPX2 及其锁定的 HTTPCore2 传输层升级到 2.12.0，修复首轮 CI
+  依赖安全审计发现的问题。
 - 默认本地文本与规划模型改为 MiniCPM5-2B Q4_K_M；已保存的模型选择需手动切换。
 - 仅对本地 Ollama 的 MiniCPM5-2B 规划、生成、补全及重试关闭思考，通过 `extra_body`
   发送 `reasoning_effort: none`，兼容已声明的 SDK 版本范围；其他模型与 OCR 行为保留。
