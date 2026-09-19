@@ -759,7 +759,20 @@ async def test_llama_status_reflects_stopped_manager(tmp_path):
     from texada.api import create_app
     from texada.config import TeXadaConfig
 
-    app = create_app(TeXadaConfig(data_dir=tmp_path, backend="llama_server"))
+    # Pin the binary so the assertion is about a stopped manager, not about
+    # whether this machine happens to have llama.cpp on PATH or a dev-checkout
+    # copy under tauri-shell/src-tauri/resources.
+    stub_binary = tmp_path / "llama-server"
+    stub_binary.write_text("#!/bin/sh\nexit 0\n")
+    stub_binary.chmod(0o755)
+
+    app = create_app(
+        TeXadaConfig(
+            data_dir=tmp_path,
+            backend="llama_server",
+            llama_server_binary=str(stub_binary),
+        )
+    )
     client = TestClient(app)
     resp = client.get("/api/llama/status")
     assert resp.status_code == 200
