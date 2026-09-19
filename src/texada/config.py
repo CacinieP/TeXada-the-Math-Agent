@@ -25,6 +25,8 @@ SAVED_CONFIG_FIELDS = frozenset({
     "llama_models_dir",
     "llama_context_size",
     "llama_gpu_layers",
+    "llama_models_max",
+    "llama_idle_sleep_seconds",
     "model_name",
     "vision_model_name",
     "openai_base_url",
@@ -71,6 +73,8 @@ class TeXadaConfig(BaseSettings):
     llama_models_dir: str = ""  # empty = <data_dir>/models
     llama_context_size: int = 4096
     llama_gpu_layers: int = 99  # Metal: full offload
+    llama_models_max: int = 2  # router: max simultaneously resident models
+    llama_idle_sleep_seconds: int = 300  # idle sleep before VRAM release (-1 disables)
     model_name: str = "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M"  # Text: MiniCPM5-2B
     vision_model_name: str = "openbmb/minicpm-v4.6:latest"  # MiniCPM-V 4.6 OCR
     openai_base_url: str = ""

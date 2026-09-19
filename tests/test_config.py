@@ -199,3 +199,10 @@ def test_llama_server_fields_are_persistable():
 def test_unsupported_backend_still_rejected():
     with pytest.raises(ValidationError):
         TeXadaConfig(backend="vllm")
+
+
+def test_llama_server_memory_control_fields_exist():
+    fields = TeXadaConfig.model_fields
+    assert fields["llama_models_max"].default == 2
+    assert fields["llama_idle_sleep_seconds"].default == 300
+    assert {"llama_models_max", "llama_idle_sleep_seconds"} <= SAVED_CONFIG_FIELDS

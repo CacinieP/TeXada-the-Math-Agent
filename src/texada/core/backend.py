@@ -12,6 +12,41 @@ import httpx
 from texada.config import TeXadaConfig
 
 
+async def probe_models_url(
+    base_url: str, headers: dict[str, str] | None = None, *, timeout: float = 3.0
+) -> bool:
+    """True if an OpenAI-compatible endpoint answers 200 on /models.
+
+    Shared by BackendManager (Ollama) and LlamaServerManager so both local
+    runtimes prove readiness identically.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
+            resp = await client.get(
+                f"{base_url.rstrip('/')}/models", headers=headers or {}
+            )
+            return resp.status_code == 200
+    except Exception:
+        return False
+
+
+async def list_models_url(
+    base_url: str, headers: dict[str, str] | None = None, *, timeout: float = 5.0
+) -> list[str]:
+    """List model ids via the OpenAI-compatible endpoint (shared probe)."""
+    try:
+        async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
+            resp = await client.get(
+                f"{base_url.rstrip('/')}/models", headers=headers or {}
+            )
+            if resp.status_code != 200:
+                return []
+            data = resp.json().get("data", [])
+            return [m.get("id", "") for m in data]
+    except Exception:
+        return []
+
+
 class BackendManager:
     """Manages the local Ollama daemon backing TeXada.
 
@@ -99,24 +134,11 @@ class BackendManager:
 
     async def _is_running(self) -> bool:
         """True if the backend answers on /models."""
-        try:
-            async with httpx.AsyncClient(timeout=3.0, trust_env=False) as client:
-                resp = await client.get(self.models_url, headers=self.headers)
-                return resp.status_code == 200
-        except Exception:
-            return False
+        return await probe_models_url(self.models_url, self.headers)
 
     async def _list_models(self) -> list[str]:
         """List pulled model ids via the OpenAI-compatible endpoint."""
-        try:
-            async with httpx.AsyncClient(timeout=5.0, trust_env=False) as client:
-                resp = await client.get(self.models_url, headers=self.headers)
-                if resp.status_code != 200:
-                    return []
-                data = resp.json().get("data", [])
-                return [m.get("id", "") for m in data]
-        except Exception:
-            return []
+        return await list_models_url(self.models_url, self.headers)
 
     def _model_installed(self, model: str, installed_models: list[str]) -> bool:
         model = model.strip()
