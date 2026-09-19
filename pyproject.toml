@@ -5,6 +5,10 @@ description = "Local math formula agent powered by MiniCPM"
 license = "AGPL-3.0-or-later"
 requires-python = ">=3.12"
 dependencies = [
+    # anyio 4.14.2 fixes CVE-2026-63374 / CVE-2026-64847; pip-audit runs
+    # --strict in CI, so the floor is declared directly instead of relying
+    # on transitive resolution.
+    "anyio>=4.14.2",
     "fastapi>=0.111",
     # FastAPI's UploadFile (used by /api/ocr) requires python-multipart at
     # import time; without it create_app() raises RuntimeError.
