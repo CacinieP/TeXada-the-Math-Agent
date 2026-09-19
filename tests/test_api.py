@@ -5,6 +5,8 @@ at import time. Without that dependency declared, ``create_app()`` raised
 ``RuntimeError: Form data requires "python-multipart"`` and the whole server
 could not start. This test constructs the app and inspects its routes.
 """
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -739,3 +741,93 @@ async def test_agent_endpoint_exposes_trace_and_semantic_document(tmp_path, monk
     assert body["stop_reason"] == "planner_final"
     assert body["revision"] == 2
     assert body["committed"] is True
+
+
+async def test_llama_endpoints_404_on_non_llama_backend(tmp_path):
+    from texada.api import create_app
+    from texada.config import TeXadaConfig
+
+    app = create_app(TeXadaConfig(data_dir=tmp_path, backend="ollama"))
+    client = TestClient(app)
+    assert client.get("/api/llama/status").status_code == 404
+    assert client.post("/api/llama/start").status_code == 404
+    assert client.post("/api/llama/stop").status_code == 404
+    assert client.post("/api/llama/pull", json={}).status_code == 404
+
+
+async def test_llama_status_reflects_stopped_manager(tmp_path):
+    from texada.api import create_app
+    from texada.config import TeXadaConfig
+
+    app = create_app(TeXadaConfig(data_dir=tmp_path, backend="llama_server"))
+    client = TestClient(app)
+    resp = client.get("/api/llama/status")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "stopped"
+    assert body["backend"] == "llama_server"
+    assert body["missing_models"]
+
+
+async def test_llama_start_stop_invoke_manager(tmp_path, monkeypatch):
+    from texada.api import create_app
+    from texada.config import TeXadaConfig
+
+    calls = {"start": 0, "stop": 0}
+
+    class FakeManager:
+        models_dir = tmp_path / "models"
+
+        async def aget_status(self):
+            return {"status": "stopped", "ready": False, "backend": "llama_server"}
+
+        async def start(self):
+            calls["start"] += 1
+            return True
+
+        async def stop(self):
+            calls["stop"] += 1
+            return True
+
+    monkeypatch.setattr(
+        "texada.api.LlamaServerManager", lambda config: FakeManager()
+    )
+    app = create_app(TeXadaConfig(data_dir=tmp_path, backend="llama_server"))
+    client = TestClient(app)
+    assert client.post("/api/llama/start").status_code == 200
+    assert client.post("/api/llama/stop").status_code == 200
+    assert calls == {"start": 1, "stop": 1}
+
+
+async def test_llama_pull_streams_ndjson_events(tmp_path, monkeypatch):
+    from texada.api import create_app
+    from texada.config import TeXadaConfig
+
+    async def fake_download_all(dest_dir, *, mirror=False):
+        yield {"file": "a.gguf", "received": 1, "total": 1, "done": True,
+               "skipped": False, "error": None, "role": "text"}
+
+    monkeypatch.setattr("texada.api.download_all", fake_download_all)
+    app = create_app(TeXadaConfig(data_dir=tmp_path, backend="llama_server"))
+    client = TestClient(app)
+    resp = client.post("/api/llama/pull", json={"mirror": True})
+    assert resp.status_code == 200
+    assert '"a.gguf"' in resp.text
+
+
+async def test_backend_settings_accept_llama_server_fields(tmp_path):
+    from texada.api import create_app
+    from texada.config import TeXadaConfig
+
+    app = create_app(TeXadaConfig(data_dir=tmp_path))
+    client = TestClient(app)
+    resp = client.post(
+        "/api/settings/backend",
+        json={"backend": "llama_server", "llama_context_size": 8192},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["backend"] == "llama_server"
+    assert body["llama_context_size"] == 8192
+    saved = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
+    assert saved["llama_context_size"] == 8192
