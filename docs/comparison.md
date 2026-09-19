@@ -29,6 +29,7 @@ distinction is where the center of gravity sits:
 ## Sources And Scope
 
 This comparison describes advertised product focus, not a benchmark score.
+First quantitative baseline exists as of 2026-09-19: NL-to-LaTeX structural pass rate 28/95 (29.5%) and deterministic repair pass rate 53/53, development-regression scope, recorded in [eval/reports/2026-09-19-baseline-live.md](../eval/reports/2026-09-19-baseline-live.md). It measures TeXada's own pipeline, not the comparison below.
 Features and plans change; the links below are the authoritative references.
 
 - [TeXada architecture](architecture.md)
