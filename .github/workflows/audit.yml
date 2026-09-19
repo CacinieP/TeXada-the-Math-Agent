@@ -32,10 +32,10 @@ jobs:
         run: python -m pip install --upgrade uv
 
       - name: Ruff
-        run: uv run --extra dev --extra cas-eval ruff check .
+        run: uv run --extra dev --extra cas-eval --extra eval ruff check .
 
       - name: Pytest
-        run: uv run --extra dev --extra cas-eval pytest
+        run: uv run --extra dev --extra cas-eval --extra eval pytest
 
       - name: Python dependency audit
         # Audit the real project dependency tree. `uvx pip-audit`
@@ -44,7 +44,7 @@ jobs:
         # requirements instead. The editable project line (`-e .`) is
         # filtered because pip-audit cannot resolve it from PyPI.
         run: |
-          uv export --extra dev --extra cas-eval --format requirements-txt --no-hashes | grep -v '^-e ' > /tmp/texada-requirements.txt
+          uv export --extra dev --extra cas-eval --extra eval --format requirements-txt --no-hashes | grep -v '^-e ' > /tmp/texada-requirements.txt
           uvx --from pip-audit pip-audit -r /tmp/texada-requirements.txt --strict
 
       - name: Set up Node.js
