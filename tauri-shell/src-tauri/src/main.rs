@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use tauri::{
     menu::{Menu, MenuItem},
+    path::BaseDirectory,
     tray::{MouseButton, MouseButtonState, TrayIconBuilder},
     Manager, RunEvent,
 };
@@ -28,6 +29,7 @@ const SHORTCUT: &str = "Ctrl+Alt+T";
 const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 240;
 const BACKEND_STARTUP_PROBE_MS: u64 = 900;
 const BUNDLED_BACKEND_NAME: &str = "texada-backend";
+const LLAMA_SERVER_RESOURCE: &str = "resources/llama-server/llama-server";
 #[cfg(target_os = "macos")]
 const WINDOW_CORNER_RADIUS: f64 = 14.0;
 
@@ -460,6 +462,15 @@ fn start_bundled_backend(app: &tauri::AppHandle) {
                 eprintln!("Bundled backend is unavailable: {}", e);
                 return;
             }
+        };
+        // Tell the backend sidecar where the bundled llama-server runtime
+        // lives so LlamaServerManager can spawn it without PATH guesses.
+        let command = match handle
+            .path()
+            .resolve(LLAMA_SERVER_RESOURCE, BaseDirectory::Resource)
+        {
+            Ok(path) if path.exists() => command.env("TEXADA_LLAMA_SERVER_BINARY", path),
+            _ => command,
         };
 
         let (mut rx, child) = match command.spawn() {

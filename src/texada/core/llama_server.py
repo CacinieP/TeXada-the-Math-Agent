@@ -17,6 +17,7 @@ import os
 import re
 import shutil
 import signal
+import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -63,7 +64,12 @@ class LlamaServerManager:
         return (self.models_dir / VISION_MODEL_FILE, self.models_dir / VISION_MMPROJ_FILE)
 
     def resolve_binary(self) -> Path:
-        """Explicit config → packaged location → PATH lookup."""
+        """Explicit config → shell env var → packaged location → PATH.
+
+        The desktop shell passes TEXADA_LLAMA_SERVER_BINARY pointing at the
+        bundled resource; dev checkouts fall back to the tauri resources
+        directory, then PATH.
+        """
         explicit = self.config.llama_server_binary.strip()
         if explicit:
             path = Path(explicit).expanduser()
@@ -71,18 +77,32 @@ class LlamaServerManager:
                 return path
             raise LlamaServerError(f"llama-server 二进制不可执行: {path}")
 
+        env_path = os.environ.get("TEXADA_LLAMA_SERVER_BINARY", "").strip()
+        if env_path:
+            path = Path(env_path).expanduser()
+            if path.is_file() and os.access(path, os.X_OK):
+                return path
+            raise LlamaServerError(f"TEXADA_LLAMA_SERVER_BINARY 不可执行: {path}")
+
+        here = Path(__file__).resolve()
         candidates = [
-            # packaged next to the Python sidecar (desktop builds)
-            Path(__file__).resolve().parents[2] / "binaries" / "llama-server",
-            Path(__file__).resolve().parents[2] / "llama-server",
+            # packaged: resources/llama-server/ next to the sidecar executable
+            Path(sys.executable).resolve().parent.parent
+            / "llama-server" / "llama-server",
+            # dev checkout: tauri-shell resources (src layout and installed)
+            here.parents[3] / "tauri-shell" / "src-tauri" / "resources"
+            / "llama-server" / "llama-server",
+            here.parents[2] / "tauri-shell" / "src-tauri" / "resources"
+            / "llama-server" / "llama-server",
         ]
         for candidate in candidates:
             if candidate.is_file() and os.access(candidate, os.X_OK):
                 return candidate
 
-        found = shutil.which("llama-server")
-        if found:
-            return Path(found)
+        for name in ("llama-server", "llama-server.exe"):
+            found = shutil.which(name)
+            if found:
+                return Path(found)
         raise LlamaServerError(
             "未找到 llama-server 二进制。请在设置中指定路径，或安装 llama.cpp "
             "(build >= 9049)。"
