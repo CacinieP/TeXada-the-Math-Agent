@@ -92,8 +92,8 @@ class LlamaServerManager:
 模型文件约定（`~/.texada/models/`）：
 
 - 文本：`MiniCPM5-2B-Q4_K_M.gguf`（router 中模型名 `text`）
-- 视觉：`MiniCPM-V-4.6-Q4_K_M.gguf` + `mmproj-MiniCPM-V-4.6-F16.gguf`
-  （模型名 `vision`，`--mmproj` 随模型声明）
+- 视觉：`MiniCPM-V-4_6-Q4_K_M.gguf` + `mmproj-model-f16.gguf`
+  （模型名 `vision`，`--mmproj` 随模型声明；文件名已对 HF 仓库实测核实）
 
 调用侧（`config.active_model_name`）在 llama_server 后端返回
 `"text"` / `"vision"` 路由名，其余后端保持原值——`MiniCPMModel`

@@ -24,8 +24,8 @@ from texada.config import TeXadaConfig
 from texada.core.backend import list_models_url, probe_models_url
 
 TEXT_MODEL_FILE = "MiniCPM5-2B-Q4_K_M.gguf"
-VISION_MODEL_FILE = "MiniCPM-V-4.6-Q4_K_M.gguf"
-VISION_MMPROJ_FILE = "mmproj-MiniCPM-V-4.6-F16.gguf"
+VISION_MODEL_FILE = "MiniCPM-V-4_6-Q4_K_M.gguf"
+VISION_MMPROJ_FILE = "mmproj-model-f16.gguf"
 VISION_MODEL_FILES = (VISION_MODEL_FILE, VISION_MMPROJ_FILE)
 
 MIN_BUILD = 9049  # MiniCPM-V 4.6 merged into llama.cpp mainline (PR #22529)
