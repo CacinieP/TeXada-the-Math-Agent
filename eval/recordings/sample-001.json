@@ -1,0 +1,16 @@
+{
+  "input": "x 加上 y",
+  "turns": [
+    {
+      "content": "",
+      "tool_calls": [
+        {"id": "call_1", "name": "compile_tex", "arguments": {"latex": "x+y"}}
+      ]
+    },
+    {
+      "content": "x+y",
+      "tool_calls": []
+    }
+  ],
+  "final_latex": "x+y"
+}
