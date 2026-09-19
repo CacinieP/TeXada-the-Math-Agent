@@ -153,6 +153,25 @@
       'settings.backend': '模型后端',
       'settings.ollamaHost': 'Ollama 地址',
       'settings.ollamaHostDesc': '默认 http://localhost:11434，可改任意端口',
+      'settings.llamaHost': 'llama-server 地址',
+      'settings.llamaHostDesc': '内置本地服务地址，默认 http://127.0.0.1:8080',
+      'settings.llamaHostPlaceholder': 'http://127.0.0.1:8080',
+      'settings.llamaBinary': 'llama-server 路径',
+      'settings.llamaBinaryDesc': '留空则使用随应用打包的二进制或 PATH 中的 llama-server',
+      'settings.llamaModelsDir': '模型目录',
+      'settings.llamaModelsDirDesc': '留空则使用 ~/.texada/models',
+      'settings.llamaServiceTitle': '本地推理服务（llama-server）',
+      'settings.llamaStatus': '服务状态',
+      'action.llamaStart': '启动',
+      'action.llamaStop': '停止',
+      'action.llamaPull': '下载模型',
+      'status.stopped': '服务已停止',
+      'status.missingBinary': '未找到 llama-server 二进制',
+      'status.downloading': '正在下载模型',
+      'llama.startFailed': '启动失败',
+      'llama.pullFailed': '下载失败',
+      'llama.pullDone': '模型下载完成',
+      'llama.pullProgress': '{file}：{percent}%',
       'settings.ollamaHostPlaceholder': '例如 http://localhost:11435',
       'settings.localTextModel': '本地文本模型',
       'settings.localVisionModel': '本地视觉模型',
@@ -453,6 +472,15 @@
     inferenceTimeoutInput: document.getElementById('inference-timeout-input'),
     apiTimeoutInput: document.getElementById('api-timeout-input'),
     backendSaveStatus: document.getElementById('backend-save-status'),
+    llamaHostInput: document.getElementById('llama-host-input'),
+    llamaBinaryInput: document.getElementById('llama-binary-input'),
+    llamaModelsDirInput: document.getElementById('llama-models-dir-input'),
+    llamaServiceSection: document.getElementById('llama-service-section'),
+    llamaStatusText: document.getElementById('llama-status-text'),
+    btnLlamaStart: document.getElementById('btn-llama-start'),
+    btnLlamaStop: document.getElementById('btn-llama-stop'),
+    btnLlamaPull: document.getElementById('btn-llama-pull'),
+    llamaPullProgress: document.getElementById('llama-pull-progress'),
     uiLanguageSelect: document.getElementById('ui-language-select'),
     uiZoomInput: document.getElementById('ui-zoom-input'),
     uiZoomValue: document.getElementById('ui-zoom-value'),
@@ -645,6 +673,8 @@
 
   function backendStatusText(info) {
     if (!info) return t('status.offline');
+    if (info.status === 'stopped') return t('status.stopped');
+    if (info.status === 'missing_binary') return t('status.missingBinary');
     if (info.status === 'partial_ready') return t('status.partialReady');
     if (info.status === 'missing_model') return t('status.missingModel');
     if (info.status === 'not_configured') return t('status.notConfigured');
@@ -1319,6 +1349,18 @@
   if ($('#btn-save-backend')) {
     $('#btn-save-backend').addEventListener('click', saveBackendSettings);
   }
+  if ($('#btn-llama-start')) {
+    $('#btn-llama-start').addEventListener('click', llamaStart);
+  }
+  if ($('#btn-llama-stop')) {
+    $('#btn-llama-stop').addEventListener('click', llamaStop);
+  }
+  if ($('#btn-llama-pull')) {
+    $('#btn-llama-pull').addEventListener('click', llamaPull);
+  }
+  if (els.backendSelect) {
+    els.backendSelect.addEventListener('change', updateLlamaSectionVisibility);
+  }
 
   if ($('#btn-add-shorthand')) {
     $('#btn-add-shorthand').addEventListener('click', addShorthandFromForm);
@@ -1580,9 +1622,14 @@
       els.openaiKeyInput.value = '';
       els.inferenceTimeoutInput.value = String(cfg.inference_timeout_seconds || 90);
       els.apiTimeoutInput.value = String(cfg.api_request_timeout_seconds || 240);
+      els.llamaHostInput.value = cfg.llama_server_host || '';
+      els.llamaBinaryInput.value = cfg.llama_server_binary || '';
+      els.llamaModelsDirInput.value = cfg.llama_models_dir || '';
       requestTimeoutMs = Number(cfg.api_request_timeout_seconds) * 1000 || DEFAULT_REQUEST_TIMEOUT_MS;
       els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? t('settings.keySavedPlaceholder') : t('settings.keyEnterPlaceholder');
       els.backendSaveStatus.textContent = '';
+      updateLlamaSectionVisibility();
+      await refreshLlamaStatus();
     } catch (e) {
       els.backendSaveStatus.textContent = t('settings.loadError');
     }
@@ -1600,6 +1647,9 @@
       openai_vision_model_name: els.openaiVisionModelInput.value.trim(),
       inference_timeout_seconds: Number(els.inferenceTimeoutInput.value),
       api_request_timeout_seconds: Number(els.apiTimeoutInput.value),
+      llama_server_host: els.llamaHostInput.value.trim(),
+      llama_server_binary: els.llamaBinaryInput.value.trim(),
+      llama_models_dir: els.llamaModelsDirInput.value.trim(),
     };
     const key = els.openaiKeyInput.value.trim();
     if (key) payload.openai_api_key = key;
@@ -1613,9 +1663,117 @@
       els.apiTimeoutInput.value = String(cfg.api_request_timeout_seconds);
       requestTimeoutMs = Number(cfg.api_request_timeout_seconds) * 1000 || DEFAULT_REQUEST_TIMEOUT_MS;
       els.backendSaveStatus.textContent = t('settings.saved');
+      updateLlamaSectionVisibility();
+      await refreshLlamaStatus();
       await checkBackend();
     } catch (e) {
       els.backendSaveStatus.textContent = String(e).replace(/^Error:\s*/, '');
+    }
+  }
+
+  // ── llama-server runtime ──
+  async function apiLlamaJson(path, options) {
+    return await apiJson(path, options);
+  }
+
+  function updateLlamaSectionVisibility() {
+    if (!els.llamaServiceSection) return;
+    const isLlama = els.backendSelect && els.backendSelect.value === 'llama_server';
+    els.llamaServiceSection.style.display = isLlama ? '' : 'none';
+  }
+
+  function renderLlamaStatus(info) {
+    if (!els.llamaStatusText) return;
+    if (!info) {
+      els.llamaStatusText.textContent = t('status.offline');
+      return;
+    }
+    const parts = [];
+    if (info.status) parts.push(info.status);
+    if (info.message) parts.push(info.message);
+    if (info.binary) parts.push(info.binary);
+    if (Array.isArray(info.missing_models) && info.missing_models.length) {
+      parts.push('missing: ' + info.missing_models.join(', '));
+    }
+    els.llamaStatusText.textContent = parts.join(' · ') || t('status.offline');
+  }
+
+  async function refreshLlamaStatus() {
+    if (!els.backendSelect || els.backendSelect.value !== 'llama_server') return;
+    try {
+      const info = await apiLlamaJson('/api/llama/status');
+      renderLlamaStatus(info);
+      return info;
+    } catch (e) {
+      renderLlamaStatus(null);
+      return null;
+    }
+  }
+
+  async function llamaStart() {
+    if (!els.llamaStatusText) return;
+    els.llamaStatusText.textContent = t('status.starting');
+    try {
+      const info = await apiLlamaJson('/api/llama/start', { method: 'POST' });
+      renderLlamaStatus(info);
+    } catch (e) {
+      els.llamaStatusText.textContent = t('llama.startFailed') + ': ' + String(e).replace(/^Error:\s*/, '');
+    }
+  }
+
+  async function llamaStop() {
+    if (!els.llamaStatusText) return;
+    try {
+      const info = await apiLlamaJson('/api/llama/stop', { method: 'POST' });
+      renderLlamaStatus(info);
+    } catch (e) {
+      els.llamaStatusText.textContent = t('llama.startFailed') + ': ' + String(e).replace(/^Error:\s*/, '');
+    }
+  }
+
+  async function llamaPull() {
+    if (!els.llamaPullProgress) return;
+    els.llamaPullProgress.textContent = t('status.downloading');
+    try {
+      const res = await fetch(apiBase + '/api/llama/pull', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mirror: false }),
+      });
+      if (!res.ok || !res.body) {
+        throw new Error('HTTP ' + res.status);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let lastError = null;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let event;
+          try { event = JSON.parse(line); } catch (err) { continue; }
+          if (event.error) {
+            lastError = event.error;
+          } else if (event.done && !event.skipped) {
+            els.llamaPullProgress.textContent = t('llama.pullDone') + ': ' + event.file;
+          } else if (event.total && event.received != null) {
+            const percent = Math.floor((event.received / event.total) * 100);
+            els.llamaPullProgress.textContent = t('llama.pullProgress')
+              .replace('{file}', event.file).replace('{percent}', String(percent));
+          }
+        }
+      }
+      if (lastError) {
+        els.llamaPullProgress.textContent = t('llama.pullFailed') + ': ' + lastError;
+      }
+      await refreshLlamaStatus();
+    } catch (e) {
+      els.llamaPullProgress.textContent = t('llama.pullFailed') + ': ' + String(e).replace(/^Error:\s*/, '');
     }
   }
 

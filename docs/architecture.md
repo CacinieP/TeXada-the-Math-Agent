@@ -258,7 +258,9 @@ The FastAPI address and the Ollama address are separate layers. `TEXADA_API_HOST
 | `tools/` | Single-purpose TeX tool registry and router |
 | `semantic/` | Semantic math unit parser and structural diff |
 | `core/router.py` | Routes natural language, completion, OCR, and shorthand requests |
-| `core/backend.py` | Checks local Ollama or cloud endpoint readiness |
+| `core/backend.py` | Shared OpenAI-compatible readiness probes; checks Ollama or cloud endpoints |
+| `core/llama_server.py` | Built-in llama-server runtime: process lifecycle, router preset, status |
+| `core/download.py` | Streaming GGUF model downloads with progress, HF mirror, and SHA-256 verification |
 | `core/model.py` | OpenAI-compatible chat wrapper for text and vision models |
 | `core/validator.py`, `core/fixer.py`, `core/repair.py` | Validation and deterministic repair |
 | `render/engine.py` | KaTeX and LaTeX highlighting |
@@ -343,7 +345,10 @@ Important variables:
 
 | Variable | Purpose |
 |----------|---------|
-| `TEXADA_BACKEND` | `ollama` or `openai_compatible` |
+| `TEXADA_BACKEND` | `llama_server` (default), `ollama`, or `openai_compatible` |
+| `TEXADA_LLAMA_SERVER_HOST` | llama-server address, default `http://127.0.0.1:8080` |
+| `TEXADA_LLAMA_SERVER_BINARY` | llama-server binary path (packaged apps set this from the shell) |
+| `TEXADA_LLAMA_MODELS_DIR` | Model directory, default `~/.texada/models` |
 | `TEXADA_OLLAMA_HOST` | Local Ollama base URL, any host/port |
 | `TEXADA_MODEL_NAME`, `TEXADA_VISION_MODEL_NAME` | Local text and vision model names |
 | `TEXADA_OPENAI_BASE_URL` | Full OpenAI-compatible cloud base URL |

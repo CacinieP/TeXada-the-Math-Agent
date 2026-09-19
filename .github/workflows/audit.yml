@@ -95,6 +95,16 @@ jobs:
       - name: Prepare backend sidecar stub
         run: python scripts/build-backend-sidecar.py --mode stub
 
+      # tauri.conf.json declares resources/llama-server, and Tauri's build script
+      # fails when a declared resource path is absent. The real binary is fetched
+      # by scripts/fetch-llama-server.sh in the release workflow only, so audit
+      # runs need a placeholder to satisfy the resource check.
+      - name: Prepare llama-server stub
+        run: |
+          mkdir -p tauri-shell/src-tauri/resources/llama-server
+          printf '#!/bin/sh\nexit 0\n' > tauri-shell/src-tauri/resources/llama-server/llama-server
+          chmod +x tauri-shell/src-tauri/resources/llama-server/llama-server
+
       - name: Cargo check
         working-directory: tauri-shell/src-tauri
         run: cargo check

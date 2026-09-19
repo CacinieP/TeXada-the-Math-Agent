@@ -227,6 +227,7 @@
       <div class="setting-row form-row">
         <label class="setting-label" for="backend-select" data-i18n="settings.backend">模型后端</label>
         <select class="setting-control" id="backend-select">
+          <option value="llama_server">Built-in llama-server</option>
           <option value="ollama">Local Ollama</option>
           <option value="openai_compatible">OpenAI-compatible</option>
         </select>
@@ -237,6 +238,27 @@
           <div class="setting-desc" data-i18n="settings.ollamaHostDesc">默认 http://localhost:11434，可改任意端口</div>
         </div>
         <input class="setting-control" id="ollama-host-input" type="text" data-i18n-placeholder="settings.ollamaHostPlaceholder" placeholder="http://localhost:11434" autocomplete="off">
+      </div>
+      <div class="setting-row form-row">
+        <div>
+          <label class="setting-label" for="llama-host-input" data-i18n="settings.llamaHost">llama-server 地址</label>
+          <div class="setting-desc" data-i18n="settings.llamaHostDesc">内置本地服务地址，默认 http://127.0.0.1:8080</div>
+        </div>
+        <input class="setting-control" id="llama-host-input" type="text" data-i18n-placeholder="settings.llamaHostPlaceholder" placeholder="http://127.0.0.1:8080" autocomplete="off">
+      </div>
+      <div class="setting-row form-row">
+        <div>
+          <label class="setting-label" for="llama-binary-input" data-i18n="settings.llamaBinary">llama-server 路径</label>
+          <div class="setting-desc" data-i18n="settings.llamaBinaryDesc">留空则使用随应用打包的二进制或 PATH 中的 llama-server</div>
+        </div>
+        <input class="setting-control" id="llama-binary-input" type="text" placeholder="" autocomplete="off">
+      </div>
+      <div class="setting-row form-row">
+        <div>
+          <label class="setting-label" for="llama-models-dir-input" data-i18n="settings.llamaModelsDir">模型目录</label>
+          <div class="setting-desc" data-i18n="settings.llamaModelsDirDesc">留空则使用 ~/.texada/models</div>
+        </div>
+        <input class="setting-control" id="llama-models-dir-input" type="text" placeholder="" autocomplete="off">
       </div>
       <div class="setting-row form-row">
         <label class="setting-label" for="local-model-input" data-i18n="settings.localTextModel">本地文本模型</label>
@@ -279,6 +301,24 @@
       <div class="settings-actions">
         <button class="action-btn primary" id="btn-save-backend" data-i18n="action.save">保存</button>
         <span class="setting-desc" id="backend-save-status"></span>
+      </div>
+      <div class="settings-subsection" id="llama-service-section">
+        <div class="settings-title" data-i18n="settings.llamaServiceTitle">本地推理服务（llama-server）</div>
+        <div class="setting-row form-row">
+          <div>
+            <label class="setting-label" data-i18n="settings.llamaStatus">服务状态</label>
+            <div class="setting-desc" id="llama-status-text"></div>
+          </div>
+          <div class="llama-actions">
+            <button class="action-btn" id="btn-llama-start" data-i18n="action.llamaStart">启动</button>
+            <button class="action-btn" id="btn-llama-stop" data-i18n="action.llamaStop">停止</button>
+            <button class="action-btn" id="btn-llama-pull" data-i18n="action.llamaPull">下载模型</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-desc" id="llama-pull-progress"></div>
+        </div>
+      </div>
       </div>
     </div>
     <div class="settings-section">

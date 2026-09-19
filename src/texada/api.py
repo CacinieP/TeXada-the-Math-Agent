@@ -1,6 +1,7 @@
 """FastAPI backend — HTTP API for the shell UI."""
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -10,7 +11,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
 
 from texada.agent.runtime import TeXadaAgentRuntime
@@ -21,6 +22,8 @@ from texada.config import (
     validate_config_updates,
 )
 from texada.core.backend import BackendManager
+from texada.core.download import download_all
+from texada.core.llama_server import LlamaServerError, LlamaServerManager
 from texada.core.router import InputRouter
 from texada.render.engine import RenderEngine
 from texada.semantic.katex import shared_katex_parser
@@ -123,10 +126,26 @@ class BackendSettingsResponse(BaseModel):
     openai_api_key_set: bool
     inference_timeout_seconds: float
     api_request_timeout_seconds: float
+    llama_server_host: str
+    llama_server_binary: str
+    llama_models_dir: str
+    llama_context_size: int
+    llama_gpu_layers: int
+    llama_models_max: int
+    llama_idle_sleep_seconds: int
 
 class BackendSettingsUpdate(BaseModel):
-    backend: str | None = Field(default=None, pattern="^(ollama|openai_compatible)$")
+    backend: str | None = Field(
+        default=None, pattern="^(llama_server|ollama|openai_compatible)$"
+    )
     ollama_host: str | None = Field(default=None, max_length=500)
+    llama_server_host: str | None = Field(default=None, max_length=500)
+    llama_server_binary: str | None = Field(default=None, max_length=500)
+    llama_models_dir: str | None = Field(default=None, max_length=500)
+    llama_context_size: int | None = Field(default=None, ge=512, le=131072)
+    llama_gpu_layers: int | None = Field(default=None, ge=-1, le=999)
+    llama_models_max: int | None = Field(default=None, ge=1, le=8)
+    llama_idle_sleep_seconds: int | None = Field(default=None, ge=-1, le=86400)
     model_name: str | None = Field(default=None, max_length=300)
     vision_model_name: str | None = Field(default=None, max_length=300)
     openai_base_url: str | None = Field(default=None, max_length=500)
@@ -135,6 +154,10 @@ class BackendSettingsUpdate(BaseModel):
     openai_api_key: str | None = Field(default=None, max_length=4000)
     inference_timeout_seconds: float | None = Field(default=None, ge=10.0, le=600.0)
     api_request_timeout_seconds: float | None = Field(default=None, ge=30.0, le=900.0)
+
+
+class LlamaPullRequest(BaseModel):
+    mirror: bool = False
 
 
 class UiSettingsResponse(BaseModel):
@@ -243,6 +266,13 @@ def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
         openai_api_key_set=bool(config.openai_api_key),
         inference_timeout_seconds=config.inference_timeout_seconds,
         api_request_timeout_seconds=config.api_request_timeout_seconds,
+        llama_server_host=config.llama_server_host,
+        llama_server_binary=config.llama_server_binary,
+        llama_models_dir=config.llama_models_dir,
+        llama_context_size=config.llama_context_size,
+        llama_gpu_layers=config.llama_gpu_layers,
+        llama_models_max=config.llama_models_max,
+        llama_idle_sleep_seconds=config.llama_idle_sleep_seconds,
     )
 
 
@@ -421,6 +451,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     run_logs = RunLogStore(config)
     render_engine = RenderEngine(config)
     backend_mgr = BackendManager(config)
+    llama_mgr = LlamaServerManager(config)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -459,7 +490,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.get("/api/status", response_model=StatusResponse)
     async def get_status():
-        info = await backend_mgr.aget_status()
+        if config.uses_llama_server:
+            info = await llama_mgr.aget_status()
+        else:
+            info = await backend_mgr.aget_status()
         return StatusResponse(
             status=info["status"],
             ready=info.get("ready", info["status"] in {"ready", "ok"}),
@@ -498,10 +532,48 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             allowed_image_mime_types=config.allowed_image_mime_types,
         )
 
+    def _require_llama_backend():
+        if not config.uses_llama_server:
+            raise HTTPException(
+                status_code=404,
+                detail="当前后端不是 llama-server，该端点不可用",
+            )
+
+    @app.get("/api/llama/status")
+    async def llama_status():
+        _require_llama_backend()
+        return await llama_mgr.aget_status()
+
+    @app.post("/api/llama/start")
+    async def llama_start():
+        _require_llama_backend()
+        try:
+            await llama_mgr.start()
+        except LlamaServerError as e:
+            raise HTTPException(status_code=503, detail=str(e)) from e
+        return await llama_mgr.aget_status()
+
+    @app.post("/api/llama/stop")
+    async def llama_stop():
+        _require_llama_backend()
+        await llama_mgr.stop()
+        return await llama_mgr.aget_status()
+
+    @app.post("/api/llama/pull")
+    async def llama_pull(req: LlamaPullRequest):
+        _require_llama_backend()
+        dest_dir = llama_mgr.models_dir
+
+        async def event_stream():
+            async for event in download_all(dest_dir, mirror=req.mirror):
+                yield json.dumps(event, ensure_ascii=False) + "\n"
+
+        return StreamingResponse(event_stream(), media_type="application/x-ndjson")
+
     @app.post("/api/settings/backend", response_model=BackendSettingsResponse)
     async def update_backend_settings(req: BackendSettingsUpdate):
         nonlocal config, router, agent_runtime, shorthand, history, run_logs
-        nonlocal render_engine, backend_mgr
+        nonlocal render_engine, backend_mgr, llama_mgr
         updates = req.model_dump(exclude_none=True)
         if updates.get("openai_api_key") == "":
             updates.pop("openai_api_key")
@@ -517,6 +589,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         run_logs = RunLogStore(config)
         render_engine = RenderEngine(config)
         backend_mgr = BackendManager(config)
+        llama_mgr = LlamaServerManager(config)
         return _settings_response(config)
 
     @app.post("/api/settings/ui", response_model=UiSettingsResponse)
@@ -994,7 +1067,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     @app.post("/api/import")
     async def import_backup(req: BackupImportRequest):
         nonlocal config, router, agent_runtime, shorthand, history, run_logs
-        nonlocal render_engine, backend_mgr
+        nonlocal render_engine, backend_mgr, llama_mgr
         settings_updates = _importable_settings(req.settings)
         if settings_updates:
             try:
@@ -1028,6 +1101,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             run_logs = RunLogStore(config)
             render_engine = RenderEngine(config)
             backend_mgr = BackendManager(config)
+            llama_mgr = LlamaServerManager(config)
             settings_imported = len(settings_updates)
         return {
             "history": history_result,
