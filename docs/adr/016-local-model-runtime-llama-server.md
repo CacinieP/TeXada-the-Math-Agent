@@ -97,6 +97,12 @@ and loses router-mode multi-model lifecycle management.
   4.6) and recorded in the build configuration.
 - Weights are never bundled into installers; acquisition is an explicit
   user action.
+- Downloaded weights are accepted only when their SHA-256 matches the value
+  pinned in the catalogue. A right-sized but wrong-content file — the failure
+  mode of any interrupted or mis-assembled chunked transfer — is re-downloaded,
+  never loaded: a silently corrupted `MiniCPM5-2B-Q4_K_M.gguf` reproduces as
+  degenerate output (`content` filled with repeated filler tokens), not as an
+  error.
 
 ## Future
 

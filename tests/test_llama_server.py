@@ -182,3 +182,32 @@ async def test_status_reports_missing_and_present_models(config, tmp_path):
     assert status["missing_models"] == [VISION_MMPROJ_FILE]
     assert status["text_model_installed"] is True
     assert status["vision_model_installed"] is False
+
+
+async def test_minicpm_model_sends_reasoning_effort_on_llama_server(tmp_path):
+    from texada.core.model import MiniCPMModel
+
+    config = TeXadaConfig(data_dir=tmp_path, backend="llama_server")
+    model = MiniCPMModel(config)
+    assert model._text_request_options() == {
+        "extra_body": {"reasoning_effort": "none"}
+    }
+
+
+async def test_minicpm_model_keeps_ollama_behavior(tmp_path):
+    from texada.core.model import MiniCPMModel
+
+    config = TeXadaConfig(
+        data_dir=tmp_path,
+        backend="ollama",
+        model_name="hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M",
+    )
+    model = MiniCPMModel(config)
+    assert model._text_request_options() == {
+        "extra_body": {"reasoning_effort": "none"}
+    }
+
+    config = TeXadaConfig(
+        data_dir=tmp_path, backend="ollama", model_name="some-other-model"
+    )
+    assert MiniCPMModel(config)._text_request_options() == {}

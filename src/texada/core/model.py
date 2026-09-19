@@ -87,7 +87,14 @@ class MiniCPMModel:
         return self.model
 
     def _text_request_options(self) -> dict[str, Any]:
-        """Keep local MiniCPM5-2B text answers within the existing token budget."""
+        """Keep local MiniCPM5-2B text answers within the existing token budget.
+
+        Applies to every local MiniCPM5-2B runtime: on Ollama the model name
+        identifies it; on the built-in llama-server backend the bundled
+        preset always serves MiniCPM5-2B under the routing name "text".
+        """
+        if self.config.uses_llama_server:
+            return {"extra_body": {"reasoning_effort": "none"}}
         if (
             self.config.backend == "ollama"
             and "minicpm5-2b" in self._text_model_name().casefold()
