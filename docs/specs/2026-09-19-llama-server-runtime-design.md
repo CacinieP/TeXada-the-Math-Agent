@@ -75,7 +75,9 @@ llama_server_host: str = "http://127.0.0.1:8080"
 llama_server_binary: str = ""          # 空 = 打包路径或 PATH 查找
 llama_models_dir: str = ""             # 空 = ~/.texada/models
 llama_context_size: int = 4096
-llama_gpu_layers: int = 99             # Metal：全量 offload
+llama_gpu_layers: int = 99             # Metal：全量 offload（默认 auto 亦可）
+llama_models_max: int = 2              # router 同时驻留模型数（8GB 内存控制）
+llama_idle_sleep_seconds: int = 300    # 空闲休眠秒数（-1 禁用；=ADR-016 的“空闲卸载”）
 
 # core/llama_server.py
 class LlamaServerManager:
@@ -106,6 +108,21 @@ class LlamaServerManager:
    回收三项数据记录到报告（沿用 A18 Pro 实测先例）。
 3. **打包**：macOS 公证与 Windows NSIS 流水线纳入 llama-server 二进制；
    `cargo check` 通过。
+
+## 5.5 实测验证记录（2026-09-19，llama.cpp b11046 macOS arm64）
+
+已用真实预编译二进制核实（消除设计猜测）：
+
+| 事实 | 验证结果 |
+|---|---|
+| 版本输出 | `version: 0.4.1-dev (build 11046, commit ...)`；解析 `build N`，钉死 ≥ b9049 |
+| router 目录模式 | `--models-dir PATH` 存在 |
+| mmproj 声明 | **必须** `--models-preset` INI（`[vision] model=... mmproj=...`），models-dir 无法携带投影器 → 启动时动态生成 preset |
+| 按需加载 | `--models-autoload`（默认开，`--no-models-autoload` 可关） |
+| 空闲卸载 | `--sleep-idle-seconds N`：空闲 N 秒后 server 休眠释放显存（-1 禁用）→ 配置字段 `llama_idle_sleep_seconds` |
+| 内存控制 | `--models-max N`：同时驻留模型数上限 |
+| GPU 卸载 | `-ngl/--n-gpu-layers` 默认 auto（Metal 自动）；显式 99 亦可 |
+| 上下文 | `-c/--ctx-size N`（0=读模型默认） |
 
 ## 6. 风险与验证项（ADR-016 清单）
 

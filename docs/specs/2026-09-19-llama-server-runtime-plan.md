@@ -51,7 +51,7 @@ Responsibility split: `llama_server.py` owns process + model lifecycle; `downloa
 
 **Interfaces:**
 - Consumes: nothing new
-- Produces: `backend: Literal["llama_server", "ollama", "openai_compatible"]` (default `llama_server`); `llama_server_host: str = "http://127.0.0.1:8080"`; `llama_server_binary: str = ""`; `llama_models_dir: str = ""`; `llama_context_size: int = 4096`; `llama_gpu_layers: int = 99`; `active_base_url` returns llama host `/v1` when backend is llama_server; `active_model_name` / `active_vision_model_name` return `"text"` / `"vision"` routing names on llama_server; `backend_label` returns `"llama-server"` for run logs
+- Produces: `backend: Literal["llama_server", "ollama", "openai_compatible"]` (default `llama_server`); `llama_server_host: str = "http://127.0.0.1:8080"`; `llama_server_binary: str = ""`; `llama_models_dir: str = ""`; `llama_context_size: int = 4096`; `llama_gpu_layers: int = 99`; `llama_models_max: int = 2`; `llama_idle_sleep_seconds: int = 300`; `active_base_url` returns llama host `/v1` when backend is llama_server; `active_model_name` / `active_vision_model_name` return `"text"` / `"vision"` routing names on llama_server; `backend_label` returns `"llama-server"` for run logs
 
 - [ ] **Step 1: Write the failing tests** — extend `tests/test_config.py`: three backends selectable; `active_base_url` = `http://127.0.0.1:8080/v1` for llama_server; `active_model_name` = `"text"`; defaults unchanged for ollama/openai_compatible.
 - [ ] **Step 2: Run to verify failure** — `uv run --extra dev pytest tests/test_config.py -q`; existing assertions for old defaults fail.
