@@ -33,6 +33,7 @@ This directory keeps technical and maintenance documentation. Community health f
 | Document | Purpose |
 |----------|---------|
 | [Golden set evidence I design](specs/2026-09-19-golden-set-evidence-i-design.md) / [证据闭环 I 设计](specs/2026-09-19-golden-set-evidence-i-design.md) | Iteration 1 design: golden set automation, repair dataset, recorded and real execution modes, acceptance gates. |
+| [Golden set evidence I implementation plan](specs/2026-09-19-golden-set-evidence-i-plan.md) | Task-by-task implementation plan for the Iteration 1 golden set, including CI wiring and baseline reporting. |
 
 ## Community And Release / 社区与发布
 
