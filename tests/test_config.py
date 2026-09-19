@@ -149,3 +149,53 @@ def test_invalid_config_update_does_not_overwrite_existing_file(tmp_path):
         save_config_updates({"temperature": 99}, data_dir=tmp_path)
 
     assert config_path.read_text(encoding="utf-8") == original
+
+
+def test_llama_server_is_the_default_backend():
+    fields = TeXadaConfig.model_fields
+    assert fields["backend"].default == "llama_server"
+    assert fields["llama_server_host"].default == "http://127.0.0.1:8080"
+    assert fields["llama_context_size"].default == 4096
+    assert fields["llama_gpu_layers"].default == 99
+
+
+def test_llama_server_active_urls_and_routing_names():
+    config = TeXadaConfig(backend="llama_server")
+    assert config.active_base_url == "http://127.0.0.1:8080/v1"
+    assert config.active_model_name == "text"
+    assert config.active_vision_model_name == "vision"
+    assert config.backend_label == "llama-server"
+
+
+def test_llama_server_host_normalization_strips_v1():
+    config = TeXadaConfig(llama_server_host="http://127.0.0.1:8080/v1")
+    assert config.llama_server_host == "http://127.0.0.1:8080"
+
+
+def test_ollama_backend_keeps_original_behavior():
+    config = TeXadaConfig(backend="ollama")
+    assert config.active_base_url == "http://localhost:11434/v1"
+    assert config.active_model_name == "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M"
+    assert config.backend_label == "ollama"
+
+
+def test_openai_compatible_backend_keeps_original_behavior():
+    config = TeXadaConfig(
+        backend="openai_compatible",
+        openai_base_url="https://api.example.com/v1",
+        openai_api_key="k",
+        openai_model_name="m",
+    )
+    assert config.active_base_url == "https://api.example.com/v1"
+    assert config.active_model_name == "m"
+    assert config.backend_label == "openai-compatible"
+
+
+def test_llama_server_fields_are_persistable():
+    assert {"llama_server_host", "llama_models_dir", "llama_context_size",
+            "llama_gpu_layers", "llama_server_binary"} <= SAVED_CONFIG_FIELDS
+
+
+def test_unsupported_backend_still_rejected():
+    with pytest.raises(ValidationError):
+        TeXadaConfig(backend="vllm")
