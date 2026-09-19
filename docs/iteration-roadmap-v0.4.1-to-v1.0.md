@@ -92,8 +92,7 @@ Status: Active（当前唯一权威排期）
 - **内容**：ADR-014 工具执行契约（capability probe / schema 校验 /
   affordance policy）；ADR-015 patch 生产 / 应用 / 回退模型；
   Scope Guard 权限模型；以 Iteration 1 黄金集作为“改动不变量”基线。
-- **验收门槛**：两个 ADR accepted；契约有先行失败的 schema 测试
-  （TDD 红→绿）；Scope Guard 权限矩阵逐条可测。
+- **验收门槛**：ADR-014/015 已 accepted（本次已接受，决策即冻结）；工具执行契约有先行失败的 schema 测试（TDD 红→绿）；Scope Guard 权限矩阵逐条可测。
 
 ### Iteration 3 — v0.5 语义补丁 MVP（发布 v0.5）
 
