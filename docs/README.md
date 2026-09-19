@@ -34,6 +34,8 @@ This directory keeps technical and maintenance documentation. Community health f
 |----------|---------|
 | [Golden set evidence I design](specs/2026-09-19-golden-set-evidence-i-design.md) / [证据闭环 I 设计](specs/2026-09-19-golden-set-evidence-i-design.md) | Iteration 1 design: golden set automation, repair dataset, recorded and real execution modes, acceptance gates. |
 | [Golden set evidence I implementation plan](specs/2026-09-19-golden-set-evidence-i-plan.md) | Task-by-task implementation plan for the Iteration 1 golden set, including CI wiring and baseline reporting. |
+| [Llama-server runtime design](specs/2026-09-19-llama-server-runtime-design.md) | Iteration 1.5 design: built-in llama-server sidecar, three-backend selection, in-app lifecycle and model pull. |
+| [Llama-server runtime implementation plan](specs/2026-09-19-llama-server-runtime-plan.md) | Task-by-task implementation plan for the llama-server migration. |
 
 ## Community And Release / 社区与发布
 
