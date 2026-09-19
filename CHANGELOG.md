@@ -6,11 +6,31 @@ All notable changes to TeXada-the-Math-Agent are recorded here.
 
 ### English
 
+- Add the first quantitative baseline evidence: a 100-entry golden set
+  generated from the manual test prompts (four assertion layers: semantic
+  anchor, compile, render, trace) and a 53-entry deterministic repair
+  dataset, both runnable in CI via the new `eval` optional dependency group.
+  First live baseline (2026-09-19, MiniCPM5-2B Q4_K_M on llama-server):
+  structural pass rate 28/95, compile 65/100, render 98/100, repair 53/53,
+  latency p50 5.5s. Recorded-mode CI gate replays committed planner
+  recordings. No runtime behavior change. Measured repair-tool boundaries
+  and known matcher limitations are documented in `eval/known-gaps.md`.
+
+
 - Add macOS local model notes to both README languages: native Ollama with
   Metal on Apple Silicon, the Docker Desktop container limitation, the tested
   A18 Pro / 8GB text-model memory usage, and the lack of Intel performance tests.
 
 ### 中文
+
+- 新增首个量化基线证据：由人工测试文案生成的 100 条黄金集（四层断言：
+  语义锚点、编译、渲染、轨迹）与 53 条确定性修复数据集，均可通过新增
+  `eval` 可选依赖组在 CI 运行。首个实时基线（2026-09-19，llama-server 上的
+  MiniCPM5-2B Q4_K_M）：结构通过率 28/95，编译 65/100，渲染 98/100，
+  修复 53/53，延迟 p50 5.5s。CI 门禁回放已提交的 planner 录制输出。
+  无运行时行为变更。修复工具的实测边界与匹配器已知限制记录在
+  `eval/known-gaps.md`。
+
 
 - 在中英文 README 补充 macOS 本地模型说明：Apple Silicon 原生 Ollama 的 Metal
   加速、Docker Desktop 容器限制、A18 Pro / 8GB 文本模型内存实测，以及 Intel

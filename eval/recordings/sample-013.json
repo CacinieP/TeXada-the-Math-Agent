@@ -1,0 +1,16 @@
+{
+  "input": "a 除以 b 的分数",
+  "turns": [
+    {
+      "content": "",
+      "tool_calls": [
+        {"id": "call_1", "name": "compile_tex", "arguments": {"latex": "\\frac{a}{b}"}}
+      ]
+    },
+    {
+      "content": "\\frac{a}{b}",
+      "tool_calls": []
+    }
+  ],
+  "final_latex": "\\frac{a}{b}"
+}

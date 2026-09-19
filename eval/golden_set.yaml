@@ -1,0 +1,401 @@
+entries:
+- id: '001'
+  category: A
+  input: x 加上 y
+  anchor: x+y
+- id: '002'
+  category: A
+  input: a 减去 b 等于 c
+  anchor: a-b=c
+- id: '003'
+  category: A
+  input: 三倍 x 加五等于二十
+  anchor: 3x+5=20
+- id: '004'
+  category: A
+  input: x 的平方加上 y 的平方
+  anchor: x^2+y^2
+- id: '005'
+  category: A
+  input: a 加 b 的平方
+  anchor: (a+b)^2
+- id: '006'
+  category: A
+  input: x 与 y 的乘积再加 z
+  anchor: xy+z 或 x\cdot y+z
+- id: '007'
+  category: A
+  input: x 的绝对值小于等于一
+  anchor: \lvert x\rvert\le 1 或 |x|\le 1
+- id: 008
+  category: A
+  input: 向量 x 的二范数
+  anchor: \lVert x\rVert_2
+- id: 009
+  category: A
+  input: x 不等于零
+  anchor: x\ne 0
+- id: '010'
+  category: A
+  input: 把 x 平方减一分解成两个因式
+  anchor: x^2-1=(x-1)(x+1)
+- id: '011'
+  category: A
+  input: 一元二次方程 ax 平方加 bx 加 c 等于零
+  anchor: ax^2+bx+c=0
+- id: '012'
+  category: A
+  input: 方程组 x 加 y 等于一，x 减 y 等于三
+  anchor: \begin{cases}、两条方程
+- id: '013'
+  category: B
+  input: a 除以 b 的分数
+  anchor: \frac{a}{b}
+- id: '014'
+  category: B
+  input: x 加一除以 x 减一
+  anchor: \frac{x+1}{x-1}
+- id: '015'
+  category: B
+  input: 一除以一加一除以 x
+  anchor: 外层和内层两个 \frac
+- id: '016'
+  category: B
+  input: x 的平方根
+  anchor: \sqrt{x}
+- id: '017'
+  category: B
+  input: x 加 y 的平方根
+  anchor: \sqrt{x+y}
+- id: 018
+  category: B
+  input: x 的立方根
+  anchor: \sqrt[3]{x}
+- id: 019
+  category: B
+  input: x 的 n 次方根
+  anchor: \sqrt[n]{x}
+- id: '020'
+  category: B
+  input: a 除以 b 的平方根
+  anchor: \sqrt{\frac{a}{b}} 或等价结构
+- id: '021'
+  category: B
+  input: x 的二分之一次方
+  anchor: x^{\frac{1}{2}}
+- id: '022'
+  category: B
+  input: x 的负二次方
+  anchor: x^{-2}
+- id: '023'
+  category: B
+  input: x 的下标 i
+  anchor: x_i
+- id: '024'
+  category: B
+  input: a 下标 i 的平方
+  anchor: a_i^2
+- id: '025'
+  category: B
+  input: x 的上标 n 加下标 k
+  anchor: x_k^n 或 x^{n}_{k}
+- id: '026'
+  category: C
+  input: i 从一到 n 的求和
+  anchor: \sum_{i=1}^{n}
+- id: '027'
+  category: C
+  input: i 从一到 n 的平方和
+  anchor: \sum_{i=1}^{n}i^2
+- id: 028
+  category: C
+  input: i 从一到 m、j 从一到 n 的双重求和 a 下标 ij
+  anchor: 两个 \sum、a_{ij}
+- id: 029
+  category: C
+  input: i 从一到 n 的连乘 x 下标 i
+  anchor: \prod_{i=1}^{n}x_i
+- id: '030'
+  category: C
+  input: 从 k 等于零到 n 的有限几何级数 r 的 k 次方
+  anchor: \sum_{k=0}^{n}r^k
+- id: '031'
+  category: C
+  input: 从 k 等于零到无穷的几何级数 r 的 k 次方
+  anchor: \sum_{k=0}^{\infty}r^k
+- id: '032'
+  category: C
+  input: 数列 a 下标 n 等于一除以 n
+  anchor: a_n=\frac{1}{n}
+- id: '033'
+  category: C
+  input: 递推式 a 下标 n 加一等于二倍 a 下标 n 加一
+  anchor: a_{n+1}=2a_n+1
+- id: '034'
+  category: C
+  input: 等差数列第 n 项等于首项加 n 减一倍公差
+  anchor: a_n=a_1+(n-1)d
+- id: '035'
+  category: C
+  input: n 选 k 的二项式系数
+  anchor: \binom{n}{k}
+- id: '036'
+  category: C
+  input: n 的阶乘
+  anchor: n!
+- id: '037'
+  category: C
+  input: 从 n 个元素中选 k 个并排列
+  anchor: \frac{n!}{(n-k)!} 或 P(n,k)
+- id: 038
+  category: C
+  input: 从 n 个元素中选 k 个的组合数
+  anchor: \frac{n!}{k!(n-k)!} 或 \binom{n}{k}
+- id: 039
+  category: D
+  input: x 趋近于零时 sin x 除以 x 的极限
+  anchor: \lim_{x\to 0}\frac{\sin x}{x}
+- id: '040'
+  category: D
+  input: x 趋近于无穷时一除以 x 的极限
+  anchor: \lim_{x\to\infty}\frac{1}{x}
+- id: '041'
+  category: D
+  input: x 从右侧趋近于零时 ln x 的极限
+  anchor: \lim_{x\to 0^+}\ln x
+- id: '042'
+  category: D
+  input: n 趋近于无穷时一加一除以 n 的 n 次方
+  anchor: \lim_{n\to\infty}(1+\frac1n)^n
+- id: '043'
+  category: D
+  input: n 趋近于无穷时数列 a 下标 n 等于 L
+  anchor: \lim_{n\to\infty}a_n=L
+- id: '044'
+  category: D
+  input: x 趋近于 a 时 f(x) 的极限等于 f(a)
+  anchor: \lim_{x\to a}f(x)=f(a)
+- id: '045'
+  category: D
+  input: x 趋近于零时 e 的 x 次方减一除以 x
+  anchor: \lim_{x\to0}\frac{e^x-1}{x}
+- id: '046'
+  category: D
+  input: 数列 a 下标 n 的上极限
+  anchor: \limsup_{n\to\infty}a_n
+- id: '047'
+  category: D
+  input: 数列 a 下标 n 的下极限
+  anchor: \liminf_{n\to\infty}a_n
+- id: 048
+  category: D
+  input: f 在 x 等于 a 处连续的定义
+  anchor: \lim_{x\to a}f(x)=f(a)
+- id: 049
+  category: D
+  input: 对任意 epsilon 大于零，存在 delta 大于零
+  anchor: \forall、\epsilon>0、\exists、\delta>0
+- id: '050'
+  category: D
+  input: 当 x 趋近无穷时 f(x) 与 g(x) 渐近等价
+  anchor: f(x)\sim g(x)、x\to\infty
+- id: '051'
+  category: E
+  input: f 对 x 的一阶导数
+  anchor: f'(x) 或 \frac{df}{dx}
+- id: '052'
+  category: E
+  input: y 对 x 的二阶导数
+  anchor: \frac{d^2y}{dx^2}
+- id: '053'
+  category: E
+  input: f 对 x 的 n 阶导数
+  anchor: \frac{d^nf}{dx^n} 或 f^{(n)}(x)
+- id: '054'
+  category: E
+  input: f 对 x 的偏导数
+  anchor: \frac{\partial f}{\partial x}
+- id: '055'
+  category: E
+  input: f 先对 x 再对 y 的混合偏导
+  anchor: \frac{\partial^2 f}{\partial y\partial x} 或等价次序
+- id: '056'
+  category: E
+  input: 标量场 f 的梯度
+  anchor: \nabla f
+- id: '057'
+  category: E
+  input: 向量场 F 的散度
+  anchor: \nabla\cdot\mathbf{F}
+- id: 058
+  category: E
+  input: 向量场 F 的旋度
+  anchor: \nabla\times\mathbf{F}
+- id: 059
+  category: E
+  input: 函数 F 对变量 x 的雅可比矩阵
+  anchor: J_F(x) 或 \frac{\partial F}{\partial x}
+- id: '060'
+  category: E
+  input: 函数 f 的海森矩阵
+  anchor: \nabla^2 f 或 H_f
+- id: '061'
+  category: E
+  input: 复合函数 f(g(x)) 的链式法则
+  anchor: f'(g(x))g'(x)
+- id: '062'
+  category: E
+  input: u 除以 v 的求导法则
+  anchor: \frac{u'v-uv'}{v^2}
+- id: '063'
+  category: F
+  input: x 平方的不定积分
+  anchor: \int x^2\,dx
+- id: '064'
+  category: F
+  input: f(x) 从零到一的定积分
+  anchor: \int_0^1 f(x)\,dx
+- id: '065'
+  category: F
+  input: 二重积分 f(x,y) 在区域 D 上
+  anchor: \iint_D 或 \iint_{D}
+- id: '066'
+  category: F
+  input: 三重积分 f(x,y,z) 在区域 Omega 上
+  anchor: \iiint_{\Omega}，不得降级为 \int
+- id: '067'
+  category: F
+  input: 沿闭曲线 C 的环路积分 F 点乘 dr
+  anchor: \oint_C\mathbf F\cdot d\mathbf r
+- id: 068
+  category: F
+  input: 曲面 S 上 f 的曲面积分
+  anchor: \iint_S f\,dS
+- id: 069
+  category: F
+  input: 沿曲线 C 的线积分 f ds
+  anchor: \int_C f\,ds
+- id: '070'
+  category: F
+  input: 从负无穷到正无穷的高斯积分
+  anchor: \int_{-\infty}^{\infty}e^{-x^2}\,dx
+- id: '071'
+  category: F
+  input: 一除以 x 平方从一到无穷的反常积分
+  anchor: \int_1^\infty\frac{1}{x^2}\,dx
+- id: '072'
+  category: F
+  input: 分部积分公式
+  anchor: \int u\,dv=uv-\int v\,du
+- id: '073'
+  category: F
+  input: 微积分基本定理：从 a 到 x 的 f(t) 积分对 x 求导
+  anchor: \frac{d}{dx}\int_a^x f(t)\,dt=f(x)
+- id: '074'
+  category: F
+  input: 令 u 等于 g(x) 的换元积分公式
+  anchor: u=g(x)、du=g'(x)dx
+- id: '075'
+  category: F
+  input: 极坐标下区域 D 的二重积分
+  anchor: \iint_D、r\,dr\,d\theta
+- id: '076'
+  category: F
+  input: 球坐标下区域 Omega 的三重积分
+  anchor: \iiint_{\Omega}、\rho^2\sin\phi
+- id: '077'
+  category: F
+  input: 从零到无穷 x 乘 e 的负 x 次方的积分
+  anchor: \int_0^\infty xe^{-x}\,dx
+- id: 078
+  category: F
+  input: 连续随机变量 X 的期望积分
+  anchor: \mathbb E[X]=\int 或 E[X]=\int
+- id: 079
+  category: F
+  input: 狄拉克 delta 函数从负无穷到正无穷的积分等于一
+  anchor: \int_{-\infty}^{\infty}\delta(x)\,dx=1
+- id: 080
+  category: F
+  input: 斯托克斯公式，闭曲线 C 的环路积分等于曲面 S 上旋度的积分
+  anchor: \oint_C、\iint_S、\nabla\times
+- id: 081
+  category: G
+  input: 三维列向量 x 等于 a、b、c
+  anchor: \begin{pmatrix}a\\b\\c\end{pmatrix}
+- id: 082
+  category: G
+  input: 二乘二矩阵，第一行 a b，第二行 c d
+  anchor: \begin{pmatrix}a&b\\c&d\end{pmatrix}
+- id: 083
+  category: G
+  input: 二乘二矩阵 A 的行列式
+  anchor: \det(A) 或矩阵竖线结构
+- id: 084
+  category: G
+  input: 矩阵 A 的逆矩阵
+  anchor: A^{-1}
+- id: 085
+  category: G
+  input: 矩阵 A 的转置
+  anchor: A^{\mathsf T} 或 A^T
+- id: 086
+  category: G
+  input: 向量 a 与向量 b 的点积
+  anchor: \mathbf a\cdot\mathbf b
+- id: 087
+  category: G
+  input: 向量 a 与向量 b 的叉积
+  anchor: \mathbf a\times\mathbf b
+- id: 088
+  category: G
+  input: 特征值方程 A v 等于 lambda v
+  anchor: A\mathbf v=\lambda\mathbf v
+- id: 089
+  category: G
+  input: 矩阵 A 的奇异值分解等于 U Sigma V 转置
+  anchor: A=U\Sigma V^{\mathsf T}
+- id: 090
+  category: G
+  input: 二乘二矩阵 A 与二乘二矩阵 B 的乘积
+  anchor: 两个矩阵结构和乘法
+- id: 091
+  category: H
+  input: 在 B 发生条件下 A 的条件概率
+  anchor: P(A\mid B)
+- id: 092
+  category: H
+  input: 贝叶斯公式
+  anchor: P(A\mid B)=\frac{P(B\mid A)P(A)}{P(B)}
+- id: 093
+  category: H
+  input: 离散随机变量 X 的期望
+  anchor: \mathbb E[X]=\sum_x xP(X=x) 或等价形式
+- id: 094
+  category: H
+  input: 随机变量 X 的方差
+  anchor: \operatorname{Var}(X)=\mathbb E[(X-\mu)^2]
+- id: 095
+  category: H
+  input: 均值 mu、方差 sigma 平方的正态分布密度
+  anchor: \frac{1}{\sigma\sqrt{2\pi}}、指数项
+- id: 096
+  category: H
+  input: 集合 A 与集合 B 的并集和交集
+  anchor: A\cup B、A\cap B
+- id: 097
+  category: H
+  input: A 是 B 的子集且 B 是 C 的真子集
+  anchor: A\subseteq B、B\subset C
+- id: 098
+  category: H
+  input: 对任意 x 属于实数，都存在 y 大于 x
+  anchor: \forall x\in\mathbb R、\exists y>x
+- id: 099
+  category: H
+  input: 命题 P 蕴含 Q，并且 Q 当且仅当 R
+  anchor: P\Rightarrow Q、Q\Leftrightarrow R
+- id: '100'
+  category: H
+  input: 分段函数：x 大于等于零时是 x 平方，x 小于零时是负 x
+  anchor: \begin{cases}、两个条件分支

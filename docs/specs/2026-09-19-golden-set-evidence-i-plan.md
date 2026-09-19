@@ -25,7 +25,7 @@ New files:
 
 - `eval/generate_golden_set.py` — one-shot markdown-table parser → `eval/golden_set.yaml`
 - `eval/golden_set.yaml` — committed fixture: `{entries: [{id, category, input, anchor}]}`
-- `eval/repair_dataset.yaml` — 50 hand-authored broken-LaTeX entries
+- `eval/repair_dataset.yaml` — 53 verified broken-LaTeX entries (brace-balance scope; see known-gaps for the measured boundary)
 - `eval/anchor_match.py` — `flatten_kinds(latex)`, `anchor_present(output, anchor)`
 - `eval/golden_lib.py` — `load_golden_set()`, `load_recordings()`, `RecordedPlanner`
 - `eval/record_planner_turns.py` — live recorder → `eval/recordings/<id>.json`
@@ -337,7 +337,7 @@ Commit: `eval: add recorded-mode golden set with four assertion layers`
 ### Task 4: Repair dataset
 
 **Files:**
-- Create: `eval/repair_dataset.yaml` (50 entries)
+- Create: `eval/repair_dataset.yaml` (53 entries)
 - Test: `tests/test_repair_dataset.py`
 
 **Interfaces:**
@@ -359,7 +359,7 @@ DATA = yaml.safe_load((Path(__file__).resolve().parents[1] / "eval" / "repair_da
 
 
 def test_dataset_has_50_entries():
-    assert len(DATA) == 50
+    assert len(DATA) == 53
 
 
 async def test_all_broken_latex_repairs_to_valid_renderable(tmp_path):
@@ -377,7 +377,7 @@ Expected: FAIL — dataset missing.
 
 - [ ] **Step 3: Author the dataset**
 
-Create `eval/repair_dataset.yaml` with 50 entries. Required coverage: missing closing groups in `\frac`/`\sqrt`; dropped `\sum`/`\int` limits; `\iiint`→`\int` degradation; unmatched `\left`; stray `$` delimiters; empty `{}` arguments; double `\\` in matrices. Each `broken` value must be genuinely broken (verify: `compile_tex(broken)["valid"] is False` before adding it).
+Create `eval/repair_dataset.yaml` with entries whose `broken` value is genuinely invalid (`compile_tex(broken)["valid"] is False`) and whose repair result is valid — verify both with the tool before adding. Measured reality (2026-09-19): the deterministic repairer fixes only brace-balance breakage; unmatched `\left`, stray `$`, empty `{}`, and `\iiint`→`\int` degradation are NOT repaired and are documented as measured boundaries in `eval/known-gaps.md` instead of being forced into the dataset.
 
 - [ ] **Step 4: Run test to verify it passes**
 

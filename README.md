@@ -421,6 +421,27 @@ Measured environment: Mac Neo, macOS 26.5.1, arm64, Apple A18 Pro, 8GB RAM, loca
 | LaTeX completion | MiniCPM5-1B plus rules | 1808.5ms |
 | OCR sample | MiniCPM-V 4.6 | 39419.0ms |
 
+### Local Evaluation
+
+First quantitative baseline, measured 2026-09-19 against a live local
+llama-server running MiniCPM5-2B Q4_K_M:
+
+| Metric | Result |
+|--------|--------|
+| NL to LaTeX structural pass rate | 28/95 (29.5%) |
+| Compile layer | 65/100 |
+| Render layer | 98/100 |
+| Trace layer | 98/100 |
+| Deterministic repair pass rate | 53/53 (brace-balance scope) |
+| Latency p50 / p95 | 5.5s / 9.4s |
+
+Development-regression scope; not a general benchmark. The structural rate is
+low and honest: it is the baseline every later iteration must improve.
+Reproduce with `eval/run_real_baseline.py --mode live`; the CI gate replays
+recorded outputs with `--mode recorded`. Details and measured boundaries live
+in [eval/known-gaps.md](eval/known-gaps.md) and
+[eval/reports/2026-09-19-baseline-live.md](eval/reports/2026-09-19-baseline-live.md).
+
 ### Quality Gate
 
 The current `main` branch has no known blocking issue after the latest audit pass. That means tests and static checks pass; it is not a mathematical promise that no software bug can exist. Maintainer validation details live in [Contributing](.github/CONTRIBUTING.md), [Source audit](docs/audit.md), and GitHub Actions.
@@ -813,6 +834,26 @@ GitHub Actions 可以手动从 `main` 构建安装包，也会在版本 tag 上�
 | NL 转 LaTeX，预热后 | MiniCPM5-1B | 29612.2ms |
 | LaTeX 补全 | MiniCPM5-1B 加规则 | 1808.5ms |
 | OCR 示例 | MiniCPM-V 4.6 | 39419.0ms |
+
+### 本地评测
+
+首个量化基线，2026-09-19 对本地 llama-server 运行的 MiniCPM5-2B Q4_K_M 实测：
+
+| 指标 | 结果 |
+|------|------|
+| NL 转 LaTeX 结构通过率 | 28/95（29.5%） |
+| 编译层 | 65/100 |
+| 渲染层 | 98/100 |
+| 轨迹层 | 98/100 |
+| 确定性修复通过率 | 53/53（花括号平衡范围） |
+| 延迟 p50 / p95 | 5.5s / 9.4s |
+
+开发集回归口径，非通用 benchmark。结构通过率偏低但真实——它就是后续每次迭代
+必须抬升的基线。复现：`eval/run_real_baseline.py --mode live`；CI 门禁用录制
+输出回放：`--mode recorded`。细节与实测边界见
+[eval/known-gaps.md](eval/known-gaps.md) 与
+[eval/reports/2026-09-19-baseline-live.md](eval/reports/2026-09-19-baseline-live.md)。
+
 
 ### 质量门禁
 

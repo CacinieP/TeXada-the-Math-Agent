@@ -1,0 +1,160 @@
+entries:
+- id: R001
+  broken: \frac{a}{b
+  class: frac
+- id: R002
+  broken: \frac{a+b}{c-d
+  class: frac
+- id: R003
+  broken: \frac{\frac{a}{b}}{c
+  class: frac
+- id: R004
+  broken: \frac{1}{2+x
+  class: frac
+- id: R005
+  broken: \frac{1}{x} + \frac{1}{y
+  class: frac
+- id: R006
+  broken: \frac{\sqrt{x}}{2
+  class: frac
+- id: R007
+  broken: \frac{dy}{dx
+  class: frac
+- id: R008
+  broken: \frac{a+b+c}{d+e+f
+  class: frac
+- id: R009
+  broken: \frac{x+y}{x-y
+  class: frac
+- id: R010
+  broken: \frac{n!}{k!(n-k)!
+  class: frac
+- id: R011
+  broken: e^{-\frac{x^2}{2}
+  class: frac
+- id: R012
+  broken: \frac{\partial f}{\partial x
+  class: frac
+- id: R013
+  broken: \frac{a}{b} + \frac{c}{d
+  class: frac
+- id: R014
+  broken: A^{-1} = \frac{1}{\det(A
+  class: frac
+- id: R015
+  broken: \frac{\frac{a}{b}}{\frac{c}{d
+  class: frac
+- id: R016
+  broken: x = \frac{-b \pm \sqrt{b^2-4ac}}{2a
+  class: frac
+- id: R017
+  broken: \frac{\partial^2 f}{\partial y \partial x
+  class: frac
+- id: R018
+  broken: P(A \mid B) = \frac{P(B \mid A) P(A}{P(B)
+  class: frac
+- id: R019
+  broken: \Pr(X = k) = \binom{n}{k} p^k (1-p)^{n-k
+  class: frac
+- id: R020
+  broken: \frac{1}{1 + \frac{1}{x
+  class: frac
+- id: R021
+  broken: \sqrt{x
+  class: root
+- id: R022
+  broken: \sqrt{x^2+y^2
+  class: root
+- id: R023
+  broken: \sqrt{\frac{a}{b}
+  class: root
+- id: R024
+  broken: \sqrt[3]{x
+  class: root
+- id: R025
+  broken: \sqrt{1 + \sqrt{1 + x
+  class: root
+- id: R026
+  broken: \|x\|_2 = \sqrt{\sum_i x_i^2
+  class: root
+- id: R027
+  broken: x^{2n+1
+  class: script
+- id: R028
+  broken: x_{i+1
+  class: script
+- id: R029
+  broken: a^{b^{c
+  class: script
+- id: R030
+  broken: x^2 + y^{2
+  class: script
+- id: R031
+  broken: e^{i\pi
+  class: script
+- id: R032
+  broken: a_{11} + a_{12} + a_{13
+  class: script
+- id: R033
+  broken: \max_{x \in [0,1
+  class: script
+- id: R034
+  broken: \lim_{x \to 0
+  class: script
+- id: R035
+  broken: \begin{matrix} a & b \\ c & d
+  class: env
+- id: R036
+  broken: \begin{pmatrix} 1 & 2 \\ 3 & 4
+  class: env
+- id: R037
+  broken: \begin{cases} x & x>0 \\ -x & x<0
+  class: env
+- id: R038
+  broken: \begin{aligned} a &= b \\ c &= d
+  class: env
+- id: R039
+  broken: \begin{bmatrix} 1 \\ 2
+  class: env
+- id: R040
+  broken: \begin{pmatrix} a & b \\ c & d
+  class: env
+- id: R041
+  broken: \begin{vmatrix} a & b \\ c & d
+  class: env
+- id: R042
+  broken: \vec{v} = \begin{pmatrix} v_1 \\ v_2
+  class: env
+- id: R043
+  broken: f(x) = \begin{cases} 1 & \text{if } x \in \mathbb{Q} \\ 0 & \text{otherwise
+  class: env
+- id: R044
+  broken: \begin{array}{cc} a & b \\ c & d
+  class: env
+- id: R045
+  broken: \sum_{i=1}^{n
+  class: macro-arg
+- id: R046
+  broken: \sum_{i=1^n i^2
+  class: macro-arg
+- id: R047
+  broken: \int_{0}^{\pi
+  class: macro-arg
+- id: R048
+  broken: \prod_{i=1}^{n i
+  class: macro-arg
+- id: R049
+  broken: \iiint_V \nabla \cdot \vec{F
+  class: macro-arg
+- id: R050
+  broken: \oint_C \vec{F} \cdot d\vec{r
+  class: macro-arg
+- id: R051
+  broken: \vec{a} \cdot \vec{b
+  class: macro-arg
+- id: R052
+  broken: \zeta(s) = \sum_{n=1}^{\infty} \frac{1}{n^s
+  class: macro-arg
+- id: R053
+  broken: \sqrt{a} + \sqrt{b
+  class: macro-arg
