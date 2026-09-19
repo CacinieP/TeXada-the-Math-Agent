@@ -104,6 +104,29 @@ Status: Active（当前唯一权威排期）
   2. patch 拒绝 / 回退路径有测试，不存在静默返回原公式的路径；
   3. commit barrier 对 patch 产生的 revision 生效（复用 ADR-011 不变量）。
 
+### 候选迭代（未排期，待拍板）
+
+**Iteration 2.5（候选）— 错误分类与崩溃可见的运行日志。**
+来源：`origin/dev/run-guards` 分支（2026-08-21，1 个提交，未合并）。实测
+核查结论：其 token budget 想法在 main 已有等价实现
+（`reject_model_budget` / `runtime_budget_exceeded`），但两项独有能力
+不在 main 中：
+
+1. `error_class`：`ToolObservation` 区分 `'model'`（planner 用错工具/
+   参数非法，可自纠）与 `'tool'`（超时、结构限制、内部错误）两类失败，
+   连续错误熔断的 halt reason 相应区分为 `model_error_limit` /
+   `tool_error_limit`；
+2. crash-visible run logs：`backend_unavailable` 与 `cancelled`（499）
+   状态行，让请求级日志不再遗漏崩溃路径。
+
+与本迭代的直接关联：Iteration 1 live 基线实测 G-007——MiniCPM5-2B 对
+2/100 条输入产生截断的 JSON 工具参数，运行时硬失败且无分类。
+`error_class='model'` 正是该场景的原生解法，且崩溃可见日志让此类
+失败可在 run log 中量化（当前它在 live 报告中只表现为 2 条
+InternalServerError）。建议执行方式：从 `origin/dev/run-guards`
+cherry-pick 该提交后在 v0.5 设计阶段适配 ADR-011/012 的 runtime 契约，
+不整体合并分支。
+
 ### 后续方向（只列方向，不排期）
 
 | 版本 | freeze 定义的问题 | 本路线图备注 |
