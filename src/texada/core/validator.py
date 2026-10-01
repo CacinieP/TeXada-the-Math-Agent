@@ -44,7 +44,9 @@ class LaTeXValidator:
         """Return whether text looks like formula content rather than prose."""
         return self._check_formula_content(latex).ok
 
-    def validate(self, latex: str) -> ValidationResult:
+    def validate(
+        self, latex: str, macros: dict[str, str] | None = None
+    ) -> ValidationResult:
         # Empty string is never valid LaTeX
         if not latex.strip():
             return ValidationResult(
@@ -56,7 +58,7 @@ class LaTeXValidator:
             self._check_env_balance(latex),
             self._check_formula_content(latex),
             self._check_nonempty_structures(latex),
-            self._check_katex_parse(latex),
+            self._check_katex_parse(latex, macros),
         ]
 
         return ValidationResult(
@@ -160,10 +162,12 @@ class LaTeXValidator:
                 )
         return CheckResult(ok=True, type="nonempty_structures")
 
-    def _check_katex_parse(self, latex: str) -> CheckResult:
+    def _check_katex_parse(
+        self, latex: str, macros: dict[str, str] | None = None
+    ) -> CheckResult:
         """Use the vendored in-process KaTeX parser as the single syntax authority."""
         try:
-            result = shared_katex_parser().parse(latex)
+            result = shared_katex_parser().parse(latex, macros)
         except Exception as exc:
             return CheckResult(
                 ok=False,

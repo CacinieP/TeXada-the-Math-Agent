@@ -26,13 +26,23 @@ class RenderEngine:
         "\\(": ("\\(", "\\)"),
     }
 
-    def render(self, latex: str, *, mode_override: RenderMode | None = None) -> RenderResult:
-        """Render LaTeX in current mode (or a per-request override)."""
+    def render(
+        self,
+        latex: str,
+        *,
+        mode_override: RenderMode | None = None,
+        macros: dict[str, str] | None = None,
+    ) -> RenderResult:
+        """Render LaTeX in current mode (or a per-request override).
+
+        ``macros`` supplies per-render KaTeX definitions, e.g. the
+        accompanying macro pack of an imported arXiv formula.
+        """
         self._last_latex = latex  # Cache for ⌘K switch
         mode = mode_override or self.mode
 
         if mode == RenderMode.KATEX:
-            katex_html = self._render_katex(latex)
+            katex_html = self._render_katex(latex, macros)
             open_delim, close_delim = self.DELIMITER_PAIRS.get(
                 self.delimiter, (self.delimiter, self.delimiter)
             )
@@ -58,10 +68,10 @@ class RenderEngine:
         self.mode = RenderMode(mode)
         return self.render(self._last_latex)
 
-    def _render_katex(self, latex: str) -> str:
+    def _render_katex(self, latex: str, macros: dict[str, str] | None = None) -> str:
         """Render in the reusable in-process KaTeX context."""
         try:
-            result = shared_katex_parser().render(latex)
+            result = shared_katex_parser().render(latex, macros)
             if result.ok:
                 return result.html
             return self._fallback_html(latex)

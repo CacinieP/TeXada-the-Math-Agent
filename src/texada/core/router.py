@@ -173,6 +173,45 @@ class InputRouter:
         latex = await ocr.process(image)
         return latex, self._consume_model_tokens()
 
+    async def process_import(
+        self,
+        latex: str,
+        *,
+        macros: dict[str, str] | None = None,
+        render_mode: RenderMode | None = None,
+    ) -> ConvertResult:
+        """Deterministic import path — zero model calls, same tools.
+
+        An imported formula is already ground-truth LaTeX from the paper
+        source, so it skips every model role: normalize, validate, bounded
+        repair, then render with the paper's accompanying macro pack.
+        """
+        start = time.monotonic()
+
+        candidate = latex.strip()
+        normalized = self.operator_guard.normalize_candidate(candidate)
+        final_latex, valid_result, _ = self._validate_and_fix(
+            normalized, macros=macros
+        )
+        render = self.render_engine.render(
+            final_latex,
+            mode_override=render_mode,
+            macros=macros,
+        )
+        latency = (time.monotonic() - start) * 1000
+
+        return ConvertResult(
+            latex=final_latex,
+            render=render,
+            valid=valid_result.valid,
+            source=Source.FIXED if final_latex != normalized else Source.IMPORT,
+            intent="import",
+            confidence=0.9 if valid_result.valid else 0.5,
+            latency_ms=latency,
+            tokens_used=0,
+            fix_log=[] if valid_result.valid else ["auto-fixed"],
+        )
+
     async def create_completion_candidate(
         self,
         text: str,
@@ -329,19 +368,20 @@ class InputRouter:
         latex: str,
         *,
         tokens_used: int = 0,
+        macros: dict[str, str] | None = None,
     ) -> tuple[str, ValidationResult, int]:
         """Validate and auto-fix if possible.
 
         Returns (final_latex, validation_result, tokens_used).
         final_latex is the fixed version when auto-fix succeeds.
         """
-        result = self.validator.validate(latex)
+        result = self.validator.validate(latex, macros)
         if result.valid:
             return latex, result, tokens_used
         # Try auto-fix
         fix = self.fixer.fix(latex, result.errors)
         if fix.fixed:
-            re_validated = self.validator.validate(fix.latex)
+            re_validated = self.validator.validate(fix.latex, macros)
             if re_validated.valid:
                 return fix.latex, re_validated, tokens_used
         return latex, result, tokens_used

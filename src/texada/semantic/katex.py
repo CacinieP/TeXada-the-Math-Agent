@@ -33,9 +33,14 @@ var texadaKaTeXOptions = {
   }
 };
 
-function texadaParseKaTeX(latexStr) {
+function texadaParseKaTeX(latexStr, macrosJson) {
   try {
-    var ast = katex.__parse(latexStr, texadaKaTeXOptions);
+    var options = Object.assign({}, texadaKaTeXOptions);
+    if (macrosJson) {
+      var extra = JSON.parse(macrosJson);
+      options.macros = Object.assign({}, texadaKaTeXOptions.macros, extra);
+    }
+    var ast = katex.__parse(latexStr, options);
     return JSON.stringify({
       ok: true,
       version: katex.version || "unknown",
@@ -55,14 +60,19 @@ function texadaParseKaTeX(latexStr) {
   }
 }
 
-function texadaRenderKaTeX(latexStr) {
+function texadaRenderKaTeX(latexStr, macrosJson) {
   try {
+    var options = Object.assign({}, texadaKaTeXOptions);
+    if (macrosJson) {
+      var extra = JSON.parse(macrosJson);
+      options.macros = Object.assign({}, texadaKaTeXOptions.macros, extra);
+    }
     return JSON.stringify({
       ok: true,
       version: katex.version || "unknown",
       html: katex.renderToString(latexStr, Object.assign(
         {output: "htmlAndMathml"},
-        texadaKaTeXOptions
+        options
       ))
     });
   } catch (error) {
@@ -132,7 +142,10 @@ class KaTeXASTParser:
         self._rebuild_count = 0
         self._permanently_failed = False
 
-    def parse(self, latex: str) -> KaTeXParseResult:
+    def parse(
+        self, latex: str, macros: dict[str, str] | None = None
+    ) -> KaTeXParseResult:
+        """Parse with the built-in macro policy plus optional per-call macros."""
         if max_nesting_depth(latex) > MAX_NESTING_DEPTH:
             return KaTeXParseResult(
                 ok=False,
@@ -146,7 +159,11 @@ class KaTeXASTParser:
             if self._context is None:
                 return KaTeXParseResult(ok=False, error="KaTeX V8 context is unavailable")
             try:
-                raw = self._context.call("texadaParseKaTeX", latex)
+                raw = self._context.call(
+                    "texadaParseKaTeX",
+                    latex,
+                    json.dumps(macros) if macros else "",
+                )
             except Exception as exc:
                 self._note_context_failure(exc)
                 return KaTeXParseResult(
@@ -161,8 +178,14 @@ class KaTeXASTParser:
             version=str(data.get("version") or ""),
         )
 
-    def render(self, latex: str) -> KaTeXRenderResult:
-        """Render with the same vendored KaTeX context and macro policy."""
+    def render(
+        self, latex: str, macros: dict[str, str] | None = None
+    ) -> KaTeXRenderResult:
+        """Render with the same vendored KaTeX context and macro policy.
+
+        ``macros`` adds per-call definitions (e.g. an imported paper's
+        ``\\newcommand`` set) on top of the built-in macro policy.
+        """
         if max_nesting_depth(latex) > MAX_NESTING_DEPTH:
             return KaTeXRenderResult(
                 ok=False,
@@ -179,7 +202,11 @@ class KaTeXASTParser:
                     error="KaTeX V8 context is unavailable",
                 )
             try:
-                raw = self._context.call("texadaRenderKaTeX", latex)
+                raw = self._context.call(
+                    "texadaRenderKaTeX",
+                    latex,
+                    json.dumps(macros) if macros else "",
+                )
             except Exception as exc:
                 self._note_context_failure(exc)
                 return KaTeXRenderResult(

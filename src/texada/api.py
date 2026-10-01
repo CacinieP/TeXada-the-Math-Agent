@@ -20,6 +20,7 @@ from texada.config import (
     save_config_updates,
     validate_config_updates,
 )
+from texada.core import arxiv as arxiv_ingest
 from texada.core.backend import BackendManager
 from texada.core.router import InputRouter
 from texada.render.engine import RenderEngine
@@ -77,6 +78,36 @@ class AgentResponse(LaTeXResponse):
     semantic_diff: dict = Field(default_factory=dict)
     agent_trace: list[dict] = Field(default_factory=list)
     stop_reason: str = "completed"
+
+
+class ArxivImportRequest(BaseModel):
+    ref: str = Field(min_length=1, max_length=300)
+
+
+class ArxivFormulaItem(BaseModel):
+    index: int
+    latex: str
+    env: str
+    display: bool
+    line: int
+    section: str | None = None
+    label: str | None = None
+    context: str = ""
+
+
+class ArxivImportResponse(BaseModel):
+    arxiv_id: str
+    cached: bool
+    title: str | None = None
+    formula_count: int
+    macros: dict[str, str] = Field(default_factory=dict)
+    formulas: list[ArxivFormulaItem] = Field(default_factory=list)
+
+
+class ArxivSelectRequest(BaseModel):
+    arxiv_id: str = Field(min_length=1, max_length=60)
+    index: int = Field(ge=0)
+    render_mode: str = Field(default="katex", pattern="^(katex|latex)$")
 
 class ValidateRequest(BaseModel):
     latex: str = Field(min_length=1, max_length=4000)
@@ -837,6 +868,149 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             semantic_diff=result.semantic_diff,
             agent_trace=result.trace,
             stop_reason=result.stop_reason,
+        )
+
+    @app.post("/api/import/arxiv", response_model=ArxivImportResponse)
+    async def import_arxiv(req: ArxivImportRequest):
+        """Fetch an arXiv paper's LaTeX source and list its formulas.
+
+        Deterministic ingestion: no model is invoked, and the download is
+        cached under <data_dir>/cache/arxiv for offline reuse.
+        """
+        run_id = uuid4().hex
+        started = time.monotonic()
+        try:
+            arxiv_id = arxiv_ingest.parse_arxiv_ref(req.ref)
+        except arxiv_ingest.ArxivRefError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        try:
+            paper = await arxiv_ingest.fetch_and_extract(
+                arxiv_id, cache_root=config.data_dir / "cache" / "arxiv"
+            )
+        except arxiv_ingest.ArxivNotFoundError as e:
+            await record_run(RunLogEntry(
+                run_id=run_id, operation="import", input_type="arxiv",
+                input_text=req.ref, model_role="none",
+                model_name="deterministic", backend=config.backend,
+                status="error", status_code=404,
+                latency_ms=(time.monotonic() - started) * 1000,
+                error_message=str(e),
+            ))
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        except arxiv_ingest.ArxivNoSourceError as e:
+            await record_run(RunLogEntry(
+                run_id=run_id, operation="import", input_type="arxiv",
+                input_text=req.ref, model_role="none",
+                model_name="deterministic", backend=config.backend,
+                status="error", status_code=422,
+                latency_ms=(time.monotonic() - started) * 1000,
+                error_message=str(e),
+            ))
+            raise HTTPException(status_code=422, detail=str(e)) from e
+        except arxiv_ingest.ArxivSourceError as e:
+            await record_run(RunLogEntry(
+                run_id=run_id, operation="import", input_type="arxiv",
+                input_text=req.ref, model_role="none",
+                model_name="deterministic", backend=config.backend,
+                status="error", status_code=502,
+                latency_ms=(time.monotonic() - started) * 1000,
+                error_message=str(e),
+            ))
+            raise HTTPException(status_code=502, detail=str(e)) from e
+        await record_run(RunLogEntry(
+            run_id=run_id, operation="import", input_type="arxiv",
+            input_text=req.ref, model_role="none",
+            model_name="deterministic", backend=config.backend,
+            status="success", status_code=200, intent="import",
+            latency_ms=(time.monotonic() - started) * 1000,
+        ))
+        return ArxivImportResponse(
+            arxiv_id=paper.arxiv_id,
+            cached=paper.cached,
+            title=paper.title,
+            formula_count=len(paper.formulas),
+            macros=paper.macros,
+            formulas=[
+                ArxivFormulaItem(
+                    index=f.index,
+                    latex=f.latex,
+                    env=f.env,
+                    display=f.display,
+                    line=f.line,
+                    section=f.section,
+                    label=f.label,
+                    context=f.context,
+                )
+                for f in paper.formulas
+            ],
+        )
+
+    @app.post("/api/import/select", response_model=LaTeXResponse)
+    async def import_select(req: ArxivSelectRequest):
+        """Turn a listed formula into a validated, rendered result.
+
+        Zero-model path: normalize, validate, bounded repair, and render
+        with the paper's accompanying macro pack. Nothing leaves the
+        machine because the paper source is already cached locally.
+        """
+        run_id = uuid4().hex
+        sel_mode = _parse_render_mode(req.render_mode)
+        paper = arxiv_ingest.load_cached(
+            req.arxiv_id, config.data_dir / "cache" / "arxiv"
+        )
+        if paper is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"paper {req.arxiv_id} is not imported yet",
+            )
+        formula = arxiv_ingest.formula_by_index(paper, req.index)
+        if formula is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"formula index {req.index} out of range",
+            )
+        macros = arxiv_ingest.used_macros(formula.latex, paper.macros)
+        result = await router.process_import(
+            formula.latex, macros=macros, render_mode=sel_mode
+        )
+        try:
+            await history.add(HistoryEntry(
+                run_id=run_id,
+                input_text=f"arXiv:{req.arxiv_id}#{req.index}",
+                input_type="import",
+                latex=result.latex,
+                intent="import",
+                source=result.source.value,
+                render_mode=sel_mode.value,
+                valid=result.valid,
+                latency_ms=result.latency_ms,
+                tokens_used=0,
+            ))
+        except Exception:
+            pass  # history is best-effort; never fail the conversion
+        await record_run(RunLogEntry(
+            run_id=run_id, operation="import_select", input_type="arxiv",
+            input_text=f"arXiv:{req.arxiv_id}#{req.index}",
+            model_role="none", model_name="deterministic",
+            backend=config.backend,
+            status="success", status_code=200,
+            output_latex=result.latex, intent="import",
+            source=result.source.value, render_mode=sel_mode.value,
+            valid=result.valid, latency_ms=result.latency_ms,
+            tokens_used=0,
+        ))
+        return LaTeXResponse(
+            run_id=run_id,
+            latex=result.latex,
+            katex_html=result.render.katex_html,
+            latex_highlighted=result.render.latex_highlighted,
+            copy_text=result.render.copy_text,
+            valid=result.valid,
+            source=result.source.value,
+            intent="import",
+            confidence=result.confidence,
+            latency_ms=result.latency_ms,
+            tokens_used=0,
         )
 
     @app.post("/api/validate", response_model=ValidateResponse)

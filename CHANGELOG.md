@@ -2,6 +2,24 @@
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
 
+## Unreleased
+
+### English
+
+- Added a fourth input path: arXiv formula import. `POST /api/import/arxiv`
+  fetches a paper's LaTeX source (cached under `~/.texada/cache/arxiv` for
+  offline reuse), flattens `\input`/`\include` chains, and lists every math
+  fragment with line number, section, `\label`, and surrounding context.
+  `POST /api/import/select` turns a chosen formula into a validated,
+  rendered result through the deterministic tool chain — zero model calls,
+  so import works even when no model is pulled. Preamble macros
+  (`\newcommand`, `\def`, `\DeclareMathOperator`) are collected as an
+  accompanying macro pack and passed through a new per-render `macros`
+  option on the KaTeX engine. PDF-only papers are a hard error, never an
+  OCR fallback, because PDF re-encoding is the math corruption this path
+  exists to avoid. New module `src/texada/core/arxiv.py`, covered by
+  network-free tests in `tests/test_arxiv.py`.
+
 ## 0.3.8 - 2026-08-05
 
 ### English

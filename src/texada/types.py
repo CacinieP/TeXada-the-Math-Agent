@@ -31,6 +31,7 @@ class Source(StrEnum):
     SHORTHAND = "shorthand"
     TEMPLATE = "template"
     FIXED = "fixed"
+    IMPORT = "import"
 
 
 @dataclass

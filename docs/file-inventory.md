@@ -87,6 +87,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `src/texada/core/__init__.py` | Core package marker. |
 | `src/texada/core/backend.py` | Ollama/OpenAI-compatible readiness checks, model presence detection, custom port handling, and status payloads. |
 | `src/texada/core/fixer.py` | Deterministic LaTeX repair for common brace, environment, and command mistakes. |
+| `src/texada/core/arxiv.py` | Deterministic arXiv source ingestion: reference parsing, cached download, flattening, math extraction, and the accompanying macro pack. |
 | `src/texada/core/intent.py` | Regex-based intent classifier for math categories without model calls. |
 | `src/texada/core/model.py` | OpenAI-compatible chat wrapper for text, completion, vision OCR, timeout handling, and LaTeX extraction. |
 | `src/texada/core/operator_guard.py` | Shared Level 0 operator-preservation guard for the router and Agent Runtime. |
@@ -161,6 +162,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 
 | File | Purpose |
 |------|---------|
+| `tests/test_arxiv.py` | Network-free arXiv import tests: golden extraction, macro collection, cache behavior, and API endpoints. |
 | `tests/test_api.py` | FastAPI route, CORS, runtime, upload, settings, and key-safety tests. |
 | `tests/test_agent_protocol.py` | MiniCPM5 native XML and OpenAI tool-call parser tests. |
 | `tests/test_agent_runtime.py` | Planner → Tool → Observation multi-step execution tests. |
