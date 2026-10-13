@@ -305,6 +305,68 @@ async def test_full_empty_direct_final_seed_is_explicitly_recorded(tmp_path):
     }]
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("latex", [
+    r"\text{LaTeX: x}+y",
+    r"\text{Final LaTeX: x}+y",
+    r"\text{Candidate LaTeX: x}+y",
+    r"\text{Candidate LaTeX (authoritative starting state): x}+y",
+])
+async def test_full_compile_and_render_preserve_authoritative_literal_labels(tmp_path, latex):
+    planner = ScriptedPlanner([
+        PlannerTurn(tool_calls=[call("compile_tex", 1, latex=latex)]),
+        PlannerTurn(tool_calls=[call("render_math", 1, latex=latex, mode="katex")]),
+    ])
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+    result = await runtime.run("public synthetic formula", _task="ocr", _initial_candidate=latex)
+    assert result.valid and result.committed
+    assert result.latex == latex and result.revision == 1
+    assert len(result.formula_ledger["revisions"]) == 1
+    assert '<span class="katex">' in result.render.katex_html
+    for item in result.trace:
+        if item["origin"] == "planner":
+            assert item["raw_tool_calls"][0]["arguments"]["latex"] == latex
+            assert item["tool_calls"][0]["arguments"]["latex"] == latex
+            assert item["observations"][0]["ok"]
+
+
+@pytest.mark.parametrize(("source", "expected"), [
+    (r"\text{LaTeX: x}+y", r"\text{LaTeX: x}+y"),
+    (r"\text{Final LaTeX: x}+y", r"\text{Final LaTeX: x}+y"),
+    (r"LaTeX: \text{LaTeX: x}+y", r"\text{LaTeX: x}+y"),
+    (r"Final LaTeX: $\text{LaTeX: x}+y$", r"\text{LaTeX: x}+y"),
+    (r"LaTeX: x+1", "x+1"),
+])
+def test_prompt_label_normalization_only_removes_a_leading_label(tmp_path, source, expected):
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path))
+    assert runtime._sanitize_latex_argument(source) == expected
+
+
+def test_exact_historical_diff_bindings_keep_literal_labels(tmp_path):
+    state = FormulaState(r"\text{LaTeX: x}+1")
+    state.revise(r"\text{Final LaTeX: x}+2", expected_revision=1, origin="proposal")
+    snapshot = action_snapshot(state, surface="full")
+    proposal = call("semantic_diff", 2, before=snapshot.before, after=snapshot.latex)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path))
+    normalized = runtime._normalize_call(proposal, authority=snapshot)
+    assert normalized.arguments == proposal.arguments
+    bound = bind_action(normalized, snapshot, state, surface="full")
+    assert bound.call.arguments == {"before": snapshot.before, "after": snapshot.latex}
+
+
+def test_even_a_leading_label_in_authority_is_not_rewritten_as_a_model_prompt(tmp_path):
+    state = FormulaState("LaTeX: x+y")
+    snapshot = action_snapshot(state, surface="full")
+    proposal = call("compile_tex", 1, latex=state.latex)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path))
+    normalized = runtime._normalize_call(proposal, authority=snapshot)
+    assert normalized.arguments == proposal.arguments
+    bound = bind_action(normalized, snapshot, state, surface="full")
+    assert bound.call.arguments == {"latex": state.latex}
+    # This asserts binding only; the actual compiler may reject this non-formula.
+
+
 def test_surface_setting_is_persisted_exposed_and_reversible(tmp_path):
     config = save_config_updates({"planner_surface": "minimal"}, tmp_path)
     assert config.planner_surface == "minimal"

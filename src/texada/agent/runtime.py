@@ -13,6 +13,7 @@ from texada.agent.actions import (
     ACTION_BINDING_INSTRUCTION,
     SURFACE_INSTRUCTIONS,
     ActionRejected,
+    ActionSnapshot,
     action_snapshot,
     bind_action,
     planner_schemas,
@@ -563,7 +564,7 @@ class TeXadaAgentRuntime:
             )
             render_confirmed = False
             for call in turn.tool_calls:
-                call = self._normalize_call(call)
+                call = self._normalize_call(call, authority=turn_snapshot)
                 trace_item["tool_calls"].append(self._trace_call(call))
                 try:
                     bound = bind_action(call, turn_snapshot, formula_state,
@@ -1564,12 +1565,24 @@ class TeXadaAgentRuntime:
         )
         return f"{call.name}:{arguments}"
 
-    def _normalize_call(self, call: PlannerToolCall) -> PlannerToolCall:
+    def _normalize_call(
+        self, call: PlannerToolCall, *, authority: ActionSnapshot | None = None,
+    ) -> PlannerToolCall:
         arguments = dict(call.arguments)
+        runtime_values = (
+            {"latex": authority.latex, "before": authority.before, "after": authority.latex}
+            if authority is not None else {}
+        )
         for key in ("latex", "before", "after"):
             value = arguments.get(key)
             if isinstance(value, str):
-                arguments[key] = self._sanitize_latex_argument(value)
+                # Exact authority is already normalized. Labels and wrappers can
+                # be literal formula content; compatibility heuristics must not
+                # rewrite the Runtime-owned bytes before the binding check.
+                arguments[key] = (
+                    value if value == runtime_values.get(key)
+                    else self._sanitize_latex_argument(value)
+                )
         if call.name == "render_math":
             mode = arguments.get("mode")
             if isinstance(mode, str) and mode.strip().lower() in {
@@ -1594,8 +1607,8 @@ class TeXadaAgentRuntime:
             "LaTeX:",
         )
         for marker in markers:
-            if marker in sanitized:
-                sanitized = sanitized.rsplit(marker, 1)[1].strip()
+            if sanitized.startswith(marker):
+                sanitized = sanitized[len(marker):].strip()
         sanitized = re.sub(
             r"^(?:formula|candidate|latex)\s*:\s*",
             "",
