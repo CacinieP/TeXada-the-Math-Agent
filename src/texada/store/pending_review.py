@@ -18,6 +18,7 @@ from PIL import Image
 
 from texada.runtime import CommitBarrierError, FormulaState, StaleRevisionError
 from texada.semantic.katex import shared_katex_parser
+from texada.semantic.structure import _sequence, canonical_structure
 from texada.types import RenderResult
 
 
@@ -81,6 +82,15 @@ def _position(parent_latex: str, path: str) -> dict[str, Any]:
     try:
         parsed = shared_katex_parser().parse(parent_latex)
         if not parsed.ok:
+            return missing
+        canonical, _ = canonical_structure(parent_latex)
+        # Footprint indices address canonical roots. Spacing, transparent
+        # groups, paired delimiters and digit coalescing can shift raw indices;
+        # only use raw locations when every root has exactly the same mapping.
+        if len(parsed.ast) != len(canonical) or any(
+            _sequence([raw]) != [root]
+            for raw, root in zip(parsed.ast, canonical, strict=True)
+        ):
             return missing
         node = parsed.ast[int(match[1])]
         role = match[2]

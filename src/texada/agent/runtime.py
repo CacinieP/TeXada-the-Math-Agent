@@ -976,9 +976,6 @@ class TeXadaAgentRuntime:
             raise ValueError("candidate task must be 'ocr', 'completion', or 'repair'")
         if not candidate_latex.strip():
             raise RuntimeError(f"{task} candidate is empty")
-        normalized_candidate = self.operator_guard.normalize_candidate(
-            candidate_latex
-        )
         if task == "repair":
             # The trusted caller already authorized deterministic syntax repair.
             # A planner is not needed to choose this existing host operation.
@@ -986,14 +983,14 @@ class TeXadaAgentRuntime:
             if candidate_latex != user_input:
                 raise ValueError("repair candidate must be the exact original source formula")
             state = self._scoped_state(
-                normalized_candidate, origin="repair_source", task="repair",
+                candidate_latex, origin="repair_source", task="repair",
                 requires_review=requires_review,
                 input_hash=input_source_hash or hash_review_source(user_input, _source_image),
             )
             result = await self._finalize(
-                normalized_candidate, trace=[{
+                candidate_latex, trace=[{
                     "step": 1, "origin": "host_syntax_repair", "task": "repair",
-                    "content": normalized_candidate, "tool_calls": [], "observations": [],
+                    "content": candidate_latex, "tool_calls": [], "observations": [],
                 }], render_mode=render_mode, semantic_diff={}, tokens_used=initial_tokens_used,
                 start=time.monotonic(), stop_reason="host_syntax_repair", formula_state=state,
             )
@@ -1010,6 +1007,7 @@ class TeXadaAgentRuntime:
                                            "arguments": arguments})
             result.trace[0]["tool_calls"] = host_calls
             return result
+        normalized_candidate = self.operator_guard.normalize_candidate(candidate_latex)
         if task == "completion" and initial_tokens_used == 0:
             deterministic = await self._run_deterministic_candidate(
                 DeterministicCandidate(

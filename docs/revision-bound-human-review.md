@@ -12,6 +12,8 @@ image state, source text, parent formula, candidate LaTeX and render, role chang
 and reliable source positions. Original text is written with `textContent`.
 Position ranges refer to the exact parent revision, using KaTeX UTF-16 offsets;
 unsupported mappings report `unavailable` instead of an estimated position.
+Raw and canonical roots must align individually before a location is shown;
+spacing and flattened groups cannot redirect a highlight to another fraction.
 Compile, render, CAS, human adoption and unverified user intent have separate
 states. Agent confidence is no longer set to 1 merely because syntax is valid.
 
@@ -61,7 +63,8 @@ Trusted handoff integration uses
 input_source_hash=...)`. This grants structural preservation to candidate
 proposals and syntax repair only to the actual deterministic tool result; it
 does not grant broad NL synthesis permission. This repair route runs the shared
-host compile/repair/recompile/render pipeline directly. Common missing closing
+host compile/repair/recompile/render pipeline directly, starting from the source
+formula rather than first applying model-output alias normalization. Common missing closing
 braces are repaired without a planner or backend request; inference fingerprints
 explicitly contain `calls: []`. Unrepairable input remains uncommitted rather
 than invoking an additional model or widening the grant. It then calls

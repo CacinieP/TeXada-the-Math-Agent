@@ -10,7 +10,7 @@ import pytest
 from PIL import Image
 
 from texada.agent.mutation_scope import MutationScopeGuard
-from texada.agent.protocol import PlannerTurn
+from texada.agent.protocol import PlannerToolCall, PlannerTurn
 from texada.agent.runtime import TeXadaAgentRuntime
 from texada.config import TeXadaConfig
 from texada.core.inference_fingerprint import build_inference_identity, collect_inference
@@ -93,6 +93,28 @@ def test_review_holds_exact_state_and_accept_records_explicit_risk_authorization
     assert human.output["scope_risk_explicitly_authorized"]
     assert not human.output["source_image_available"]
     assert human.output["intent_status"] == "NOT_CHECKED"
+
+
+@pytest.mark.parametrize("prefix", [r"\,", "{a+b}"])
+def test_canonical_root_changes_never_highlight_another_fraction(prefix):
+    before = prefix + r"\frac{a}{b}\frac{x}{y}"
+    after = prefix + r"\frac{a}{b}\frac{x}{z}"
+    dto = register(PendingReviewStore(), state_for(before, after))
+    denominators = [item for item in dto["role_diff"] if "denominator" in item["path"]]
+    assert len(denominators) == 1
+    assert denominators[0]["position"] == {
+        "status": "unavailable", "source": "parent_latex", "offset_units": "utf16"
+    }
+
+
+def test_aligned_raw_roots_highlight_the_changed_fraction_exactly():
+    before = r"12\frac{a}{b}\frac{x}{y}"
+    after = r"12\frac{a}{b}\frac{x}{z}"
+    dto = register(PendingReviewStore(), state_for(before, after))
+    denominator = next(item for item in dto["role_diff"] if "denominator" in item["path"])
+    position = denominator["position"]
+    assert position["status"] == "available"
+    assert before[position["start"]:position["end"]] == "{y}"
 
 
 def test_registration_rejects_changed_original_source_bytes():
@@ -290,7 +312,13 @@ async def test_low_risk_nl_preserves_auto_commit_and_cannot_claim_intent_proof(t
 async def test_nl_denominator_drift_needs_review_even_under_synthesis_grant(tmp_path):
     from unittest.mock import AsyncMock
 
-    planner = Planner([PlannerTurn(content=r"\frac{x}{3}")])
+    planner = Planner([
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            "proposal", "propose_candidate",
+            {"expected_revision": 1, "latex": r"\frac{x}{3}"},
+        )]),
+        PlannerTurn(content=r"\frac{x}{3}"),
+    ])
     planner.generate_latex = AsyncMock(return_value=r"\frac{x}{2}")
     runtime = TeXadaAgentRuntime(
         TeXadaConfig(data_dir=tmp_path, nl_candidate_first=True), model=planner
@@ -312,6 +340,17 @@ def test_exact_cas_counterexample_requires_review_independently_of_scope():
         output={"verdict": "different", "basis": "exact_counterexample"},
     )
     assert TeXadaAgentRuntime._review_reasons(state) == ["cas_counterexample"]
+
+
+@pytest.mark.asyncio
+async def test_handoff_repair_parent_does_not_apply_model_alias_normalization(tmp_path):
+    original = r"\int\int f(x)dx"
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=Planner([]))
+    result = await runtime.run_candidate("repair", original, original, requires_review=True)
+    assert result.valid and not result.committed
+    assert result.latex == original and result.revision == 1
+    assert result.formula_ledger["revisions"][0]["latex"] == original
+    assert result.review_reasons == ["trusted_review_required"]
 
 
 @pytest.mark.asyncio

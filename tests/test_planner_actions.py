@@ -327,7 +327,8 @@ async def test_full_compile_and_render_preserve_authoritative_literal_labels(tmp
     runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
     result = await runtime.run("public synthetic formula", _task="ocr", _initial_candidate=latex)
-    assert result.valid and result.committed
+    assert result.valid and not result.committed
+    assert result.review_reasons == ["ocr_source_requires_review"]
     assert result.latex == latex and result.revision == 1
     assert len(result.formula_ledger["revisions"]) == 1
     assert '<span class="katex">' in result.render.katex_html
