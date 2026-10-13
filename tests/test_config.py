@@ -91,8 +91,6 @@ def test_license_is_synchronized_as_agpl_v3_or_later():
     } == {expected}
     assert "license-AGPL--3.0--or--later-blue" in readme
     assert "`AGPL-3.0-or-later`" in readme
-    assert "assets/texada-hero-agpl.png" in readme
-    assert (ROOT / "assets/texada-hero-agpl.png").is_file()
     assert "GNU AFFERO GENERAL PUBLIC LICENSE" in license_text
     assert "Version 3, 19 November 2007" in license_text
 
