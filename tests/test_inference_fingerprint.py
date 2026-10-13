@@ -9,7 +9,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from openai import OpenAI
+from openai import InternalServerError, OpenAI
 from pydantic import ValidationError
 
 from texada.agent.runtime import AgentRunResult, TeXadaAgentRuntime
@@ -474,3 +474,105 @@ def test_mounted_app_and_proxy_root_path_collect_route_relative_runs(tmp_path, p
     for entry in runs:
         assert entry["inference_fingerprint"]["status"] == "RECORDED"
         assert entry["inference_fingerprint"]["calls"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("choice", [
+    {"type": "function", "function": {"name": "compile_tex"}},
+    {"type": "custom", "custom": {"name": "compile_tex"}},
+    {"type": "allowed_tools", "allowed_tools": {
+        "mode": "required", "tools": [{"type": "function", "function": {"name": "compile_tex"}}],
+    }},
+])
+@pytest.mark.parametrize("timeout", [
+    7.5, None, httpx.Timeout(7), httpx.Timeout(None),
+    httpx.Timeout(connect=1, read=2, write=3, pool=4),
+])
+async def test_sdk_union_parameters_work_with_and_without_collection(tmp_path, choice, timeout):
+    model = MiniCPMModel(api_config(tmp_path))
+    observed = []
+
+    def handler(request):
+        observed.append((json.loads(request.content), request.extensions["timeout"]))
+        return httpx.Response(200, json=provider_response())
+
+    http_client = mock_provider(model, handler)
+    kwargs = {
+        "model": model.model, "messages": [{"role": "user", "content": "private input"}],
+        "tool_choice": choice, "timeout": timeout,
+    }
+    try:
+        without = await asyncio.to_thread(model._completion_create, **kwargs)
+        with collect_inference(build_inference_identity(model.config)) as collector:
+            collected = await asyncio.to_thread(model._completion_create, **kwargs)
+        fingerprint = collector.snapshot()
+    finally:
+        http_client.close()
+
+    assert without.choices[0].message.content == collected.choices[0].message.content == "x"
+    assert observed[0] == observed[1]
+    assert observed[1][0]["tool_choice"] == choice
+    assert fingerprint["capture_status"] == "COMPLETE"
+    assert fingerprint["capture_errors"] == []
+    attempt = fingerprint["calls"][0]
+    normalized = attempt["options"]["tool_choice"]
+    assert normalized["type"] == choice["type"]
+    if choice["type"] == "allowed_tools":
+        assert normalized["mode"] == "required"
+        assert normalized["tools_sha256"] == canonical_sha256(choice["allowed_tools"]["tools"])
+    else:
+        assert normalized["name"] == "compile_tex"
+    assert attempt["effective_timeout"] == observed[1][1]
+    values = list(observed[1][1].values())
+    assert attempt["effective_timeout_seconds"] == (values[0] if len(set(values)) == 1 else None)
+    assert validate_inference_fingerprint(fingerprint) == fingerprint
+    assert "private input" not in json.dumps(fingerprint)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stage", ["begin_call", "finish_call"])
+@pytest.mark.parametrize("provider_fails", [False, True])
+async def test_collection_failure_preserves_sdk_result_or_error_and_marks_partial(
+    tmp_path, monkeypatch, stage, provider_fails,
+):
+    model = MiniCPMModel(api_config(tmp_path))
+
+    def handler(request):
+        return httpx.Response(500, json={"error": {"message": "provider failure"}}) if (
+            provider_fails
+        ) else httpx.Response(200, json=provider_response())
+
+    def fail_capture(*args, **kwargs):
+        raise RuntimeError("private capture diagnostic with secret-user-content")
+
+    http_client = mock_provider(model, handler)
+    kwargs = {"model": model.model, "messages": [{"role": "user", "content": "private input"}]}
+    try:
+        with collect_inference(build_inference_identity(model.config)) as collector:
+            monkeypatch.setattr(collector, stage, fail_capture)
+            if provider_fails:
+                with pytest.raises(InternalServerError, match="provider failure"):
+                    await asyncio.to_thread(model._completion_create, **kwargs)
+            else:
+                response = await asyncio.to_thread(model._completion_create, **kwargs)
+                assert response.choices[0].message.content == "x"
+        fingerprint = collector.snapshot()
+    finally:
+        http_client.close()
+
+    assert fingerprint["status"] == "RECORDED"
+    assert fingerprint["capture_status"] == "PARTIAL"
+    assert fingerprint["capture_errors"] == [{"stage": stage, "error_type": "RuntimeError"}]
+    if stage == "begin_call":
+        assert fingerprint["calls"] == []
+    else:
+        assert fingerprint["calls"][0]["outcome"] == ("error" if provider_fails else "success")
+        assert fingerprint["calls"][0]["error_type"] == (
+            "InternalServerError" if provider_fails else None
+        )
+        assert fingerprint["calls"][0]["response_model"]["reason"] == (
+            "provider response metadata capture failed"
+        )
+    assert "private capture diagnostic" not in json.dumps(fingerprint)
+    assert "secret-user-content" not in json.dumps(fingerprint)
+    assert validate_inference_fingerprint(fingerprint) == fingerprint

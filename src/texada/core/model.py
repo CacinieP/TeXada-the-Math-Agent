@@ -91,17 +91,34 @@ class MiniCPMModel:
         self, *, _inference_purpose="unspecified", _inference_fixed_few_shot=None, **kwargs,
     ):
         collector = current_inference_collector()
-        attempt = (
-            collector.begin_call(
-                _inference_purpose, kwargs, fixed_few_shot=_inference_fixed_few_shot,
-                default_timeout=self.config.inference_timeout_seconds,
-            ) if collector is not None else None
+
+        def capture(stage, *args, **metadata):
+            if collector is None:
+                return None
+            try:
+                return getattr(collector, stage)(*args, **metadata)
+            except Exception as exc:
+                provider_error = metadata.get("error")
+                collector.capture_failure(
+                    stage, exc,
+                    attempt=args[0] if stage == "finish_call" else None,
+                    outcome="error" if provider_error is not None else "success",
+                    provider_error_type=(
+                        type(provider_error).__name__ if provider_error is not None else None
+                    ),
+                )
+                return None
+
+        attempt = capture(
+            "begin_call", _inference_purpose, kwargs,
+            fixed_few_shot=_inference_fixed_few_shot,
+            default_timeout=self.config.inference_timeout_seconds,
         )
         try:
             response = self.client.chat.completions.create(**kwargs)
         except Exception as exc:
             if collector is not None and attempt is not None:
-                collector.finish_call(attempt, error=exc)
+                capture("finish_call", attempt, error=exc)
             if isinstance(exc, (APITimeoutError, httpx.TimeoutException)):
                 raise RuntimeError(
                     f"模型请求超时（{self.config.inference_timeout_seconds:.0f}s），"
@@ -109,7 +126,7 @@ class MiniCPMModel:
                 ) from exc
             raise
         if collector is not None and attempt is not None:
-            collector.finish_call(attempt, response=response, api_key=self.config.active_api_key)
+            capture("finish_call", attempt, response=response, api_key=self.config.active_api_key)
         return response
 
     def _text_model_name(self) -> str:

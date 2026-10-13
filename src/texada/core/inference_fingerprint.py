@@ -11,9 +11,10 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit, urlunsplit
 
+import httpx
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from texada import __version__
@@ -118,10 +119,29 @@ class InferenceIdentity(_Contract):
         return value
 
 
+class StructuredToolChoice(_Contract):
+    type: Literal["function", "custom", "allowed_tools"]
+    name: str | None = Field(default=None, max_length=300)
+    mode: Literal["auto", "required"] | None = None
+    tools_sha256: Digest | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class TimeoutConfiguration(_Contract):
+    connect: float | None
+    read: float | None
+    write: float | None
+    pool: float | None
+
+
+class CaptureFailure(_Contract):
+    stage: Literal["begin_call", "finish_call"]
+    error_type: str = Field(max_length=100)
+
+
 class RequestOptions(_Contract):
     temperature: float | None = None
     max_tokens: int | None = None
-    tool_choice: str | None = Field(default=None, max_length=80)
+    tool_choice: Annotated[str, Field(max_length=80)] | StructuredToolChoice | None = None
     reasoning_effort: str | None = Field(default=None, max_length=80)
     enable_thinking: bool | None = None
 
@@ -134,6 +154,7 @@ class ProviderAttempt(_Contract):
     fixed_few_shot_sha256: Digest | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     tool_schema_sha256: Digest | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     effective_timeout_seconds: float | None = None
+    effective_timeout: TimeoutConfiguration | None = None
     outcome: Literal["pending", "success", "error"] = "pending"
     error_type: str | None = Field(default=None, max_length=100)
     response_model: IdentityEvidence
@@ -147,15 +168,24 @@ class InferenceFingerprint(_Contract):
     identity: InferenceIdentity | None = None
     identity_sha256: Digest | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     calls: list[ProviderAttempt] = Field(default_factory=list, max_length=100)
+    capture_status: Literal["COMPLETE", "PARTIAL", "NOT_CHECKED"] = "NOT_CHECKED"
+    capture_errors: list[CaptureFailure] = Field(default_factory=list, max_length=100)
 
     @model_validator(mode="after")
     def identity_digest_matches(self):
+        if self.capture_errors and self.capture_status != "PARTIAL":
+            raise ValueError("capture failures must be marked PARTIAL")
+        if self.capture_status == "PARTIAL" and not self.capture_errors:
+            raise ValueError("PARTIAL capture requires a capture failure record")
         if self.status == "RECORDED":
             if self.identity is None:
                 raise ValueError("RECORDED fingerprint requires identity")
             if self.identity_sha256 != canonical_sha256(self.identity.model_dump()):
                 raise ValueError("fingerprint identity_sha256 does not match identity")
-        elif self.identity is not None or self.identity_sha256 is not None or self.calls:
+        elif (
+            self.identity is not None or self.identity_sha256 is not None or self.calls
+            or self.capture_status != "NOT_CHECKED" or self.capture_errors
+        ):
             raise ValueError("NOT_CHECKED fingerprint must not reconstruct an execution")
         return self
 
@@ -168,7 +198,13 @@ def legacy_inference_fingerprint() -> dict:
 
 
 def validate_inference_fingerprint(value: Any) -> dict:
-    return InferenceFingerprint.model_validate(value).model_dump()
+    validated = InferenceFingerprint.model_validate(value).model_dump()
+    if validated["status"] == "NOT_CHECKED":
+        # Keep the legacy wire shape unchanged; its status already says that
+        # no historical execution was captured.
+        validated.pop("capture_status")
+        validated.pop("capture_errors")
+    return validated
 
 
 def _not_checked(reason: str) -> dict:
@@ -280,13 +316,37 @@ class InferenceCollector:
         self.identity = InferenceIdentity.model_validate(identity).model_dump()
         self.identity_sha256 = canonical_sha256(self.identity)
         self.calls: list[dict] = []
+        self.capture_errors: list[dict] = []
         self._lock = threading.Lock()
+
+    @staticmethod
+    def _tool_choice(value):
+        if not isinstance(value, dict):
+            return value
+        kind = value.get("type")
+        if kind in {"function", "custom"}:
+            return {"type": kind, "name": value[kind]["name"]}
+        if kind == "allowed_tools":
+            allowed = value["allowed_tools"]
+            return {
+                "type": kind, "mode": allowed["mode"],
+                "tools_sha256": canonical_sha256(allowed["tools"]),
+            }
+        raise ValueError("unrecognized structured tool choice")
+
+    @staticmethod
+    def _timeout(value) -> dict:
+        phases = value.as_dict() if isinstance(value, httpx.Timeout) else {
+            phase: value for phase in TimeoutConfiguration.model_fields
+        }
+        return TimeoutConfiguration.model_validate(phases).model_dump()
 
     def begin_call(
         self, purpose: str, kwargs: dict, *, fixed_few_shot: list[dict] | None,
         default_timeout: float,
     ) -> int:
         options = {name: kwargs.get(name) for name in ("temperature", "max_tokens", "tool_choice")}
+        options["tool_choice"] = self._tool_choice(options["tool_choice"])
         extra = kwargs.get("extra_body") or {}
         options["reasoning_effort"] = kwargs.get("reasoning_effort", extra.get("reasoning_effort"))
         options["enable_thinking"] = (extra.get("chat_template_kwargs") or {}).get(
@@ -297,6 +357,8 @@ class InferenceCollector:
             if message.get("role") == "system"
         ]
         tools = kwargs.get("tools")
+        timeout = self._timeout(kwargs.get("timeout", default_timeout))
+        uniform_timeout = timeout["read"] if len(set(timeout.values())) == 1 else None
         call = ProviderAttempt(
             purpose=purpose, requested_model=kwargs.get("model", ""), options=options,
             system_prompt_sha256=canonical_sha256(system_messages),
@@ -304,7 +366,7 @@ class InferenceCollector:
                 canonical_sha256(fixed_few_shot) if fixed_few_shot is not None else None
             ),
             tool_schema_sha256=canonical_sha256(tools) if tools is not None else None,
-            effective_timeout_seconds=kwargs.get("timeout", default_timeout),
+            effective_timeout_seconds=uniform_timeout, effective_timeout=timeout,
             response_model=_not_checked("no provider response was observed"),
             provider_system_fingerprint=_not_checked(
                 "provider did not report a system fingerprint",
@@ -313,6 +375,23 @@ class InferenceCollector:
         with self._lock:
             self.calls.append(call)
             return len(self.calls) - 1
+
+    def capture_failure(
+        self, stage: str, error: Exception, *, attempt: int | None = None,
+        outcome: str | None = None, provider_error_type: str | None = None,
+    ) -> None:
+        # Never retain exception text, request kwargs, or response bodies.
+        failure = {"stage": stage, "error_type": type(error).__name__[:100]}
+        with self._lock:
+            self.capture_errors.append(failure)
+            if isinstance(attempt, int) and 0 <= attempt < len(self.calls):
+                # The SDK outcome is known even if response metadata failed.
+                call = self.calls[attempt]
+                call["outcome"] = outcome
+                call["error_type"] = provider_error_type
+                for field in ("response_model", "provider_system_fingerprint"):
+                    if call[field]["status"] == "NOT_CHECKED":
+                        call[field] = _not_checked("provider response metadata capture failed")
 
     def finish_call(self, index: int, *, response=None, error=None, api_key: str = "") -> None:
         with self._lock:
@@ -336,6 +415,8 @@ class InferenceCollector:
                 "schema_version": 1, "status": "RECORDED", "reason": "",
                 "identity": copy.deepcopy(self.identity), "identity_sha256": self.identity_sha256,
                 "calls": copy.deepcopy(self.calls),
+                "capture_status": "PARTIAL" if self.capture_errors else "COMPLETE",
+                "capture_errors": copy.deepcopy(self.capture_errors),
             }
 
 
