@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -13,7 +14,11 @@ import structural_match as matcher
 import yaml
 from anchor_match import anchor_present
 
-from texada.core.inference_fingerprint import canonical_sha256
+from texada.core.inference_fingerprint import (
+    canonical_sha256,
+    collect_inference,
+    current_inference_collector,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS = yaml.safe_load((ROOT / "eval/structural_adversarial_cases.yaml").read_text())
@@ -233,6 +238,7 @@ async def test_live_runner_adds_independent_optional_structure_without_network(
     row = report["rows"][0]
     fingerprint = row["inference_fingerprint"]
     assert fingerprint["status"] == "RECORDED"
+    assert fingerprint["capture_status"] == "COMPLETE"
     assert fingerprint["calls"] == []  # This fake runtime never invokes a provider.
     assert fingerprint["identity"] == report["inference_identity"]
     assert fingerprint["identity_sha256"] == report["inference_identity_sha256"]
@@ -251,3 +257,65 @@ async def test_live_runner_adds_independent_optional_structure_without_network(
         assert row["strict_structure"]["reference_review_status"] == "agent-reviewed"
     assert report["summary"]["anchor_containment_passed"] == int(not inference_fails)
     assert report["summary"]["strict_structure"]["counts"]["MATCH"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure_at", [0, 1], ids=["first-row", "later-row"])
+async def test_runner_collection_initialization_failure_keeps_each_inference_once(
+    monkeypatch, tmp_path, failure_at,
+):
+    monkeypatch.setenv("TEXADA_OPENAI_API_KEY", "inert-test-placeholder")
+    monkeypatch.setattr(live_runner, "load_golden_set", lambda: [
+        {"id": str(index), "input": str(index), "anchor": "x"} for index in range(2)
+    ])
+    monkeypatch.setattr(live_runner.BackendManager, "ensure_ready", AsyncMock(return_value=True))
+    monkeypatch.setattr(live_runner, "MiniCPMModel", lambda _: SimpleNamespace(
+        _client=None, _completion_create=lambda **_: None,
+    ))
+    entries = 0
+
+    @contextmanager
+    def controlled_collection(identity):
+        nonlocal entries
+        index = entries
+        entries += 1
+        if index == failure_at:
+            raise RuntimeError("private collection diagnostic")
+        with collect_inference(identity) as collector:
+            yield collector
+
+    monkeypatch.setattr(live_runner, "collect_inference", controlled_collection)
+    inputs = []
+
+    async def run_input(value):
+        inputs.append(value)
+        observed = current_inference_collector()
+        assert (observed is None) == (int(value) == failure_at)
+        return SimpleNamespace(latex="x", valid=True, render=SimpleNamespace(katex_html="x"),
+                               committed=True, revision=1, stop_reason="test", tokens_used=0,
+                               trace=[])
+
+    monkeypatch.setattr(live_runner, "TeXadaAgentRuntime", lambda *_args, **_kwargs:
+                        SimpleNamespace(run=run_input))
+    args = SimpleNamespace(output_dir=tmp_path, planner_control=False, limit=0,
+                           request_interval=0, structure_references=None)
+    # An unrelated outer context must never acquire a failed row's attempts.
+    identity = live_runner.build_inference_identity(live_runner.TeXadaConfig(data_dir=tmp_path))
+    with collect_inference(identity) as outer:
+        await live_runner.run(args)
+        assert current_inference_collector() is outer
+        assert outer.snapshot()["calls"] == []
+    report = json.loads((tmp_path / "live-golden.json").read_text())
+    assert inputs == ["0", "1"]
+    assert entries == 2
+    for index, row in enumerate(report["rows"]):
+        assert row["valid"] and "error" not in row
+        fingerprint = row["inference_fingerprint"]
+        if index == failure_at:
+            assert fingerprint["status"] == "NOT_CHECKED"
+            assert fingerprint["reason"] == "capture_initialization_failed:RuntimeError"
+            assert fingerprint["identity"] is None and fingerprint["calls"] == []
+        else:
+            assert fingerprint["status"] == "RECORDED"
+            assert fingerprint["capture_status"] == "COMPLETE"
+    assert "private collection diagnostic" not in json.dumps(report)

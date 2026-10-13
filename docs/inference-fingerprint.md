@@ -36,6 +36,16 @@ model was invoked. Failed provider attempts remain recorded even when no model
 response exists. An in-flight attempt is marked `pending` if its response has
 not yet been observed when a snapshot is taken.
 
+`capture_status: COMPLETE` means the collector observed its SDK attempts.
+If collecting attempt metadata fails, the original SDK request still executes
+and the envelope is `PARTIAL`, with only the collection stage and exception
+class in `capture_errors`. Missing attempts in a partial capture must not be
+interpreted as proof that no model was called. Forced-tool dictionaries and
+phase-specific `httpx.Timeout` settings retain a normalized contract rather
+than blocking the SDK. Identity or collector initialization failures in API
+requests fall back to `NOT_CHECKED` with an exception-class-only reason; the
+request executes once using its frozen resources.
+
 ## Evidence boundaries
 
 Provider response `model` and `system_fingerprint` are `REPORTED`, never verified

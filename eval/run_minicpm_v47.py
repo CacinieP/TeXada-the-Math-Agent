@@ -17,6 +17,7 @@ import os
 import statistics
 import threading
 import time
+from contextlib import ExitStack
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -39,6 +40,8 @@ from texada.core.inference_fingerprint import (
     canonical_sha256,
     collect_inference,
     sanitized_endpoint,
+    unavailable_inference_fingerprint,
+    without_inference_collection,
 )
 from texada.core.model import MiniCPMModel
 from texada.semantic.katex import shared_katex_parser
@@ -137,8 +140,15 @@ async def run(args) -> None:
             variants = anchor_variants(entry["anchor"])
             row["anchor_checked"] = bool(variants)
             runtime = TeXadaAgentRuntime(config, model=model)
+            collector = None
+            fingerprint_fallback = None
             try:
-                with collect_inference(identity) as collector:
+                with ExitStack() as collection:
+                    try:
+                        collector = collection.enter_context(collect_inference(identity))
+                    except Exception as exc:
+                        fingerprint_fallback = unavailable_inference_fingerprint(exc)
+                        collection.enter_context(without_inference_collection())
                     result = await runtime.run(entry["input"])
                 row.update(
                     latex=result.latex, valid=result.valid,
@@ -152,7 +162,9 @@ async def run(args) -> None:
                 row.update(error=f"{type(exc).__name__}: {exc}".replace(key, "[REDACTED]"),
                            valid=False, rendered=False, committed=False,
                            anchor_containment=False if variants else None)
-            row["inference_fingerprint"] = collector.snapshot()
+            row["inference_fingerprint"] = (
+                collector.snapshot() if collector is not None else fingerprint_fallback
+            )
             # Keep the legacy runtime/containment latency boundary unchanged.
             row["elapsed_seconds"] = round(time.monotonic() - started, 3)
             strict_started = time.monotonic()
