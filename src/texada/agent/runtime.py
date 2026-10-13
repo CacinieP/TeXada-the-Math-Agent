@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import re
 import time
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from texada.agent.failure_context import project_failure_context
 from texada.agent.protocol import PlannerToolCall, PlannerTurn
 from texada.config import TeXadaConfig
 from texada.core.backend import BackendManager
@@ -371,8 +373,12 @@ class TeXadaAgentRuntime:
         for step_index in range(1, self.max_steps + 1):
             if not self._model_call_budget_available(start):
                 return reject_model_budget()
+            projection = project_failure_context(
+                messages, formula_state.planner_projection(),
+                enabled=self.config.failure_context_projection,
+            )
             try:
-                turn = await self.model.plan(messages, self.tools.schemas)
+                turn = await self.model.plan(projection.messages, self.tools.schemas)
             except RuntimeError as exc:
                 trace.append(
                     {
@@ -412,12 +418,19 @@ class TeXadaAgentRuntime:
                     },
                 )
             tokens_used += turn.tokens_used
+            prompt_tokens = getattr(turn, "prompt_tokens_used", None)
+            if isinstance(prompt_tokens, int) and not isinstance(prompt_tokens, bool):
+                projection.metrics["input_tokens"] = {
+                    "status": "REPORTED", "value": prompt_tokens, "reason": "",
+                }
             trace_item: dict[str, Any] = {
                 "step": len(trace) + 1,
                 "origin": "planner",
                 "content": turn.content,
                 "tool_calls": [],
                 "observations": [],
+                "raw_tool_calls": deepcopy([self._trace_call(call) for call in turn.tool_calls]),
+                "planner_projection": projection.metrics,
             }
             if step_index == 1:
                 trace_item["preprocessed_input"] = preprocessed

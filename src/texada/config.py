@@ -36,6 +36,7 @@ SAVED_CONFIG_FIELDS = frozenset({
     "api_request_timeout_seconds",
     "agent_max_steps",
     "nl_candidate_first",
+    "failure_context_projection",
     "ocr_preprocessing",
     "run_log_max_days",
     "run_log_max_items",
@@ -76,6 +77,7 @@ class TeXadaConfig(BaseSettings):
     agent_max_steps: int = Field(default=3, ge=1, le=8)
     # Opt in to NL candidate generation before the shared compile/Planner review.
     nl_candidate_first: bool = False
+    failure_context_projection: bool = True
     # Wall-clock budget for one TeX tool call; a pathological input cannot
     # pin the service beyond this bound.
     tool_timeout_seconds: float = Field(default=10.0, gt=0.0, le=120.0)

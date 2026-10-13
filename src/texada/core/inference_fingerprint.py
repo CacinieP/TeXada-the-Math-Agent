@@ -15,7 +15,14 @@ from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from texada import __version__
 from texada.config import TeXadaConfig
@@ -98,6 +105,11 @@ class DatasetIdentity(_Contract):
     sha256: IdentityEvidence
 
 
+class PlannerControls(_Contract):
+    failure_context_projection: bool
+    surface: Literal["full", "minimal"]
+
+
 class InferenceIdentity(_Contract):
     application_version: str = Field(max_length=100)
     application_build: IdentityEvidence
@@ -110,6 +122,14 @@ class InferenceIdentity(_Contract):
     tool_schema_sha256: Digest = Field(pattern=r"^[0-9a-f]{64}$")
     artifacts: ArtifactIdentities
     dataset: DatasetIdentity
+    planner_controls: PlannerControls | None = None
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_identity_bytes(self, handler):
+        data = handler(self)
+        if self.planner_controls is None:
+            data.pop("planner_controls", None)
+        return data
 
     @field_validator("endpoint")
     @classmethod
@@ -235,6 +255,7 @@ def _package_version(package: str) -> str | None:
 def default_prompt_manifest() -> dict:
     # Lazy imports avoid model/runtime initialization cycles. These are fixed
     # application instructions and examples, never request content.
+    from texada.agent.failure_context import FAILURE_CONTEXT_INSTRUCTION
     from texada.agent.runtime import (
         COMPLETION_AGENT_PROMPT,
         NL_AGENT_PROMPT,
@@ -262,6 +283,7 @@ def default_prompt_manifest() -> dict:
         "nl_retry": NL_RETRY_INSTRUCTION, "ocr_retry": OCR_RETRY_INSTRUCTION,
         "ocr_user_instruction": OCR_USER_INSTRUCTION,
         "operator_constraint_template": OPERATOR_CONSTRAINT_TEMPLATE,
+        "failure_context_instruction": FAILURE_CONTEXT_INSTRUCTION,
     }
 
 
@@ -311,6 +333,10 @@ def build_inference_identity(
         dataset={
             "version": _configured(dataset_version, "interactive request has no dataset identity"),
             "sha256": _configured(dataset_sha256, "dataset content hash was not supplied"),
+        },
+        planner_controls={
+            "failure_context_projection": config.failure_context_projection,
+            "surface": getattr(config, "planner_surface", "full"),
         },
     )
     return identity.model_dump()

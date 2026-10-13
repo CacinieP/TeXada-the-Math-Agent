@@ -33,6 +33,7 @@ class PlannerTurn:
     reasoning: str = ""
     tool_calls: list[PlannerToolCall] = field(default_factory=list)
     tokens_used: int = 0
+    prompt_tokens_used: int | None = None
 
 
 class MiniCPMToolCallParser:

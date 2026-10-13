@@ -217,10 +217,15 @@ class MiniCPMModel:
             return PlannerTurn()
         usage = getattr(response, "usage", None)
         tokens = int(getattr(usage, "total_tokens", 0) or 0)
-        return self._tool_parser.parse_message(
+        turn = self._tool_parser.parse_message(
             response.choices[0].message,
             tokens_used=tokens,
         )
+        prompt_tokens = getattr(usage, "prompt_tokens", None)
+        if (isinstance(prompt_tokens, int) and not isinstance(prompt_tokens, bool)
+                and prompt_tokens >= 0):
+            turn.prompt_tokens_used = prompt_tokens
+        return turn
 
     async def generate_latex(
         self,

@@ -69,6 +69,7 @@ async def run(args) -> None:
         max_tokens=2048,
         agent_max_steps=3,
         nl_candidate_first=not args.planner_control,
+        failure_context_projection=not getattr(args, "raw_failure_context", False),
         data_dir=output / "runtime-data",
     )
     config.ensure_dirs()
@@ -119,6 +120,7 @@ async def run(args) -> None:
         "parameters": {"temperature": config.temperature, "max_tokens": config.max_tokens,
                        "agent_max_steps": config.agent_max_steps, "enable_thinking": False,
                        "nl_candidate_first": config.nl_candidate_first,
+                       "failure_context_projection": config.failure_context_projection,
                        "request_interval_seconds": args.request_interval,
                        "rate_limit_max_attempts": 3},
         "golden_set_sha256": dataset_sha256,
@@ -210,6 +212,8 @@ if __name__ == "__main__":
     parser.add_argument("--request-interval", type=float, default=3.2)
     parser.add_argument("--planner-control", action="store_true",
                         help="Use the original full-schema NL Planner initialization")
+    parser.add_argument("--raw-failure-context", action="store_true",
+                        help="Paired control: retain failed tool exchanges in Planner history")
     parser.add_argument("--structure-references", type=Path,
                         help="Opt in with an authored full-expression reference registry")
     arguments = parser.parse_args()
