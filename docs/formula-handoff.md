@@ -17,7 +17,11 @@ must recheck the whole document; the claimed hash is not independently observed.
 Requested step/time/output-per-call budgets clamp existing configuration and are
 recorded in the actual inference identity. Deterministic repair uses local tools
 and records zero provider calls. Completion uses the same checkpoint, without a
-fallback model. The overall async deadline cannot undo an already sent HTTP request;
+fallback model. The deadline also covers identity setup, review registration and logging.
+Registration is checked before and after its synchronous held-state write; an
+abandoned pending review is invalidated and cannot be adopted. Cancellation
+cannot interrupt already started synchronous CPU work, which is checked afterward.
+The overall async deadline cannot undo an already sent HTTP request;
 provider timeout is also bounded, and a late provider reply cannot register a review
 or commit after cancellation. Token limits apply to each provider response.
 

@@ -578,6 +578,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         async def execute():
             return await produce_formula_transfer(
                 req, frozen_config, register_transfer, record_result=log_transfer,
+                on_abandon_review=review_store.discard_pending,
             )
 
         try:

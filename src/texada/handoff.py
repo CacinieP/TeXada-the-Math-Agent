@@ -177,10 +177,12 @@ def bounded_configuration(config: TeXadaConfig, transfer: FormulaTransfer) -> Te
     })
 
 
-async def produce_formula_transfer(
+async def _produce_formula_transfer(
     transfer: FormulaTransfer, config: TeXadaConfig, register_review: Callable,
     *, model_factory=None, runtime_factory=None,
     record_result: Callable | None = None,
+    on_abandon_review: Callable | None = None,
+    _deadline: float, _started: float,
 ) -> dict:
     """Only original formula text is transferred to inference; whole-document hash is a claim."""
     bounded = bounded_configuration(config, transfer)
@@ -189,7 +191,15 @@ async def produce_formula_transfer(
     model = model_factory(bounded)
     runtime = runtime_factory(bounded, model=model)
     collector, fallback = None, None
-    started = time.monotonic()
+    started = _started
+    registered_review = None
+
+    def remaining():
+        left = _deadline - time.monotonic()
+        if left <= 0:
+            raise HandoffError("TRANSFER_TIMEOUT", status_code=504)
+        return left
+
     try:
         with ExitStack() as collection:
             try:
@@ -198,6 +208,8 @@ async def produce_formula_transfer(
             except Exception as exc:
                 fallback = unavailable_inference_fingerprint(exc)
                 collection.enter_context(without_inference_collection())
+
+            remaining()
 
             async def run():
                 candidate = transfer.original_latex
@@ -214,7 +226,7 @@ async def produce_formula_transfer(
                 )
 
             try:
-                result = await asyncio.wait_for(run(), timeout=bounded.api_request_timeout_seconds)
+                result = await asyncio.wait_for(run(), timeout=remaining())
             except TimeoutError as exc:
                 raise HandoffError("TRANSFER_TIMEOUT", status_code=504) from exc
             if result.committed:
@@ -223,6 +235,7 @@ async def produce_formula_transfer(
             if not result.latex or result.revision is None:
                 raise HandoffError("TRANSFER_CANDIDATE_UNAVAILABLE")
             fingerprint = collector.snapshot() if collector is not None else fallback
+            remaining()
             review = register_review(
                 result, source_text=transfer.original_latex, input_hash=transfer.input_sha256,
                 metadata={"transfer_id": transfer.transfer_id,
@@ -233,6 +246,8 @@ async def produce_formula_transfer(
             )
             if inspect.isawaitable(review):
                 review = await review
+            registered_review = review
+            remaining()
             if not review or review.get("status") != "pending":
                 raise HandoffError("TRANSFER_REVIEW_UNAVAILABLE")
             binding = review.get("binding") or {name: review[name] for name in (
@@ -270,12 +285,43 @@ async def produce_formula_transfer(
                 "evidence": {"mutation_scope": scope, "cas_transition": cas},
                 "inference_fingerprint": fingerprint, "review": review,
             }
+            remaining()
             if record_result is not None:
                 recorded = record_result(result, response, (time.monotonic()-started)*1000)
                 if inspect.isawaitable(recorded):
                     await recorded
+            remaining()
             return response
+    except BaseException:
+        if registered_review is not None and on_abandon_review is not None:
+            on_abandon_review(registered_review["id"])
+        raise
     finally:
         client = getattr(model, "_client", None)
         if client is not None:
             client.close()
+
+
+async def produce_formula_transfer(
+    transfer: FormulaTransfer, config: TeXadaConfig, register_review: Callable,
+    *, model_factory=None, runtime_factory=None, record_result: Callable | None = None,
+    on_abandon_review: Callable | None = None,
+) -> dict:
+    """Bound the complete proposal lifecycle, including review/log postprocessing."""
+    started = time.monotonic()
+    bounded = bounded_configuration(config, transfer)
+    seconds = bounded.api_request_timeout_seconds
+    try:
+        response = await asyncio.wait_for(_produce_formula_transfer(
+            transfer, bounded, register_review, model_factory=model_factory,
+            runtime_factory=runtime_factory, record_result=record_result,
+            on_abandon_review=on_abandon_review,
+            _deadline=started+seconds, _started=started,
+        ), timeout=max(0.0, started+seconds-time.monotonic()))
+        if time.monotonic() >= started+seconds:
+            if on_abandon_review is not None:
+                on_abandon_review(response["review"]["id"])
+            raise HandoffError("TRANSFER_TIMEOUT", status_code=504)
+        return response
+    except TimeoutError as exc:
+        raise HandoffError("TRANSFER_TIMEOUT", status_code=504) from exc

@@ -2,6 +2,7 @@
 import asyncio
 import copy
 import json
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import httpx
@@ -12,6 +13,7 @@ from pydantic import ValidationError
 
 from texada.api import create_app
 from texada.config import TeXadaConfig
+from texada.core.backend import BackendManager
 from texada.core.model import MiniCPMModel
 from texada.handoff import (
     FormulaTransfer,
@@ -218,23 +220,25 @@ def test_completion_sdk_uses_only_formula_and_actual_bounded_identity(tmp_path, 
             )
         return _self._client
     monkeypatch.setattr(MiniCPMModel, "client", property(sdk))
+    monkeypatch.setattr(BackendManager, "_is_running", AsyncMock(return_value=True))
     with TestClient(create_app(config(tmp_path))) as client:
         request = envelope("x", requested_action="complete", allowed_scope="completion_prefix",
-                           budget={"max_steps": 1, "max_seconds": 2, "max_tokens": 64})
+                           budget={"max_steps": 1, "max_seconds": 10, "max_tokens": 64})
         body = client.post("/api/handoff/formula", json=request)
         assert body.status_code == 200, body.text
         result = body.json()
         assert result["candidate"] == "x+1" and result["review"]["status"] == "pending"
-        assert len(requests) == 1 and requests[0]["model"] == "MiniCPM-V-4.7-1B"
+        assert len(requests) == 2
+        assert all(req["model"] == "MiniCPM-V-4.7-1B" for req in requests)
         assert requests[0]["max_tokens"] == 64
         assert requests[0]["messages"][-1]["content"] == "x"
         assert requests[0]["chat_template_kwargs"]["enable_thinking"] is False
         identity = result["inference_fingerprint"]["identity"]
         assert identity["configuration"]["agent_max_steps"] == 1
         assert identity["configuration"]["max_tokens"] == 64
-        assert identity["configuration"]["api_request_timeout_seconds"] == 2
+        assert identity["configuration"]["api_request_timeout_seconds"] == 10
         calls = result["inference_fingerprint"]["calls"]
-        assert len(calls) == 1 and calls[0]["purpose"] == "completion"
+        assert [call["purpose"] for call in calls] == ["completion", "planner"]
         assert calls[0]["requested_model"] == "MiniCPM-V-4.7-1B"
         assert "inert-handoff-secret" not in json.dumps(result)
 
@@ -262,3 +266,56 @@ def test_configured_checkpoint_mismatch_is_rejected_without_generation(tmp_path,
     with TestClient(create_app(config(tmp_path, openai_model_name="different"))) as client:
         response = client.post("/api/handoff/formula", json=envelope())
         assert response.status_code == 409 and response.json()["detail"] == "CHECKPOINT_MISMATCH"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "phase", ["async_registration", "sync_registration", "recording", "identity"],
+)
+async def test_full_lifecycle_deadline_covers_postprocessing_and_abandons_pending_review(
+    tmp_path, monkeypatch, phase,
+):
+    import time
+    from types import SimpleNamespace
+
+    import texada.handoff as handoff
+    transfer = FormulaTransfer.model_validate(envelope(
+        "x+1", budget={"max_steps": 1, "max_seconds": .02, "max_tokens": 64},
+    ))
+    runtime_calls, abandoned = [], []
+    class Runtime:
+        tools = SimpleNamespace(schemas=[])
+        def __init__(self, _config, *, model):
+            pass
+        async def run_candidate(self, *_args, **_kwargs):
+            runtime_calls.append(1)
+            return SimpleNamespace(committed=False, latex="x+1", revision=1,
+                                   trace=[], semantic_diff={})
+    review = {"id": "held-review", "status": "pending", "binding": {
+        "input_hash": transfer.input_sha256, "parent_revision": None,
+        "candidate_hash": text_digest("x+1"), "current_revision": 1,
+    }}
+    def sync_register(*_args, **_kwargs):
+        if phase == "sync_registration":
+            time.sleep(.04)
+        return review
+    async def async_register(*_args, **_kwargs):
+        await asyncio.sleep(.15)
+        return review
+    async def recording(*_args):
+        await asyncio.sleep(.15)
+    if phase == "identity":
+        original_builder = handoff.build_inference_identity
+        def late_identity(*args, **kwargs):
+            time.sleep(.04)
+            return original_builder(*args, **kwargs)
+        monkeypatch.setattr(handoff, "build_inference_identity", late_identity)
+    with pytest.raises(HandoffError, match="TRANSFER_TIMEOUT"):
+        await handoff.produce_formula_transfer(
+            transfer, config(tmp_path),
+            async_register if phase == "async_registration" else sync_register,
+            runtime_factory=Runtime, record_result=recording if phase == "recording" else None,
+            on_abandon_review=abandoned.append,
+        )
+    assert runtime_calls == ([] if phase == "identity" else [1])
+    assert abandoned == (["held-review"] if phase in {"sync_registration", "recording"} else [])
