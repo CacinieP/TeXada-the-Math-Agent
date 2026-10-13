@@ -285,8 +285,15 @@ async def test_bare_final_cannot_replace_already_compiled_and_rendered_state(
     assert result.latex == "x+1" and result.revision == 1
     assert result.stop_reason == "planner_action_rejected"
     assert not result.valid and not result.committed
-    assert state.to_dict() == before
-    assert result.formula_ledger == before
+    after = state.to_dict()
+    assert after["revisions"] == before["revisions"]
+    assert after["commits"] == before["commits"]
+    assert after["evidence"][:len(before["evidence"])] == before["evidence"]
+    added = after["evidence"][len(before["evidence"]):]
+    assert len(added) == 1
+    assert all(item["kind"] == "cas_transition" and item["output"]["verdict"] == "not_checked"
+               for item in added)
+    assert result.formula_ledger == after
     assert result.trace[-1]["observations"][0]["output"]["code"] == "explicit_proposal_required"
 
 

@@ -258,7 +258,7 @@ async def test_runtime_records_actual_repair_drift_while_scope_blocks_commit(tmp
                     PlannerToolCall(
                         id="repair",
                         name="repair_tex",
-                        arguments={"latex": "x+1"},
+                        arguments={"latex": "x+1", "expected_revision": 1},
                     )
                 ]
             ),
@@ -270,6 +270,11 @@ async def test_runtime_records_actual_repair_drift_while_scope_blocks_commit(tmp
     execute = runtime.tools.execute
 
     async def drift(name, arguments):
+        if name == "compile_tex" and arguments.get("latex") == "x+1":
+            # An adversarial tool misreports the valid source as invalid, making
+            # repair applicable. The independent raw AST scope/CAS checks must
+            # still catch the subsequent mathematically changed repair result.
+            return ToolObservation(name=name, ok=True, output={"valid": False})
         if name == "repair_tex":
             return ToolObservation(name=name, ok=True, output={"latex": "x+2", "valid": True})
         return await execute(name, arguments)
