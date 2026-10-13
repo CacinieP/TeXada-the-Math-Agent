@@ -24,6 +24,12 @@ from zoneinfo import ZoneInfo
 from anchor_match import anchor_present
 from golden_lib import anchor_variants, load_golden_set
 from openai import RateLimitError
+from structural_match import (
+    NORMALIZATION_VERSION,
+    check_references,
+    load_references,
+    summarize_structure,
+)
 
 from texada.agent.runtime import TeXadaAgentRuntime
 from texada.config import TeXadaConfig
@@ -35,6 +41,10 @@ MODEL = "MiniCPM-V-4.7-1B"
 
 
 async def run(args) -> None:
+    reference_path = getattr(args, "structure_references", None)
+    reference_bytes = reference_path.read_bytes() if reference_path else None
+    references = load_references(reference_path, text=reference_bytes.decode("utf-8")
+                                 if reference_bytes is not None else None)
     key = os.environ.get("TEXADA_OPENAI_API_KEY", "").strip()
     if not key:
         raise RuntimeError("Export TEXADA_OPENAI_API_KEY before running live acceptance")
@@ -95,6 +105,13 @@ async def run(args) -> None:
                        "rate_limit_max_attempts": 3},
         "golden_set_sha256": hashlib.sha256(dataset.read_bytes()).hexdigest(),
         "scope": "Live API integration; semantic anchor containment is not structural equivalence",
+        "strict_structure_evaluation": {
+            "normalization_version": NORMALIZATION_VERSION,
+            "references_sha256": hashlib.sha256(reference_bytes).hexdigest()
+            if reference_bytes is not None else None,
+            "reference_case_count": len(references),
+            "reference_origin": "explicit_full_expression_registry" if reference_path else None,
+        },
         "rows": [],
         "rate_limit_events": rate_limit_events,
     }
@@ -119,7 +136,13 @@ async def run(args) -> None:
                 row.update(error=f"{type(exc).__name__}: {exc}".replace(key, "[REDACTED]"),
                            valid=False, rendered=False, committed=False,
                            anchor_containment=False if variants else None)
+            # Keep the legacy runtime/containment latency boundary unchanged.
             row["elapsed_seconds"] = round(time.monotonic() - started, 3)
+            strict_started = time.monotonic()
+            row["strict_structure"] = check_references(
+                row.get("latex"), references.get(entry["id"], [])
+            ).to_dict()
+            row["strict_structure_elapsed_seconds"] = round(time.monotonic() - strict_started, 6)
             evidence["rows"].append(row)
             (output / "live-golden.json").write_text(
                 json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -140,6 +163,7 @@ async def run(args) -> None:
         "syntax_valid": sum(row["valid"] for row in rows),
         "rendered": sum(row["rendered"] for row in rows),
         "committed": sum(row["committed"] for row in rows),
+        "strict_structure": summarize_structure(rows),
         "latency_p50_seconds": round(statistics.median(times), 3),
         "latency_p95_seconds": times[max(0, int(len(times) * 0.95) - 1)],
     }
@@ -157,6 +181,8 @@ if __name__ == "__main__":
     parser.add_argument("--request-interval", type=float, default=3.2)
     parser.add_argument("--planner-control", action="store_true",
                         help="Use the original full-schema NL Planner initialization")
+    parser.add_argument("--structure-references", type=Path,
+                        help="Opt in with an authored full-expression reference registry")
     arguments = parser.parse_args()
     if arguments.limit < 0:
         parser.error("--limit must be nonnegative")

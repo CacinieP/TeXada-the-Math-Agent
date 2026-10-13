@@ -1,0 +1,73 @@
+# Authored full expressions for an opt-in, limited evaluation subset.
+# Agent review is not independent human verification of NL interpretation.
+schema_version: 1
+entries:
+  - case_id: '001'
+    scope: full_expression
+    references:
+      - reference_id: authored-001-sum
+        latex: 'x+y'
+        reference_source: synthetic_author_reference
+        review_status: agent-reviewed
+        reason: 'Complete expression for the explicitly authored sum case.'
+  - case_id: '002'
+    scope: full_expression
+    references:
+      - reference_id: authored-002-equation
+        latex: 'a-b=c'
+        reference_source: synthetic_author_reference
+        review_status: agent-reviewed
+        reason: 'Complete subtraction equation; not a partial operator anchor.'
+  - case_id: '004'
+    scope: full_expression
+    references:
+      - reference_id: authored-004-squares
+        latex: 'x^2+y^2'
+        reference_source: synthetic_author_reference
+        review_status: agent-reviewed
+        reason: 'Two independently squared terms and their sum.'
+  - case_id: '006'
+    scope: full_expression
+    references:
+      - reference_id: authored-006-implicit-product
+        latex: 'xy+z'
+        reference_source: synthetic_author_reference
+        review_status: agent-reviewed
+        reason: 'An explicitly approved complete notation alternative.'
+      - reference_id: authored-006-explicit-product
+        latex: 'x\cdot y+z'
+        reference_source: synthetic_author_reference
+        review_status: agent-reviewed
+        reason: 'Explicit multiplication is separately approved, not auto-equated by CAS.'
+  - case_id: '013'
+    scope: full_expression
+    references:
+      - reference_id: authored-013-fraction
+        latex: '\frac{a}{b}'
+        reference_source: synthetic_author_reference
+        review_status: agent-reviewed
+        reason: 'Complete fraction with separately bound numerator and denominator.'
+  - case_id: '016'
+    scope: full_expression
+    references:
+      - reference_id: authored-016-square-root
+        latex: '\sqrt{x}'
+        reference_source: synthetic_author_reference
+        review_status: agent-reviewed
+        reason: 'Complete square-root expression; algebraic power variants are not automatic.'
+  - case_id: '018'
+    scope: full_expression
+    references:
+      - reference_id: authored-018-cube-root
+        latex: '\sqrt[3]{x}'
+        reference_source: synthetic_author_reference
+        review_status: agent-reviewed
+        reason: 'Complete root preserving its explicit index.'
+  - case_id: '023'
+    scope: full_expression
+    references:
+      - reference_id: authored-023-subscript
+        latex: 'x_i'
+        reference_source: synthetic_author_reference
+        review_status: agent-reviewed
+        reason: 'Complete script expression, not an inferred AST of the original NL.'

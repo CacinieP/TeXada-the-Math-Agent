@@ -22,6 +22,11 @@ ASGI smoke 不代表已构建、安装或测试 Tauri 桌面包。
 
 NL 实测使用既有黄金集的**前 20 条**。19 条可机器检查，一条是描述性锚点。
 这是配对开发 smoke，不能称为完整 100 条验收，也不能代表全部数学任务。
+
+后续增加的[严格完整表达结构评测](strict-structure-eval.md)保留原 containment 指标，
+只有显式提供完整参考时才检查，分别报告 `MATCH / DIFFERENT / UNSUPPORTED / NOT_CHECKED`
+及覆盖范围。它没有追溯重算本页真实 API 结果；初始参考与对抗 pair 是 agent-reviewed
+synthetic author references，不能当作已完成的独立人工复核。
 现有子序列锚点 matcher 检查包含关系，可能产生假阳性或假阴性，不能称为完整结构正确率。
 例如完整 `cases` 输出可能被不完整的 `\begin{cases}` 锚点判为未命中。
 
