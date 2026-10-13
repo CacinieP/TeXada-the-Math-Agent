@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import ExitStack, asynccontextmanager
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
@@ -27,7 +27,9 @@ from texada.core.inference_fingerprint import (
     collect_inference,
     current_inference_collector,
     legacy_inference_fingerprint,
+    unavailable_inference_fingerprint,
     validate_inference_fingerprint,
+    without_inference_collection,
 )
 from texada.core.router import InputRouter
 from texada.render.engine import RenderEngine
@@ -464,9 +466,11 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         """Run logging is best-effort and must never break a user request."""
         try:
             collector = current_inference_collector()
+            resources = _request_resources.get()
             if collector is not None:
                 entry.inference_fingerprint = collector.snapshot()
-            resources = _request_resources.get()
+            elif resources is not None and "fingerprint_fallback" in resources:
+                entry.inference_fingerprint = resources["fingerprint_fallback"]
             target_store = resources["run_logs"] if resources is not None else run_logs
             await target_store.add(entry)
         except Exception:
@@ -493,11 +497,18 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             }
             token = _request_resources.set(resources)
             try:
-                identity = build_inference_identity(
-                    resources["config"], app_version=app_version,
-                    tool_schemas=resources["agent_runtime"].tools.schemas,
-                )
-                with collect_inference(identity):
+                with ExitStack() as collection:
+                    try:
+                        identity = build_inference_identity(
+                            resources["config"], app_version=app_version,
+                            tool_schemas=resources["agent_runtime"].tools.schemas,
+                        )
+                        collection.enter_context(collect_inference(identity))
+                    except Exception as exc:
+                        resources["fingerprint_fallback"] = unavailable_inference_fingerprint(exc)
+                        collection.enter_context(without_inference_collection())
+                    # Route failures are outside the initialization handler:
+                    # telemetry must never cause a request to be executed twice.
                     return await call_next(request)
             finally:
                 _request_resources.reset(token)

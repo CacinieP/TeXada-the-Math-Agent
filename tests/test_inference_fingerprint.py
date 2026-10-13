@@ -12,6 +12,8 @@ from fastapi.testclient import TestClient
 from openai import InternalServerError, OpenAI
 from pydantic import ValidationError
 
+import texada.api as api_module
+import texada.core.inference_fingerprint as fingerprint_module
 from texada.agent.runtime import AgentRunResult, TeXadaAgentRuntime
 from texada.api import RunLogImportEntry, create_app
 from texada.config import TeXadaConfig
@@ -576,3 +578,69 @@ async def test_collection_failure_preserves_sdk_result_or_error_and_marks_partia
     assert "private capture diagnostic" not in json.dumps(fingerprint)
     assert "secret-user-content" not in json.dumps(fingerprint)
     assert validate_inference_fingerprint(fingerprint) == fingerprint
+
+
+@pytest.mark.parametrize("initialization_failure", ["long_alias", "versions", "collector_entry"])
+@pytest.mark.parametrize("provider_fails", [False, True])
+def test_collection_initialization_failure_does_not_block_or_repeat_sdk_request(
+    tmp_path, monkeypatch, initialization_failure, provider_fails,
+):
+    requested_models = []
+
+    def handler(request):
+        requested_models.append(json.loads(request.content)["model"])
+        if provider_fails:
+            return httpx.Response(500, json={"error": {"message": "provider failure"}})
+        return httpx.Response(200, json=provider_response())
+
+    def broken_version(package):
+        raise RuntimeError("private metadata diagnostic with secret-user-content")
+
+    class BrokenContext:
+        def __enter__(self):
+            raise RuntimeError("private collector diagnostic with secret-user-content")
+
+        def __exit__(self, *args):
+            return None
+
+    async def ready(self):
+        return True
+
+    model_name = "model-" + "a" * 301 if initialization_failure == "long_alias" else "test-model"
+    config = api_config(tmp_path, openai_model_name=model_name)
+    ambient_identity = build_inference_identity(
+        api_config(tmp_path, openai_model_name="outer-model"),
+    )
+    sdk_client = OpenAI(
+        base_url="https://api.example.test/v1", api_key="test-secret-key", max_retries=0,
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    monkeypatch.setattr(BackendManager, "ensure_ready", ready)
+    monkeypatch.setattr(MiniCPMModel, "client", property(lambda self: sdk_client))
+    if initialization_failure == "versions":
+        monkeypatch.setattr(fingerprint_module, "_package_version", broken_version)
+    elif initialization_failure == "collector_entry":
+        monkeypatch.setattr(api_module, "collect_inference", lambda identity: BrokenContext())
+    client = TestClient(create_app(config), raise_server_exceptions=False)
+    try:
+        with collect_inference(ambient_identity) as ambient:
+            response = client.post("/api/agent", json={"text": "unknown mathematical request"})
+            assert ambient.snapshot()["calls"] == []
+            assert current_inference_collector() is ambient
+        assert response.status_code == (500 if provider_fails else 200)
+        assert requested_models == [model_name]
+        runs = client.get("/api/runs").json()
+        assert len(runs) == 1
+        fingerprint = runs[0]["inference_fingerprint"]
+    finally:
+        sdk_client.close()
+
+    assert fingerprint["status"] == "NOT_CHECKED"
+    assert fingerprint["identity"] is None and fingerprint["identity_sha256"] is None
+    assert fingerprint["calls"] == []
+    assert fingerprint["reason"] == "capture_initialization_failed:" + (
+        "ValidationError" if initialization_failure == "long_alias" else "RuntimeError"
+    )
+    assert validate_inference_fingerprint(fingerprint) == fingerprint
+    assert "private" not in json.dumps(fingerprint)
+    assert "secret-user-content" not in json.dumps(fingerprint)

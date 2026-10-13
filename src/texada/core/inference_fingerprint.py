@@ -197,6 +197,13 @@ def legacy_inference_fingerprint() -> dict:
     }
 
 
+def unavailable_inference_fingerprint(error: Exception) -> dict:
+    fingerprint = legacy_inference_fingerprint()
+    error_type = type(error).__name__[:100]
+    fingerprint["reason"] = f"capture_initialization_failed:{error_type}"
+    return fingerprint
+
+
 def validate_inference_fingerprint(value: Any) -> dict:
     validated = InferenceFingerprint.model_validate(value).model_dump()
     if validated["status"] == "NOT_CHECKED":
@@ -427,6 +434,16 @@ _collector: ContextVar[InferenceCollector | None] = ContextVar(
 
 def current_inference_collector() -> InferenceCollector | None:
     return _collector.get()
+
+
+@contextmanager
+def without_inference_collection() -> Iterator[None]:
+    """Do not inherit an outer collector when request collection failed."""
+    token = _collector.set(None)
+    try:
+        yield
+    finally:
+        _collector.reset(token)
 
 
 @contextmanager
