@@ -15,6 +15,7 @@
   let currentTab = 'nl';
   let renderMode = 'katex'; // 'katex' | 'latex'
   let lastResult = null;
+  const resultReviews = new Map();
   let isProcessing = false;
   let isOcrSetup = false;
   let ocrRunId = 0;
@@ -516,6 +517,7 @@
       els.apiBaseValue.textContent = t('settings.detecting');
     }
     applyPlatformLabels();
+    for (const panel of resultReviews.values()) panel.redraw();
     if (!lastResult && !isProcessing) setIntent('🔍', t('intent.waiting'));
     if (currentTab === 'history') {
       if (historyView === 'runs' && runLogData.length) renderRunLogs(runLogData);
@@ -576,6 +578,7 @@
       '.zoom-control',
       '.latex-source',
       '.ocr-preview',
+      '.human-review',
     ].join(', '));
   }
 
@@ -707,7 +710,9 @@
       const res = await fetch(`${API_BASE}${path}`, fetchOptions);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.detail || `HTTP ${res.status}`);
+        const error = new Error(data.detail || `HTTP ${res.status}`);
+        error.status = res.status;
+        throw error;
       }
       return data;
     } catch (e) {
@@ -960,6 +965,7 @@
     if (!text || isProcessing) return;
 
     isProcessing = true;
+    clearReview(els.nlResult);
     els.nlProcessing.classList.add('active');
     els.nlResult.style.display = 'none';
     setIntent('⏳', t('intent.processing'));
@@ -976,7 +982,7 @@
         source: res.source,
         render_mode: renderMode,
         valid: res.valid,
-      });
+      }, res);
     } catch (e) {
       showError(String(e));
     } finally {
@@ -1017,6 +1023,7 @@
 
     setIntent('∫', `${res.intent || t('intent.unknown')} · ${Number(res.latency_ms || 0).toFixed(1)}ms`);
 
+    mountReview(els.nlResult, res);
     syncRenderModeOptions();
     updateRender();
     renderAgentTrace(res);
@@ -1088,15 +1095,16 @@
   }
 
   function updateRender() {
-    if (!lastResult) return;
+    const result = els.nlResult._texadaResult || lastResult;
+    if (!result) return;
     if (renderMode === 'katex') {
       els.katexSection.style.display = 'block';
       els.latexSection.style.display = 'none';
-      renderKatexPreview(els.renderPreview, lastResult.latex, lastResult.katex_html);
+      renderKatexPreview(els.renderPreview, result.latex, result.katex_html);
     } else {
       els.katexSection.style.display = 'none';
       els.latexSection.style.display = 'block';
-      els.latexPreview.innerHTML = highlightLatex(lastResult.latex);
+      els.latexPreview.innerHTML = highlightLatex(result.latex);
     }
   }
 
@@ -1135,6 +1143,7 @@
   }
 
   function showError(msg) {
+    clearReview(els.nlResult);
     els.nlResult.style.display = 'block';
     // 保存原始结构（首次出错时）
     if (!els.nlResult.dataset.originalHtml) {
@@ -1153,16 +1162,17 @@
   }
 
   async function copyMain() {
-    if (!lastResult) return;
-    await copyToClipboard(lastResult.copy_text || lastResult.latex);
+    const result = els.nlResult._texadaResult;
+    if (!window.TeXadaReview.canAdopt(result)) return;
+    await copyToClipboard(result.copy_text || result.latex);
     if (isTauri) await invoke('hide_window');
   }
 
-  function formulaText(kind) {
-    if (!lastResult) return '';
-    if (kind === 'markdown') return `$$${lastResult.latex}$$`;
-    if (kind === 'latex') return lastResult.latex;
-    return lastResult.copy_text || lastResult.latex;
+  function formulaText(kind, result = lastResult) {
+    if (!window.TeXadaReview.canAdopt(result)) return '';
+    if (kind === 'markdown') return `$$${result.latex}$$`;
+    if (kind === 'latex') return result.latex;
+    return result.copy_text || result.latex;
   }
 
   function markdownFormula(latex) {
@@ -1204,10 +1214,52 @@
     root.querySelectorAll('.formula-click-target').forEach(target => {
       target.onclick = e => {
         if (e.target.closest('button')) return;
-        const text = target.dataset.insertText || formulaText(target.dataset.insertTarget);
+        const owner = target.closest('#nl-result, #ocr-result, #complete-result');
+        if (owner && !window.TeXadaReview.canAdopt(owner._texadaResult)) return;
+        const text = target.dataset.insertText || formulaText(target.dataset.insertTarget, owner?._texadaResult || lastResult);
         insertAtCursor(text);
       };
     });
+  }
+
+  function updateReviewGate(root, result) {
+    const allowed = window.TeXadaReview.canAdopt(result);
+    root.querySelectorAll('#btn-copy-main, #btn-copy-src, #btn-copy-md, [data-copy-result]').forEach(button => {
+      button.disabled = !allowed;
+    });
+    root.querySelectorAll('.formula-click-target').forEach(target => {
+      target.classList.toggle('review-adoption-blocked', !allowed);
+      target.setAttribute('aria-disabled', String(!allowed));
+    });
+  }
+
+  function clearReview(root) {
+    resultReviews.get(root)?.destroy();
+    resultReviews.delete(root);
+    root.querySelector('.human-review')?.remove();
+    delete root._texadaResult;
+  }
+
+  function mountReview(root, result) {
+    clearReview(root);
+    root._texadaResult = result;
+    if (result.review) {
+      const host = document.createElement('section');
+      root.prepend(host);
+      const panel = window.TeXadaReview.createPanel({
+        document, host, review: result.review, apiBase: API_BASE, request: apiJson,
+        language: () => uiLanguage,
+        renderLatex: (target, latex) => renderKatexPreview(target, latex),
+        onChange: (review, { blocked }) => {
+          result.review = review;
+          result.committed = review.committed;
+          result._reviewBlocked = blocked;
+          updateReviewGate(root, result);
+        },
+      });
+      resultReviews.set(root, panel);
+    }
+    updateReviewGate(root, result);
   }
 
   // ── Keyboard ──
@@ -1303,10 +1355,12 @@
     const retryBtn = $('#btn-retry');
     if (copyMainBtn) copyMainBtn.onclick = copyMain;
     if (copySrcBtn) copySrcBtn.onclick = () => {
-      if (lastResult) copyToClipboard(lastResult.latex);
+      const result = els.nlResult._texadaResult;
+      if (window.TeXadaReview.canAdopt(result)) copyToClipboard(result.latex);
     };
     if (copyMdBtn) copyMdBtn.onclick = () => {
-      if (lastResult) copyToClipboard(`$$${lastResult.latex}$$`);
+      const result = els.nlResult._texadaResult;
+      if (window.TeXadaReview.canAdopt(result)) copyToClipboard(`$$${result.latex}$$`);
     };
     if (retryBtn) retryBtn.onclick = doConvert;
     bindFormulaInsertHandlers(els.nlResult);
@@ -1315,6 +1369,8 @@
   bindModeOptions();
   bindNlResultButtons();
   bindWindowDrag();
+  window.TeXadaReview.bindInputInvalidation(els.nlInput, () => resultReviews.get(els.nlResult));
+  window.TeXadaReview.bindInputInvalidation(els.completeInput, () => resultReviews.get(els.completeResult));
 
   if ($('#btn-save-backend')) {
     $('#btn-save-backend').addEventListener('click', saveBackendSettings);
@@ -1665,12 +1721,14 @@
     if (els.ocrProcessing) els.ocrProcessing.classList.remove('active');
     if (els.ocrFileInput) els.ocrFileInput.value = '';
     if (clearResult && els.ocrResult) {
+      clearReview(els.ocrResult);
       els.ocrResult.style.display = 'none';
       els.ocrResult.innerHTML = '';
     }
   }
 
   function prepareOcrUi(file) {
+    clearReview(els.ocrResult);
     if (els.ocrDrop) {
       els.ocrDrop.style.display = 'block';
       els.ocrDrop.classList.add('busy');
@@ -1688,6 +1746,7 @@
   }
 
   function showOcrError(message) {
+    clearReview(els.ocrResult);
     resetOcrUi({ clearResult: false });
     if (els.ocrStatus) els.ocrStatus.textContent = t('ocr.failed');
     els.ocrResult.style.display = 'block';
@@ -1780,7 +1839,7 @@
         source: res.source,
         render_mode: renderMode,
         valid: res.valid,
-      });
+      }, res);
     } catch (e) {
       if (runId === ocrRunId) showOcrError(String(e));
     } finally {
@@ -1816,11 +1875,12 @@
       res.katex_html || ''
     );
     els.ocrResult.querySelector('[data-copy-result]').addEventListener('click', e => {
-      copyToClipboard(e.currentTarget.dataset.copyResult);
+      if (window.TeXadaReview.canAdopt(res)) copyToClipboard(e.currentTarget.dataset.copyResult);
     });
     els.ocrResult.querySelector('[data-reset-ocr]').addEventListener('click', () => {
       resetOcrUi();
     });
+    mountReview(els.ocrResult, res);
     bindFormulaInsertHandlers(els.ocrResult);
   }
 
@@ -1829,6 +1889,7 @@
     const text = els.completeInput.value.trim();
     if (!text || isProcessing) return;
     isProcessing = true;
+    clearReview(els.completeResult);
     els.completeProcessing.classList.add('active');
     els.completeResult.style.display = 'none';
     try {
@@ -1843,7 +1904,7 @@
         source: res.source,
         render_mode: renderMode,
         valid: res.valid,
-      });
+      }, res);
     } catch (e) {
       showErrorIn(els.completeResult, String(e));
     } finally {
@@ -1873,12 +1934,14 @@
       res.katex_html || ''
     );
     els.completeResult.querySelector('[data-copy-result]').addEventListener('click', e => {
-      copyToClipboard(e.currentTarget.dataset.copyResult);
+      if (window.TeXadaReview.canAdopt(res)) copyToClipboard(e.currentTarget.dataset.copyResult);
     });
+    mountReview(els.completeResult, res);
     bindFormulaInsertHandlers(els.completeResult);
   }
 
   function showErrorIn(el, msg) {
+    clearReview(el);
     el.style.display = 'block';
     el.innerHTML = `<div class="error-box"><span class="icon">⚠️</span><div>${escapeHtml(msg)}</div></div>`;
   }
@@ -2181,7 +2244,9 @@
     });
   }
 
-  function saveHistoryFallback(entry) {
+  function saveHistoryFallback(entry, result) {
+    // Pending/rejected candidates must not re-enter adoption through local history.
+    if (!window.TeXadaReview.canAdopt(result)) return;
     const localEntry = normalizeHistoryItem({
       ...entry,
       created_at: new Date().toISOString(),
@@ -2260,12 +2325,14 @@
     if (!item.input) return;
     if (item.type === 'completion') {
       els.completeInput.value = item.input;
+      els.completeInput.dispatchEvent(new Event('input', { bubbles: true }));
       switchTab('complete');
       setTimeout(() => els.completeInput.focus(), 50);
       setIntent('↺', t('history.reuseCompletion'));
       return;
     }
     els.nlInput.value = item.input;
+    els.nlInput.dispatchEvent(new Event('input', { bubbles: true }));
     switchTab('nl');
     setTimeout(() => els.nlInput.focus(), 50);
     setIntent('↺', t('history.reuseNl'));

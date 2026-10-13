@@ -223,6 +223,9 @@ struct ConvertResponse {
     semantic_document: Option<serde_json::Value>,
     semantic_diff: Option<serde_json::Value>,
     stop_reason: Option<String>,
+    revision: Option<u64>,
+    committed: Option<bool>,
+    review: Option<serde_json::Value>,
 }
 
 #[tauri::command]
@@ -687,8 +690,34 @@ fn main() {
 mod tests {
     use std::time::Duration;
 
-    use super::{api_client_for_base, is_local_api_base, is_startup_probe_request};
+    use super::{
+        api_client_for_base, is_local_api_base, is_startup_probe_request, ConvertResponse,
+    };
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[test]
+    fn formula_responses_preserve_human_review_and_legacy_fields() {
+        let legacy = serde_json::json!({
+            "run_id": "run", "latex": "x", "copy_text": "x", "valid": true,
+            "source": "agent", "intent": "edit", "confidence": 1.0,
+            "latency_ms": 1.0, "tokens_used": 1
+        });
+        let legacy_response: ConvertResponse = serde_json::from_value(legacy.clone()).unwrap();
+        assert_eq!(legacy_response.review, None);
+        assert_eq!(legacy_response.committed, None);
+        let mut pending = legacy;
+        pending["revision"] = serde_json::json!(2);
+        pending["committed"] = serde_json::json!(false);
+        pending["review"] = serde_json::json!({
+            "id": "review-id", "status": "pending", "current_revision": 2,
+            "input_hash": "source", "parent_revision": 1, "candidate_hash": "candidate"
+        });
+        let response: ConvertResponse = serde_json::from_value(pending.clone()).unwrap();
+        let round_trip = serde_json::to_value(response).unwrap();
+        assert_eq!(round_trip["revision"], pending["revision"]);
+        assert_eq!(round_trip["committed"], pending["committed"]);
+        assert_eq!(round_trip["review"], pending["review"]);
+    }
 
     #[test]
     fn local_api_base_detection_covers_loopback_variants() {
