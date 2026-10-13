@@ -12,7 +12,7 @@
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue"></a>
 </p>
 
-![TeXada local-first math agent hero](assets/texada-hero-agpl.png)
+![TeXada Math Agent · MiniCPM-V 4.7 single-model workflow](assets/texada-math-agent-cover.png)
 
 <p align="center">
   <strong>Your local AI copilot for LaTeX and structured mathematical writing.</strong><br>
@@ -88,6 +88,21 @@ formula exists. Raw natural language is never treated as a reference AST.
 
 See [all recorded examples](examples/README.md), [Why TeXada?](docs/comparison.md),
 and [the design philosophy](docs/design-philosophy.md).
+
+### TeXada Series
+
+| Tool | Workflow | Source |
+|------|----------|--------|
+| Math Agent | Natural language, formula OCR and completion → checked LaTeX candidates | This repository |
+| Studio | Formula syntax and simple table checks in one `.tex` file → candidate Diff → human adoption | [TeXada Studio](https://github.com/CacinieP/TeXada-Studio-with-agentskills) |
+
+Both tools offer a `MiniCPM-V-4.7-1B` profile. Math Agent shares one checkpoint
+between text and vision; Studio proposes formula text repairs and retains its
+deterministic checkers. The current handoff is copying reviewed LaTeX into Studio.
+See [the series workflow and poster](docs/texada-series.md) and
+[the MiniCPM-V 4.7 setup and evidence](docs/minicpm-v47.md).
+The current API profile is experimental; local Q4 requires separate validation.
+The cover illustrates the workflow and is not a screenshot of the desktop app.
 
 ### Agent Technical Highlights
 
@@ -530,6 +545,19 @@ Level 1，但只在明确存在 before/after 公式时启用，不会把自然�
 
 更多内容见[全部实录示例](examples/README.md)、[为什么选择 TeXada](docs/comparison.md)
 和[设计哲学](docs/design-philosophy.md)。
+
+### TeXada 系列
+
+| 工具 | 工作流 | 源码 |
+|------|--------|------|
+| Math Agent | 自然语言、公式 OCR、补全 → 经过检查的 LaTeX 候选 | 当前仓库 |
+| Studio | 单个 `.tex` 的公式语法、简单表格检查 → 候选 Diff → 人工采用 | [TeXada Studio](https://github.com/CacinieP/TeXada-Studio-with-agentskills) |
+
+两个工具均提供 `MiniCPM-V-4.7-1B` profile。Math Agent 用同一个 checkpoint
+承担文本与视觉；Studio 生成公式文本修复候选，继续交给确定性检查器回判。
+当前交接方式是复制已审阅的 LaTeX 到 Studio。
+见[系列工作流与海报](docs/texada-series.md)和[4.7 配置与验收](docs/minicpm-v47.md)。
+API profile 处于实验阶段，本机 Q4 需单独验收。封面为工作流示意，不是真实桌面截图。
 
 ### Agent 技术亮点
 
