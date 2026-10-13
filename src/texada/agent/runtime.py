@@ -19,6 +19,7 @@ from texada.agent.actions import (
     planner_schemas,
 )
 from texada.agent.failure_context import project_failure_context
+from texada.agent.mutation_scope import MutationScopeGuard, MutationVerdict
 from texada.agent.protocol import PlannerToolCall, PlannerTurn
 from texada.config import TeXadaConfig
 from texada.core.backend import BackendManager
@@ -176,6 +177,7 @@ class TeXadaAgentRuntime:
         _task: str = "nl",
         _initial_candidate: str = "",
         _initial_tokens_used: int = 0,
+        _uncertain_role_paths: tuple[str, ...] = (),
     ) -> AgentRunResult:
         start = time.monotonic()
         initial_candidate = self.operator_guard.normalize_candidate(
@@ -186,9 +188,12 @@ class TeXadaAgentRuntime:
             if _task != "nl"
             else self.symbol_engine.pre_translate(user_input)
         )
-        formula_state = FormulaState(
+        formula_state = self._scoped_state(
             initial_candidate,
             origin=f"{_task}_candidate",
+            task=_task,
+            prefix=user_input if _task == "completion" else "",
+            uncertain_roles=_uncertain_role_paths,
         )
         if _task == "nl":
             proposal = self.candidate_engine.propose(user_input)
@@ -937,6 +942,7 @@ class TeXadaAgentRuntime:
         context: str = "",
         render_mode: RenderMode = RenderMode.KATEX,
         initial_tokens_used: int = 0,
+        uncertain_role_paths: tuple[str, ...] = (),
     ) -> AgentRunResult:
         """Run OCR/completion candidates through the shared planner."""
         if task not in {"ocr", "completion"}:
@@ -956,6 +962,7 @@ class TeXadaAgentRuntime:
                 render_mode=render_mode,
                 start=time.monotonic(),
                 task="completion",
+                source_prefix=user_input,
             )
             if deterministic:
                 return deterministic
@@ -966,6 +973,7 @@ class TeXadaAgentRuntime:
             _task=task,
             _initial_candidate=candidate_latex,
             _initial_tokens_used=initial_tokens_used,
+            _uncertain_role_paths=uncertain_role_paths,
         )
 
     async def _run_deterministic_candidate(
@@ -976,6 +984,7 @@ class TeXadaAgentRuntime:
         render_mode: RenderMode,
         start: float,
         task: str,
+        source_prefix: str = "",
     ) -> AgentRunResult | None:
         """Validate and render a high-confidence candidate without model inference."""
         compile_call = PlannerToolCall(
@@ -1009,9 +1018,11 @@ class TeXadaAgentRuntime:
         if not render_observation.ok:
             return None
 
-        formula_state = FormulaState(
+        formula_state = self._scoped_state(
             proposal.latex,
             origin=f"{task}_deterministic_candidate",
+            task=task,
+            prefix=source_prefix,
         )
         compile_data = self._record_formula_evidence(
             formula_state,
@@ -1024,6 +1035,8 @@ class TeXadaAgentRuntime:
             revision=formula_state.revision,
         )
         if formula_state.revision is None:
+            return None
+        if MutationScopeGuard.commit_blockers(formula_state):
             return None
         formula_state.commit(expected_revision=formula_state.revision)
 
@@ -1055,7 +1068,7 @@ class TeXadaAgentRuntime:
             valid=True,
             render=render_result,
             semantic_document=document,
-            trace=trace,
+            trace=self._scope_trace(trace, formula_state),
             tokens_used=0,
             latency_ms=(time.monotonic() - start) * 1000,
             stop_reason="deterministic_candidate",
@@ -1195,7 +1208,7 @@ class TeXadaAgentRuntime:
                 valid=False,
                 render=render_result,
                 semantic_document=document,
-                trace=trace,
+                trace=self._scope_trace(trace, formula_state),
                 semantic_diff=semantic_diff,
                 tokens_used=tokens_used,
                 latency_ms=(time.monotonic() - start) * 1000,
@@ -1218,15 +1231,20 @@ class TeXadaAgentRuntime:
         )
         commit_error = ""
         try:
+            blockers = MutationScopeGuard.commit_blockers(formula_state)
+            if blockers:
+                stop_reason = "mutation_scope_review_required"
+                raise CommitBarrierError("mutation scope requires human review")
             formula_state.commit(expected_revision=formula_state.revision)
         except CommitBarrierError as exc:
             commit_error = str(exc)
-            stop_reason = "commit_barrier_failed"
+            if stop_reason != "mutation_scope_review_required":
+                stop_reason = "commit_barrier_failed"
             observations.append(
                 {
                     "tool": "commit_barrier",
                     "ok": False,
-                    "output": {"revision": formula_state.revision},
+                    "output": {"revision": formula_state.revision, "mutation_blockers": blockers},
                     "error": commit_error,
                     "duration_ms": 0.0,
                     "revision": formula_state.revision,
@@ -1249,7 +1267,7 @@ class TeXadaAgentRuntime:
             valid=valid,
             render=render_result,
             semantic_document=document,
-            trace=trace,
+            trace=self._scope_trace(trace, formula_state),
             semantic_diff=semantic_diff,
             tokens_used=tokens_used,
             latency_ms=(time.monotonic() - start) * 1000,
@@ -1287,7 +1305,7 @@ class TeXadaAgentRuntime:
             valid=False,
             render=self.renderer.render(latex, mode_override=render_mode),
             semantic_document=self._safe_semantic_document(latex),
-            trace=trace,
+            trace=self._scope_trace(trace, formula_state),
             semantic_diff=semantic_diff,
             tokens_used=tokens_used,
             latency_ms=(time.monotonic() - start) * 1000,
@@ -1296,6 +1314,15 @@ class TeXadaAgentRuntime:
             committed=False,
             formula_ledger=formula_state.to_dict(),
         )
+
+    @staticmethod
+    def _scope_trace(trace: list[dict[str, Any]], state: FormulaState) -> list[dict[str, Any]]:
+        """Persist all grant/footprint verdicts through the existing API run trace."""
+        if trace:
+            trace[-1]["mutation_scope"] = [
+                item.output for item in state.ledger.evidence if item.kind == "mutation_scope"
+            ]
+        return trace
 
     @classmethod
     def _compact_observation(cls, observation: ToolObservation) -> dict[str, Any]:
@@ -1327,8 +1354,19 @@ class TeXadaAgentRuntime:
         data["formula_state"] = formula_state.planner_projection()
         return data
 
-    @staticmethod
+    def _scoped_state(
+        self, latex: str, *, origin: str, task: str, prefix: str = "",
+        uncertain_roles: tuple[str, ...] = (),
+    ) -> FormulaState:
+        state = FormulaState()
+        state.mutation_scope_guard = MutationScopeGuard(
+            task=task, prefix=prefix, uncertain_roles=uncertain_roles,
+        )
+        self._adopt_formula(state, latex, origin=origin)
+        return state
+
     def _adopt_formula(
+        self,
         formula_state: FormulaState,
         latex: Any,
         *,
@@ -1337,11 +1375,24 @@ class TeXadaAgentRuntime:
         """Accept a candidate through the state authority and return its value."""
         if not isinstance(latex, str) or not latex.strip():
             return formula_state.latex
+        parent = formula_state.revision
+        before = formula_state.latex
         formula_state.revise(
             latex,
             expected_revision=formula_state.revision,
             origin=origin,
         )
+        if parent != formula_state.revision:
+            guard = getattr(formula_state, "mutation_scope_guard", MutationScopeGuard())
+            scope = guard.assess(
+                before, formula_state.latex, origin=origin,
+                parent_revision=parent, child_revision=formula_state.revision,
+            )
+            formula_state.add_evidence(
+                revision=formula_state.revision, kind="mutation_scope",
+                ok=scope.verdict == MutationVerdict.ALLOWED, output=scope.to_dict(),
+                error=scope.reason,
+            )
         return formula_state.latex
 
     def _action_rejection_result(

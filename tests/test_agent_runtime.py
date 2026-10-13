@@ -305,7 +305,7 @@ async def test_runtime_uses_zero_model_range_sum_fast_path(tmp_path, candidate_f
     assert result.committed is True
     assert {
         item["kind"] for item in result.formula_ledger["evidence"]
-    } == {"compile_tex", "render_math"}
+    } == {"compile_tex", "render_math", "mutation_scope"}
 
 
 @pytest.mark.asyncio
