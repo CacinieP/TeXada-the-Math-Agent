@@ -7,8 +7,8 @@ import json
 import re
 import time
 from copy import deepcopy
-from dataclasses import dataclass, field
-from typing import Any, Protocol
+from dataclasses import InitVar, dataclass, field
+from typing import Any, ClassVar, Protocol
 
 from texada.agent.actions import (
     ACTION_BINDING_INSTRUCTION,
@@ -37,6 +37,7 @@ from texada.render.engine import RenderEngine
 from texada.runtime import CommitBarrierError, FormulaState
 from texada.semantic import SemanticParser
 from texada.semantic.model import SemanticDepthError
+from texada.store.pending_review import input_source_hash as hash_review_source
 from texada.tools import TeXToolset, ToolObservation, ToolRouter
 from texada.types import RenderMode, RenderResult
 
@@ -142,6 +143,14 @@ class AgentRunResult:
     revision: int | None = None
     committed: bool = False
     formula_ledger: dict[str, Any] = field(default_factory=dict)
+    review_reasons: list[str] = field(default_factory=list)
+    _state: InitVar[FormulaState | None] = None
+    _formula_state: ClassVar[FormulaState | None] = None
+
+    def __post_init__(self, _state: FormulaState | None) -> None:
+        # Held authority is deliberately excluded from dataclasses.asdict,
+        # public repr and all API/result serialization.
+        self._formula_state = _state
 
 
 class TeXadaAgentRuntime:
@@ -180,8 +189,12 @@ class TeXadaAgentRuntime:
         _initial_candidate: str = "",
         _initial_tokens_used: int = 0,
         _uncertain_role_paths: tuple[str, ...] = (),
+        requires_review: bool = False,
+        input_source_hash: str | None = None,
+        _source_image: bytes | None = None,
     ) -> AgentRunResult:
         start = time.monotonic()
+        source_identity = input_source_hash or hash_review_source(user_input, _source_image)
         initial_candidate = self.operator_guard.normalize_candidate(
             _initial_candidate
         )
@@ -196,6 +209,8 @@ class TeXadaAgentRuntime:
             task=_task,
             prefix=user_input if _task == "completion" else "",
             uncertain_roles=_uncertain_role_paths,
+            requires_review=requires_review,
+            input_hash=source_identity,
         )
         if _task == "nl":
             proposal = self.candidate_engine.propose(user_input)
@@ -213,6 +228,8 @@ class TeXadaAgentRuntime:
                     render_mode=render_mode,
                     start=start,
                     task="nl",
+                    requires_review=requires_review,
+                    input_hash=source_identity,
                 )
                 if deterministic:
                     return deterministic
@@ -305,6 +322,10 @@ class TeXadaAgentRuntime:
             system_prompt += OCR_AGENT_PROMPT
         elif _task == "completion":
             system_prompt += COMPLETION_AGENT_PROMPT
+        elif _task == "repair":
+            system_prompt += ("\nThis is a constrained syntax repair task. The original formula is "
+                              "authoritative. Use only repair_tex to repair syntax; preserve every "
+                              "mathematical role. Human review is required before adoption.\n")
         elif initial_candidate:
             system_prompt += NL_AGENT_PROMPT
         required_anchors = self.operator_guard.forced_operators(preprocessed, user_input)
@@ -946,15 +967,49 @@ class TeXadaAgentRuntime:
         render_mode: RenderMode = RenderMode.KATEX,
         initial_tokens_used: int = 0,
         uncertain_role_paths: tuple[str, ...] = (),
+        requires_review: bool = False,
+        input_source_hash: str | None = None,
+        _source_image: bytes | None = None,
     ) -> AgentRunResult:
         """Run OCR/completion candidates through the shared planner."""
-        if task not in {"ocr", "completion"}:
-            raise ValueError("candidate task must be 'ocr' or 'completion'")
+        if task not in {"ocr", "completion", "repair"}:
+            raise ValueError("candidate task must be 'ocr', 'completion', or 'repair'")
         if not candidate_latex.strip():
             raise RuntimeError(f"{task} candidate is empty")
         normalized_candidate = self.operator_guard.normalize_candidate(
             candidate_latex
         )
+        if task == "repair":
+            # The trusted caller already authorized deterministic syntax repair.
+            # A planner is not needed to choose this existing host operation.
+            # No backend readiness or model request is made by this path.
+            if candidate_latex != user_input:
+                raise ValueError("repair candidate must be the exact original source formula")
+            state = self._scoped_state(
+                normalized_candidate, origin="repair_source", task="repair",
+                requires_review=requires_review,
+                input_hash=input_source_hash or hash_review_source(user_input, _source_image),
+            )
+            result = await self._finalize(
+                normalized_candidate, trace=[{
+                    "step": 1, "origin": "host_syntax_repair", "task": "repair",
+                    "content": normalized_candidate, "tool_calls": [], "observations": [],
+                }], render_mode=render_mode, semantic_diff={}, tokens_used=initial_tokens_used,
+                start=time.monotonic(), stop_reason="host_syntax_repair", formula_state=state,
+            )
+            host_calls = []
+            for item in result.trace:
+                for observation in item.get("observations", []):
+                    name = observation.get("tool")
+                    revision = observation.get("revision")
+                    if name in {"compile_tex", "repair_tex", "render_math"} and revision:
+                        arguments = {"latex": state.latex_at(revision)}
+                        if name == "render_math":
+                            arguments["mode"] = render_mode.value
+                        host_calls.append({"id": f"host-{len(host_calls) + 1}", "name": name,
+                                           "arguments": arguments})
+            result.trace[0]["tool_calls"] = host_calls
+            return result
         if task == "completion" and initial_tokens_used == 0:
             deterministic = await self._run_deterministic_candidate(
                 DeterministicCandidate(
@@ -966,6 +1021,8 @@ class TeXadaAgentRuntime:
                 start=time.monotonic(),
                 task="completion",
                 source_prefix=user_input,
+                requires_review=requires_review,
+                input_hash=input_source_hash or hash_review_source(user_input, _source_image),
             )
             if deterministic:
                 return deterministic
@@ -977,6 +1034,9 @@ class TeXadaAgentRuntime:
             _initial_candidate=candidate_latex,
             _initial_tokens_used=initial_tokens_used,
             _uncertain_role_paths=uncertain_role_paths,
+            requires_review=requires_review,
+            input_source_hash=input_source_hash,
+            _source_image=_source_image,
         )
 
     async def _run_deterministic_candidate(
@@ -988,6 +1048,8 @@ class TeXadaAgentRuntime:
         start: float,
         task: str,
         source_prefix: str = "",
+        requires_review: bool = False,
+        input_hash: str = "",
     ) -> AgentRunResult | None:
         """Validate and render a high-confidence candidate without model inference."""
         compile_call = PlannerToolCall(
@@ -1026,6 +1088,8 @@ class TeXadaAgentRuntime:
             origin=f"{task}_deterministic_candidate",
             task=task,
             prefix=source_prefix,
+            requires_review=requires_review,
+            input_hash=input_hash,
         )
         compile_data = self._record_formula_evidence(
             formula_state,
@@ -1039,10 +1103,10 @@ class TeXadaAgentRuntime:
         )
         if formula_state.revision is None:
             return None
-        if MutationScopeGuard.commit_blockers(formula_state):
-            return None
         await self._record_cas_shadow(formula_state, start=start)
-        formula_state.commit(expected_revision=formula_state.revision)
+        review_reasons = self._review_reasons(formula_state)
+        if not review_reasons:
+            formula_state.commit(expected_revision=formula_state.revision)
 
         trace = [
             {
@@ -1075,10 +1139,16 @@ class TeXadaAgentRuntime:
             trace=self._scope_trace(trace, formula_state),
             tokens_used=0,
             latency_ms=(time.monotonic() - start) * 1000,
-            stop_reason="deterministic_candidate",
+            stop_reason=(
+                ("mutation_scope_review_required"
+                 if MutationScopeGuard.commit_blockers(formula_state)
+                 else "human_review_required") if review_reasons else "deterministic_candidate"
+            ),
             revision=formula_state.revision,
             committed=formula_state.committed,
             formula_ledger=formula_state.to_dict(),
+            review_reasons=review_reasons,
+            _state=formula_state,
         )
 
     async def _finalize(
@@ -1221,6 +1291,8 @@ class TeXadaAgentRuntime:
                 revision=formula_state.revision,
                 committed=False,
                 formula_ledger=formula_state.to_dict(),
+                review_reasons=self._review_reasons(formula_state),
+                _state=formula_state,
             )
 
         render = await self.tools.execute(
@@ -1241,10 +1313,13 @@ class TeXadaAgentRuntime:
             if blockers:
                 stop_reason = "mutation_scope_review_required"
                 raise CommitBarrierError("mutation scope requires human review")
+            if self._review_reasons(formula_state):
+                stop_reason = "human_review_required"
+                raise CommitBarrierError("candidate requires revision-bound human review")
             formula_state.commit(expected_revision=formula_state.revision)
         except CommitBarrierError as exc:
             commit_error = str(exc)
-            if stop_reason != "mutation_scope_review_required":
+            if stop_reason not in {"mutation_scope_review_required", "human_review_required"}:
                 stop_reason = "commit_barrier_failed"
             observations.append(
                 {
@@ -1281,6 +1356,8 @@ class TeXadaAgentRuntime:
             revision=formula_state.revision,
             committed=formula_state.committed,
             formula_ledger=formula_state.to_dict(),
+            review_reasons=self._review_reasons(formula_state),
+            _state=formula_state,
         )
 
     def _runtime_rejection(
@@ -1321,6 +1398,8 @@ class TeXadaAgentRuntime:
             revision=formula_state.revision,
             committed=False,
             formula_ledger=formula_state.to_dict(),
+            review_reasons=self._review_reasons(formula_state),
+            _state=formula_state,
         )
 
     @staticmethod
@@ -1394,13 +1473,49 @@ class TeXadaAgentRuntime:
     def _scoped_state(
         self, latex: str, *, origin: str, task: str, prefix: str = "",
         uncertain_roles: tuple[str, ...] = (),
+        requires_review: bool = False,
+        input_hash: str = "",
     ) -> FormulaState:
         state = FormulaState()
         state.mutation_scope_guard = MutationScopeGuard(
             task=task, prefix=prefix, uncertain_roles=uncertain_roles,
         )
+        state.review_required = bool(requires_review or task == "ocr")
+        state.review_task = task
+        state.review_input_hash = input_hash
         self._adopt_formula(state, latex, origin=origin)
         return state
+
+    @staticmethod
+    def _review_reasons(state: FormulaState) -> list[str]:
+        reasons = []
+        if getattr(state, "review_required", False):
+            reasons.append(
+                "ocr_source_requires_review" if getattr(state, "review_task", "") == "ocr"
+                else "trusted_review_required"
+            )
+        critical = {"numerator", "denominator", "radicand", "index", "lower_bound", "upper_bound",
+                    "subscript", "superscript", "base"}
+        for item in state.ledger.evidence:
+            if item.kind == "mutation_scope":
+                if not item.ok:
+                    reasons.append("mutation_scope_denied_or_uncertain")
+                footprint = item.output.get("footprint", [])
+                if any(change.get("role") in critical
+                       or str(change.get("role", "")).startswith(("row_", "column_"))
+                       or change.get("path", "").endswith(
+                           (".rows", ".columns", ".has_bar_line", ".left", ".right")
+                       )
+                       for change in footprint):
+                    reasons.append("high_risk_role_change")
+                if any(change.get("operation") in {"replace", "replace_children"}
+                       for change in footprint):
+                    reasons.append("structural_shape_change")
+                if any(change.get("role") == "unresolved" for change in footprint):
+                    reasons.append("unreliable_role_diff")
+            elif item.kind == "cas_transition" and item.output.get("verdict") == "different":
+                reasons.append("cas_counterexample")
+        return list(dict.fromkeys(reasons))
 
     def _adopt_formula(
         self,
@@ -1606,7 +1721,9 @@ class TeXadaAgentRuntime:
         preprocessed: str = "",
         required_anchors: list[str] | None = None,
     ) -> str:
-        label = {"nl": "NL", "ocr": "OCR", "completion": "completion"}[task]
+        label = {
+            "nl": "NL", "ocr": "OCR", "completion": "completion", "repair": "syntax repair"
+        }[task]
         sections = [f"Task: {label} candidate review"]
         if task == "nl":
             sections.append(cls._user_prompt(

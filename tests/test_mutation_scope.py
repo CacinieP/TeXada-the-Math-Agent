@@ -182,9 +182,11 @@ class Planner:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("trusted_roles,committed", [((), False), (("root[0].denominator",), True)])
+@pytest.mark.parametrize(
+    "trusted_roles,scope_allowed", [((), False), (("root[0].denominator",), True)]
+)
 async def test_runtime_blocks_ungranted_ocr_commit_but_records_role_footprint(
-    tmp_path, trusted_roles, committed
+    tmp_path, trusted_roles, scope_allowed
 ):
     runtime = TeXadaAgentRuntime(
         TeXadaConfig(data_dir=tmp_path), model=Planner([
@@ -203,7 +205,8 @@ async def test_runtime_blocks_ungranted_ocr_commit_but_records_role_footprint(
         uncertain_role_paths=trusted_roles,
     )
     assert result.valid
-    assert result.committed is committed
+    assert not result.committed  # Every OCR result needs explicit human adoption.
+    assert "ocr_source_requires_review" in result.review_reasons
     changes = [
         item for item in result.formula_ledger["evidence"] if item["kind"] == "mutation_scope"
     ]
@@ -212,7 +215,7 @@ async def test_runtime_blocks_ungranted_ocr_commit_but_records_role_footprint(
     assert changes[-1]["output"]["child_revision"] == 2
     assert changes[-1]["output"]["footprint"]
     assert result.trace[-1]["mutation_scope"] == [item["output"] for item in changes]
-    if not committed:
+    if not scope_allowed:
         assert result.stop_reason == "mutation_scope_review_required"
         assert result.formula_ledger["commits"] == []
 

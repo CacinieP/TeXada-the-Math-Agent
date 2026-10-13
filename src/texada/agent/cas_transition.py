@@ -187,7 +187,7 @@ class CASTransitionChecker:
                 return self.timed_out(evidence)
             timeout_ms = max(1, min(1000, int(remaining * 500)))
             self.checker.timeout_ms = timeout_ms
-            self.checker.worker.startup_timeout_ms = timeout_ms
+            self.checker.worker.startup_timeout_ms = max(1, int(remaining * 1000) - timeout_ms)
         try:
             result: CASResult = self.checker.check(
                 self.parser.parse(before), self.parser.parse(after)

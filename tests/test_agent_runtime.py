@@ -269,7 +269,8 @@ async def test_runtime_recovers_request_anchors_before_commit(tmp_path):
 
     assert result.latex == r"\tan(\nu)"
     assert result.valid is True
-    assert result.committed is True
+    assert not result.committed
+    assert "structural_shape_change" in result.review_reasons
     first_prompt = planner.seen_messages[0][1]["content"]
     assert "Runtime request anchors" in first_prompt
     assert r"- \tan" in first_prompt
@@ -800,7 +801,8 @@ async def test_runtime_preserves_symbol_engine_operator_anchor(tmp_path):
     result = await runtime.run("二重积分 f(x,y) 在区域 D 上")
 
     assert result.latex == r"\iint_D f(x,y)\,dx\,dy"
-    assert result.stop_reason == "operator_drift_deterministic_restore"
+    assert result.stop_reason == "human_review_required"
+    assert not result.committed and result.review_reasons
     drift_observation = result.trace[0]["observations"][0]
     assert drift_observation["tool"] == "operator_drift_guard"
     assert drift_observation["output"]["required_operators"] == [r"\iint"]
@@ -827,7 +829,8 @@ async def test_runtime_uses_deterministic_integral_restore_before_model_retry(tm
     result = await runtime.run("二重积分 f(x,y) 在区域 D 上")
 
     assert result.latex == r"\iint_{D} f(x,y)\,dx\,dy"
-    assert result.stop_reason == "operator_drift_deterministic_restore"
+    assert result.stop_reason == "human_review_required"
+    assert "structural_shape_change" in result.review_reasons
     assert len(planner.seen_messages) == 1
     planner.generate_latex.assert_not_awaited()
 
@@ -847,7 +850,8 @@ async def test_runtime_keeps_constrained_retry_for_non_synthesizable_operators(t
     result = await runtime.run("偏导 u")
 
     assert result.latex == r"\frac{\partial u}{\partial x}"
-    assert result.stop_reason == "operator_drift_recovered"
+    assert result.stop_reason == "human_review_required"
+    assert "structural_shape_change" in result.review_reasons
     assert result.trace[-2]["origin"] == "operator_drift_fallback"
     planner.generate_latex.assert_awaited_once()
     assert planner.generate_latex.await_args.kwargs["force_operators"] == [
@@ -873,7 +877,8 @@ async def test_runtime_uses_deterministic_integral_fallback_after_empty_retry(tm
 
     assert result.latex == r"\iint_{D} f(x,y)\,dx\,dy"
     assert result.valid is True
-    assert result.stop_reason == "operator_drift_deterministic_restore"
+    assert result.stop_reason == "human_review_required"
+    assert not result.committed and result.review_reasons
     restored = result.trace[-2]["observations"][-1]
     assert restored["output"]["method"] == "deterministic_integral_rank_restore"
 
@@ -895,7 +900,8 @@ async def test_runtime_short_circuits_exact_user_echo_with_anchor_fallback(tmp_p
 
     assert result.latex == r"\iint_{D} f(x,y)\,dx\,dy"
     assert result.valid is True
-    assert result.stop_reason == "operator_drift_deterministic_restore"
+    assert result.stop_reason == "human_review_required"
+    assert not result.committed and result.review_reasons
     planner.generate_latex.assert_not_awaited()
 
 
@@ -945,7 +951,8 @@ async def test_runtime_restores_integral_domain_after_compile_observation(tmp_pa
     result = await runtime.run("二重积分 f(x,y) 在区域 D 上")
 
     assert result.latex == r"\iint_{D} f(x,y)\,dx\,dy"
-    assert result.stop_reason == "operator_drift_deterministic_restore"
+    assert result.stop_reason == "human_review_required"
+    assert "structural_shape_change" in result.review_reasons
     assert len(planner.seen_messages) == 1
 
 
@@ -1047,7 +1054,8 @@ async def test_nl_candidate_first_preserves_original_symbol_anchors_when_candida
     assert r"- \iint" in prompt
     assert result.trace[1]["preprocessed_input"] == r"\iint f(x,y) 在区域 D 上"
     assert result.latex == r"\iint_{D} f(x,y)\,dx\,dy"
-    assert result.valid and result.committed
+    assert result.valid and not result.committed
+    assert "structural_shape_change" in result.review_reasons
 
 
 @pytest.mark.asyncio

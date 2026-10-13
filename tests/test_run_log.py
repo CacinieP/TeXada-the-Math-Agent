@@ -342,6 +342,7 @@ async def test_agent_api_records_success_trace_and_history_correlation(tmp_path,
             tokens_used=7,
             latency_ms=8.0,
             stop_reason="planner_final",
+            committed=True,
         )
 
     monkeypatch.setattr(TeXadaAgentRuntime, "run", fake_run)

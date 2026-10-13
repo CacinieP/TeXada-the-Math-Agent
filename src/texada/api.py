@@ -5,16 +5,17 @@ import time
 from collections.abc import Awaitable, Callable
 from contextlib import ExitStack, asynccontextmanager
 from contextvars import ContextVar
+from dataclasses import asdict
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from texada.agent.runtime import TeXadaAgentRuntime
+from texada.agent.runtime import AgentRunResult, TeXadaAgentRuntime
 from texada.config import (
     TeXadaConfig,
     load_config,
@@ -35,6 +36,12 @@ from texada.core.router import InputRouter
 from texada.render.engine import RenderEngine
 from texada.semantic.katex import shared_katex_parser
 from texada.store.history import HistoryStore
+from texada.store.pending_review import (
+    PendingReviewStore,
+    ReviewBinding,
+    ReviewError,
+    input_source_hash,
+)
 from texada.store.run_log import RunLogStore
 from texada.store.shorthand import DEFAULT_SHORTHANDS
 from texada.types import ConvertResult, HistoryEntry, RenderMode, RunLogEntry
@@ -95,6 +102,31 @@ class AgentResponse(LaTeXResponse):
     stop_reason: str = "completed"
     revision: int | None = Field(default=None, ge=1)
     committed: bool = False
+    review: dict | None = None
+
+
+class ReviewDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: str = Field(pattern="^(accept|reject)$")
+    input_hash: str = Field(pattern="^[a-f0-9]{64}$")
+    parent_revision: int | None = Field(..., ge=1, strict=True)
+    candidate_hash: str = Field(pattern="^[a-f0-9]{64}$")
+    current_revision: int = Field(ge=1, strict=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_nested_binding(cls, data):
+        if not isinstance(data, dict) or "binding" not in data:
+            return data
+        binding = data["binding"]
+        fields = {"input_hash", "parent_revision", "candidate_hash", "current_revision"}
+        if not isinstance(binding, dict) or set(binding) != fields:
+            raise ValueError("review binding must contain exactly the four source/revision fields")
+        if any(key in data and data[key] != binding[key] for key in fields):
+            raise ValueError("flat and nested review bindings conflict")
+        flattened = {key: value for key, value in data.items() if key != "binding"}
+        flattened.update(binding)
+        return flattened
 
 class ValidateRequest(BaseModel):
     latex: str = Field(min_length=1, max_length=4000)
@@ -448,15 +480,46 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     run_logs = RunLogStore(config)
     render_engine = RenderEngine(config)
     backend_mgr = BackendManager(config)
+    review_store = PendingReviewStore(max_source_bytes=max(32 * 1024 * 1024, config.max_ocr_bytes))
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         try:
             yield
         finally:
+            review_store.clear()
             shared_katex_parser().close()
 
     app = FastAPI(title="TeXada", version=app_version, lifespan=lifespan)
+    app.state.review_store = review_store
+
+    def register_review_result(
+        result: AgentRunResult, *, source_text: str, source_image: bytes | None = None,
+        source_mime: str = "", input_hash: str | None = None, metadata: dict | None = None,
+    ) -> dict | None:
+        if not result.review_reasons or result.revision is None:
+            return None
+        if result._formula_state is None:
+            raise HTTPException(
+                status_code=503, detail="review state is unavailable; candidate cannot be adopted"
+            )
+        try:
+            review = review_store.register(
+                result._formula_state,
+                input_hash=input_hash or input_source_hash(source_text, source_image),
+                source_text=source_text, source_image=source_image, source_mime=source_mime,
+                render=result.render, reasons=result.review_reasons, metadata=metadata,
+            )
+        except ReviewError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from None
+        if result.trace:
+            result.trace[-1]["human_review"] = {
+                key: review[key] for key in ("id", "status", "input_hash", "parent_revision",
+                                             "candidate_hash", "current_revision", "reasons")
+            }
+        return review
+
+    app.state.register_review_result = register_review_result
     allowed_origins = set(config.api_allowed_origins)
     # CORS — only the local shell UI and Tauri app should call the API from a browser.
     app.add_middleware(
@@ -480,6 +543,51 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             await target_store.add(entry)
         except Exception:
             pass
+
+    @app.get("/api/reviews/{review_id}")
+    async def get_review(review_id: str):
+        try:
+            return JSONResponse(review_store.get(review_id), headers={"Cache-Control": "no-store"})
+        except ReviewError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from None
+
+    @app.get("/api/reviews/{review_id}/source")
+    async def get_review_source(review_id: str):
+        try:
+            data, mime = review_store.source(review_id)
+        except ReviewError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from None
+        return Response(data, media_type=mime, headers={
+            "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'",
+        })
+
+    @app.post("/api/reviews/{review_id}/decision")
+    async def decide_review(review_id: str, req: ReviewDecisionRequest):
+        try:
+            result = review_store.decide(review_id, decision=req.decision, binding=ReviewBinding(
+                req.input_hash, req.parent_revision, req.candidate_hash, req.current_revision,
+            ))
+            metadata = review_store.claim_accept_event(review_id)
+        except ReviewError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from None
+        if metadata and metadata.get("history_entry"):
+            try:
+                await history.add(HistoryEntry(**metadata["history_entry"]))
+            except Exception:
+                pass  # Adoption is authoritative; history is best-effort.
+        await record_run(RunLogEntry(
+            run_id=uuid4().hex, operation="human_review", input_type="review",
+            input_text=result["id"], output_latex=result["latex"],
+            status="success", status_code=200,
+            valid=result["checks"]["compile"]["status"] == "valid",
+            stop_reason=f"human_review_{result['status']}",
+            trace=[{"human_review": {key: result[key] for key in (
+                "id", "status", "input_hash", "parent_revision",
+                "candidate_hash", "current_revision",
+            )}}],
+        ))
+        return JSONResponse(result, headers={"Cache-Control": "no-store"})
 
     @app.middleware("http")
     async def enforce_browser_origin(
@@ -691,8 +799,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 error_message=str(e),
             ))
             raise
-        try:
-            await history.add(HistoryEntry(
+        history_entry = HistoryEntry(
                 run_id=run_id,
                 input_text=req.text,
                 input_type="nl",
@@ -703,9 +810,16 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 valid=result.valid,
                 latency_ms=result.latency_ms,
                 tokens_used=result.tokens_used,
-            ))
-        except Exception:
-            pass
+            )
+        review = register_review_result(
+            result, source_text=req.text,
+            metadata={"history_entry": asdict(history_entry)},
+        )
+        if result.committed:
+            try:
+                await history.add(history_entry)
+            except Exception:
+                pass
         tool_names = _trace_tool_names(result.trace)
         await record_run(RunLogEntry(
             run_id=run_id, operation="agent", input_type="nl",
@@ -727,7 +841,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             valid=result.valid,
             source="agent",
             intent="agent",
-            confidence=1.0 if result.valid else 0.5,
+            confidence=0.0,  # Agent intent fidelity is not calibrated by syntax checks.
             latency_ms=result.latency_ms,
             tokens_used=result.tokens_used,
             semantic_document=result.semantic_document,
@@ -736,6 +850,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             stop_reason=result.stop_reason,
             revision=result.revision,
             committed=result.committed,
+            review=review,
         )
 
     @app.post("/api/ocr", response_model=AgentResponse)
@@ -772,6 +887,8 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 candidate,
                 render_mode=ocr_mode,
                 initial_tokens_used=vision_tokens,
+                requires_review=True,
+                _source_image=data,
             )
         except RuntimeError as e:
             await record_run(RunLogEntry(
@@ -795,15 +912,22 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 error_message=str(e),
             ))
             raise
-        try:
-            await history.add(HistoryEntry(
+        history_entry = HistoryEntry(
                 run_id=run_id, input_text=image.filename or "[image]", input_type="ocr",
                 latex=result.latex, intent="ocr_agent", source="agent",
                 render_mode=ocr_mode.value, valid=result.valid,
                 latency_ms=result.latency_ms, tokens_used=result.tokens_used,
-            ))
-        except Exception:
-            pass  # history is best-effort; never fail the conversion
+            )
+        review = register_review_result(
+            result, source_text=image.filename or "[image]", source_image=data,
+            source_mime=image.content_type or "",
+            metadata={"history_entry": asdict(history_entry)},
+        )
+        if result.committed:
+            try:
+                await history.add(history_entry)
+            except Exception:
+                pass
         tool_names = _trace_tool_names(result.trace)
         await record_run(RunLogEntry(
             run_id=run_id, operation="ocr", input_type="ocr",
@@ -827,7 +951,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             valid=result.valid,
             source="agent",
             intent="ocr_agent",
-            confidence=1.0 if result.valid else 0.5,
+            confidence=0.0,  # Agent intent fidelity is not calibrated by syntax checks.
             latency_ms=result.latency_ms,
             tokens_used=result.tokens_used,
             semantic_document=result.semantic_document,
@@ -836,6 +960,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             stop_reason=result.stop_reason,
             revision=result.revision,
             committed=result.committed,
+            review=review,
         )
 
     @app.post("/api/complete", response_model=AgentResponse)
@@ -880,16 +1005,22 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 error_message=str(e),
             ))
             raise
-        try:
-            await history.add(HistoryEntry(
+        history_entry = HistoryEntry(
                 run_id=run_id, input_text=req.text, input_type="completion",
                 latex=result.latex,
                 intent="completion_agent", source="agent",
                 render_mode=comp_mode.value, valid=result.valid,
                 latency_ms=result.latency_ms, tokens_used=result.tokens_used,
-            ))
-        except Exception:
-            pass  # history is best-effort; never fail the conversion
+            )
+        review = register_review_result(
+            result, source_text=req.text,
+            metadata={"history_entry": asdict(history_entry)},
+        )
+        if result.committed:
+            try:
+                await history.add(history_entry)
+            except Exception:
+                pass
         tool_names = _trace_tool_names(result.trace)
         await record_run(RunLogEntry(
             run_id=run_id, operation="completion", input_type="completion",
@@ -912,7 +1043,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             valid=result.valid,
             source="agent",
             intent="completion_agent",
-            confidence=1.0 if result.valid else 0.5,
+            confidence=0.0,  # Agent intent fidelity is not calibrated by syntax checks.
             latency_ms=result.latency_ms,
             tokens_used=result.tokens_used,
             semantic_document=result.semantic_document,
@@ -921,6 +1052,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             stop_reason=result.stop_reason,
             revision=result.revision,
             committed=result.committed,
+            review=review,
         )
 
     @app.post("/api/validate", response_model=ValidateResponse)

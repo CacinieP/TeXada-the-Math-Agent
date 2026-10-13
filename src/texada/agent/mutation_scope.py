@@ -147,6 +147,8 @@ class MutationScopeGuard:
             return MutationGrant(
                 TransitionKind.OCR_ROLES, uncertain_role_paths=self.uncertain_roles
             )
+        if self.task == "repair":
+            return MutationGrant(TransitionKind.PRESERVE_STRUCTURE)
         return MutationGrant(TransitionKind.CANDIDATE_SYNTHESIS)
 
     def assess(
