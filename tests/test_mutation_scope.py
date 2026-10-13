@@ -97,6 +97,54 @@ def test_completion_retains_entire_prefix_including_bounds_scripts_and_tokens():
 
 
 @pytest.mark.parametrize(
+    ("prefix", "candidate"),
+    [
+        (r"\text{a b}", r"\text{ab}+x"),
+        (r"\text{a  b}", r"\text{a b}+x"),
+        (r"\operatorname{a b}", r"\operatorname{ab}(x)"),
+        (r"\text{a b}", r"\text{a b }+x"),
+        (r"\frac1", r"\frac12"),
+        ("x_1", "x_12"),
+        ("12", "123+x"),
+        ("1", "1.2+x"),
+        ("1.2", "1.23+x"),
+        (".5", ".56+x"),
+    ],
+)
+def test_completion_preserves_literal_bytes_and_numeric_token_boundaries(prefix, candidate):
+    result = MutationScopeGuard(task="completion", prefix=prefix).assess(
+        "", candidate, origin="completion_candidate", parent_revision=None, child_revision=1,
+    )
+    assert result.verdict == MutationVerdict.OUT_OF_SCOPE
+    assert result.basis == "completion_prefix_tokens"
+    assert result.footprint[0]["path"] == "source_prefix"
+
+
+@pytest.mark.parametrize(
+    ("prefix", "candidate"),
+    [
+        (r"\text{a b}", r"\text{a b}+x"),
+        ("x_1", "x_1+x_2"),
+        ("12", "12+x"),
+        (r"\frac1", r"\frac1{2}"),
+    ],
+)
+def test_unchanged_prefix_still_allows_an_explicit_new_suffix(prefix, candidate):
+    result = MutationScopeGuard(task="completion", prefix=prefix).assess(
+        "", candidate, origin="completion_candidate", parent_revision=None, child_revision=1,
+    )
+    assert result.verdict == MutationVerdict.ALLOWED
+
+
+@pytest.mark.parametrize(("before", "after"), [("{", "{}"), ("{{", "{{}}")])
+def test_syntax_brace_exception_cannot_authorize_an_empty_child_structure(before, after):
+    result = assess(before, after, origin="tool:repair_tex")
+    assert result.verdict == MutationVerdict.REVIEW_REQUIRED
+    assert result.basis == "unreliable_parse_or_diff"
+    assert result.basis != "deterministic_trailing_closing_braces"
+
+
+@pytest.mark.parametrize(
     "after", [r"\phantom{x}+y", r"\text{x}+y", r"\unknown{x}+y", "{" * 101 + "x" + "}" * 101]
 )
 def test_unreliable_parse_does_not_authorize_mutation(after):
@@ -200,6 +248,35 @@ async def test_completion_deterministic_fast_path_cannot_replace_source_prefix(t
     result = await runtime.run_candidate("completion", "x", "y+1", initial_tokens_used=0)
     assert not result.committed
     assert result.stop_reason == "mutation_scope_review_required"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("prefix", "candidate"),
+    [(r"\text{a b}", r"\text{ab}+x"), ("x_1", "x_12+1")],
+)
+async def test_real_completion_compile_render_cannot_commit_a_changed_prefix(
+    tmp_path, prefix, candidate,
+):
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path), model=Planner([PlannerTurn(content=candidate)]),
+    )
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+    # The zero-token path executes genuine compile/render tools. Both candidates
+    # are syntactically valid; the prefix scope must be what prevents commitment.
+    result = await runtime.run_candidate("completion", prefix, candidate, initial_tokens_used=0)
+    assert result.valid
+    assert result.latex == candidate
+    assert not result.committed
+    assert result.stop_reason == "mutation_scope_review_required"
+    assert result.formula_ledger["commits"] == []
+    scope = [item for item in result.formula_ledger["evidence"] if item["kind"] == "mutation_scope"]
+    assert scope and not scope[0]["ok"]
+    assert scope[0]["output"]["verdict"] == "out_of_scope"
+    assert scope[0]["output"]["basis"] == "completion_prefix_tokens"
+    evidence = result.formula_ledger["evidence"]
+    assert any(item["kind"] == "compile_tex" and item["output"].get("valid") for item in evidence)
+    assert any(item["kind"] == "render_math" and item["ok"] for item in evidence)
 
 
 @pytest.mark.asyncio

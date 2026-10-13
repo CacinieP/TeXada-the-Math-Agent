@@ -55,8 +55,11 @@ class MutationEvidence:
 
 def _tokens(latex: str) -> list[str]:
     # Keep braces, scripts, operator rank, all literal tokens and delimiters.
-    # Only whitespace between tokens is ignored; commands remain indivisible.
-    return re.findall(r"\\[A-Za-z]+|\\.|[^\s]", latex)
+    # Commands and numeric literals remain indivisible: a prefix ending in 1 cannot
+    # authorize extending that numeric token to 12 or 1.2. This is conservative even
+    # for TeX's unbraced arguments. Prefix bytes separately preserve whitespace
+    # because it can be meaningful inside text, operator names or verbatim spans.
+    return re.findall(r"\\[A-Za-z]+|\\.|[0-9]+(?:\.[0-9]+)?|\.[0-9]+|[^\s]", latex)
 
 
 def _role_at(path: str) -> str:
@@ -169,8 +172,10 @@ class MutationScopeGuard:
                 TransitionKind.PRESERVE_STRUCTURE,
             },
         )
-        if grant.source_prefix and _tokens(after)[: len(_tokens(grant.source_prefix))] != _tokens(
-            grant.source_prefix
+        prefix_tokens = _tokens(grant.source_prefix)
+        if grant.source_prefix and (
+            not after.startswith(grant.source_prefix)
+            or _tokens(after)[: len(prefix_tokens)] != prefix_tokens
         ):
             result.verdict = MutationVerdict.OUT_OF_SCOPE
             result.basis = "completion_prefix_tokens"
@@ -211,7 +216,9 @@ class MutationScopeGuard:
             suffix = after[len(before) :] if after.startswith(before) else ""
             if grant.kind == TransitionKind.SYNTAX_REPAIR and suffix and set(suffix) == {"}"}:
                 try:
-                    _, result.parser_backend = canonical_structure(after)
+                    child, result.parser_backend = canonical_structure(after)
+                    if not child:
+                        raise UnsupportedStructure("empty_structure")
                 except Exception:
                     pass
                 else:
@@ -233,7 +240,7 @@ class MutationScopeGuard:
         if not result.footprint:
             return result
         if grant.kind == TransitionKind.COMPLETION_PREFIX:
-            # The existing prefix has an exact token contract. The generated
+            # The existing prefix has exact byte and token contracts. The generated
             # suffix is provisional and may be changed by completion review.
             result.basis = "completion_prefix_tokens"
             return result
