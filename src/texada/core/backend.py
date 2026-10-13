@@ -15,10 +15,11 @@ from texada.config import TeXadaConfig
 async def probe_models_url(
     base_url: str, headers: dict[str, str] | None = None, *, timeout: float = 3.0
 ) -> bool:
-    """True if an OpenAI-compatible endpoint answers 200 on /models.
+    """True if an OpenAI-compatible API base answers 200 on its /models route.
 
     Shared by BackendManager (Ollama) and LlamaServerManager so both local
-    runtimes prove readiness identically.
+    runtimes prove readiness identically. ``base_url`` is the API base
+    (usually ending in /v1), never the complete /models route.
     """
     try:
         async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
@@ -33,7 +34,7 @@ async def probe_models_url(
 async def list_models_url(
     base_url: str, headers: dict[str, str] | None = None, *, timeout: float = 5.0
 ) -> list[str]:
-    """List model ids via the OpenAI-compatible endpoint (shared probe)."""
+    """List model ids from an API base, appending the /models route once."""
     try:
         async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
             resp = await client.get(
@@ -134,11 +135,11 @@ class BackendManager:
 
     async def _is_running(self) -> bool:
         """True if the backend answers on /models."""
-        return await probe_models_url(self.models_url, self.headers)
+        return await probe_models_url(self.base_url, self.headers)
 
     async def _list_models(self) -> list[str]:
         """List pulled model ids via the OpenAI-compatible endpoint."""
-        return await list_models_url(self.models_url, self.headers)
+        return await list_models_url(self.base_url, self.headers)
 
     def _model_installed(self, model: str, installed_models: list[str]) -> bool:
         model = model.strip()

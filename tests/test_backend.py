@@ -1,8 +1,77 @@
 """Test backend readiness checks."""
+import json
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Thread
+
 import pytest
 
 from texada.config import TeXadaConfig
 from texada.core.backend import BackendManager
+
+
+@pytest.fixture
+def models_server():
+    """Real loopback HTTP server; a duplicated route must fail readiness."""
+    requests = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            requests.append((self.path, self.headers.get("Authorization")))
+            body = json.dumps({"data": [{"id": "text"}, {"id": "vision"}]}).encode()
+            self.send_response(200 if self.path == "/v1/models" else 404)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *_):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}", requests
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+@pytest.mark.parametrize("host_suffix", ["", "/", "/v1", "/v1/"])
+async def test_ollama_probe_and_listing_request_models_route_once(
+    tmp_path, models_server, host_suffix
+):
+    host, requests = models_server
+    manager = BackendManager(TeXadaConfig(
+        data_dir=tmp_path,
+        backend="ollama",
+        ollama_host=host + host_suffix,
+        model_name="text",
+        vision_model_name="vision",
+    ))
+
+    assert await manager._is_running() is True
+    assert await manager._list_models() == ["text", "vision"]
+    assert requests == [("/v1/models", None)] * 2
+
+
+@pytest.mark.parametrize("trailing_slash", ["", "/"])
+async def test_openai_probe_and_listing_preserve_authorization(
+    tmp_path, models_server, trailing_slash
+):
+    host, requests = models_server
+    manager = BackendManager(TeXadaConfig(
+        data_dir=tmp_path,
+        backend="openai_compatible",
+        openai_base_url=host + "/v1" + trailing_slash,
+        openai_api_key="test-token",
+        openai_model_name="text",
+    ))
+
+    assert await manager.ensure_ready() is True
+    assert await manager._list_models() == ["text", "vision"]
+    assert requests == [("/v1/models", "Bearer test-token")] * 2
 
 
 @pytest.mark.asyncio
