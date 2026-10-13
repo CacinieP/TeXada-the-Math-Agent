@@ -2,6 +2,7 @@
 
 Source baseline: v0.4.1, built on the v0.4.0 Runtime Foundation.
 Model-default update: 2026-09-12.
+Single-checkpoint profile: 2026-10-13, [ADR-017](adr/017-minicpm-v47-single-checkpoint.md).
 TeXada is an on-device, agent-driven structured math editor. It is not a LaTeX
 input method with an LLM bolted on.
 
@@ -10,7 +11,9 @@ The v0.4-v1.0 layer vocabulary and scope are frozen in
 loop uses `FormulaState`, rather than Planner context or a local `latest_latex`
 variable, as the authority for formula revisions.
 
-TeXada has exactly two model roles:
+TeXada has two model roles. The opt-in MiniCPM-V 4.7 profile serves both
+from one `MiniCPM-V-4.7-1B` checkpoint through the same endpoint; see
+[configuration and acceptance](minicpm-v47.md). The existing Ollama defaults are:
 
 - `MiniCPM5-2B`: text generation, planning, and tool selection.
 - `MiniCPM-V 4.6`: image understanding and formula OCR.
@@ -35,7 +38,7 @@ Image / Keyboard
 Formula Runtime (FormulaState / Revision / Ledger)
         |
         v
-MiniCPM5-2B Planner
+Configured MiniCPM Planner
         |
         +--> parse_tex
         +--> compile_tex
@@ -47,7 +50,7 @@ MiniCPM5-2B Planner
         v
 Revision-bound Evidence
         |
-        +----> MiniCPM5 decides whether to call another tool
+        +----> Planner decides whether to call another tool
         |
         v
 Commit Barrier -> Structured final formula
@@ -63,9 +66,9 @@ clients.
 
 | Product path | Model role | Agent loop |
 |--------------|------------|------------|
-| Natural language (`/api/agent`) | Deterministic candidate or MiniCPM5-2B planner | Yes |
-| OCR (`/api/ocr`) | MiniCPM-V 4.6 candidate → MiniCPM5-2B planner | Yes |
-| Completion (`/api/complete`) | rule/MiniCPM5 candidate → MiniCPM5-2B planner | Yes |
+| Natural language (`/api/agent`) | Deterministic candidate or configured model/Planner | Yes |
+| OCR (`/api/ocr`) | Vision candidate → shared Planner | Yes |
+| Completion (`/api/complete`) | Rule/model candidate → shared Planner | Yes |
 | Validation (`/api/validate`) | Deterministic local code | No model |
 
 “Agentized” does not mean every request must spend a model inference. Before
@@ -143,14 +146,14 @@ The runtime lives in `src/texada/agent/`.
 - A revision is committed only when successful compile and render evidence both
   belong to that exact revision. Agent API responses expose `revision` and
   `committed`.
-- `PlannerBackend` is a deliberately narrow code seam; MiniCPM5 remains the
-  production implementation rather than a promise of generic model parity.
+- `PlannerBackend` is a deliberately narrow code seam. The MiniCPM-V 4.7
+  profile uses standard OpenAI tool calls; legacy MiniCPM5 XML stays supported.
 - The Agent path reuses `SymbolEngine` and the extracted
   `OperatorDriftGuard`; it does not bypass the original anti-drift behavior.
 
-MiniCPM5 is the planned and tested planner contract. Generic OpenAI-compatible
-configuration is retained as a migration bridge, not as a promise that every
-model will reproduce MiniCPM5's agent behavior.
+Provider compatibility is measured per profile. The MiniCPM-V 4.7 profile adds
+real API acceptance evidence; an arbitrary OpenAI-compatible model still needs
+its own tool-call and mathematical-quality evaluation.
 
 ## TeX Tools
 

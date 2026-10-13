@@ -1,6 +1,6 @@
 """Planner → Tool → Observation runtime tests."""
 import json
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -25,7 +25,9 @@ class FakePlanner:
         }
         return self.turns.pop(0)
 
-    async def generate_latex(self, user_input, intent, *, force_operators=None):
+    async def generate_latex(
+        self, user_input, intent, *, force_operators=None, deadline_monotonic=None,
+    ):
         return "x+1"
 
     @staticmethod
@@ -108,6 +110,7 @@ async def test_runtime_executes_multistep_tools_and_repairs_only_through_tool(tm
 @pytest.mark.asyncio
 async def test_runtime_accepts_direct_final_then_applies_guard_tools(tmp_path):
     planner = FakePlanner([PlannerTurn(content=r"\sqrt{x}")])
+    planner.generate_latex = AsyncMock(side_effect=AssertionError("flag is off"))
     runtime = TeXadaAgentRuntime(
         TeXadaConfig(data_dir=tmp_path),
         model=planner,
@@ -121,6 +124,8 @@ async def test_runtime_accepts_direct_final_then_applies_guard_tools(tmp_path):
     assert result.stop_reason == "planner_final"
     assert result.render.latex_highlighted
     assert result.trace[-1]["origin"] == "runtime_guard"
+    assert result.trace[0]["origin"] == "planner"
+    planner.generate_latex.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -265,10 +270,12 @@ async def test_runtime_recovers_request_anchors_before_commit(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_runtime_uses_zero_model_range_sum_fast_path(tmp_path):
+@pytest.mark.parametrize("candidate_first", [False, True])
+async def test_runtime_uses_zero_model_range_sum_fast_path(tmp_path, candidate_first):
     planner = FakePlanner([])
+    planner.generate_latex = AsyncMock(side_effect=AssertionError("zero-model path"))
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(data_dir=tmp_path),
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -285,6 +292,7 @@ async def test_runtime_uses_zero_model_range_sum_fast_path(tmp_path):
         call["name"] for call in result.trace[0]["tool_calls"]
     ] == ["compile_tex", "render_math"]
     assert planner.seen_messages == []
+    planner.generate_latex.assert_not_awaited()
     runtime.backend.ensure_ready.assert_not_awaited()
     assert result.revision == 1
     assert result.committed is True
@@ -465,12 +473,14 @@ async def test_runtime_normalizes_render_mode_and_stops_after_render(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_ocr_candidate_enters_planner_with_compile_observation(tmp_path):
+@pytest.mark.parametrize("candidate_first", [False, True])
+async def test_ocr_candidate_enters_planner_with_compile_observation(tmp_path, candidate_first):
     planner = FakePlanner(
         [PlannerTurn(content=r"\int_0^1 x\,dx", tokens_used=3)]
     )
+    planner.generate_latex = AsyncMock(side_effect=AssertionError("OCR already has a candidate"))
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(data_dir=tmp_path),
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -484,6 +494,7 @@ async def test_ocr_candidate_enters_planner_with_compile_observation(tmp_path):
 
     assert result.latex == r"\int_0^1 x\,dx"
     assert result.tokens_used == 14
+    planner.generate_latex.assert_not_awaited()
     assert [item["origin"] for item in result.trace] == [
         "candidate_intake",
         "planner",
@@ -506,7 +517,10 @@ async def test_ocr_candidate_enters_planner_with_compile_observation(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_completion_candidate_is_repaired_via_tool_not_planner_text(tmp_path):
+@pytest.mark.parametrize("candidate_first", [False, True])
+async def test_completion_candidate_is_repaired_via_tool_not_planner_text(
+    tmp_path, candidate_first,
+):
     planner = FakePlanner(
         [
             PlannerTurn(
@@ -521,8 +535,11 @@ async def test_completion_candidate_is_repaired_via_tool_not_planner_text(tmp_pa
             PlannerTurn(content=r"\frac{a}{b}"),
         ]
     )
+    planner.generate_latex = AsyncMock(
+        side_effect=AssertionError("completion already has a candidate"),
+    )
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(data_dir=tmp_path),
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -535,6 +552,7 @@ async def test_completion_candidate_is_repaired_via_tool_not_planner_text(tmp_pa
 
     assert result.latex == r"\frac{a}{b}"
     assert result.valid is True
+    planner.generate_latex.assert_not_awaited()
     assert result.trace[0]["observations"][0]["output"]["valid"] is False
     assert result.trace[1]["tool_calls"][0]["name"] == "repair_tex"
     assert result.semantic_diff["change_count"] >= 1
@@ -928,3 +946,207 @@ async def test_runtime_restores_integral_domain_after_compile_observation(tmp_pa
     assert result.latex == r"\iint_{D} f(x,y)\,dx\,dy"
     assert result.stop_reason == "operator_drift_deterministic_restore"
     assert len(planner.seen_messages) == 1
+
+
+@pytest.mark.asyncio
+async def test_nl_candidate_first_generates_then_compiles_before_shared_planner(tmp_path):
+    candidate = r"\tan(\nu)"
+    user_input = "Express the tangent function applied to lowercase Greek letter nu."
+    planner = FakePlanner([PlannerTurn(content=candidate, tokens_used=5)])
+    events = []
+
+    async def generate(*args, **kwargs):
+        events.append("generate")
+        return f"  {candidate}\n"
+
+    planner.generate_latex = AsyncMock(side_effect=generate)
+    planner.consume_tokens_used = Mock(return_value=11)
+    config = TeXadaConfig(
+        data_dir=tmp_path,
+        backend="openai_compatible",
+        openai_base_url="https://api.modelbest.cn/v1",
+        openai_api_key="test-placeholder",
+        openai_model_name="MiniCPM-V-4.7-1B",
+        openai_vision_model_name="",
+        nl_candidate_first=True,
+    )
+    runtime = TeXadaAgentRuntime(config, model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+    runtime._model_call_budget_available = Mock(wraps=runtime._model_call_budget_available)
+    execute = runtime.tools.execute
+    plan = planner.plan
+
+    async def record_tool(name, arguments):
+        events.append(name)
+        return await execute(name, arguments)
+
+    async def record_plan(messages, tools):
+        events.append("plan")
+        return await plan(messages, tools)
+
+    runtime.tools.execute = record_tool
+    planner.plan = record_plan
+
+    result = await runtime.run(user_input, context="Keep the Greek letter lowercase.")
+
+    assert events[:3] == ["generate", "compile_tex", "plan"]
+    assert runtime.model is planner
+    assert config.active_model_name == config.active_vision_model_name == "MiniCPM-V-4.7-1B"
+    planner.generate_latex.assert_awaited_once_with(
+        user_input,
+        "generic",
+        force_operators=[r"\tan", r"\nu"],
+        deadline_monotonic=(
+            runtime._model_call_budget_available.call_args_list[0].args[0]
+            + config.api_request_timeout_seconds
+        ),
+    )
+    assert result.tokens_used == 16
+    assert result.valid and result.committed
+    assert result.formula_ledger["revisions"][0]["origin"] == "nl_candidate"
+    assert result.formula_ledger["revisions"][0]["latex"] == candidate
+    assert [item["origin"] for item in result.trace] == [
+        "candidate_intake", "planner", "runtime_guard",
+    ]
+    assert result.trace[0]["tool_calls"][0]["arguments"] == {"latex": candidate}
+    messages = planner.seen_messages[0]
+    assert "natural-language candidate review task" in messages[0]["content"]
+    assert "Task: NL candidate review" in messages[1]["content"]
+    assert f"User request:\n{user_input}" in messages[1]["content"]
+    assert "Keep the Greek letter lowercase." in messages[1]["content"]
+    assert r"- \tan" in messages[1]["content"]
+    assert r"- \nu" in messages[1]["content"]
+    intake = json.loads(messages[3]["content"])
+    assert intake["revision"] == 1
+    assert intake["formula_state"]["latex"] == candidate
+
+
+@pytest.mark.asyncio
+async def test_nl_candidate_first_preserves_original_symbol_anchors_when_candidate_drifts(tmp_path):
+    user_input = "二重积分 f(x,y) 在区域 D 上"
+    planner = FakePlanner([PlannerTurn(content="x^2")])
+    planner.generate_latex = AsyncMock(return_value="x^2")
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=True),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run(user_input)
+
+    planner.generate_latex.assert_awaited_once()
+    assert planner.generate_latex.await_args.args == (r"\iint f(x,y) 在区域 D 上", "integral")
+    assert planner.generate_latex.await_args.kwargs["force_operators"] == [r"\iint"]
+    prompt = planner.seen_messages[0][1]["content"]
+    assert user_input in prompt
+    assert "Deterministic symbol translation (authoritative):" in prompt
+    assert r"\iint f(x,y) 在区域 D 上" in prompt
+    assert r"- \iint" in prompt
+    assert result.trace[1]["preprocessed_input"] == r"\iint f(x,y) 在区域 D 上"
+    assert result.latex == r"\iint_{D} f(x,y)\,dx\,dy"
+    assert result.valid and result.committed
+
+
+@pytest.mark.asyncio
+async def test_nl_candidate_first_repairs_invalid_candidate_only_through_deterministic_tool(
+    tmp_path,
+):
+    planner = FakePlanner([PlannerTurn(content=r"\frac{a}{b}")])
+    planner.generate_latex = AsyncMock(return_value=r"\frac{a}{b")
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=True),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("a divided by b")
+
+    planner.generate_latex.assert_awaited_once()
+    assert result.trace[0]["observations"][0]["output"]["valid"] is False
+    blocked = result.trace[1]["observations"][0]
+    assert blocked["output"]["required_tool"] == "repair_tex"
+    repairs = [
+        item for step in result.trace for item in step["observations"]
+        if item["tool"] == "repair_tex"
+    ]
+    assert repairs and repairs[0]["output"]["repair_method"] == "deterministic-rules"
+    assert result.latex == r"\frac{a}{b}"
+    assert result.valid and result.committed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [
+    " \n", RuntimeError("candidate request timed out"), TimeoutError("candidate budget exhausted"),
+])
+async def test_nl_candidate_first_failure_has_no_formula_revision_or_tool_input(tmp_path, failure):
+    planner = FakePlanner([])
+    planner.generate_latex = (
+        AsyncMock(side_effect=failure)
+        if isinstance(failure, Exception)
+        else AsyncMock(return_value=failure)
+    )
+    planner.consume_tokens_used = Mock(return_value=13)
+    planner.plan = AsyncMock()
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=True),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+    runtime.tools.execute = AsyncMock()
+
+    result = await runtime.run("natural-language request requiring a candidate")
+
+    assert result.stop_reason == (
+        "runtime_budget_exhausted" if isinstance(failure, TimeoutError) else "model_request_failed"
+    )
+    assert result.latex == ""
+    assert result.valid is False and result.committed is False
+    assert result.revision is None
+    assert result.formula_ledger["revisions"] == []
+    assert result.formula_ledger["commits"] == []
+    assert result.tokens_used == 13
+    runtime.tools.execute.assert_not_awaited()
+    planner.plan.assert_not_awaited()
+    if isinstance(failure, str):
+        assert "empty formula" in result.trace[-1]["observations"][0]["error"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("budgets", [[False], [True, False]])
+async def test_nl_candidate_first_and_planner_share_original_request_budget(tmp_path, budgets):
+    planner = FakePlanner([])
+    planner.generate_latex = AsyncMock(return_value="x+1")
+    planner.consume_tokens_used = Mock(return_value=7)
+    planner.plan = AsyncMock()
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=True),
+        model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+    runtime._model_call_budget_available = Mock(side_effect=budgets)
+
+    result = await runtime.run("natural-language request requiring a candidate")
+
+    assert result.stop_reason == "runtime_budget_exhausted"
+    assert result.valid is False and result.committed is False
+    planner.plan.assert_not_awaited()
+    if budgets[0]:
+        planner.generate_latex.assert_awaited_once()
+        calls = runtime._model_call_budget_available.call_args_list
+        assert calls[0].args[0] == calls[1].args[0]
+        assert planner.generate_latex.await_args.kwargs["deadline_monotonic"] == (
+            calls[0].args[0] + runtime.config.api_request_timeout_seconds
+        )
+        assert result.tokens_used == 7
+        assert result.formula_ledger["revisions"][0]["origin"] == "nl_candidate"
+        assert result.trace[0]["origin"] == "candidate_intake"
+        assert result.formula_ledger["commits"] == []
+    else:
+        planner.generate_latex.assert_not_awaited()
+        assert result.tokens_used == 0
+        assert result.revision is None

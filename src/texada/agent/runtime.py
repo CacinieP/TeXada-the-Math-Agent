@@ -1,4 +1,4 @@
-"""Planner → Tool → Observation runtime bound to MiniCPM5."""
+"""Planner → Tool → Observation runtime with revision-bound evidence."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from texada.tools import TeXToolset, ToolObservation, ToolRouter
 from texada.types import RenderMode, RenderResult
 
 PLANNER_SYSTEM_PROMPT = """\
-You are TeXada's MiniCPM5 planner for structured mathematical editing.
+You are TeXada's planner for structured mathematical editing.
 
 Your job is planning, tool selection, and multi-step execution. The Formula
 Runtime owns the authoritative formula state and revision history.
@@ -64,7 +64,7 @@ you. Do not invent tool names.
 
 OCR_AGENT_PROMPT = """\
 
-This run is an OCR review task. MiniCPM-V 4.6 has already produced a candidate
+This run is an OCR review task. The vision role has already produced a candidate
 LaTeX expression. The candidate is evidence from the vision model, not a final
 answer. Inspect the compile_tex observation, preserve all recognized mathematical
 content, use repair_tex only when validation fails, use semantic_diff after a
@@ -72,9 +72,20 @@ change, and render_math before returning the final bare LaTeX. Do not invent
 symbols that are not supported by the candidate.
 """
 
+NL_AGENT_PROMPT = """\
+
+This run is a natural-language candidate review task. The configured model has
+already proposed a candidate LaTeX expression. It is a starting state, not a
+final answer. The original user request, deterministic symbol translation, and
+runtime request anchors remain authoritative. Inspect the compile_tex
+observation, preserve the requested mathematical structure, use repair_tex only
+when validation fails, use semantic_diff after a change, and render_math before
+returning the final bare LaTeX.
+"""
+
 COMPLETION_AGENT_PROMPT = """\
 
-This run is a formula-completion review task. A deterministic rule or MiniCPM5
+This run is a formula-completion review task. A deterministic rule or the model
 has already proposed a candidate. The candidate and the user's existing prefix
 are authoritative. Inspect the compile_tex observation, preserve the existing
 structure, use repair_tex only when validation fails, use semantic_diff after a
@@ -83,7 +94,7 @@ change, and render_math before returning the final bare LaTeX.
 
 
 class PlannerBackend(Protocol):
-    """Narrow planner seam; MiniCPM5 remains the production implementation."""
+    """Narrow planner seam for the configured MiniCPM checkpoint."""
 
     async def plan(
         self,
@@ -97,6 +108,7 @@ class PlannerBackend(Protocol):
         intent: str,
         *,
         force_operators: list[str] | None = None,
+        deadline_monotonic: float | None = None,
     ) -> str: ...
 
     def extract_latex(self, content: str) -> str: ...
@@ -119,7 +131,7 @@ class AgentRunResult:
 
 
 class TeXadaAgentRuntime:
-    """Execute MiniCPM5 planner turns until a final semantic unit is ready."""
+    """Execute bounded planner turns until a final semantic unit is ready."""
 
     def __init__(
         self,
@@ -188,35 +200,6 @@ class TeXadaAgentRuntime:
                     return deterministic
 
         await self.backend.ensure_ready()
-        system_prompt = PLANNER_SYSTEM_PROMPT
-        if _task == "ocr":
-            system_prompt += OCR_AGENT_PROMPT
-        elif _task == "completion":
-            system_prompt += COMPLETION_AGENT_PROMPT
-        messages: list[dict[str, Any]] = [
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": (
-                    self._candidate_prompt(
-                        _task,
-                        user_input,
-                        context,
-                        initial_candidate,
-                    )
-                    if initial_candidate
-                    else self._user_prompt(
-                        user_input,
-                        context,
-                        preprocessed,
-                        self.operator_guard.forced_operators(
-                            preprocessed,
-                            user_input,
-                        ),
-                    )
-                ),
-            },
-        ]
         trace: list[dict[str, Any]] = []
         semantic_diff: dict[str, Any] = {}
         tokens_used = _initial_tokens_used
@@ -258,6 +241,80 @@ class TeXadaAgentRuntime:
                     "revision": formula_state.revision,
                 },
             )
+
+        if _task == "nl" and self.config.nl_candidate_first and not initial_candidate:
+            if not self._model_call_budget_available(start):
+                return reject_model_budget()
+            try:
+                generated_latex = await self.model.generate_latex(
+                    preprocessed,
+                    self.intent_classifier.classify(user_input).intent,
+                    force_operators=self.operator_guard.forced_operators(
+                        preprocessed,
+                        user_input,
+                    ),
+                    deadline_monotonic=start + self.config.api_request_timeout_seconds,
+                )
+                initial_candidate = self.operator_guard.normalize_candidate(generated_latex)
+                if not initial_candidate:
+                    raise RuntimeError("NL candidate generation returned an empty formula")
+            except TimeoutError:
+                tokens_used += self._consume_model_tokens()
+                return reject_model_budget()
+            except RuntimeError as exc:
+                tokens_used += self._consume_model_tokens()
+                return self._runtime_rejection(
+                    latex=formula_state.latex,
+                    trace=trace,
+                    render_mode=render_mode,
+                    semantic_diff=semantic_diff,
+                    tokens_used=tokens_used,
+                    start=start,
+                    stop_reason="model_request_failed",
+                    formula_state=formula_state,
+                    observation={
+                        "tool": "model_runtime",
+                        "ok": False,
+                        "output": {"candidate": formula_state.latex},
+                        "error": str(exc),
+                        "duration_ms": 0.0,
+                        "revision": formula_state.revision,
+                    },
+                )
+            tokens_used += self._consume_model_tokens()
+            self._adopt_formula(formula_state, initial_candidate, origin="nl_candidate")
+
+        system_prompt = PLANNER_SYSTEM_PROMPT
+        if _task == "ocr":
+            system_prompt += OCR_AGENT_PROMPT
+        elif _task == "completion":
+            system_prompt += COMPLETION_AGENT_PROMPT
+        elif initial_candidate:
+            system_prompt += NL_AGENT_PROMPT
+        required_anchors = self.operator_guard.forced_operators(preprocessed, user_input)
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": (
+                    self._candidate_prompt(
+                        _task,
+                        user_input,
+                        context,
+                        initial_candidate,
+                        preprocessed=preprocessed,
+                        required_anchors=required_anchors,
+                    )
+                    if initial_candidate
+                    else self._user_prompt(
+                        user_input,
+                        context,
+                        preprocessed,
+                        required_anchors,
+                    )
+                ),
+            },
+        ]
 
         if initial_candidate:
             intake_call = PlannerToolCall(
@@ -837,7 +894,7 @@ class TeXadaAgentRuntime:
         render_mode: RenderMode = RenderMode.KATEX,
         initial_tokens_used: int = 0,
     ) -> AgentRunResult:
-        """Run OCR/completion candidates through the shared MiniCPM5 planner."""
+        """Run OCR/completion candidates through the shared planner."""
         if task not in {"ocr", "completion"}:
             raise ValueError("candidate task must be 'ocr' or 'completion'")
         if not candidate_latex.strip():
@@ -1396,21 +1453,36 @@ class TeXadaAgentRuntime:
             )
         return "\n\n".join(sections)
 
-    @staticmethod
+    @classmethod
     def _candidate_prompt(
+        cls,
         task: str,
         user_input: str,
         context: str,
         candidate_latex: str,
+        *,
+        preprocessed: str = "",
+        required_anchors: list[str] | None = None,
     ) -> str:
-        label = "OCR" if task == "ocr" else "completion"
+        label = {"nl": "NL", "ocr": "OCR", "completion": "completion"}[task]
         sections = [f"Task: {label} candidate review"]
-        if context:
-            sections.append(f"Existing context:\n{context}")
-        if user_input:
-            sections.append(f"Source description or partial input:\n{user_input}")
+        if task == "nl":
+            sections.append(cls._user_prompt(
+                user_input,
+                context,
+                preprocessed or user_input,
+                required_anchors,
+            ))
+        else:
+            if context:
+                sections.append(f"Existing context:\n{context}")
+            if user_input:
+                sections.append(f"Source description or partial input:\n{user_input}")
+        candidate_authority = (
+            "proposed starting state" if task == "nl" else "authoritative starting state"
+        )
         sections.append(
-            "Candidate LaTeX (authoritative starting state):\n"
+            f"Candidate LaTeX ({candidate_authority}):\n"
             f"{candidate_latex}"
         )
         sections.append(

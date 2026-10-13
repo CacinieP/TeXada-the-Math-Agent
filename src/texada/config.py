@@ -35,6 +35,8 @@ SAVED_CONFIG_FIELDS = frozenset({
     "inference_timeout_seconds",
     "api_request_timeout_seconds",
     "agent_max_steps",
+    "nl_candidate_first",
+    "ocr_preprocessing",
     "run_log_max_days",
     "run_log_max_items",
 })
@@ -72,9 +74,15 @@ class TeXadaConfig(BaseSettings):
 
     # ── Agent Runtime ──
     agent_max_steps: int = Field(default=3, ge=1, le=8)
+    # Opt in to NL candidate generation before the shared compile/Planner review.
+    nl_candidate_first: bool = False
     # Wall-clock budget for one TeX tool call; a pathological input cannot
     # pin the service beyond this bound.
     tool_timeout_seconds: float = Field(default=10.0, gt=0.0, le=120.0)
+
+    # ── OCR ──
+    # Raw preserves decoded pixels; binary retains the legacy preprocessing.
+    ocr_preprocessing: Literal["raw", "binary"] = "binary"
 
     # ── Render ──
     default_render_mode: Literal["katex", "latex"] = "katex"

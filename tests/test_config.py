@@ -1,4 +1,4 @@
-"""Configuration contracts for TeXada's two-model product boundary."""
+"""Configuration contracts for TeXada model roles and backend selection."""
 
 import json
 import tomllib
@@ -97,7 +97,7 @@ def test_license_is_synchronized_as_agpl_v3_or_later():
     assert "Version 3, 19 November 2007" in license_text
 
 
-def test_default_product_has_exactly_two_minicpm_model_roles():
+def test_legacy_defaults_preserve_existing_minicpm_model_roles():
     fields = TeXadaConfig.model_fields
 
     assert fields["model_name"].default == "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M"
@@ -106,9 +106,35 @@ def test_default_product_has_exactly_two_minicpm_model_roles():
     assert "tex2tex_max_new_tokens" not in fields
 
 
+@pytest.mark.parametrize("vision_model", ["", "MiniCPM-V-4.7-1B"])
+def test_openai_compatible_single_checkpoint_can_serve_both_roles(vision_model):
+    config = TeXadaConfig(
+        backend="openai_compatible",
+        openai_base_url="https://api.modelbest.cn/v1/",
+        openai_api_key="test-placeholder",
+        openai_model_name="MiniCPM-V-4.7-1B",
+        openai_vision_model_name=vision_model,
+    )
+
+    assert config.active_base_url == "https://api.modelbest.cn/v1"
+    assert config.active_model_name == config.active_vision_model_name == "MiniCPM-V-4.7-1B"
+    assert config.active_api_key == "test-placeholder"
+
+
 def test_saved_settings_do_not_expose_repair_model_configuration():
     assert "tex2tex_model_path" not in SAVED_CONFIG_FIELDS
     assert "tex2tex_max_new_tokens" not in SAVED_CONFIG_FIELDS
+
+
+def test_nl_candidate_first_is_opt_in_and_can_be_saved(tmp_path, monkeypatch):
+    assert TeXadaConfig.model_fields["nl_candidate_first"].default is False
+    assert "nl_candidate_first" in SAVED_CONFIG_FIELDS
+    monkeypatch.setenv("TEXADA_NL_CANDIDATE_FIRST", "true")
+    assert TeXadaConfig().nl_candidate_first is True
+
+    config = save_config_updates({"nl_candidate_first": True}, data_dir=tmp_path)
+    assert config.nl_candidate_first is True
+    assert json.loads((tmp_path / "config.json").read_text())["nl_candidate_first"] is True
 
 
 def test_run_logs_are_unlimited_by_default_but_caps_remain_configurable():
