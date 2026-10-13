@@ -7,7 +7,7 @@ from run_planner_surface import run_paired
 @pytest.mark.asyncio
 async def test_paired_replay_covers_structure_execution_and_unknown_metrics(tmp_path):
     report = await run_paired(tmp_path / "paired.json")
-    assert report["protocol"] == "scripted-paired-planner-surfaces-v1"
+    assert report["protocol"] == "scripted-paired-planner-surfaces-v2"
     assert len(report["rows"]) == 16
     for surface in ("full", "minimal"):
         summary = report["summary"][surface]
@@ -24,6 +24,8 @@ async def test_paired_replay_covers_structure_execution_and_unknown_metrics(tmp_
     rejected = [row for row in report["rows"] if row["expected_outcome"] == "rejected"]
     assert all(not row["completed"] for row in rejected)
     assert all(row["provider_tokens"]["value"] is None for row in report["rows"])
+    assert all(row["task"] == "nl" and row["intent_fidelity"] == "NOT_CHECKED"
+               for row in report["rows"])
     stale = [row for row in rejected if row["case_id"] == "mutation_then_stale_inspection"]
     assert all(row["rejection_code"] == "stale_revision" for row in stale)
     assert all([call["name"] for call in row["executed_tools"]] == ["compile_tex", "repair_tex"]

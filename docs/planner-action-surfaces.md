@@ -74,8 +74,9 @@ PYTHONPATH=src python eval/run_planner_surface.py \
   --output eval/reports/planner-surfaces-offline.json
 ```
 
-Eight synthetic scenarios run under both surfaces using the same authored action
-intent: explicit candidate workflow, deterministic repair, parent/current diff,
+Eight synthetic scenarios run under both surfaces as provisional NL candidate
+synthesis, using the same authored action intent: explicit candidate workflow,
+deterministic repair, parent/current diff,
 unknown tool, bound-value override, stale inspection after mutation, bad render
 option and state-inapplicable render. The scripted Planner translates only the
 wire arguments. Validation, repair, parse, render and strict KaTeX whole-expression
@@ -84,6 +85,9 @@ the pinned parser and alternates pair order. The report includes submitted illeg
 calls rejected, argument errors rejected, forbidden executions, completion rate
 on positive cases, strict match/coverage, local Runtime latency and request/schema
 bytes. Rejected negative cases are not counted as successful formula completions.
+Protocol v2 records the task and explicitly leaves intent fidelity `NOT_CHECKED`.
+It does not use an OCR task to authorize a changed recognized formula; OCR scope
+and mandatory review have their own adversarial tests.
 
 The checked-in replay has 8/8 expected outcomes per surface, 3/3 completed positive
 cases with full-structure matches, five rejected illegal proposals and zero
@@ -96,7 +100,7 @@ live sampling shows a benefit without structural or completion regression.
 
 Validation: adversarial binding/mask tests, real compile/repair/render workflows,
 settings rollback and paired-report tests, plus the existing Runtime/API suite.
-The local suite on this feature branch passed **690 tests**, with **8 external
-E2E tests skipped**; Ruff and `git diff --check` passed. The replay recorded full
-versus minimal schema bytes of **46,193 / 19,827**, and request bytes of
-**112,660 / 86,178**. These measurements apply only to this authored offline set.
+The original standalone surface branch passed **690 tests**, with **8 external
+E2E tests skipped**. After integrating mutation scopes, protocol v2 retains
+full/minimal schema bytes of **46,193 / 19,827**, and measures request bytes of
+**108,353 / 81,871**. These measurements apply only to this authored offline set.

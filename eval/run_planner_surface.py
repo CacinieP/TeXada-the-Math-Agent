@@ -42,6 +42,7 @@ class Scenario:
     reference: str
     actions: tuple[tuple[tuple[str, int | None, dict[str, Any]], ...], ...]
     expected: str = "completed"
+    task: str = "nl"
 
 
 SCENARIOS = (
@@ -190,7 +191,7 @@ async def run_paired(output: Path | None = None) -> dict:
                 runtime.tools.execute = capture
                 result = await runtime.run(
                     "format the supplied expression",
-                    _task="ocr",
+                    _task=scenario.task,
                     _initial_candidate=scenario.initial,
                 )
                 rejection = next(
@@ -234,6 +235,8 @@ async def run_paired(output: Path | None = None) -> dict:
                     {
                         "case_id": scenario.case_id,
                         "surface": surface,
+                        "task": scenario.task,
+                        "intent_fidelity": "NOT_CHECKED",
                         "expected_outcome": scenario.expected,
                         "completed": result.valid and result.committed,
                         "stop_reason": result.stop_reason,
@@ -263,7 +266,7 @@ async def run_paired(output: Path | None = None) -> dict:
                 )
     report = {
         "schema_version": 1,
-        "protocol": "scripted-paired-planner-surfaces-v1",
+        "protocol": "scripted-paired-planner-surfaces-v2",
         "reference_source": "synthetic_author_reference",
         "reference_review_status": "agent_reviewed_not_independent_human_verified",
         "pair_order": "alternating_full_first_and_minimal_first",
