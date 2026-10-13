@@ -33,6 +33,7 @@ from texada.core.inference_fingerprint import (
     without_inference_collection,
 )
 from texada.core.router import InputRouter
+from texada.handoff import FormulaTransfer, HandoffError, TransferRegistry, produce_formula_transfer
 from texada.render.engine import RenderEngine
 from texada.semantic.katex import shared_katex_parser
 from texada.store.history import HistoryStore
@@ -71,6 +72,7 @@ EXPORTABLE_SETTINGS_FIELDS = frozenset({
 _request_resources: ContextVar[dict | None] = ContextVar("texada_request_resources", default=None)
 _INFERENCE_RUN_PATHS = frozenset({
     "/api/convert", "/api/agent", "/api/ocr", "/api/complete", "/api/validate",
+    "/api/handoff/formula",
 })
 
 # ── Request / Response models ──
@@ -492,6 +494,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     app = FastAPI(title="TeXada", version=app_version, lifespan=lifespan)
     app.state.review_store = review_store
+    app.state.transfer_registry = TransferRegistry()
 
     def register_review_result(
         result: AgentRunResult, *, source_text: str, source_image: bytes | None = None,
@@ -543,6 +546,45 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             await target_store.add(entry)
         except Exception:
             pass
+
+    @app.post("/api/handoff/formula")
+    async def handoff_formula(req: FormulaTransfer):
+        resources = _request_resources.get()
+        frozen_config = resources["config"] if resources is not None else router.config
+        run_id = uuid4().hex
+
+        async def log_transfer(result, response, latency):
+            names = _trace_tool_names(result.trace)
+            await record_run(RunLogEntry(
+                run_id=run_id, operation="formula_handoff", input_type="formula",
+                input_text=req.original_latex, output_latex=result.latex,
+                model_role="configured-transfer", model_name=req.checkpoint,
+                backend=frozen_config.backend, status="success", status_code=200,
+                render_mode="katex", valid=result.valid, latency_ms=latency,
+                tokens_used=result.tokens_used, stop_reason=result.stop_reason,
+                tool_names=names, tool_call_count=len(names), trace=result.trace,
+            ))
+
+        def register_transfer(result, **kwargs):
+            metadata = kwargs.pop("metadata", {})
+            metadata["history_entry"] = asdict(HistoryEntry(
+                run_id=run_id, input_text=req.original_latex, input_type="formula",
+                latex=result.latex, intent="formula_handoff", source="studio",
+                render_mode="katex", valid=result.valid, latency_ms=result.latency_ms,
+                tokens_used=result.tokens_used,
+            ))
+            return register_review_result(result, metadata=metadata, **kwargs)
+
+        async def execute():
+            return await produce_formula_transfer(
+                req, frozen_config, register_transfer, record_result=log_transfer,
+            )
+
+        try:
+            response = await app.state.transfer_registry.execute(req, execute)
+        except HandoffError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.code) from None
+        return JSONResponse(response, headers={"Cache-Control": "no-store"})
 
     @app.get("/api/reviews/{review_id}")
     async def get_review(review_id: str):

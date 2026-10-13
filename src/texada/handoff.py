@@ -73,6 +73,16 @@ class FormulaTransfer(_Contract):
     requires_review: Literal[True]
     evidence: list[dict] = Field(max_length=0)
 
+    @model_validator(mode="before")
+    @classmethod
+    def strict_protocol_literals(cls, data):
+        if isinstance(data, dict):
+            if type(data.get("schema_version")) is not int:
+                raise ValueError("schema_version must be an integer")
+            if type(data.get("requires_review")) is not bool:
+                raise ValueError("requires_review must be a boolean")
+        return data
+
     @model_validator(mode="after")
     def source_and_scope_binding(self):
         if str(UUID(self.transfer_id)) != self.transfer_id:
@@ -110,7 +120,9 @@ class TransferRegistry:
         self._records: dict[str, _TransferRecord] = {}
         self._lock = asyncio.Lock()
 
-    async def execute(self, transfer: FormulaTransfer, execute: Callable[[], Awaitable[dict]]) -> dict:
+    async def execute(
+        self, transfer: FormulaTransfer, execute: Callable[[], Awaitable[dict]],
+    ) -> dict:
         digest = canonical_sha256(transfer.model_dump(mode="json"))
         async with self._lock:
             now = self.clock()
@@ -244,6 +256,10 @@ async def produce_formula_transfer(
                           if "mutation_scope" in step), {"status": "NOT_CHECKED"})
             cas = next((step["cas_transition"] for step in reversed(result.trace)
                         if "cas_transition" in step), {"status": "NOT_CHECKED"})
+            if isinstance(scope, list):
+                scope = {"status": "RECORDED", "transitions": scope}
+            if isinstance(cas, list):
+                cas = {"status": "RECORDED", "mode": "SHADOW", "transitions": cas}
             response = {
                 **transfer.model_dump(mode="json"),
                 "status": "review_required", "candidate": result.latex,
