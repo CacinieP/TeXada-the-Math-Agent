@@ -37,6 +37,7 @@ SAVED_CONFIG_FIELDS = frozenset({
     "agent_max_steps",
     "nl_candidate_first",
     "failure_context_projection",
+    "planner_surface",
     "ocr_preprocessing",
     "run_log_max_days",
     "run_log_max_items",
@@ -78,6 +79,8 @@ class TeXadaConfig(BaseSettings):
     # Opt in to NL candidate generation before the shared compile/Planner review.
     nl_candidate_first: bool = False
     failure_context_projection: bool = True
+    # Full keeps the legacy parameter surface; both modes enforce runtime binding.
+    planner_surface: Literal["full", "minimal"] = "full"
     # Wall-clock budget for one TeX tool call; a pathological input cannot
     # pin the service beyond this bound.
     tool_timeout_seconds: float = Field(default=10.0, gt=0.0, le=120.0)

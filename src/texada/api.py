@@ -56,6 +56,7 @@ EXPORTABLE_SETTINGS_FIELDS = frozenset({
     "inference_timeout_seconds",
     "api_request_timeout_seconds",
     "agent_max_steps",
+    "planner_surface",
     "run_log_max_days",
     "run_log_max_items",
 })
@@ -138,6 +139,7 @@ class BackendSettingsResponse(BaseModel):
     openai_api_key_set: bool
     inference_timeout_seconds: float
     api_request_timeout_seconds: float
+    planner_surface: str
 
 class BackendSettingsUpdate(BaseModel):
     backend: str | None = Field(default=None, pattern="^(ollama|openai_compatible)$")
@@ -150,6 +152,7 @@ class BackendSettingsUpdate(BaseModel):
     openai_api_key: str | None = Field(default=None, max_length=4000)
     inference_timeout_seconds: float | None = Field(default=None, ge=10.0, le=600.0)
     api_request_timeout_seconds: float | None = Field(default=None, ge=30.0, le=900.0)
+    planner_surface: str | None = Field(default=None, pattern="^(full|minimal)$")
 
 
 class UiSettingsResponse(BaseModel):
@@ -264,6 +267,7 @@ def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
         openai_api_key_set=bool(config.openai_api_key),
         inference_timeout_seconds=config.inference_timeout_seconds,
         api_request_timeout_seconds=config.api_request_timeout_seconds,
+        planner_surface=config.planner_surface,
     )
 
 
@@ -389,6 +393,7 @@ def _exportable_settings(config: TeXadaConfig) -> dict:
         "inference_timeout_seconds": config.inference_timeout_seconds,
         "api_request_timeout_seconds": config.api_request_timeout_seconds,
         "agent_max_steps": config.agent_max_steps,
+        "planner_surface": config.planner_surface,
         "run_log_max_days": config.run_log_max_days,
         "run_log_max_items": config.run_log_max_items,
     }

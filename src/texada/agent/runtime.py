@@ -9,6 +9,12 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from texada.agent.actions import (
+    ActionRejected,
+    action_snapshot,
+    bind_action,
+    planner_schemas,
+)
 from texada.agent.failure_context import project_failure_context
 from texada.agent.protocol import PlannerToolCall, PlannerTurn
 from texada.config import TeXadaConfig
@@ -378,7 +384,26 @@ class TeXadaAgentRuntime:
                 enabled=self.config.failure_context_projection,
             )
             try:
-                turn = await self.model.plan(projection.messages, self.tools.schemas)
+                turn_snapshot = action_snapshot(formula_state, surface=self.config.planner_surface)
+                action_state = json.dumps(turn_snapshot.projection(), ensure_ascii=False)
+                planner_messages = [dict(message) for message in projection.messages]
+                planner_messages[0]["content"] += (
+                    "\n\nAction state (runtime authority): " + action_state
+                    + "\nUse propose_candidate for an explicit formula change. Inspection tools "
+                    "cannot replace runtime values. Actions target this turn's revision; after "
+                    "a candidate change, request a new turn. render_math/export require valid "
+                    "compile evidence; repair_tex requires invalid compile evidence."
+                    + (" Minimal actions require expected_revision and omit runtime-owned "
+                       "latex/before/after arguments. An empty state requires propose_candidate."
+                       if self.config.planner_surface == "minimal" else
+                       " Full tools keep latex/before/after but these must equal runtime values. "
+                       "Only empty state compile_tex may supply an initial seed.")
+                )
+                turn = await self.model.plan(
+                    planner_messages,
+                    planner_schemas(self.tools.schemas, turn_snapshot,
+                                    surface=self.config.planner_surface),
+                )
             except RuntimeError as exc:
                 trace.append(
                     {
@@ -443,6 +468,13 @@ class TeXadaAgentRuntime:
                     normalized_candidate = (
                         self.operator_guard.normalize_candidate(candidate)
                     )
+                    if (self.config.planner_surface == "minimal"
+                            and normalized_candidate != formula_state.latex):
+                        return self._action_rejection_result(
+                            formula_state, trace, render_mode, semantic_diff, tokens_used, start,
+                            ActionRejected("explicit_proposal_required",
+                                           "Use propose_candidate before returning a new formula"),
+                        )
                     direct_repair_blocked = bool(
                         initial_candidate
                         and not intake_valid
@@ -558,10 +590,26 @@ class TeXadaAgentRuntime:
             for call in turn.tool_calls:
                 call = self._normalize_call(call)
                 trace_item["tool_calls"].append(self._trace_call(call))
-                evidence_revision = self._prepare_tool_state(
-                    formula_state,
-                    call,
-                )
+                try:
+                    bound = bind_action(call, turn_snapshot, formula_state,
+                                        surface=self.config.planner_surface)
+                except ActionRejected as exc:
+                    return self._action_rejection_result(
+                        formula_state, trace, render_mode, semantic_diff, tokens_used, start, exc,
+                    )
+                trace_item.setdefault("action_bindings", []).append({
+                    "id": call.id, "revision": bound.revision,
+                    "revision_source": bound.revision_source,
+                    "initial_seed_bridge": bound.initial_seed_bridge,
+                })
+                if bound.candidate:
+                    formula_state.revise(
+                        bound.candidate, expected_revision=bound.revision,
+                        origin="full_initial_seed_bridge" if bound.initial_seed_bridge
+                        else "planner:propose_candidate",
+                    )
+                call = bound.call
+                evidence_revision = formula_state.revision
                 fingerprint = self._call_fingerprint(call)
                 if fingerprint in call_fingerprints:
                     observation = ToolObservation(
@@ -572,7 +620,14 @@ class TeXadaAgentRuntime:
                     halt_reason = "repeated_tool_call"
                 else:
                     call_fingerprints.add(fingerprint)
-                    observation = await self.tools.execute(call.name, call.arguments)
+                    if call.name == "propose_candidate":
+                        observation = ToolObservation(
+                            name=call.name, ok=True,
+                            output={"candidate": formula_state.latex,
+                                    "revision": formula_state.revision},
+                        )
+                    else:
+                        observation = await self.tools.execute(call.name, call.arguments)
                 observation_data = self._record_formula_evidence(
                     formula_state,
                     observation,
@@ -584,11 +639,12 @@ class TeXadaAgentRuntime:
                     call.name,
                     observation,
                 )
-                self._adopt_formula(
-                    formula_state,
-                    observed_latex,
-                    origin=f"tool:{call.name}",
-                )
+                if call.name == "repair_tex":
+                    self._adopt_formula(
+                        formula_state,
+                        observed_latex,
+                        origin=f"tool:{call.name}",
+                    )
                 observation_data["formula_state"] = (
                     formula_state.planner_projection()
                 )
@@ -1313,20 +1369,30 @@ class TeXadaAgentRuntime:
         )
         return formula_state.latex
 
-    def _prepare_tool_state(
+    def _action_rejection_result(
         self,
         formula_state: FormulaState,
-        call: PlannerToolCall,
-    ) -> int | None:
-        """Create a revision for the formula a planner-selected tool will inspect."""
-        key = "after" if call.name == "semantic_diff" else "latex"
-        candidate = call.arguments.get(key)
-        self._adopt_formula(
-            formula_state,
-            candidate,
-            origin=f"planner_tool:{call.name}",
+        trace: list[dict[str, Any]],
+        render_mode: RenderMode,
+        semantic_diff: dict[str, Any],
+        tokens_used: int,
+        start: float,
+        rejection: ActionRejected,
+    ) -> AgentRunResult:
+        return self._runtime_rejection(
+            latex=formula_state.latex, trace=trace, render_mode=render_mode,
+            semantic_diff=semantic_diff, tokens_used=tokens_used, start=start,
+            stop_reason="planner_action_rejected", formula_state=formula_state,
+            observation={
+                "tool": "planner_action_mask", "ok": False,
+                "output": {"code": rejection.code,
+                           "action_state": action_snapshot(
+                               formula_state, surface=self.config.planner_surface,
+                           ).projection()},
+                "error": str(rejection), "revision": formula_state.revision,
+                "duration_ms": 0.0,
+            },
         )
-        return formula_state.revision
 
     @classmethod
     def _compact_output(cls, value: Any) -> Any:

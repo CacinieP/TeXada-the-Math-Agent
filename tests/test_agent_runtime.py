@@ -442,6 +442,9 @@ async def test_runtime_uses_structured_math_fast_paths(
 async def test_runtime_normalizes_render_mode_and_stops_after_render(tmp_path):
     planner = FakePlanner(
         [
+            PlannerTurn(tool_calls=[PlannerToolCall(
+                id="compile_before_render", name="compile_tex", arguments={"latex": "x^2"},
+            )]),
             PlannerTurn(
                 tool_calls=[
                     PlannerToolCall(
@@ -467,8 +470,8 @@ async def test_runtime_normalizes_render_mode_and_stops_after_render(tmp_path):
     assert result.latex == "x^2"
     assert result.valid is True
     assert result.stop_reason == "render_confirmed"
-    assert len(planner.seen_messages) == 1
-    call = result.trace[0]["tool_calls"][0]
+    assert len(planner.seen_messages) == 2
+    call = result.trace[1]["tool_calls"][0]
     assert call["arguments"]["mode"] == "katex"
 
 
@@ -613,7 +616,7 @@ async def test_runtime_breaks_repeated_identical_tool_call(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_runtime_falls_back_after_two_consecutive_tool_errors(tmp_path):
+async def test_runtime_rejects_unknown_actions_without_compatibility_fallback(tmp_path):
     planner = FakePlanner(
         [
             PlannerTurn(
@@ -636,26 +639,16 @@ async def test_runtime_falls_back_after_two_consecutive_tool_errors(tmp_path):
 
     result = await runtime.run("x plus one")
 
-    assert result.stop_reason == "tool_error_limit"
-    assert result.latex == "x+1"
-    assert any(item["origin"] == "compatibility_fallback" for item in result.trace)
+    assert result.stop_reason == "planner_action_rejected"
+    assert result.latex == ""
+    assert result.committed is False
+    assert not any(item["origin"] == "compatibility_fallback" for item in result.trace)
 
 
 @pytest.mark.asyncio
 async def test_runtime_compatibility_fallback_uses_detected_intent(tmp_path):
     planner = FakePlanner(
-        [
-            PlannerTurn(
-                tool_calls=[
-                    PlannerToolCall(id="bad_1", name="not_a_tool", arguments={})
-                ]
-            ),
-            PlannerTurn(
-                tool_calls=[
-                    PlannerToolCall(id="bad_2", name="still_not_a_tool", arguments={})
-                ]
-            ),
-        ]
+        [PlannerTurn()]
     )
     planner.generate_latex = AsyncMock(return_value=r"\det(A)")
     runtime = TeXadaAgentRuntime(
@@ -700,7 +693,8 @@ async def test_wrapped_planner_tool_arguments_compile_render_and_commit(tmp_path
             id=f"wrapped_{name}", name=name,
             arguments={"latex": f"{opening}{latex}{closing}"},
         )])
-        for name in ("parse_tex", "compile_tex", "render_math")
+        # Only compile can seed an empty full state; parse inspects an existing revision.
+        for name in ("compile_tex", "parse_tex", "render_math")
     ])
     runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
     disable_deterministic_candidates(runtime)
@@ -727,7 +721,7 @@ async def test_wrapped_sum_replay_commits_after_the_observed_repeated_compile(tm
         PlannerTurn(tool_calls=[PlannerToolCall(
             id=f"observed_{index}", name=name, arguments={"latex": f"${latex}$"},
         )])
-        for index, name in enumerate(("parse_tex", "compile_tex", "compile_tex"))
+        for index, name in enumerate(("compile_tex", "parse_tex", "compile_tex"))
     ])
     runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
     disable_deterministic_candidates(runtime)
