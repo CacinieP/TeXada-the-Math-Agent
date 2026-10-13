@@ -4,6 +4,7 @@ from __future__ import annotations
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from uuid import uuid4
@@ -11,7 +12,7 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from texada.agent.runtime import TeXadaAgentRuntime
 from texada.config import (
@@ -21,6 +22,13 @@ from texada.config import (
     validate_config_updates,
 )
 from texada.core.backend import BackendManager
+from texada.core.inference_fingerprint import (
+    build_inference_identity,
+    collect_inference,
+    current_inference_collector,
+    legacy_inference_fingerprint,
+    validate_inference_fingerprint,
+)
 from texada.core.router import InputRouter
 from texada.render.engine import RenderEngine
 from texada.semantic.katex import shared_katex_parser
@@ -48,6 +56,11 @@ EXPORTABLE_SETTINGS_FIELDS = frozenset({
     "agent_max_steps",
     "run_log_max_days",
     "run_log_max_items",
+})
+
+_request_resources: ContextVar[dict | None] = ContextVar("texada_request_resources", default=None)
+_INFERENCE_RUN_PATHS = frozenset({
+    "/api/convert", "/api/agent", "/api/ocr", "/api/complete", "/api/validate",
 })
 
 # ── Request / Response models ──
@@ -202,6 +215,12 @@ class RunLogImportEntry(BaseModel):
     trace: list[dict] = Field(default_factory=list, max_length=100)
     error_message: str = Field(default="", max_length=8000)
     created_at: str = Field(default="", max_length=80)
+    inference_fingerprint: dict = Field(default_factory=legacy_inference_fingerprint)
+
+    @field_validator("inference_fingerprint")
+    @classmethod
+    def validate_fingerprint(cls, value):
+        return validate_inference_fingerprint(value)
 
 
 class RunLogImportRequest(BaseModel):
@@ -320,6 +339,7 @@ def _run_log_response(
         "trace_available": entry.trace_available or bool(entry.trace),
         "error_message": entry.error_message,
         "created_at": entry.created_at,
+        "inference_fingerprint": entry.inference_fingerprint,
     }
     if include_trace:
         response["trace"] = entry.trace
@@ -443,7 +463,12 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     async def record_run(entry: RunLogEntry) -> None:
         """Run logging is best-effort and must never break a user request."""
         try:
-            await run_logs.add(entry)
+            collector = current_inference_collector()
+            if collector is not None:
+                entry.inference_fingerprint = collector.snapshot()
+            resources = _request_resources.get()
+            target_store = resources["run_logs"] if resources is not None else run_logs
+            await target_store.add(entry)
         except Exception:
             pass
 
@@ -455,6 +480,27 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         origin = request.headers.get("origin")
         if origin and origin not in allowed_origins:
             return JSONResponse(status_code=403, content={"detail": "Forbidden origin"})
+        route_path = request.scope["path"]
+        root_path = request.scope.get("root_path", "").rstrip("/")
+        if root_path and route_path.startswith(f"{root_path}/"):
+            route_path = route_path[len(root_path):]
+        if request.method == "POST" and route_path in _INFERENCE_RUN_PATHS:
+            # Freeze the objects used by this request before any awaited work;
+            # settings and backup imports may replace the application closures.
+            resources = {
+                "config": router.config, "router": router, "agent_runtime": agent_runtime,
+                "history": history, "run_logs": run_logs,
+            }
+            token = _request_resources.set(resources)
+            try:
+                identity = build_inference_identity(
+                    resources["config"], app_version=app_version,
+                    tool_schemas=resources["agent_runtime"].tools.schemas,
+                )
+                with collect_inference(identity):
+                    return await call_next(request)
+            finally:
+                _request_resources.reset(token)
         return await call_next(request)
 
     @app.get("/api/status", response_model=StatusResponse)
@@ -529,6 +575,8 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.post("/api/convert", response_model=LaTeXResponse)
     async def convert_text(req: ConvertRequest):
+        resources = _request_resources.get()
+        config, router, history = (resources[name] for name in ("config", "router", "history"))
         run_id = uuid4().hex
         started = time.monotonic()
         req_mode = _parse_render_mode(req.render_mode)
@@ -594,6 +642,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     @app.post("/api/agent", response_model=AgentResponse)
     async def run_agent(req: ConvertRequest):
         """Primary NL path: MiniCPM5 planner → tools → observations."""
+        resources = _request_resources.get()
+        config, agent_runtime, history = (
+            resources[name] for name in ("config", "agent_runtime", "history")
+        )
         run_id = uuid4().hex
         started = time.monotonic()
         req_mode = _parse_render_mode(req.render_mode)
@@ -672,6 +724,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.post("/api/ocr", response_model=AgentResponse)
     async def convert_image(image: UploadFile, render_mode: str = "katex"):
+        resources = _request_resources.get()
+        config, router, agent_runtime, history = (
+            resources[name] for name in ("config", "router", "agent_runtime", "history")
+        )
         run_id = uuid4().hex
         started = time.monotonic()
         ocr_mode = _parse_render_mode(render_mode)
@@ -768,6 +824,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.post("/api/complete", response_model=AgentResponse)
     async def complete_latex(req: ConvertRequest):
+        resources = _request_resources.get()
+        config, router, agent_runtime, history = (
+            resources[name] for name in ("config", "router", "agent_runtime", "history")
+        )
         run_id = uuid4().hex
         started = time.monotonic()
         comp_mode = _parse_render_mode(req.render_mode)

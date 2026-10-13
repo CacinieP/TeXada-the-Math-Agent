@@ -14,6 +14,7 @@ from openai import APITimeoutError, BadRequestError, OpenAI
 from texada.agent.protocol import MiniCPMToolCallParser, PlannerTurn
 from texada.config import TeXadaConfig
 from texada.core.completion import DeterministicCompletionEngine
+from texada.core.inference_fingerprint import current_inference_collector
 from texada.core.prompts import (
     COMPLETION_PROMPT,
     FEW_SHOT_BY_INTENT,
@@ -23,6 +24,19 @@ from texada.core.prompts import (
 from texada.core.validator import LaTeXValidator
 
 FORMULA_MAX_TOKENS = 768
+NL_RETRY_INSTRUCTION = (
+    "\n\n重要：只输出最终的 LaTeX 公式本身，"
+    "不要任何解释、自然语言或 markdown 代码块。"
+)
+OCR_RETRY_INSTRUCTION = (
+    "\n\n硬性要求：必须在最终回答中输出可见的 LaTeX。"
+    "只提取图片中的单条主体公式，不要输出思考过程。"
+)
+OCR_USER_INSTRUCTION = "识别图片中的数学公式"
+OPERATOR_CONSTRAINT_TEMPLATE = (
+    "\n\n硬性要求：输出公式必须原样包含算符 {operators}，"
+    "不得降级（例如把 \\iint 改成 \\int）或省略。"
+)
 
 
 class MiniCPMModel:
@@ -73,14 +87,30 @@ class MiniCPMModel:
             )
         return self._client
 
-    def _completion_create(self, **kwargs):
+    def _completion_create(
+        self, *, _inference_purpose="unspecified", _inference_fixed_few_shot=None, **kwargs,
+    ):
+        collector = current_inference_collector()
+        attempt = (
+            collector.begin_call(
+                _inference_purpose, kwargs, fixed_few_shot=_inference_fixed_few_shot,
+                default_timeout=self.config.inference_timeout_seconds,
+            ) if collector is not None else None
+        )
         try:
-            return self.client.chat.completions.create(**kwargs)
-        except (APITimeoutError, httpx.TimeoutException) as exc:
-            raise RuntimeError(
-                f"模型请求超时（{self.config.inference_timeout_seconds:.0f}s），"
-                "请检查 Ollama/endpoint 是否响应，或在配置中调高 inference_timeout_seconds。"
-            ) from exc
+            response = self.client.chat.completions.create(**kwargs)
+        except Exception as exc:
+            if collector is not None and attempt is not None:
+                collector.finish_call(attempt, error=exc)
+            if isinstance(exc, (APITimeoutError, httpx.TimeoutException)):
+                raise RuntimeError(
+                    f"模型请求超时（{self.config.inference_timeout_seconds:.0f}s），"
+                    "请检查 Ollama/endpoint 是否响应，或在配置中调高 inference_timeout_seconds。"
+                ) from exc
+            raise
+        if collector is not None and attempt is not None:
+            collector.finish_call(attempt, response=response, api_key=self.config.active_api_key)
+        return response
 
     def _text_model_name(self) -> str:
         if not self.model:
@@ -149,7 +179,9 @@ class MiniCPMModel:
             **self._text_request_options(),
         }
         try:
-            response = await asyncio.to_thread(self._completion_create, **kwargs)
+            response = await asyncio.to_thread(
+                self._completion_create, _inference_purpose="planner", **kwargs,
+            )
         except BadRequestError as exc:
             body = exc.body
             if isinstance(body, dict):
@@ -160,7 +192,9 @@ class MiniCPMModel:
             # tools field. The runtime will still validate direct LaTeX output.
             kwargs.pop("tools")
             kwargs.pop("tool_choice")
-            response = await asyncio.to_thread(self._completion_create, **kwargs)
+            response = await asyncio.to_thread(
+                self._completion_create, _inference_purpose="planner", **kwargs,
+            )
 
         if not response.choices:
             return PlannerTurn()
@@ -203,6 +237,8 @@ class MiniCPMModel:
 
         response = await asyncio.to_thread(
             self._completion_create,
+            _inference_purpose="nl_generation",
+            _inference_fixed_few_shot=self._build_few_shot(intent),
             model=self._text_model_name(),
             messages=messages,
             temperature=self.temperature,
@@ -236,13 +272,14 @@ class MiniCPMModel:
             try:
                 retry = await asyncio.to_thread(
                     self._completion_create,
+                    _inference_purpose="nl_generation",
+                    _inference_fixed_few_shot=self._build_few_shot(intent),
                     model=self._text_model_name(),
                     messages=[
                         {
                             "role": "system",
                             "content": SYSTEM_PROMPT
-                            + "\n\n重要：只输出最终的 LaTeX 公式本身，"
-                            "不要任何解释、自然语言或 markdown 代码块。"
+                            + NL_RETRY_INSTRUCTION
                             + constraint,
                         },
                         *self._build_few_shot(intent),
@@ -286,6 +323,7 @@ class MiniCPMModel:
         ]
         response = await asyncio.to_thread(
             self._completion_create,
+            _inference_purpose="completion",
             model=self._text_model_name(),
             messages=messages,
             temperature=0.05,
@@ -316,7 +354,7 @@ class MiniCPMModel:
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "识别图片中的数学公式"},
+                    {"type": "text", "text": OCR_USER_INSTRUCTION},
                     {
                         "type": "image_url",
                         "image_url": {
@@ -336,6 +374,7 @@ class MiniCPMModel:
         }
         response = await asyncio.to_thread(
             self._completion_create,
+            _inference_purpose="ocr",
             **kwargs,
         )
         self._record_response_tokens(response)
@@ -352,8 +391,7 @@ class MiniCPMModel:
                 "role": "system",
                 "content": (
                     OCR_SYSTEM_PROMPT
-                    + "\n\n硬性要求：必须在最终回答中输出可见的 LaTeX。"
-                    "只提取图片中的单条主体公式，不要输出思考过程。"
+                    + OCR_RETRY_INSTRUCTION
                 ),
             },
             messages[1],
@@ -366,6 +404,7 @@ class MiniCPMModel:
         }
         retry = await asyncio.to_thread(
             self._completion_create,
+            _inference_purpose="ocr",
             **retry_kwargs,
         )
         self._record_response_tokens(retry)
@@ -443,10 +482,7 @@ class MiniCPMModel:
         if not ops:
             return ""
         joined = "、".join(ops)
-        return (
-            f"\n\n硬性要求：输出公式必须原样包含算符 {joined}，"
-            "不得降级（例如把 \\iint 改成 \\int）或省略。"
-        )
+        return OPERATOR_CONSTRAINT_TEMPLATE.format(operators=joined)
 
     def _extract_visible_latex(self, raw: str | None, *, model_name: str) -> str:
         """Accept V4.7 final content only, including endpoints that expose think tags."""
