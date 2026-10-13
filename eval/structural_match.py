@@ -137,6 +137,8 @@ def _sequence(nodes: Any, depth: int = 0) -> list[dict]:
             if token["family"] == "open":
                 if closing_script:
                     raise _Unsupported("script_on_open_delimiter")
+                if depth + len(stack) >= MAX_NESTING_DEPTH:
+                    raise _Unsupported("canonical_depth_limit")
                 stack.append((delimiter, result))
                 result = []
             else:
@@ -145,10 +147,11 @@ def _sequence(nodes: Any, depth: int = 0) -> list[dict]:
                 left, parent = stack.pop()
                 group = {"kind": "delimited", "left": left, "right": delimiter,
                          "children": result}
-                parent.append(_scripts(node, [group], depth) if closing_script else group)
+                parent.append(_scripts(node, [group], depth + len(stack) + 1)
+                              if closing_script else group)
                 result = parent
             continue
-        result.extend(_node(node, depth + 1))
+        result.extend(_node(node, depth + len(stack) + 1))
     if stack:
         raise _Unsupported("unmatched_open_delimiter")
     return result
@@ -281,12 +284,19 @@ def compare_structure(candidate_latex: str, reference_latex: str) -> StructuralR
         except Exception:
             return StructuralResult("UNSUPPORTED", f"{side}:parser_unavailable")
     reference, candidate = trees
-    difference = _difference(reference, candidate)
+    try:
+        difference = _difference(reference, candidate)
+        candidate_hash = _hash(candidate)
+        reference_hash = _hash(reference)
+    except (MemoryError, RecursionError):
+        return StructuralResult("UNSUPPORTED", "comparison_resource_limit",
+                                parser_backend=backend,
+                                unsupported_nodes=["comparison_resource_limit"])
     return StructuralResult(
         "DIFFERENT" if difference else "MATCH",
         "whole_expression_differs" if difference else "whole_expression_matches",
-        parser_backend=backend, candidate_tree_sha256=_hash(candidate),
-        reference_tree_sha256=_hash(reference), first_difference=difference,
+        parser_backend=backend, candidate_tree_sha256=candidate_hash,
+        reference_tree_sha256=reference_hash, first_difference=difference,
     )
 
 

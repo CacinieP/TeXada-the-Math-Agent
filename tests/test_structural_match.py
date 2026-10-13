@@ -72,6 +72,54 @@ def test_partitions_invalid_syntax_and_resource_guards_are_unsupported(candidate
     assert matcher.compare_structure(candidate, "x").status == "UNSUPPORTED"
 
 
+@pytest.mark.parametrize("depth", [100, 101, 510])
+@pytest.mark.parametrize("same_expression", [False, True])
+def test_ordinary_parentheses_obey_the_canonical_nesting_budget(depth, same_expression):
+    reference = "(" * depth + "x" + ")" * depth
+    candidate = "(" * depth + ("x" if same_expression else "y") + ")" * depth
+    result = matcher.compare_structure(candidate, reference)
+    if depth > matcher.MAX_NESTING_DEPTH:
+        assert result.status == "UNSUPPORTED"
+        assert result.reason == "reference:canonical_depth_limit"
+        assert result.candidate_tree_sha256 is None
+        assert result.reference_tree_sha256 is None
+    else:
+        assert result.status == ("MATCH" if same_expression else "DIFFERENT")
+        if not same_expression:
+            assert result.first_difference
+
+
+@pytest.mark.parametrize("depth", [101, 510])
+def test_deep_candidate_with_shallow_reference_is_unsupported(depth):
+    candidate = "(" * depth + "x" + ")" * depth
+    result = matcher.compare_structure(candidate, "x")
+    assert result.status == "UNSUPPORTED"
+    assert result.reason == "candidate:canonical_depth_limit"
+
+
+def test_parentheses_and_nested_ast_nodes_share_one_depth_budget():
+    inner = "(" * 55 + "x" + ")" * 55
+    latex = "(" * 55 + rf"\frac{{{inner}}}{{y}}" + ")" * 55
+    result = matcher.compare_structure(latex, latex)
+    assert result.status == "UNSUPPORTED"
+    assert result.reason == "reference:canonical_depth_limit"
+
+
+@pytest.mark.parametrize("stage", ["_difference", "_hash"])
+@pytest.mark.parametrize("error", [MemoryError, RecursionError])
+def test_comparison_and_hash_resource_errors_are_unsupported(monkeypatch, stage, error):
+    def resource_failure(*_args, **_kwargs):
+        raise error("private detail")
+
+    monkeypatch.setattr(matcher, stage, resource_failure)
+    result = matcher.compare_structure("x", "x")
+    assert result.status == "UNSUPPORTED"
+    assert result.reason == "comparison_resource_limit"
+    assert result.candidate_tree_sha256 is None
+    assert result.reference_tree_sha256 is None
+    assert "private" not in json.dumps(result.to_dict())
+
+
 def test_parser_error_or_unknown_raw_fields_cannot_make_identical_trees_pass(monkeypatch):
     parser = SimpleNamespace(parse=lambda _: SimpleNamespace(
         ok=True, version="0.17.0",
