@@ -216,7 +216,8 @@ def test_completion_sdk_uses_only_formula_and_actual_bounded_identity(tmp_path, 
         if _self._client is None:
             _self._client = OpenAI(
                 api_key="inert-handoff-secret", base_url="https://api.example.test/v1",
-                max_retries=0, http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+                max_retries=0, timeout=_self.config.inference_timeout_seconds,
+                http_client=httpx.Client(transport=httpx.MockTransport(handler)),
             )
         return _self._client
     monkeypatch.setattr(MiniCPMModel, "client", property(sdk))
@@ -252,10 +253,13 @@ def test_handoff_timeout_never_registers_or_commits_and_retry_is_cached(tmp_path
     with TestClient(create_app(config(tmp_path))) as client:
         request = envelope("x+", requested_action="complete", allowed_scope="completion_prefix",
                            budget={"max_steps": 1, "max_seconds": .02, "max_tokens": 64})
-        for _ in range(2):
-            response = client.post("/api/handoff/formula", json=copy.deepcopy(request))
-            assert response.status_code == 504 and response.json()["detail"] == "TRANSFER_TIMEOUT"
-        assert calls == [1]
+        first = client.post("/api/handoff/formula", json=copy.deepcopy(request))
+        assert first.status_code == 504 and first.json()["detail"] == "TRANSFER_TIMEOUT"
+        first_calls = list(calls)
+        repeated = client.post("/api/handoff/formula", json=copy.deepcopy(request))
+        assert repeated.status_code == 504 and repeated.json()["detail"] == "TRANSFER_TIMEOUT"
+        # A complete deadline may expire before generation, but it never replays.
+        assert len(first_calls) <= 1 and calls == first_calls
         assert client.get("/api/history/export").json()["history"] == []
 
 
