@@ -216,8 +216,6 @@ class TeXadaAgentRuntime:
         operator_drift_attempts = 0
         halt_reason = ""
         drift_fallback_revision: int | None = None
-        intake_valid = True
-        candidate_changed_by_tool = False
 
         def reject_model_budget() -> AgentRunResult:
             return self._runtime_rejection(
@@ -340,10 +338,6 @@ class TeXadaAgentRuntime:
                 revision=formula_state.revision,
             )
             planner_intake = self._planner_observation(compact_intake)
-            intake_valid = bool(
-                intake_observation.ok
-                and intake_observation.output.get("valid")
-            )
             trace.append(
                 {
                     "step": 1,
@@ -468,41 +462,24 @@ class TeXadaAgentRuntime:
                     normalized_candidate = (
                         self.operator_guard.normalize_candidate(candidate)
                     )
-                    if (self.config.planner_surface == "minimal"
+                    if ((self.config.planner_surface == "minimal"
+                         or formula_state.revision is not None)
                             and normalized_candidate != formula_state.latex):
                         return self._action_rejection_result(
                             formula_state, trace, render_mode, semantic_diff, tokens_used, start,
                             ActionRejected("explicit_proposal_required",
                                            "Use propose_candidate before returning a new formula"),
                         )
-                    direct_repair_blocked = bool(
-                        initial_candidate
-                        and not intake_valid
-                        and not candidate_changed_by_tool
-                        and normalized_candidate != formula_state.latex
-                    )
-                    if direct_repair_blocked:
-                        trace_item["observations"].append(
-                            {
-                                "tool": "runtime_policy",
-                                "ok": False,
-                                "output": {
-                                    "candidate": normalized_candidate,
-                                    "retained_candidate": formula_state.latex,
-                                    "required_tool": "repair_tex",
-                                },
-                                "error": (
-                                    "Planner may not directly repair an invalid "
-                                    "candidate; repair_tex is required"
-                                ),
-                                "duration_ms": 0.0,
-                            }
-                        )
-                    else:
+                    if formula_state.revision is None:
+                        trace_item.setdefault("action_bindings", []).append({
+                            "id": "full-direct-final-seed", "revision": None,
+                            "revision_source": "runtime_final_seed",
+                            "initial_seed_bridge": True,
+                        })
                         self._adopt_formula(
                             formula_state,
                             normalized_candidate,
-                            origin="planner_final",
+                            origin="full_initial_final_seed_bridge",
                         )
                 if formula_state.latex:
                     deterministic = self.operator_guard.restore_required_operators(
@@ -655,7 +632,6 @@ class TeXadaAgentRuntime:
                     semantic_diff = observation.output
                 if call.name == "repair_tex" and observation.ok:
                     semantic_diff = observation.output.get("semantic_diff", semantic_diff)
-                    candidate_changed_by_tool = True
                 if call.name == "render_math" and observation.ok:
                     render_confirmed = True
                 messages.append(

@@ -247,7 +247,14 @@ async def test_runtime_does_not_commit_unresolved_request_anchors(tmp_path):
 @pytest.mark.asyncio
 async def test_runtime_recovers_request_anchors_before_commit(tmp_path):
     planner = FakePlanner(
-        [PlannerTurn(content="tan(nu)"), PlannerTurn(content=r"\tan(\nu)")]
+        [
+            PlannerTurn(content="tan(nu)"),
+            PlannerTurn(tool_calls=[PlannerToolCall(
+                id="explicit_anchor_proposal", name="propose_candidate",
+                arguments={"latex": r"\tan(\nu)", "expected_revision": 1},
+            )]),
+            PlannerTurn(content=r"\tan(\nu)"),
+        ]
     )
     runtime = TeXadaAgentRuntime(
         TeXadaConfig(data_dir=tmp_path),
@@ -1047,7 +1054,13 @@ async def test_nl_candidate_first_preserves_original_symbol_anchors_when_candida
 async def test_nl_candidate_first_repairs_invalid_candidate_only_through_deterministic_tool(
     tmp_path,
 ):
-    planner = FakePlanner([PlannerTurn(content=r"\frac{a}{b}")])
+    planner = FakePlanner([
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            id="repair_invalid_candidate", name="repair_tex",
+            arguments={"latex": r"\frac{a}{b", "expected_revision": 1},
+        )]),
+        PlannerTurn(content=r"\frac{a}{b}"),
+    ])
     planner.generate_latex = AsyncMock(return_value=r"\frac{a}{b")
     runtime = TeXadaAgentRuntime(
         TeXadaConfig(data_dir=tmp_path, nl_candidate_first=True),
@@ -1060,8 +1073,7 @@ async def test_nl_candidate_first_repairs_invalid_candidate_only_through_determi
 
     planner.generate_latex.assert_awaited_once()
     assert result.trace[0]["observations"][0]["output"]["valid"] is False
-    blocked = result.trace[1]["observations"][0]
-    assert blocked["output"]["required_tool"] == "repair_tex"
+    assert result.trace[1]["tool_calls"][0]["name"] == "repair_tex"
     repairs = [
         item for step in result.trace for item in step["observations"]
         if item["tool"] == "repair_tex"

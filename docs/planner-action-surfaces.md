@@ -42,8 +42,12 @@ revision is bound to the immutable turn snapshot and recorded as
 Full mode retains one empty-state `compile_tex(latex)` initial seed bridge,
 recorded as `full_initial_seed_bridge` in the revision ledger and
 `initial_seed_bridge=true` in the action bindings. This bridge cannot overwrite
-an existing revision. Full also retains the existing direct-final candidate path;
-it still passes the existing deterministic repair, anchor and commit barriers.
+an existing revision. Full also retains an empty-state direct-final seed, recorded
+as `full_initial_final_seed_bridge`; it passes deterministic repair, anchor and
+commit barriers. Both surfaces reject a different bare final once state exists:
+the Planner must use `propose_candidate` with a valid turn snapshot. An identical
+bare final can finalize the existing candidate. Host deterministic operator
+restoration keeps its explicit runtime authority.
 The action mask cannot establish that a candidate is mathematically faithful to
 the original intent; separate strict references and mutation/review policies
 address that question.
@@ -92,7 +96,7 @@ live sampling shows a benefit without structural or completion regression.
 
 Validation: adversarial binding/mask tests, real compile/repair/render workflows,
 settings rollback and paired-report tests, plus the existing Runtime/API suite.
-The local suite on this feature branch passed **687 tests**, with **8 external
+The local suite on this feature branch passed **690 tests**, with **8 external
 E2E tests skipped**; Ruff and `git diff --check` passed. The replay recorded full
 versus minimal schema bytes of **46,193 / 19,827**, and request bytes of
 **112,660 / 86,178**. These measurements apply only to this authored offline set.

@@ -260,6 +260,51 @@ async def test_minimal_bare_final_cannot_seed_formula(tmp_path):
     assert result.trace[-1]["observations"][0]["output"]["code"] == "explicit_proposal_required"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("surface", ["full", "minimal"])
+async def test_bare_final_cannot_replace_already_compiled_and_rendered_state(
+    tmp_path, monkeypatch, surface,
+):
+    from texada.agent import runtime as runtime_module
+
+    planner = ScriptedPlanner([PlannerTurn(content="y+2")])
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, planner_surface=surface), model=planner,
+    )
+    runtime.candidate_engine.propose = lambda _: None
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+    state = FormulaState("x+1")
+    for name in ("compile_tex", "render_math"):
+        observation = await runtime.tools.execute(name, {"latex": state.latex})
+        assert observation.ok
+        state.add_evidence(revision=1, kind=name, ok=observation.ok, output=observation.output)
+    before = deepcopy(state.to_dict())
+    # Resume the genuine tool-validated state through the actual run loop.
+    monkeypatch.setattr(runtime_module, "FormulaState", lambda *args, **kwargs: state)
+    result = await runtime.run("opaque request")
+    assert result.latex == "x+1" and result.revision == 1
+    assert result.stop_reason == "planner_action_rejected"
+    assert not result.valid and not result.committed
+    assert state.to_dict() == before
+    assert result.formula_ledger == before
+    assert result.trace[-1]["observations"][0]["output"]["code"] == "explicit_proposal_required"
+
+
+@pytest.mark.asyncio
+async def test_full_empty_direct_final_seed_is_explicitly_recorded(tmp_path):
+    planner = ScriptedPlanner([PlannerTurn(content="x+1")])
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    runtime.candidate_engine.propose = lambda _: None
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+    result = await runtime.run("opaque request")
+    assert result.valid and result.committed
+    assert result.formula_ledger["revisions"][0]["origin"] == "full_initial_final_seed_bridge"
+    assert result.trace[0]["action_bindings"] == [{
+        "id": "full-direct-final-seed", "revision": None,
+        "revision_source": "runtime_final_seed", "initial_seed_bridge": True,
+    }]
+
+
 def test_surface_setting_is_persisted_exposed_and_reversible(tmp_path):
     config = save_config_updates({"planner_surface": "minimal"}, tmp_path)
     assert config.planner_surface == "minimal"
