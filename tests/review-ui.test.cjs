@@ -198,3 +198,17 @@ test('editing during a decision ignores its late accepted response', async () =>
   assert.equal(panel.refs.accept.disabled, true);
   assert.equal(panel.review.status, 'pending');
 });
+
+test('recreating a panel preserves a source-edit lock instead of reauthorizing old input', async () => {
+  let requests = 0;
+  const { panel, host } = makePanel(dto(), {
+    sourceEdited: true, initialBlocked: true,
+    request: async () => { requests++; return dto(); },
+  });
+  assert.ok(host.textContent.includes('原始输入已编辑'));
+  await panel.decide('accept');
+  await panel.refresh();
+  await panel.decide('accept');
+  assert.equal(requests, 1);
+  assert.equal(panel.refs.accept.disabled, true);
+});

@@ -1249,17 +1249,34 @@
       const panel = window.TeXadaReview.createPanel({
         document, host, review: result.review, apiBase: API_BASE, request: apiJson,
         language: () => uiLanguage,
+        sourceEdited: result._reviewInputChanged === true,
+        initialBlocked: result._reviewBlocked === true,
         renderLatex: (target, latex) => renderKatexPreview(target, latex),
-        onChange: (review, { blocked }) => {
+        onChange: (review, { blocked, inputChanged }) => {
           result.review = review;
           result.committed = review.committed;
           result._reviewBlocked = blocked;
+          result._reviewInputChanged = inputChanged;
           updateReviewGate(root, result);
         },
       });
       resultReviews.set(root, panel);
     }
     updateReviewGate(root, result);
+  }
+
+  function refreshResultLabels() {
+    const result = els.nlResult._texadaResult;
+    if (result) {
+      els.resultValid.textContent = t(result.valid ? 'result.valid' : 'result.invalid');
+      const kind = result.source === 'shorthand' ? 'Shorthand' : result.source === 'agent' ? 'Agent' : 'Model';
+      els.resultSource.textContent = t(`result.source${kind}`);
+      renderAgentTrace(result);
+    }
+    for (const root of [els.ocrResult, els.completeResult]) {
+      const result = root._texadaResult;
+      if (result) root.querySelector('.valid-badge').textContent = t(result.valid ? 'result.valid' : 'result.invalid');
+    }
   }
 
   // ── Keyboard ──
@@ -1594,14 +1611,14 @@
     if (els.uiLanguageStatus) els.uiLanguageStatus.textContent = '';
     applyZoom();
     applyLanguage();
-    if (lastResult) showResult(lastResult);
+    refreshResultLabels();
   }
 
   async function saveUiSettings() {
     if (els.uiLanguageSelect) uiLanguage = normalizeLanguage(els.uiLanguageSelect.value);
     localStorage.setItem('texada-ui-language', uiLanguage);
     applyLanguage();
-    if (lastResult) showResult(lastResult);
+    refreshResultLabels();
     await persistUiSettings();
   }
 
@@ -1615,7 +1632,7 @@
       localStorage.setItem('texada-ui-zoom', String(uiZoom));
       applyZoom();
       applyLanguage();
-      if (lastResult) showResult(lastResult);
+      refreshResultLabels();
       if (els.uiLanguageStatus) els.uiLanguageStatus.textContent = t('settings.languageSaved');
     } catch (e) {
       if (els.uiLanguageStatus) els.uiLanguageStatus.textContent = String(e).replace(/^Error:\s*/, '');
@@ -1857,13 +1874,13 @@
     els.ocrResult.style.display = 'block';
     els.ocrResult.innerHTML = `
       <div class="result-section">
-        <div class="result-label">${t('result.ocrResult')} <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? t('result.valid') : t('result.invalid')}</span></div>
+        <div class="result-label"><span data-i18n="result.ocrResult">${t('result.ocrResult')}</span> <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? t('result.valid') : t('result.invalid')}</span></div>
         <div class="render-preview formula-click-target" data-insert-target="copy">${escapeHtml(res.latex)}</div>
       </div>
       ${inlineAgentTrace(res)}
       <div class="action-row">
-        <button class="action-btn primary" data-copy-result>📋 ${t('action.copyResult')}</button>
-        <button class="action-btn" data-reset-ocr>${t('ocr.chooseAnother')}</button>
+        <button class="action-btn primary" data-copy-result>📋 <span data-i18n="action.copyResult">${t('action.copyResult')}</span></button>
+        <button class="action-btn" data-reset-ocr data-i18n="ocr.chooseAnother">${t('ocr.chooseAnother')}</button>
       </div>
     `;
     const resultText = res.copy_text || res.latex;
@@ -1917,12 +1934,12 @@
     els.completeResult.style.display = 'block';
     els.completeResult.innerHTML = `
       <div class="result-section">
-        <div class="result-label">${t('result.completionResult')} <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? t('result.valid') : t('result.invalid')}</span></div>
+        <div class="result-label"><span data-i18n="result.completionResult">${t('result.completionResult')}</span> <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? t('result.valid') : t('result.invalid')}</span></div>
         <div class="render-preview formula-click-target" data-insert-target="copy">${escapeHtml(res.latex)}</div>
       </div>
       ${inlineAgentTrace(res)}
       <div class="action-row">
-        <button class="action-btn primary" data-copy-result>📋 ${t('action.copyResult')}</button>
+        <button class="action-btn primary" data-copy-result>📋 <span data-i18n="action.copyResult">${t('action.copyResult')}</span></button>
       </div>
     `;
     const resultText = res.copy_text || res.latex;

@@ -88,12 +88,12 @@
     input.addEventListener('input', () => getPanel()?.invalidate());
   }
 
-  function createPanel({ document, host, review, apiBase, request, language = () => 'zh', renderLatex, onChange = () => {} }) {
+  function createPanel({ document, host, review, apiBase, request, language = () => 'zh', renderLatex, onChange = () => {}, sourceEdited = false, initialBlocked = false }) {
     let current = review;
     let busy = false;
-    let blocked = false;
+    let blocked = initialBlocked || sourceEdited;
     let expired = false;
-    let inputChanged = false;
+    let inputChanged = sourceEdited;
     let message = '';
     let epoch = 0;
     let destroyed = false;
@@ -206,13 +206,13 @@
             || next.candidate_hash !== current.candidate_hash || next.current_revision !== current.current_revision) {
           blocked = true;
           message = words().conflict;
-          onChange(current, { blocked: true });
+          onChange(current, { blocked: true, inputChanged });
           return;
         }
         current = next;
         blocked = inputChanged;
         message = inputChanged ? words().edited : '';
-        onChange(current, { blocked });
+        onChange(current, { blocked, inputChanged });
       } catch (error) {
         if (destroyed || epoch !== startEpoch) return;
         const status = httpStatus(error);
@@ -220,13 +220,14 @@
         blocked = true;
         expired = status === 410;
         message = status === 409 ? words().conflict : expired ? words().expired : words().failed;
-        onChange(current, { blocked: true });
+        onChange(current, { blocked: true, inputChanged });
       } finally {
         if (!destroyed && epoch === startEpoch) { busy = false; draw(); }
       }
     }
     const decide = decision => perform(decision);
     const refresh = () => perform('refresh');
+    message = sourceEdited ? words().edited : initialBlocked ? words().failed : '';
     draw();
     return {
       decide, refresh, redraw: draw, refs, get review() { return current; },
@@ -238,7 +239,7 @@
         inputChanged = true;
         blocked = true;
         message = words().edited;
-        onChange(current, { blocked: true });
+        onChange(current, { blocked: true, inputChanged });
         draw();
       },
       destroy() { destroyed = true; epoch++; host.replaceChildren(); },
