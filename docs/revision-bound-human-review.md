@@ -71,6 +71,10 @@ than invoking an additional model or widening the grant. It then calls
 `app.state.register_review_result(result, source_text=original,
 input_hash=...)`, and uses the same review endpoints. Consumer document revision
 and math-runtime parent/current revisions are separate identities.
+If a trusted producer abandons a request after registration, it can call
+`app.state.review_store.discard_pending(review_id)`. This idempotent, locked
+operation expires only pending reviews; recorded human decisions survive. No
+HTTP deletion endpoint exposes this host cleanup operation.
 
 Validation covers source/candidate mismatch, TTL and capacity eviction,
 concurrent identical/opposite decisions, stale revision during commit, missing

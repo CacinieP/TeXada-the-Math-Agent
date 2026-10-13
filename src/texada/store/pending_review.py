@@ -265,6 +265,20 @@ class PendingReviewStore:
         with self._lock:
             return self._dto(self._require(review_id))
 
+    def discard_pending(self, review_id: str) -> bool:
+        """Abandon an unreturned review from a trusted host callback, once.
+
+        This internal operation cannot undo a human decision. Expired/missing
+        records and repeated abandonment are harmless; no HTTP route exposes it.
+        """
+        with self._lock:
+            self._purge()
+            review = self._items.get(review_id)
+            if review is None or review.status != "pending":
+                return False
+            self._expire(review_id)
+            return True
+
     def source(self, review_id: str) -> tuple[bytes, str]:
         with self._lock:
             review = self._require(review_id)

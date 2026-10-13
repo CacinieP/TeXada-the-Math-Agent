@@ -200,6 +200,28 @@ def test_ttl_expiry_and_capacity_eviction_invalidate_confirmation():
     assert expired.value.status_code == 410 and not store._items
 
 
+def test_host_abandonment_invalidates_only_pending_reviews_idempotently():
+    store, state = PendingReviewStore(), state_for()
+    dto = register(store, state, image=source_png())
+    assert store._source_bytes() > 0
+    assert store.discard_pending(dto["id"])
+    assert not store.discard_pending(dto["id"])
+    assert not store.discard_pending("unknown")
+    assert not state.committed and store._source_bytes() == 0
+    with pytest.raises(ReviewError) as abandoned:
+        store.decide(dto["id"], decision="accept", binding=binding(dto))
+    assert abandoned.value.status_code == 410
+
+
+@pytest.mark.parametrize("decision,status", [("accept", "accepted"), ("reject", "rejected")])
+def test_host_abandonment_cannot_remove_a_human_decision(decision, status):
+    store = PendingReviewStore()
+    dto = register(store)
+    store.decide(dto["id"], decision=decision, binding=binding(dto))
+    assert not store.discard_pending(dto["id"])
+    assert store.get(dto["id"])["status"] == status
+
+
 def test_source_bytes_are_bounded_and_never_in_a_public_dto():
     png = source_png()
     store = PendingReviewStore(max_source_bytes=len(png))
