@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from texada.agent.actions import (
+    ACTION_BINDING_INSTRUCTION,
+    SURFACE_INSTRUCTIONS,
     ActionRejected,
     action_snapshot,
     bind_action,
@@ -383,20 +385,16 @@ class TeXadaAgentRuntime:
                 planner_messages = [dict(message) for message in projection.messages]
                 planner_messages[0]["content"] += (
                     "\n\nAction state (runtime authority): " + action_state
-                    + "\nUse propose_candidate for an explicit formula change. Inspection tools "
-                    "cannot replace runtime values. Actions target this turn's revision; after "
-                    "a candidate change, request a new turn. render_math/export require valid "
-                    "compile evidence; repair_tex requires invalid compile evidence."
-                    + (" Minimal actions require expected_revision and omit runtime-owned "
-                       "latex/before/after arguments. An empty state requires propose_candidate."
-                       if self.config.planner_surface == "minimal" else
-                       " Full tools keep latex/before/after but these must equal runtime values. "
-                       "Only empty state compile_tex may supply an initial seed.")
+                    + "\n" + ACTION_BINDING_INSTRUCTION
+                    + SURFACE_INSTRUCTIONS[self.config.planner_surface]
                 )
                 turn = await self.model.plan(
                     planner_messages,
                     planner_schemas(self.tools.schemas, turn_snapshot,
                                     surface=self.config.planner_surface),
+                )
+                projection.metrics["request_json_bytes"] = len(
+                    json.dumps(planner_messages, ensure_ascii=False).encode()
                 )
             except RuntimeError as exc:
                 trace.append(

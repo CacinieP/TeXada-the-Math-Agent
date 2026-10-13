@@ -255,6 +255,7 @@ def _package_version(package: str) -> str | None:
 def default_prompt_manifest() -> dict:
     # Lazy imports avoid model/runtime initialization cycles. These are fixed
     # application instructions and examples, never request content.
+    from texada.agent.actions import ACTION_BINDING_INSTRUCTION, SURFACE_INSTRUCTIONS
     from texada.agent.failure_context import FAILURE_CONTEXT_INSTRUCTION
     from texada.agent.runtime import (
         COMPLETION_AGENT_PROMPT,
@@ -284,6 +285,8 @@ def default_prompt_manifest() -> dict:
         "ocr_user_instruction": OCR_USER_INSTRUCTION,
         "operator_constraint_template": OPERATOR_CONSTRAINT_TEMPLATE,
         "failure_context_instruction": FAILURE_CONTEXT_INSTRUCTION,
+        "planner_action_binding": ACTION_BINDING_INSTRUCTION,
+        "planner_surface_instructions": SURFACE_INSTRUCTIONS,
     }
 
 

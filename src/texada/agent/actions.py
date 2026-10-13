@@ -18,6 +18,18 @@ from texada.tools.registry import MAX_TEX_LENGTH
 Surface = Literal["full", "minimal"]
 INSPECTION_ACTIONS = frozenset({"parse_tex", "compile_tex", "repair_tex", "render_math", "export"})
 KNOWN_ACTIONS = INSPECTION_ACTIONS | {"semantic_diff", "propose_candidate"}
+ACTION_BINDING_INSTRUCTION = (
+    "Use propose_candidate for an explicit formula change. Inspection tools "
+    "cannot replace runtime values. Actions target this turn's revision; after "
+    "a candidate change, request a new turn. render_math/export require valid "
+    "compile evidence; repair_tex requires invalid compile evidence."
+)
+SURFACE_INSTRUCTIONS = {
+    "minimal": " Minimal actions require expected_revision and omit runtime-owned "
+    "latex/before/after arguments. An empty state requires propose_candidate.",
+    "full": " Full tools keep latex/before/after but these must equal runtime values. "
+    "Only empty state compile_tex may supply an initial seed.",
+}
 
 
 class ActionRejected(ValueError):

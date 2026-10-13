@@ -104,9 +104,13 @@ async def test_runtime_failed_history_projection_recovers_with_raw_audit_retaine
             self.messages.append(copy.deepcopy(messages))
             if len(self.messages) == 1:
                 return PlannerTurn(tool_calls=[PlannerToolCall(
-                    "failed", "unknown_action", {"invalid_key": "failed_argument_payload"},
+                    "failed", "compile_tex", {"latex": r"\frac{x}{2"},
                 )], prompt_tokens_used=41)
-            return PlannerTurn(content="x+1", prompt_tokens_used=53)
+            if len(self.messages) == 2:
+                return PlannerTurn(tool_calls=[PlannerToolCall(
+                    "repair", "repair_tex", {"latex": r"\frac{x}{2"},
+                )], prompt_tokens_used=53)
+            return PlannerTurn(content=r"\frac{x}{2}", prompt_tokens_used=64)
 
         @staticmethod
         def extract_latex(value):
@@ -120,10 +124,14 @@ async def test_runtime_failed_history_projection_recovers_with_raw_audit_retaine
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
     result = await runtime.run("public synthetic recovery request")
     assert result.valid and result.committed
-    assert len(planner.messages) == 2
-    assert ("failed_argument_payload" in json.dumps(planner.messages[1])) == (not enabled)
-    assert "failed_argument_payload" in json.dumps(result.trace[0]["raw_tool_calls"])
-    assert result.trace[0]["observations"][0]["ok"] is False
+    assert len(planner.messages) == 3
+    failed_pair_present = any(
+        call["id"] == "failed" for item in planner.messages[1]
+        for call in item.get("tool_calls", [])
+    )
+    assert failed_pair_present == (not enabled)
+    assert result.trace[0]["raw_tool_calls"][0]["arguments"] == {"latex": r"\frac{x}{2"}
+    assert result.trace[0]["observations"][0]["output"]["valid"] is False
     assert result.trace[1]["planner_projection"]["input_tokens"] == {
         "status": "REPORTED", "value": 53, "reason": "",
     }
@@ -134,7 +142,9 @@ def test_planner_controls_change_identity_without_invalidating_legacy_schema_one
     config = TeXadaConfig(data_dir=tmp_path)
     identity = build_inference_identity(config)
     raw = build_inference_identity(config.model_copy(update={"failure_context_projection": False}))
+    minimal = build_inference_identity(config.model_copy(update={"planner_surface": "minimal"}))
     assert canonical_sha256(identity) != canonical_sha256(raw)
+    assert canonical_sha256(identity) != canonical_sha256(minimal)
     with collect_inference(identity) as collector:
         recorded = collector.snapshot()
     legacy = copy.deepcopy(recorded)
