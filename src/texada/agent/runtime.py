@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -18,6 +19,7 @@ from texada.agent.actions import (
     bind_action,
     planner_schemas,
 )
+from texada.agent.cas_transition import CASTransitionChecker
 from texada.agent.failure_context import project_failure_context
 from texada.agent.mutation_scope import MutationScopeGuard, MutationVerdict
 from texada.agent.protocol import PlannerToolCall, PlannerTurn
@@ -1039,6 +1041,7 @@ class TeXadaAgentRuntime:
             return None
         if MutationScopeGuard.commit_blockers(formula_state):
             return None
+        await self._record_cas_shadow(formula_state, start=start)
         formula_state.commit(expected_revision=formula_state.revision)
 
         trace = [
@@ -1190,6 +1193,7 @@ class TeXadaAgentRuntime:
                 valid = bool(recompile.output.get("valid"))
 
         if not valid:
+            await self._record_cas_shadow(formula_state, start=start)
             trace.append(
                 {
                     "step": len(trace) + 1,
@@ -1231,6 +1235,7 @@ class TeXadaAgentRuntime:
             )
         )
         commit_error = ""
+        await self._record_cas_shadow(formula_state, start=start)
         try:
             blockers = MutationScopeGuard.commit_blockers(formula_state)
             if blockers:
@@ -1292,6 +1297,8 @@ class TeXadaAgentRuntime:
         observation: dict[str, Any],
     ) -> AgentRunResult:
         """Return a controlled, uncommitted result for a runtime policy failure."""
+        for evidence in CASTransitionChecker.pending(formula_state, timed_out=False):
+            CASTransitionChecker.attach(formula_state, evidence)
         trace.append(
             {
                 "step": len(trace) + 1,
@@ -1323,7 +1330,36 @@ class TeXadaAgentRuntime:
             trace[-1]["mutation_scope"] = [
                 item.output for item in state.ledger.evidence if item.kind == "mutation_scope"
             ]
+            trace[-1]["cas_transition"] = [
+                item.output for item in state.ledger.evidence if item.kind == "cas_transition"
+            ]
         return trace
+
+    async def _record_cas_shadow(self, state: FormulaState, *, start: float) -> None:
+        remaining = start + self.config.api_request_timeout_seconds - time.monotonic()
+        budget = min(self.config.tool_timeout_seconds, max(0.0, remaining))
+        if budget <= 0:
+            results = CASTransitionChecker.pending(state)
+        else:
+            deadline = time.monotonic() + budget
+
+            def evaluate() -> list:
+                checker = CASTransitionChecker(deadline_monotonic=deadline)
+                try:
+                    return checker.evaluate(state)
+                finally:
+                    checker.close()
+
+            try:
+                # The thread only returns evidence, so a timeout cannot attach
+                # late results or mutate a revision after the API returned.
+                results = await asyncio.wait_for(asyncio.to_thread(evaluate), timeout=budget)
+            except TimeoutError:
+                results = CASTransitionChecker.pending(state)
+            except Exception:
+                results = CASTransitionChecker.failed(state)
+        for evidence in results:
+            CASTransitionChecker.attach(state, evidence)
 
     @classmethod
     def _compact_observation(cls, observation: ToolObservation) -> dict[str, Any]:

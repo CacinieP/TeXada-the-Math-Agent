@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "source": "synthetic_author_reference",
+  "review_status": "agent-reviewed",
+  "entries": [
+    {"id": "commute", "before": "x+y", "after": "y+x", "expected": "equivalent"},
+    {"id": "factor", "before": "2x+2", "after": "2(x+1)", "expected": "equivalent"},
+    {"id": "expand", "before": "(x+1)^2", "after": "x^2+2x+1", "expected": "equivalent"},
+    {"id": "constant-denominator", "before": "\\frac{x+x}{2}", "after": "x", "expected": "equivalent"},
+    {"id": "equation-factor", "before": "x+1=0", "after": "2x+2=0", "expected": "equivalent"},
+    {"id": "rational-add", "before": "\\frac{x}{3}+\\frac{x}{3}", "after": "\\frac{2x}{3}", "expected": "equivalent"},
+    {"id": "denominator-drift", "before": "\\frac{x}{2}", "after": "\\frac{x}{3}", "expected": "different"},
+    {"id": "sign-drift", "before": "x+1", "after": "x-1", "expected": "different"},
+    {"id": "power-drift", "before": "x^2", "after": "x^3", "expected": "different"},
+    {"id": "symbol-drift", "before": "x+y", "after": "x+z", "expected": "different"},
+    {"id": "constant-drift", "before": "1", "after": "2", "expected": "different"},
+    {"id": "equation-drift", "before": "x+1=0", "after": "x+2=0", "expected": "different"}
+  ]
+}
