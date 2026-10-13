@@ -695,28 +695,46 @@ def windows_worker_handle(pid_file):
 @pytest.mark.skipif(os.name != "nt", reason="Requires real Windows kernel Job Objects")
 @pytest.mark.parametrize("parent_exits", [False, True])
 async def test_windows_job_terminates_real_tree_with_live_or_exited_parent(
-    windows_real_tree, parent_exits
+    windows_real_tree, parent_exits, monkeypatch
 ):
     config, TreeManager, pid_file, exit_file = windows_real_tree
     manager = TreeManager(config)
     api = handle = None
+    original_close = None
     try:
         assert await manager.start()
         api, handle = windows_worker_handle(pid_file)
+        job = manager._windows_job
+        assert job is not None
+        active_at_close = []
+        original_close = job.close
+
+        def record_close():
+            active_at_close.append(job.active_processes())
+            original_close()
+
+        monkeypatch.setattr(job, "close", record_close)
         if parent_exits:
             exit_file.touch()
             await asyncio.wait_for(manager._process.wait(), timeout=3)
+            assert manager._process.returncode == 0
             assert await probe_models_url(config.active_base_url)
-            assert manager._windows_job.active_processes() == 1
+            assert api.WaitForSingleObject(handle, 0) == 258  # WAIT_TIMEOUT: worker still alive
+            # Job accounting counts OS processes, including interpreter
+            # launchers; a logical worker need not occupy exactly one member.
+            assert job.active_processes() >= 1
         await manager.stop()
         assert api.WaitForSingleObject(handle, 5000) == 0  # worker identity, not parent PID
+        assert active_at_close == [0]  # every job member exited before handle release
         assert manager._windows_job is None and manager._process is None
         assert not await probe_models_url(config.active_base_url)
     finally:
         if handle is not None:
             api.CloseHandle(handle)
         if manager._windows_job is not None:
-            manager._windows_job.close()  # kill-on-close if an assertion/stop failed
+            # Bypass the recording query during failure cleanup: kill-on-close
+            # must still reclaim the tree if an assertion or native query fails.
+            (original_close or manager._windows_job.close)()
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Requires real Windows kernel Job Objects")
