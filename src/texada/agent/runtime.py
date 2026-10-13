@@ -583,12 +583,6 @@ class TeXadaAgentRuntime:
                     "revision_source": bound.revision_source,
                     "initial_seed_bridge": bound.initial_seed_bridge,
                 })
-                if bound.candidate:
-                    formula_state.revise(
-                        bound.candidate, expected_revision=bound.revision,
-                        origin="full_initial_seed_bridge" if bound.initial_seed_bridge
-                        else "planner:propose_candidate",
-                    )
                 call = bound.call
                 evidence_revision = formula_state.revision
                 fingerprint = self._call_fingerprint(call)
@@ -601,6 +595,13 @@ class TeXadaAgentRuntime:
                     halt_reason = "repeated_tool_call"
                 else:
                     call_fingerprints.add(fingerprint)
+                    if bound.candidate:
+                        self._adopt_formula(
+                            formula_state, bound.candidate,
+                            origin="full_initial_seed_bridge" if bound.initial_seed_bridge
+                            else "planner:propose_candidate",
+                        )
+                        evidence_revision = formula_state.revision
                     if call.name == "propose_candidate":
                         observation = ToolObservation(
                             name=call.name, ok=True,

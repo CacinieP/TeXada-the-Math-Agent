@@ -187,7 +187,12 @@ async def test_runtime_blocks_ungranted_ocr_commit_but_records_role_footprint(
     tmp_path, trusted_roles, committed
 ):
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(data_dir=tmp_path), model=Planner([PlannerTurn(content=r"\frac{a}{c}")])
+        TeXadaConfig(data_dir=tmp_path), model=Planner([
+            PlannerTurn(tool_calls=[PlannerToolCall(
+                "proposal", "propose_candidate", {"latex": r"\frac{a}{c}", "expected_revision": 1},
+            )]),
+            PlannerTurn(content=r"\frac{a}{c}"),
+        ])
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
     result = await runtime.run_candidate(
@@ -284,9 +289,13 @@ async def test_later_restoration_does_not_erase_unauthorized_transition(tmp_path
     turns = [
         PlannerTurn(
             tool_calls=[
-                PlannerToolCall(id="changed", name="compile_tex", arguments={"latex": r"x_j"})
+                PlannerToolCall(id="changed", name="propose_candidate",
+                                arguments={"latex": r"x_j", "expected_revision": 1})
             ]
         ),
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            "restore", "propose_candidate", {"latex": "x_i", "expected_revision": 2},
+        )]),
         PlannerTurn(content="x_i"),
     ]
     runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=Planner(turns))
