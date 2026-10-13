@@ -13,6 +13,8 @@ import structural_match as matcher
 import yaml
 from anchor_match import anchor_present
 
+from texada.core.inference_fingerprint import canonical_sha256
+
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS = yaml.safe_load((ROOT / "eval/structural_adversarial_cases.yaml").read_text())
 
@@ -229,6 +231,16 @@ async def test_live_runner_adds_independent_optional_structure_without_network(
     await live_runner.run(args)
     report = json.loads((tmp_path / "live-golden.json").read_text())
     row = report["rows"][0]
+    fingerprint = row["inference_fingerprint"]
+    assert fingerprint["status"] == "RECORDED"
+    assert fingerprint["calls"] == []  # This fake runtime never invokes a provider.
+    assert fingerprint["identity"] == report["inference_identity"]
+    assert fingerprint["identity_sha256"] == report["inference_identity_sha256"]
+    assert fingerprint["identity_sha256"] == canonical_sha256(fingerprint["identity"])
+    assert fingerprint["identity"]["dataset"]["sha256"] == {
+        "status": "CONFIGURED", "value": report["golden_set_sha256"], "reason": "",
+    }
+    assert "inert-test-placeholder" not in json.dumps(fingerprint)
     assert row["anchor_containment"] == (not inference_fails)
     expected_status = "DIFFERENT" if with_references and not inference_fails else "NOT_CHECKED"
     assert row["strict_structure"]["status"] == expected_status

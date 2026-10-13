@@ -34,6 +34,12 @@ from structural_match import (
 from texada.agent.runtime import TeXadaAgentRuntime
 from texada.config import TeXadaConfig
 from texada.core.backend import BackendManager
+from texada.core.inference_fingerprint import (
+    build_inference_identity,
+    canonical_sha256,
+    collect_inference,
+    sanitized_endpoint,
+)
 from texada.core.model import MiniCPMModel
 from texada.semantic.katex import shared_katex_parser
 
@@ -88,22 +94,31 @@ async def run(args) -> None:
                     time.sleep(30)
 
     model._completion_create = paced_create
+    dataset = Path(__file__).with_name("golden_set.yaml")
+    dataset_bytes = dataset.read_bytes()
     golden = load_golden_set()
+    if dataset.read_bytes() != dataset_bytes:
+        raise RuntimeError("Golden dataset changed while loading; rerun with a stable fixture")
     if args.limit:
         golden = golden[:args.limit]
-    dataset = Path(__file__).with_name("golden_set.yaml")
+    dataset_sha256 = hashlib.sha256(dataset_bytes).hexdigest()
+    identity = build_inference_identity(
+        config, dataset_version="texada-golden-set-v1", dataset_sha256=dataset_sha256,
+    )
     evidence = {
         "schema_version": 1,
         "time": datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
         "model": MODEL,
         "vision_model": MODEL,
-        "endpoint": config.active_base_url,
+        "endpoint": sanitized_endpoint(config.active_base_url),
+        "inference_identity": identity,
+        "inference_identity_sha256": canonical_sha256(identity),
         "parameters": {"temperature": config.temperature, "max_tokens": config.max_tokens,
                        "agent_max_steps": config.agent_max_steps, "enable_thinking": False,
                        "nl_candidate_first": config.nl_candidate_first,
                        "request_interval_seconds": args.request_interval,
                        "rate_limit_max_attempts": 3},
-        "golden_set_sha256": hashlib.sha256(dataset.read_bytes()).hexdigest(),
+        "golden_set_sha256": dataset_sha256,
         "scope": "Live API integration; semantic anchor containment is not structural equivalence",
         "strict_structure_evaluation": {
             "normalization_version": NORMALIZATION_VERSION,
@@ -123,7 +138,8 @@ async def run(args) -> None:
             row["anchor_checked"] = bool(variants)
             runtime = TeXadaAgentRuntime(config, model=model)
             try:
-                result = await runtime.run(entry["input"])
+                with collect_inference(identity) as collector:
+                    result = await runtime.run(entry["input"])
                 row.update(
                     latex=result.latex, valid=result.valid,
                     rendered=bool(result.render.katex_html), committed=result.committed,
@@ -136,6 +152,7 @@ async def run(args) -> None:
                 row.update(error=f"{type(exc).__name__}: {exc}".replace(key, "[REDACTED]"),
                            valid=False, rendered=False, committed=False,
                            anchor_containment=False if variants else None)
+            row["inference_fingerprint"] = collector.snapshot()
             # Keep the legacy runtime/containment latency boundary unchanged.
             row["elapsed_seconds"] = round(time.monotonic() - started, 3)
             strict_started = time.monotonic()

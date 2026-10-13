@@ -121,6 +121,11 @@ fingerprint = collector.snapshot()
 ```
 
 No provider request is issued by identity construction or collection setup.
+The live `eval/run_minicpm_v47.py` runner now creates a collector per input and
+includes each fingerprint in `live-golden.json`, including failed inputs. The
+report also carries the shared identity and its digest. Its dataset digest is
+computed from the fixture bytes checked at load time; optional full-expression
+references retain their separate byte digest and provenance.
 Focused tests use fake HTTP transports and verify stable identity, all logged
 API branches, real SDK attempts, tool-removal retries, failed attempts,
 deterministic paths, concurrent/thread contexts, settings-update races,
