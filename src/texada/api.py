@@ -1,6 +1,7 @@
 """FastAPI backend — HTTP API for the shell UI."""
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from collections.abc import Awaitable, Callable
@@ -452,13 +453,37 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     render_engine = RenderEngine(config)
     backend_mgr = BackendManager(config)
     llama_mgr = LlamaServerManager(config)
+    runtime_lock = asyncio.Lock()
+
+    async def stop_llama_manager() -> None:
+        try:
+            await llama_mgr.stop()
+        except LlamaServerError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    def replace_runtime(new_config: TeXadaConfig) -> None:
+        nonlocal config, router, agent_runtime, shorthand, history, run_logs
+        nonlocal render_engine, backend_mgr, llama_mgr
+        config = new_config
+        router = InputRouter(config)
+        agent_runtime = TeXadaAgentRuntime(config, model=router.model, backend=router.backend)
+        shorthand = router.shorthand_store
+        history = HistoryStore(config)
+        run_logs = RunLogStore(config)
+        render_engine = RenderEngine(config)
+        backend_mgr = BackendManager(config)
+        llama_mgr = LlamaServerManager(config)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         try:
             yield
         finally:
-            shared_katex_parser().close()
+            try:
+                async with runtime_lock:
+                    await llama_mgr.stop()
+            finally:
+                shared_katex_parser().close()
 
     app = FastAPI(title="TeXada", version=app_version, lifespan=lifespan)
     allowed_origins = set(config.api_allowed_origins)
@@ -546,18 +571,20 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.post("/api/llama/start")
     async def llama_start():
-        _require_llama_backend()
-        try:
-            await llama_mgr.start()
-        except LlamaServerError as e:
-            raise HTTPException(status_code=503, detail=str(e)) from e
-        return await llama_mgr.aget_status()
+        async with runtime_lock:
+            _require_llama_backend()
+            try:
+                await llama_mgr.start()
+            except LlamaServerError as e:
+                raise HTTPException(status_code=503, detail=str(e)) from e
+            return await llama_mgr.aget_status()
 
     @app.post("/api/llama/stop")
     async def llama_stop():
-        _require_llama_backend()
-        await llama_mgr.stop()
-        return await llama_mgr.aget_status()
+        async with runtime_lock:
+            _require_llama_backend()
+            await stop_llama_manager()
+            return await llama_mgr.aget_status()
 
     @app.post("/api/llama/pull")
     async def llama_pull(req: LlamaPullRequest):
@@ -572,25 +599,14 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.post("/api/settings/backend", response_model=BackendSettingsResponse)
     async def update_backend_settings(req: BackendSettingsUpdate):
-        nonlocal config, router, agent_runtime, shorthand, history, run_logs
-        nonlocal render_engine, backend_mgr, llama_mgr
         updates = req.model_dump(exclude_none=True)
         if updates.get("openai_api_key") == "":
             updates.pop("openai_api_key")
-        config = save_config_updates(updates, data_dir=config.data_dir)
-        router = InputRouter(config)
-        agent_runtime = TeXadaAgentRuntime(
-            config,
-            model=router.model,
-            backend=router.backend,
-        )
-        shorthand = router.shorthand_store
-        history = HistoryStore(config)
-        run_logs = RunLogStore(config)
-        render_engine = RenderEngine(config)
-        backend_mgr = BackendManager(config)
-        llama_mgr = LlamaServerManager(config)
-        return _settings_response(config)
+        async with runtime_lock:
+            validate_config_updates(updates, data_dir=config.data_dir)
+            await stop_llama_manager()
+            replace_runtime(save_config_updates(updates, data_dir=config.data_dir))
+            return _settings_response(config)
 
     @app.post("/api/settings/ui", response_model=UiSettingsResponse)
     async def update_ui_settings(req: UiSettingsUpdate):
@@ -1066,8 +1082,12 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.post("/api/import")
     async def import_backup(req: BackupImportRequest):
-        nonlocal config, router, agent_runtime, shorthand, history, run_logs
-        nonlocal render_engine, backend_mgr, llama_mgr
+        # A backup can rebuild the runtime too. Serialize the entire settings
+        # transition so a concurrent start cannot attach to the old manager.
+        async with runtime_lock:
+            return await import_backup_locked(req)
+
+    async def import_backup_locked(req: BackupImportRequest):
         settings_updates = _importable_settings(req.settings)
         if settings_updates:
             try:
@@ -1077,6 +1097,9 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                     status_code=422,
                     detail=f"Invalid backup settings: {exc}",
                 ) from exc
+            # Fail before importing data or saving settings if the owned
+            # process cannot be reclaimed. Keep the original manager intact.
+            await stop_llama_manager()
 
         history_result = await history.import_entries(
             [_history_import_entry(entry) for entry in req.history],
@@ -1089,19 +1112,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         shorthand_result = shorthand.import_many(req.shorthands, mode=req.mode)
         settings_imported = 0
         if settings_updates:
-            config = save_config_updates(settings_updates, data_dir=config.data_dir)
-            router = InputRouter(config)
-            agent_runtime = TeXadaAgentRuntime(
-                config,
-                model=router.model,
-                backend=router.backend,
-            )
-            shorthand = router.shorthand_store
-            history = HistoryStore(config)
-            run_logs = RunLogStore(config)
-            render_engine = RenderEngine(config)
-            backend_mgr = BackendManager(config)
-            llama_mgr = LlamaServerManager(config)
+            replace_runtime(save_config_updates(settings_updates, data_dir=config.data_dir))
             settings_imported = len(settings_updates)
         return {
             "history": history_result,

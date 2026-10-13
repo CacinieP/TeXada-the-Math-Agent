@@ -31,6 +31,9 @@ VISION_MODEL_FILES = (VISION_MODEL_FILE, VISION_MMPROJ_FILE)
 
 MIN_BUILD = 9049  # MiniCPM-V 4.6 merged into llama.cpp mainline (PR #22529)
 STARTUP_TIMEOUT_SECONDS = 60.0
+VERSION_TIMEOUT_SECONDS = 15.0
+STOP_TIMEOUT_SECONDS = 10.0
+KILL_TIMEOUT_SECONDS = 5.0
 PRESET_NAME = "texada-models.ini"
 
 _BUILD_RE = re.compile(r"build\s+(\d+)")
@@ -46,6 +49,8 @@ class LlamaServerManager:
     def __init__(self, config: TeXadaConfig):
         self.config = config
         self._process: asyncio.subprocess.Process | None = None
+        self._lifecycle_lock = asyncio.Lock()
+        self._last_error: str | None = None
 
     # ── paths and binary resolution ──
 
@@ -155,15 +160,27 @@ class LlamaServerManager:
 
     async def _version_build(self) -> int | None:
         binary = self.resolve_binary()
+        proc = None
         try:
             proc = await asyncio.create_subprocess_exec(
                 str(binary), "--version",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
+                start_new_session=os.name != "nt",
             )
-            out, _ = await asyncio.wait_for(proc.communicate(), timeout=15)
-        except Exception:
-            return None
+            self._process = proc
+            out, _ = await asyncio.wait_for(proc.communicate(), timeout=VERSION_TIMEOUT_SECONDS)
+        except TimeoutError as exc:
+            raise LlamaServerError(
+                f"llama-server 版本检查超时 ({VERSION_TIMEOUT_SECONDS:g}s)"
+            ) from exc
+        except OSError as exc:
+            raise LlamaServerError(f"llama-server 版本检查失败: {exc}") from exc
+        finally:
+            if proc is not None:
+                await self._terminate_owned_process(proc)
+                if self._process is proc:
+                    self._process = None
         match = _BUILD_RE.search(out.decode("utf-8", errors="replace"))
         return int(match.group(1)) if match else None
 
@@ -176,49 +193,117 @@ class LlamaServerManager:
             )
 
     async def start(self) -> bool:
-        if self._process is not None and self._process.returncode is None:
-            return True
-        await self._check_version()
-        command = self._build_command()
-        self._process = await asyncio.create_subprocess_exec(
-            *command,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
-        )
-        base = self.config.active_base_url
-        deadline = asyncio.get_event_loop().time() + STARTUP_TIMEOUT_SECONDS
-        while asyncio.get_event_loop().time() < deadline:
-            if self._process.returncode is not None:
-                exited = self._process
-                self._process = None
-                raise LlamaServerError(
-                    f"llama-server 启动后退出 (exit {exited.returncode})"
-                )
-            if await probe_models_url(base):
+        async with self._lifecycle_lock:
+            if self.is_running():
                 return True
-            await asyncio.sleep(0.5)
-        await self.stop()
-        raise LlamaServerError(
-            f"llama-server 启动超时 ({STARTUP_TIMEOUT_SECONDS:.0f}s)"
-        )
+            await self._stop_owned_process()
+            self._last_error = None
+            # A reachable service was not spawned by us. Attach without taking
+            # ownership, so stop/settings/shutdown cannot terminate it.
+            if await probe_models_url(self.config.active_base_url):
+                return True
+            try:
+                await self._check_version()
+                command = self._build_command()
+                self._process = await asyncio.create_subprocess_exec(
+                    *command,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL,
+                    start_new_session=os.name != "nt",
+                )
+                base = self.config.active_base_url
+                deadline = asyncio.get_running_loop().time() + STARTUP_TIMEOUT_SECONDS
+                while asyncio.get_running_loop().time() < deadline:
+                    if self._process.returncode is not None:
+                        raise LlamaServerError(
+                            f"llama-server 启动后退出 (exit {self._process.returncode})"
+                        )
+                    if await probe_models_url(base):
+                        return True
+                    await asyncio.sleep(0.5)
+                raise LlamaServerError(
+                    f"llama-server 启动超时 ({STARTUP_TIMEOUT_SECONDS:.0f}s)"
+                )
+            except (Exception, asyncio.CancelledError) as exc:
+                await self._stop_owned_process()
+                if isinstance(exc, asyncio.CancelledError):
+                    self._last_error = "llama-server 启动被取消"
+                    raise
+                self._last_error = f"llama-server 启动失败: {exc}"
+                if isinstance(exc, LlamaServerError):
+                    raise
+                raise LlamaServerError(self._last_error) from exc
 
-    async def stop(self) -> bool:
+    @staticmethod
+    def _signal_owned_process(proc: asyncio.subprocess.Process, *, kill: bool) -> None:
+        if os.name == "nt":
+            proc.kill() if kill else proc.terminate()
+        else:
+            # Every owned process starts in a new session. Only that session's
+            # process group is signalled, including router child processes.
+            os.killpg(proc.pid, signal.SIGKILL if kill else signal.SIGTERM)
+
+    @staticmethod
+    async def _kill_remaining_owned_group(proc: asyncio.subprocess.Process) -> None:
+        if os.name != "nt":
+            deadline = asyncio.get_running_loop().time() + min(0.25, KILL_TIMEOUT_SECONDS)
+            while True:
+                try:
+                    # A router child can ignore SIGTERM when its parent exits.
+                    os.killpg(proc.pid, signal.SIGKILL)
+                    return
+                except ProcessLookupError:
+                    return
+                except PermissionError:
+                    # macOS can return EPERM while an empty group is being
+                    # removed. Retry briefly; persistent errors remain visible.
+                    if asyncio.get_running_loop().time() >= deadline:
+                        raise
+                    await asyncio.sleep(0.01)
+
+    async def _terminate_owned_process(self, proc: asyncio.subprocess.Process) -> None:
+        if proc.returncode is not None:
+            await self._kill_remaining_owned_group(proc)
+            return
+        try:
+            self._signal_owned_process(proc, kill=False)
+        except ProcessLookupError:
+            pass
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=STOP_TIMEOUT_SECONDS)
+            await self._kill_remaining_owned_group(proc)
+            return
+        except TimeoutError:
+            pass
+        try:
+            self._signal_owned_process(proc, kill=True)
+        except ProcessLookupError:
+            pass
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=KILL_TIMEOUT_SECONDS)
+            await self._kill_remaining_owned_group(proc)
+        except TimeoutError as exc:
+            raise LlamaServerError(
+                "llama-server 停止失败：SIGTERM 和强制结束后仍未退出"
+            ) from exc
+
+    async def _stop_owned_process(self) -> None:
         proc = self._process
         if proc is None:
-            return True
+            return
+        try:
+            await self._terminate_owned_process(proc)
+        except (LlamaServerError, OSError) as exc:
+            self._last_error = f"llama-server 停止失败: {exc}"
+            # Keep the handle so a failed stop cannot silently orphan it.
+            raise LlamaServerError(self._last_error) from exc
         self._process = None
-        if proc.returncode is not None:
+
+    async def stop(self) -> bool:
+        async with self._lifecycle_lock:
+            await self._stop_owned_process()
+            self._last_error = None
             return True
-        try:
-            proc.send_signal(signal.SIGTERM)
-        except ProcessLookupError:
-            return True
-        try:
-            await asyncio.wait_for(proc.wait(), timeout=10)
-        except TimeoutError:
-            proc.kill()
-            await proc.wait()
-        return True
 
     async def ensure_ready(self) -> bool:
         if await probe_models_url(self.config.active_base_url):
@@ -279,6 +364,11 @@ class LlamaServerManager:
             message = "文本可用，OCR 视觉模型未下载"
             next_action = "下载 MiniCPM-V 4.6 GGUF + mmproj"
 
+        if self._last_error:
+            status, ready = "error", False
+            message = self._last_error
+            next_action = "检查本地服务状态后重试启动或停止"
+
         return {
             "status": status,
             "ready": ready,
@@ -302,6 +392,8 @@ class LlamaServerManager:
             "models_dir": str(self.models_dir),
             "installed_model_count": len(installed),
             "next_action": next_action,
+            "process_owned": self._process is not None,
+            "last_error": self._last_error,
         }
 
     def get_status(self) -> dict:
