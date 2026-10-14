@@ -65,14 +65,14 @@ def main() -> None:
             subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
             info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
             executable = app / "Contents/MacOS" / info["CFBundleExecutable"]
-            runtime = next(app.rglob("llama-server"))
+            runtime = next(p for p in app.rglob("llama-server") if p.is_file())
         elif sys.platform == "win32":
             install_dir = root / "installed"
             subprocess.run([str(installer), "/S", f"/D={install_dir}"], check=True, timeout=120)
             executable = next(
                 p for p in install_dir.glob("*.exe") if "uninstall" not in p.name.lower()
             )
-            runtime = next(install_dir.rglob("llama-server.exe"))
+            runtime = next(p for p in install_dir.rglob("llama-server.exe") if p.is_file())
         else:
             raise RuntimeError("Native installer smoke only supports macOS and Windows")
         version = subprocess.run(
