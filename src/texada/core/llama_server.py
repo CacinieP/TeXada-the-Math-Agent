@@ -1,15 +1,9 @@
-"""LlamaServerManager — built-in llama-server sidecar runtime.
+"""Owned llama-server lifecycle for the shared MiniCPM-V-4.7-1B checkpoint.
 
-Spawns one ``llama-server`` process in router mode (``--models-preset``)
-serving both the text and vision models from the configured models
-directory. Mirrors the :class:`BackendManager` interface so no call site
-branches on runtime identity.
-
-Verified against llama.cpp b11046 (see the runtime design doc, §5.5):
-version output ``version: ... (build NNNNN, commit ...)``; mmproj requires
-a preset INI; on-demand loading via ``--models-autoload``; idle release via
-``--sleep-idle-seconds``; resident-model cap via ``--models-max``.
+One process serves text and vision under the same alias. Installers contain the
+runtime; the checksum-pinned weights and projector are downloaded separately.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,17 +19,16 @@ from urllib.parse import urlparse
 from texada.config import TeXadaConfig
 from texada.core.backend import list_models_url, probe_models_url
 
-TEXT_MODEL_FILE = "MiniCPM5-2B-Q4_K_M.gguf"
-VISION_MODEL_FILE = "MiniCPM-V-4_6-Q4_K_M.gguf"
+TEXT_MODEL_FILE = "MiniCPM-V-4_7-1B-Q4_K_M.gguf"
+VISION_MODEL_FILE = TEXT_MODEL_FILE
 VISION_MMPROJ_FILE = "mmproj-model-f16.gguf"
 VISION_MODEL_FILES = (VISION_MODEL_FILE, VISION_MMPROJ_FILE)
 
-MIN_BUILD = 9049  # MiniCPM-V 4.6 merged into llama.cpp mainline (PR #22529)
+MIN_BUILD = 11609  # Pinned and locally verified MiniCPM-V 4.7 runtime
 STARTUP_TIMEOUT_SECONDS = 60.0
 VERSION_TIMEOUT_SECONDS = 15.0
 STOP_TIMEOUT_SECONDS = 10.0
 KILL_TIMEOUT_SECONDS = 5.0
-PRESET_NAME = "texada-models.ini"
 
 _BUILD_RE = re.compile(r"build\s+(\d+)")
 _IS_WINDOWS = sys.platform == "win32"
@@ -256,15 +249,23 @@ class LlamaServerManager:
             raise LlamaServerError(f"TEXADA_LLAMA_SERVER_BINARY 不可执行: {path}")
 
         here = Path(__file__).resolve()
+        executable_name = "llama-server.exe" if sys.platform == "win32" else "llama-server"
         candidates = [
             # packaged: resources/llama-server/ next to the sidecar executable
-            Path(sys.executable).resolve().parent.parent
-            / "llama-server" / "llama-server",
+            Path(sys.executable).resolve().parent.parent / "llama-server" / executable_name,
             # dev checkout: tauri-shell resources (src layout and installed)
-            here.parents[3] / "tauri-shell" / "src-tauri" / "resources"
-            / "llama-server" / "llama-server",
-            here.parents[2] / "tauri-shell" / "src-tauri" / "resources"
-            / "llama-server" / "llama-server",
+            here.parents[3]
+            / "tauri-shell"
+            / "src-tauri"
+            / "resources"
+            / "llama-server"
+            / executable_name,
+            here.parents[2]
+            / "tauri-shell"
+            / "src-tauri"
+            / "resources"
+            / "llama-server"
+            / executable_name,
         ]
         for candidate in candidates:
             if candidate.is_file() and os.access(candidate, os.X_OK):
@@ -275,8 +276,7 @@ class LlamaServerManager:
             if found:
                 return Path(found)
         raise LlamaServerError(
-            "未找到 llama-server 二进制。请在设置中指定路径，或安装 llama.cpp "
-            "(build >= 9049)。"
+            "未找到 llama-server 二进制。请在设置中指定路径，或安装 llama.cpp (build >= 11609)。"
         )
 
     # ── process lifecycle ──
@@ -286,9 +286,14 @@ class LlamaServerManager:
             self._windows_job = _WindowsJob()
         try:
             self._process = await asyncio.create_subprocess_exec(
-                *command, stdout=stdout, stderr=stderr,
-                **({"creationflags": _CREATE_SUSPENDED} if _IS_WINDOWS
-                   else {"start_new_session": True}),
+                *command,
+                stdout=stdout,
+                stderr=stderr,
+                **(
+                    {"creationflags": _CREATE_SUSPENDED}
+                    if _IS_WINDOWS
+                    else {"start_new_session": True}
+                ),
             )
             if self._windows_job is not None:
                 self._windows_job.assign_and_resume(self._process.pid)
@@ -331,41 +336,39 @@ class LlamaServerManager:
         port = parsed.port or 8080
         return host, port
 
-    def _write_preset(self) -> Path:
-        """Generate the router preset INI; mmproj can only be declared here."""
-        text = self.text_model_path
-        vision, mmproj = self.vision_model_paths
-        preset = self.models_dir / PRESET_NAME
-        preset.parent.mkdir(parents=True, exist_ok=True)
-        preset.write_text(
-            "[text]\n"
-            f"model = {text}\n"
-            "\n"
-            "[vision]\n"
-            f"model = {vision}\n"
-            f"mmproj = {mmproj}\n",
-            encoding="utf-8",
-        )
-        return preset
-
     def _build_command(self) -> list[str]:
         binary = self.resolve_binary()
         host, port = self._host_port()
-        preset = self._write_preset()
+        model, mmproj = self.vision_model_paths
+        missing = [path.name for path in (model, mmproj) if not path.is_file()]
+        if missing:
+            raise LlamaServerError("模型文件缺失: " + ", ".join(missing))
         command = [
             str(binary),
-            "--models-preset", str(preset),
-            "--host", host,
-            "--port", str(port),
-            "--ctx-size", str(self.config.llama_context_size),
-            "--n-gpu-layers", str(self.config.llama_gpu_layers),
-            "--models-max", str(self.config.llama_models_max),
+            "-m",
+            str(model),
+            "--mmproj",
+            str(mmproj),
+            "--alias",
+            "MiniCPM-V-4.7-1B",
+            "--host",
+            host,
+            "--port",
+            str(port),
+            "--ctx-size",
+            str(self.config.llama_context_size),
+            "--n-gpu-layers",
+            str(self.config.llama_gpu_layers),
+            "--parallel",
+            "1",
+            "--jinja",
+            "--reasoning",
+            "off",
+            "--seed",
+            "47",
         ]
         if self.config.llama_idle_sleep_seconds >= 0:
-            command += [
-                "--sleep-idle-seconds",
-                str(self.config.llama_idle_sleep_seconds),
-            ]
+            command += ["--sleep-idle-seconds", str(self.config.llama_idle_sleep_seconds)]
         return command
 
     async def _version_build(self) -> int | None:
@@ -396,8 +399,7 @@ class LlamaServerManager:
         build = await self._version_build()
         if build is not None and build < MIN_BUILD:
             raise LlamaServerError(
-                f"llama-server build {build} 过旧，MiniCPM-V 4.6 需要 "
-                f"build >= {MIN_BUILD}。"
+                f"llama-server build {build} 过旧，MiniCPM-V 4.7 需要 build >= {MIN_BUILD}。"
             )
 
     async def start(self) -> bool:
@@ -428,9 +430,7 @@ class LlamaServerManager:
                     if await probe_models_url(base):
                         return True
                     await asyncio.sleep(0.5)
-                raise LlamaServerError(
-                    f"llama-server 启动超时 ({STARTUP_TIMEOUT_SECONDS:.0f}s)"
-                )
+                raise LlamaServerError(f"llama-server 启动超时 ({STARTUP_TIMEOUT_SECONDS:.0f}s)")
             except (Exception, asyncio.CancelledError) as exc:
                 await self._stop_owned_process()
                 if isinstance(exc, asyncio.CancelledError):
@@ -493,9 +493,7 @@ class LlamaServerManager:
             await asyncio.wait_for(proc.wait(), timeout=KILL_TIMEOUT_SECONDS)
             await self._kill_remaining_owned_group(proc)
         except TimeoutError as exc:
-            raise LlamaServerError(
-                "llama-server 停止失败：SIGTERM 和强制结束后仍未退出"
-            ) from exc
+            raise LlamaServerError("llama-server 停止失败：SIGTERM 和强制结束后仍未退出") from exc
 
     async def _stop_owned_process(self) -> None:
         proc = self._process
@@ -524,15 +522,9 @@ class LlamaServerManager:
         return await self.start()
 
     async def ensure_vision_ready(self) -> bool:
-        missing = [
-            path.name
-            for path in self.vision_model_paths
-            if not path.is_file()
-        ]
+        missing = [path.name for path in self.vision_model_paths if not path.is_file()]
         if missing:
-            raise LlamaServerError(
-                "视觉模型文件缺失: " + ", ".join(missing)
-            )
+            raise LlamaServerError("视觉模型文件缺失: " + ", ".join(missing))
         return await self.ensure_ready()
 
     def is_running(self) -> bool:
@@ -575,7 +567,7 @@ class LlamaServerManager:
         elif not vision_installed:
             status, ready = "partial_ready", False
             message = "文本可用，OCR 视觉模型未下载"
-            next_action = "下载 MiniCPM-V 4.6 GGUF + mmproj"
+            next_action = "下载 MiniCPM-V 4.7 GGUF + mmproj"
 
         if self._last_error:
             status, ready = "error", False

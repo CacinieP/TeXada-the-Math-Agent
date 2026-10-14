@@ -75,9 +75,9 @@ class TeXadaConfig(BaseSettings):
     llama_server_host: str = "http://127.0.0.1:8080"
     llama_server_binary: str = ""  # empty = packaged path or PATH lookup
     llama_models_dir: str = ""  # empty = <data_dir>/models
-    llama_context_size: int = 4096
+    llama_context_size: int = 8192
     llama_gpu_layers: int = 99  # Metal: full offload
-    llama_models_max: int = 2  # router: max simultaneously resident models
+    llama_models_max: int = 1  # router: max simultaneously resident models
     llama_idle_sleep_seconds: int = 300  # idle sleep before VRAM release (-1 disables)
     model_name: str = "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M"  # Text: MiniCPM5-2B
     vision_model_name: str = "openbmb/minicpm-v4.6:latest"  # MiniCPM-V 4.6 OCR
@@ -220,7 +220,7 @@ class TeXadaConfig(BaseSettings):
         if self.uses_openai_compatible:
             return self.openai_model_name
         if self.uses_llama_server:
-            return "text"
+            return "MiniCPM-V-4.7-1B"
         return self.model_name
 
     @property
@@ -228,7 +228,7 @@ class TeXadaConfig(BaseSettings):
         if self.uses_openai_compatible:
             return self.openai_vision_model_name or self.openai_model_name
         if self.uses_llama_server:
-            return "vision"
+            return "MiniCPM-V-4.7-1B"
         return self.vision_model_name
 
     @property

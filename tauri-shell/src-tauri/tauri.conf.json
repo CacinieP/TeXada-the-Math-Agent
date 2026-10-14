@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "TeXada",
-  "version": "0.4.1",
+  "version": "0.4.2-beta.1",
   "identifier": "com.texada.desktop",
   "build": {
     "frontendDist": "../src",
@@ -37,7 +37,9 @@
       "capabilities": [
         {
           "identifier": "default",
-          "windows": ["main"],
+          "windows": [
+            "main"
+          ],
           "permissions": [
             "core:default",
             "core:window:allow-start-dragging",

@@ -25,6 +25,7 @@ from texada.config import (
     validate_config_updates,
 )
 from texada.core.backend import BackendManager
+from texada.core.download import download_all
 from texada.core.inference_fingerprint import (
     build_inference_identity,
     collect_inference,
@@ -34,7 +35,6 @@ from texada.core.inference_fingerprint import (
     validate_inference_fingerprint,
     without_inference_collection,
 )
-from texada.core.download import download_all
 from texada.core.llama_server import LlamaServerError, LlamaServerManager
 from texada.core.router import InputRouter
 from texada.handoff import FormulaTransfer, HandoffError, TransferRegistry, produce_formula_transfer
@@ -310,7 +310,7 @@ def _app_version() -> str:
     try:
         return version("texada")
     except PackageNotFoundError:
-        return "0.4.1"
+        return "0.4.2-beta.1"
 
 
 def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:

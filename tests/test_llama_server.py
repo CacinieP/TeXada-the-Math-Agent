@@ -25,7 +25,7 @@ FAKE_SERVER = textwrap.dedent(
     """\
     #!/bin/sh
     if [ "$1" = "--version" ]; then
-      echo "version: 0.4.1-dev (build 11046, commit deadbeef)"
+      echo "version: 0.4.1-dev (build 11609, commit deadbeef)"
       exit 0
     fi
     PORT=8080
@@ -40,7 +40,7 @@ FAKE_SERVER = textwrap.dedent(
     port = int(sys.argv[1])
     class H(BaseHTTPRequestHandler):
         def do_GET(self):
-            body = json.dumps({"data": [{"id": "text"}, {"id": "vision"}]}).encode()
+            body = json.dumps({"data": [{"id": "MiniCPM-V-4.7-1B"}]}).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
@@ -52,7 +52,7 @@ FAKE_SERVER = textwrap.dedent(
     """
 )
 
-OLD_BUILD_SERVER = FAKE_SERVER.replace("build 11046", f"build {MIN_BUILD - 1}")
+OLD_BUILD_SERVER = FAKE_SERVER.replace("build 11609", f"build {MIN_BUILD - 1}")
 
 
 def _free_port() -> int:
@@ -112,14 +112,16 @@ async def test_start_serves_and_stop_terminates(config, models):
     assert not manager.is_running()
 
 
-async def test_start_writes_preset_with_mmproj(config, models):
+async def test_start_uses_one_checkpoint_and_projector_for_both_roles(config, models):
     manager = LlamaServerManager(config)
+    command = manager._build_command()
+    assert "--models-preset" not in command
+    assert command[command.index("--alias") + 1] == "MiniCPM-V-4.7-1B"
+    assert command[command.index("-m") + 1] == str(manager.text_model_path)
+    assert command[command.index("--mmproj") + 1] == str(manager.vision_model_paths[1])
+    assert manager.text_model_path == manager.vision_model_paths[0]
+    assert command[command.index("--reasoning") + 1] == "off"
     await manager.start()
-    preset = config.data_dir / "models" / "texada-models.ini"
-    content = preset.read_text(encoding="utf-8")
-    assert "[text]" in content
-    assert "[vision]" in content
-    assert "mmproj" in content
     await manager.stop()
 
 
@@ -184,13 +186,13 @@ async def test_status_reports_missing_and_present_models(config, tmp_path):
     assert status["vision_model_installed"] is False
 
 
-async def test_minicpm_model_sends_reasoning_effort_on_llama_server(tmp_path):
+async def test_minicpm_v47_disables_thinking_on_llama_server(tmp_path):
     from texada.core.model import MiniCPMModel
 
     config = TeXadaConfig(data_dir=tmp_path, backend="llama_server")
     model = MiniCPMModel(config)
     assert model._text_request_options() == {
-        "extra_body": {"reasoning_effort": "none"}
+        "extra_body": {"chat_template_kwargs": {"enable_thinking": False}}
     }
 
 

@@ -63,6 +63,9 @@ jobs:
       - name: JavaScript syntax check
         run: node --check tauri-shell/src/main.js
 
+      - name: Frontend regressions
+        run: node --test tests/*.test.cjs
+
   build:
     name: Build ${{ matrix.name }}
     needs: audit
@@ -164,6 +167,19 @@ jobs:
 
       - name: Fetch pinned llama-server binary
         run: bash scripts/fetch-llama-server.sh "${{ matrix.rust-targets }}"
+
+      - name: Sign bundled macOS llama runtime
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          runtime_dir="tauri-shell/src-tauri/resources/llama-server"
+          while IFS= read -r -d '' item; do
+            codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$item"
+          done < <(find "$runtime_dir" -type f -name '*.dylib' -print0)
+          codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$runtime_dir/llama-server"
 
       - name: Build bundled FastAPI backend sidecar
         env:
@@ -378,6 +394,22 @@ jobs:
           xcrun stapler validate "$dmg"
           spctl -a -t open --context context:primary-signature -v "$dmg"
 
+      - name: Smoke installed macOS package
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          installer="$(find tauri-shell/src-tauri/target -path '*/bundle/dmg/*.dmg' -print -quit)"
+          python scripts/smoke-installed-desktop.py "$installer" --output "native-smoke-${{ matrix.rust-targets }}.json"
+
+      - name: Smoke installed Windows package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem tauri-shell/src-tauri/target -Recurse -Filter *.exe | Where-Object { $_.FullName -match '[\/]bundle[\/]nsis[\/]' } | Select-Object -First 1
+          if (-not $installer) { throw "NSIS installer missing" }
+          python scripts/smoke-installed-desktop.py $installer.FullName --output "native-smoke-${{ matrix.rust-targets }}.json"
+          if ($LASTEXITCODE -ne 0) { throw "Installed Windows smoke failed" }
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
@@ -386,6 +418,7 @@ jobs:
           path: |
             tauri-shell/src-tauri/target/**/bundle/dmg/*.dmg
             tauri-shell/src-tauri/target/**/bundle/nsis/*.exe
+            native-smoke-*.json
 
   publish:
     name: Publish desktop release
@@ -459,8 +492,12 @@ jobs:
           git tag "$release_tag" "$GITHUB_SHA"
           git push origin "refs/tags/$release_tag"
 
+          release_flags=(--latest)
+          if [[ "$version" == *-beta.* ]]; then
+            release_flags=(--draft --prerelease --latest=false)
+          fi
           gh release create "$release_tag" "${assets[@]}" \
             --title "TeXada Desktop v${version}" \
             --notes-file /tmp/texada-release-notes.md \
             --target "$GITHUB_SHA" \
-            --latest
+            "${release_flags[@]}"

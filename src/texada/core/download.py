@@ -18,7 +18,6 @@ import httpx
 from texada.core.llama_server import (
     TEXT_MODEL_FILE,
     VISION_MMPROJ_FILE,
-    VISION_MODEL_FILE,
 )
 
 HF_BASE = "https://huggingface.co"
@@ -37,32 +36,18 @@ class ModelFile(NamedTuple):
 
 
 # role -> (repo id, [ModelFile])
+MODEL_REVISION = "59cd286146b6ce70f818508ccf512e11438d8957"
+WEIGHTS = ModelFile(
+    TEXT_MODEL_FILE, TEXT_MODEL_FILE,
+    "588c6c94c82f756b86dba35c42ed9ba9ec187d65824eb52f039c347df563e63d",
+)
+PROJECTOR = ModelFile(
+    VISION_MMPROJ_FILE, VISION_MMPROJ_FILE,
+    "fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900",
+)
 MODEL_CATALOG: dict[str, tuple[str, list[ModelFile]]] = {
-    "text": (
-        "openbmb/MiniCPM5-2B-GGUF",
-        [
-            ModelFile(
-                TEXT_MODEL_FILE,
-                "MiniCPM5-2B-Q4_K_M.gguf",
-                "ec2d5801640099e97d8d7e8003ad4d81f336e757811f03a26173dddf386602fd",
-            )
-        ],
-    ),
-    "vision": (
-        "openbmb/MiniCPM-V-4.6-gguf",
-        [
-            ModelFile(
-                VISION_MODEL_FILE,
-                "MiniCPM-V-4_6-Q4_K_M.gguf",
-                "6b0c74962c44bc6bf4b655b9b02c13eda9d5a0491543ae976d1ac18e4b7892e2",
-            ),
-            ModelFile(
-                VISION_MMPROJ_FILE,
-                "mmproj-model-f16.gguf",
-                "ca931d861d0801d9003e50697cd764721a334107c0e0415a51168ee1938462de",
-            ),
-        ],
-    ),
+    "text": ("openbmb/MiniCPM-V-4.7-1B-gguf", [WEIGHTS]),
+    "vision": ("openbmb/MiniCPM-V-4.7-1B-gguf", [WEIGHTS, PROJECTOR]),
 }
 
 ClientFactory = Callable[[], httpx.AsyncClient]
@@ -121,7 +106,7 @@ async def download_model(
                 continue
 
             part_path = final_path.with_suffix(final_path.suffix + ".part")
-            url = f"{base}/{repo}/resolve/main/{spec.remote_name}"
+            url = f"{base}/{repo}/resolve/{MODEL_REVISION}/{spec.remote_name}"
             received = 0
             total: int | None = None
             try:

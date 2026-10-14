@@ -46,18 +46,23 @@ def test_release_version_is_synchronized_across_python_node_and_tauri():
     )["version"]
     frontend = (ROOT / "tauri-shell/src/index.html").read_text(encoding="utf-8")
 
+    from packaging.version import Version
+
     assert {
-        python_version,
-        package_version,
-        package_lock_version,
-        package_lock_root_version,
-        cargo_version,
-        cargo_lock_version,
-        tauri_version,
-        uv_lock_version,
-        __version__,
-        _app_version(),
-    } == {"0.4.1"}
+        Version(value)
+        for value in {
+            python_version,
+            package_version,
+            package_lock_version,
+            package_lock_root_version,
+            cargo_version,
+            cargo_lock_version,
+            tauri_version,
+            uv_lock_version,
+            __version__,
+            _app_version(),
+        }
+    } == {Version("0.4.2-beta.1")}
     assert f"v{python_version}" in frontend
 
 
@@ -67,7 +72,7 @@ def test_app_version_fallback_matches_source_version(monkeypatch):
 
     monkeypatch.setattr(api_module, "version", missing_distribution)
 
-    assert _app_version() == "0.4.1"
+    assert _app_version() == "0.4.2-beta.1"
 
 
 def test_license_is_synchronized_as_agpl_v3_or_later():
@@ -179,15 +184,15 @@ def test_llama_server_is_the_default_backend():
     fields = TeXadaConfig.model_fields
     assert fields["backend"].default == "llama_server"
     assert fields["llama_server_host"].default == "http://127.0.0.1:8080"
-    assert fields["llama_context_size"].default == 4096
+    assert fields["llama_context_size"].default == 8192
     assert fields["llama_gpu_layers"].default == 99
 
 
 def test_llama_server_active_urls_and_routing_names():
     config = TeXadaConfig(backend="llama_server")
     assert config.active_base_url == "http://127.0.0.1:8080/v1"
-    assert config.active_model_name == "text"
-    assert config.active_vision_model_name == "vision"
+    assert config.active_model_name == "MiniCPM-V-4.7-1B"
+    assert config.active_vision_model_name == "MiniCPM-V-4.7-1B"
     assert config.backend_label == "llama-server"
 
 
@@ -216,8 +221,13 @@ def test_openai_compatible_backend_keeps_original_behavior():
 
 
 def test_llama_server_fields_are_persistable():
-    assert {"llama_server_host", "llama_models_dir", "llama_context_size",
-            "llama_gpu_layers", "llama_server_binary"} <= SAVED_CONFIG_FIELDS
+    assert {
+        "llama_server_host",
+        "llama_models_dir",
+        "llama_context_size",
+        "llama_gpu_layers",
+        "llama_server_binary",
+    } <= SAVED_CONFIG_FIELDS
 
 
 def test_unsupported_backend_still_rejected():
@@ -227,6 +237,6 @@ def test_unsupported_backend_still_rejected():
 
 def test_llama_server_memory_control_fields_exist():
     fields = TeXadaConfig.model_fields
-    assert fields["llama_models_max"].default == 2
+    assert fields["llama_models_max"].default == 1
     assert fields["llama_idle_sleep_seconds"].default == 300
     assert {"llama_models_max", "llama_idle_sleep_seconds"} <= SAVED_CONFIG_FIELDS

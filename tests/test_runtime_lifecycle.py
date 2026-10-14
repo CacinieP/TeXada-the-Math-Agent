@@ -25,12 +25,12 @@ FAKE_SERVER = textwrap.dedent("""\
     import json, signal, sys
     from http.server import BaseHTTPRequestHandler, HTTPServer
     if '--version' in sys.argv:
-        print('version: fake (build 11046, commit deadbeef)')
+        print('version: fake (build 11609, commit deadbeef)')
         sys.exit(0)
     port = int(sys.argv[sys.argv.index('--port') + 1])
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            body = json.dumps({'data': [{'id': 'text'}, {'id': 'vision'}]}).encode()
+            body = json.dumps({'data': [{'id': 'MiniCPM-V-4.7-1B'}]}).encode()
             self.send_response(200 if self.path == '/v1/models' else 404)
             self.send_header('Content-Length', str(len(body)))
             self.end_headers()
@@ -44,6 +44,15 @@ def free_port():
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         return sock.getsockname()[1]
+
+
+@pytest.fixture(autouse=True)
+def fake_model_files(tmp_path):
+    # Lifecycle tests use a fake executable, with explicit placeholder artifacts.
+    models = tmp_path / "models"
+    models.mkdir(exist_ok=True)
+    (models / llama_server.TEXT_MODEL_FILE).write_bytes(b"fake test model")
+    (models / llama_server.VISION_MMPROJ_FILE).write_bytes(b"fake test projector")
 
 
 @pytest.fixture

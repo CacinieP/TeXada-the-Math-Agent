@@ -111,3 +111,11 @@ and loses router-mode multi-model lifecycle management.
 - Ollama branch removal reconsidered after measurement history exists.
 - Model catalogue in-app (quantization choice) once a single model per role
   is proven stable.
+
+## Beta integration update (2026-10-14)
+
+v0.4.2-beta.1 replaces the proposed built-in dual-model router with one direct
+MiniCPM-V-4.7-1B checkpoint and its projector. Both roles use the same alias;
+the runtime is pinned to the locally verified b11609. The process ownership,
+explicit settings controls and compatibility backends remain. No runtime
+change is claimed to improve mathematical correctness.

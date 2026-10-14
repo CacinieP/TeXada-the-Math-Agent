@@ -60,9 +60,9 @@
       'result.renderPreview': '渲染预览',
       'result.latexStructure': '纯 LaTeX 结构预览',
       'result.latexSource': 'LaTeX 源码',
-      'result.valid': '✓ Syntax valid',
-      'result.invalid': '✗ Validation failed',
-      'result.sourceEdited': 'The input changed while this result was being generated. Generate again before adopting it.',
+      'result.valid': '✓ 语法通过',
+      'result.invalid': '✗ 验证未通过',
+      'result.sourceEdited': '生成期间输入已修改，请重新生成后再采用结果。',
       'result.sourceModel': '🤖 model',
       'result.sourceAgent': '🧭 TeXada Agent',
       'result.sourceShorthand': '⚡ shorthand',
@@ -254,9 +254,9 @@
       'result.renderPreview': 'Rendered preview',
       'result.latexStructure': 'Plain LaTeX structure',
       'result.latexSource': 'LaTeX source',
-      'result.valid': '✓ 语法通过',
-      'result.invalid': '✗ 验证未通过',
-      'result.sourceEdited': '生成期间输入已修改，请重新生成后再采用结果。',
+      'result.valid': '✓ Syntax valid',
+      'result.invalid': '✗ Validation failed',
+      'result.sourceEdited': 'The input changed while this result was being generated. Generate again before adopting it.',
       'result.sourceModel': '🤖 model',
       'result.sourceAgent': '🧭 TeXada Agent',
       'result.sourceShorthand': '⚡ shorthand',
@@ -347,6 +347,24 @@
       'settings.apiAddress': 'API address',
       'settings.apiDesc': 'TeXada FastAPI service address',
       'settings.backend': 'Model backend',
+      'settings.llamaHost': 'llama-server address',
+      'settings.llamaHostDesc': 'Built-in local service; default http://127.0.0.1:8080',
+      'settings.llamaHostPlaceholder': 'http://127.0.0.1:8080',
+      'settings.llamaBinary': 'llama-server executable',
+      'settings.llamaBinaryDesc': 'Leave blank to use the bundled runtime',
+      'settings.llamaModelsDir': 'Model directory',
+      'settings.llamaModelsDirDesc': 'Leave blank to use ~/.texada/models',
+      'settings.llamaServiceTitle': 'Local inference service (llama-server)',
+      'settings.llamaStatus': 'Service status',
+      'action.llamaStart': 'Start',
+      'action.llamaStop': 'Stop',
+      'action.llamaPull': 'Download model',
+      'status.missingBinary': 'llama-server executable not found',
+      'status.downloading': 'Downloading model files…',
+      'llama.startFailed': 'Startup failed',
+      'llama.pullFailed': 'Download failed',
+      'llama.pullDone': 'Model download complete',
+      'llama.pullProgress': '{file}: {percent}%',
       'settings.ollamaHost': 'Ollama address',
       'settings.ollamaHostDesc': 'Default http://localhost:11434; any port is allowed',
       'settings.ollamaHostPlaceholder': 'e.g. http://localhost:11435',
@@ -1700,7 +1718,7 @@
     if (!els.backendSelect) return;
     try {
       const cfg = await apiGetBackendSettings();
-      els.backendSelect.value = cfg.backend || 'ollama';
+      els.backendSelect.value = cfg.backend || 'llama_server';
       els.ollamaHostInput.value = cfg.ollama_host || '';
       els.localModelInput.value = cfg.model_name || '';
       els.localVisionModelInput.value = cfg.vision_model_name || '';
@@ -1823,7 +1841,7 @@
     if (!els.llamaPullProgress) return;
     els.llamaPullProgress.textContent = t('status.downloading');
     try {
-      const res = await fetch(apiBase + '/api/llama/pull', {
+      const res = await fetch(API_BASE + '/api/llama/pull', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mirror: false }),

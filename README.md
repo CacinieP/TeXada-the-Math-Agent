@@ -924,3 +924,9 @@ GitHub Actions 可以手动从 `main` 构建安装包，也会在版本 tag 上�
 记录的许可证。详见 [LICENSE](LICENSE)。
 
 </details>
+
+## v0.4.2 beta
+
+The built-in backend uses one MiniCPM-V-4.7-1B Q4_K_M checkpoint for text and OCR. Download the model in Settings and start llama-server. Existing Ollama and OpenAI-compatible settings remain selectable. Model files are not included in installers.
+
+Generated formulas require mathematical review: syntax validation and successful submission do not prove correctness. See [the beta validation record](docs/beta-release-validation.md) for configuration, benchmark limits and native installer checks.

@@ -113,7 +113,7 @@ class PlannerControls(_Contract):
 class InferenceIdentity(_Contract):
     application_version: str = Field(max_length=100)
     application_build: IdentityEvidence
-    backend: Literal["ollama", "openai_compatible"]
+    backend: Literal["llama_server", "ollama", "openai_compatible"]
     endpoint: str = Field(max_length=500)
     configured_models: ConfiguredModels
     configuration: InferenceConfiguration

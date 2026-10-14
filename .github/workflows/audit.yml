@@ -64,6 +64,9 @@ jobs:
       - name: JavaScript syntax check
         run: node --check tauri-shell/src/main.js
 
+      - name: Frontend regressions
+        run: node --test tests/*.test.cjs
+
   windows-runtime:
     name: Windows owned-process lifecycle
     runs-on: windows-2025

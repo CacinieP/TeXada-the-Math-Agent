@@ -85,7 +85,7 @@ async def test_download_yields_progress_and_completes(tmp_path, monkeypatch):
     assert events[1]["received"] == 20
     assert events[-1]["done"] is True
     assert events[-1]["error"] is None
-    final = tmp_path / "MiniCPM5-2B-Q4_K_M.gguf"
+    final = tmp_path / "MiniCPM-V-4_7-1B-Q4_K_M.gguf"
     assert final.is_file()
     assert final.read_bytes() == b"x" * 10 + b"y" * 10
     assert not list(tmp_path.glob("*.part"))
@@ -108,14 +108,14 @@ async def test_existing_file_with_wrong_checksum_is_redownloaded(tmp_path, monke
     """An existing file is only skipped when its checksum is known good."""
     payload = b"good weights"
     _trust_catalog(monkeypatch, payload)
-    (tmp_path / "MiniCPM5-2B-Q4_K_M.gguf").write_bytes(b"bad weights!!")
+    (tmp_path / "MiniCPM-V-4_7-1B-Q4_K_M.gguf").write_bytes(b"bad weights!!")
     client = FakeClient([payload], headers={"Content-Length": str(len(payload))})
     events = [
         e async for e in download_model("text", tmp_path, client_factory=_client_factory(client))
     ]
     assert client.requested_urls, "a corrupt model must be re-downloaded"
     assert not any(e["skipped"] for e in events)
-    final = tmp_path / "MiniCPM5-2B-Q4_K_M.gguf"
+    final = tmp_path / "MiniCPM-V-4_7-1B-Q4_K_M.gguf"
     assert final.read_bytes() == payload
     assert events[-1]["error"] is None
 
@@ -123,7 +123,7 @@ async def test_existing_file_with_wrong_checksum_is_redownloaded(tmp_path, monke
 async def test_existing_file_with_matching_checksum_is_skipped(tmp_path, monkeypatch):
     payload = b"good weights"
     _trust_catalog(monkeypatch, payload)
-    (tmp_path / "MiniCPM5-2B-Q4_K_M.gguf").write_bytes(payload)
+    (tmp_path / "MiniCPM-V-4_7-1B-Q4_K_M.gguf").write_bytes(payload)
     client = FakeClient([])
     events = [
         e async for e in download_model("text", tmp_path, client_factory=_client_factory(client))
@@ -164,7 +164,7 @@ async def test_vision_role_downloads_two_files(tmp_path, monkeypatch):
     ]
     done = [e for e in events if e["done"] and not e["skipped"]]
     assert len(done) == 2
-    assert (tmp_path / "MiniCPM-V-4_6-Q4_K_M.gguf").is_file()
+    assert (tmp_path / "MiniCPM-V-4_7-1B-Q4_K_M.gguf").is_file()
     assert (tmp_path / "mmproj-model-f16.gguf").is_file()
 
 
