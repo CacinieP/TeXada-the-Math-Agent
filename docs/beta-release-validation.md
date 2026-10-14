@@ -1,4 +1,4 @@
-# v0.4.2-beta.1 validation
+# v0.4.2-beta.2 validation
 
 The beta integrates both previously separate PR stacks. Local fixes were first
 submitted to PRs #19, #25 and #26; the integration resolves the API, runtime,
