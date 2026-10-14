@@ -110,8 +110,23 @@ jobs:
         with:
           workspaces: tauri-shell/src-tauri -> target
 
+      - name: Restore pinned Tauri CLI
+        id: cli-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cargo/bin/cargo-tauri*
+          key: tauri-cli-2.12.2-${{ matrix.rust-targets }}-${{ matrix.os }}
+
       - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2" --locked
+        if: steps.cli-cache.outputs.cache-hit != 'true'
+        run: cargo install tauri-cli --version "2.12.2" --locked
+
+      - name: Save pinned Tauri CLI
+        if: steps.cli-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cargo/bin/cargo-tauri*
+          key: tauri-cli-2.12.2-${{ matrix.rust-targets }}-${{ matrix.os }}
 
       - name: Require macOS signing and notarization secrets
         if: runner.os == 'macOS'
@@ -408,7 +423,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $installer = Get-ChildItem tauri-shell/src-tauri/target -Recurse -Filter *.exe | Where-Object { $_.FullName -match '[\/]bundle[\/]nsis[\/]' } | Select-Object -First 1
+          $installer = Get-ChildItem tauri-shell/src-tauri/target -Recurse -File -Filter *.exe | Where-Object { $_.Directory.Name -eq 'nsis' } | Select-Object -First 1
           if (-not $installer) { throw "NSIS installer missing" }
           python scripts/smoke-installed-desktop.py $installer.FullName --output "native-smoke-${{ matrix.rust-targets }}.json"
           if ($LASTEXITCODE -ne 0) { throw "Installed Windows smoke failed" }
