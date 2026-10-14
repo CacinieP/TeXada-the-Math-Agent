@@ -143,7 +143,11 @@ class TeXToolset:
         ),
         ToolDefinition(
             name="export",
-            description="Export a formula as bare LaTeX, inline math, display math, or Markdown.",
+            description=(
+                "Export the current formula. Use format=latex for bare LaTeX, "
+                "format=inline for inline math, format=display for display math, "
+                "or format=markdown for Markdown."
+            ),
             parameters={
                 "type": "object",
                 "properties": {
@@ -215,12 +219,10 @@ class TeXToolset:
         validation = self.validator.validate(latex)
         if not validation.valid:
             diagnostics = "; ".join(
-                item.detail or item.error or item.type
-                for item in validation.errors
+                item.detail or item.error or item.type for item in validation.errors
             )
             raise ValueError(
-                "render_math requires validated LaTeX"
-                + (f": {diagnostics}" if diagnostics else "")
+                "render_math requires validated LaTeX" + (f": {diagnostics}" if diagnostics else "")
             )
         try:
             render_mode = RenderMode(mode)
@@ -324,10 +326,7 @@ class ToolRouter:
             return ToolObservation(
                 name=name,
                 ok=False,
-                error=(
-                    f"Tool '{name}' timed out after "
-                    f"{self.timeout_seconds:g}s"
-                ),
+                error=(f"Tool '{name}' timed out after {self.timeout_seconds:g}s"),
                 duration_ms=(time.monotonic() - start) * 1000,
             )
         except SemanticDepthError as exc:

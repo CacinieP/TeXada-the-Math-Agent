@@ -401,6 +401,7 @@ class TeXadaAgentRuntime:
                 ]
             )
 
+        direct_final_recovery_used = False
         for step_index in range(1, self.max_steps + 1):
             if not self._model_call_budget_available(start):
                 return reject_model_budget()
@@ -492,6 +493,33 @@ class TeXadaAgentRuntime:
                     if ((self.config.planner_surface == "minimal"
                          or formula_state.revision is not None)
                             and normalized_candidate != formula_state.latex):
+                        if (
+                            self.config.planner_surface == "full"
+                            and not direct_final_recovery_used
+                            and step_index < self.max_steps
+                            and "finish_formula" in turn_snapshot.allowed
+                        ):
+                            # Reject the final text, preserving the current revision. A new
+                            # planner turn must explicitly finish it or propose a change.
+                            direct_final_recovery_used = True
+                            trace_item["observations"].append({
+                                "tool": "planner_action_mask", "ok": False,
+                                "output": {"code": "explicit_proposal_required",
+                                           "recovery": "one_explicit_action_retry"},
+                                "error": "Final text was rejected; current formula is unchanged",
+                                "revision": formula_state.revision, "duration_ms": 0.0,
+                            })
+                            messages.extend([
+                                {"role": "assistant", "content": turn.content},
+                                {"role": "user", "content": (
+                                    "Your final text was rejected. The authoritative formula "
+                                    "is unchanged. If no change is needed, call finish_formula "
+                                    "with only expected_revision from the action state. "
+                                    "If you intend a change, use propose_candidate. "
+                                    "Do not return explanatory prose or a rewritten formula."
+                                )},
+                            ])
+                            continue
                         return self._action_rejection_result(
                             formula_state, trace, render_mode, semantic_diff, tokens_used, start,
                             ActionRejected("explicit_proposal_required",
@@ -591,6 +619,7 @@ class TeXadaAgentRuntime:
                 }
             )
             render_confirmed = False
+            finish_confirmed = False
             for call in turn.tool_calls:
                 call = self._normalize_call(call, authority=turn_snapshot)
                 trace_item["tool_calls"].append(self._trace_call(call))
@@ -606,6 +635,7 @@ class TeXadaAgentRuntime:
                     "revision_source": bound.revision_source,
                     "initial_seed_bridge": bound.initial_seed_bridge,
                 })
+                finishing = call.name == "finish_formula"
                 call = bound.call
                 evidence_revision = formula_state.revision
                 fingerprint = self._call_fingerprint(call)
@@ -662,6 +692,8 @@ class TeXadaAgentRuntime:
                     semantic_diff = observation.output.get("semantic_diff", semantic_diff)
                 if call.name == "render_math" and observation.ok:
                     render_confirmed = True
+                if finishing and observation.ok:
+                    finish_confirmed = True
                 messages.append(
                     {
                         "role": "tool",
@@ -740,7 +772,7 @@ class TeXadaAgentRuntime:
                     }
                 )
                 continue
-            if render_confirmed and formula_state.latex:
+            if (render_confirmed or finish_confirmed) and formula_state.latex:
                 return await self._finalize(
                     formula_state.latex,
                     trace=trace,
@@ -748,7 +780,7 @@ class TeXadaAgentRuntime:
                     semantic_diff=semantic_diff,
                     tokens_used=tokens_used,
                     start=start,
-                    stop_reason="render_confirmed",
+                    stop_reason="finish_confirmed" if finish_confirmed else "render_confirmed",
                     formula_state=formula_state,
                     preprocessed=preprocessed,
                     user_input=user_input,

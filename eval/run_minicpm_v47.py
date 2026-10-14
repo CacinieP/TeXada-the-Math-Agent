@@ -22,6 +22,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import yaml
 from anchor_match import anchor_present
 from golden_lib import anchor_variants, load_golden_set
 from openai import RateLimitError
@@ -98,16 +99,35 @@ async def run(args) -> None:
                     time.sleep(30)
 
     model._completion_create = paced_create
-    dataset = Path(__file__).with_name("golden_set.yaml")
+    selected_dataset = getattr(args, "dataset", None)
+    dataset = selected_dataset or Path(__file__).with_name("golden_set.yaml")
     dataset_bytes = dataset.read_bytes()
-    golden = load_golden_set()
+    dataset_version = "texada-golden-set-v1"
+    if selected_dataset is None:
+        golden = load_golden_set()
+    else:
+        data = yaml.safe_load(dataset_bytes)
+        if not isinstance(data, dict) or not isinstance(data.get("entries"), list):
+            raise ValueError("dataset must contain an entries list")
+        golden = data["entries"]
+        dataset_version = data.get("version", "explicit-golden-set")
+        if not isinstance(dataset_version, str) or not dataset_version:
+            raise ValueError("dataset version must be a nonempty string")
+        ids = set()
+        for row in golden:
+            if (not isinstance(row, dict)
+                    or any(not isinstance(row.get(key), str) or not row[key].strip()
+                           for key in ("id", "input", "anchor"))
+                    or row["id"] in ids):
+                raise ValueError("dataset rows require unique ids, inputs and anchors")
+            ids.add(row["id"])
     if dataset.read_bytes() != dataset_bytes:
         raise RuntimeError("Golden dataset changed while loading; rerun with a stable fixture")
     if args.limit:
         golden = golden[:args.limit]
     dataset_sha256 = hashlib.sha256(dataset_bytes).hexdigest()
     identity = build_inference_identity(
-        config, dataset_version="texada-golden-set-v1", dataset_sha256=dataset_sha256,
+        config, dataset_version=dataset_version, dataset_sha256=dataset_sha256,
     )
     evidence = {
         "schema_version": 1,
@@ -208,6 +228,8 @@ async def run(args) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--dataset", type=Path,
+                        help="Explicit versioned input dataset; default keeps original golden set")
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--request-interval", type=float, default=3.2)
     parser.add_argument("--planner-control", action="store_true",

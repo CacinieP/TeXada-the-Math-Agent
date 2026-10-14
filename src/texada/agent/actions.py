@@ -17,7 +17,7 @@ from texada.tools.registry import MAX_TEX_LENGTH
 
 Surface = Literal["full", "minimal"]
 INSPECTION_ACTIONS = frozenset({"parse_tex", "compile_tex", "repair_tex", "render_math", "export"})
-KNOWN_ACTIONS = INSPECTION_ACTIONS | {"semantic_diff", "propose_candidate"}
+KNOWN_ACTIONS = INSPECTION_ACTIONS | {"semantic_diff", "propose_candidate", "finish_formula"}
 ACTION_BINDING_INSTRUCTION = (
     "Use propose_candidate for an explicit formula change. Inspection tools "
     "cannot replace runtime values. Actions target this turn's revision; after "
@@ -27,7 +27,12 @@ ACTION_BINDING_INSTRUCTION = (
 SURFACE_INSTRUCTIONS = {
     "minimal": " Minimal actions require expected_revision and omit runtime-owned "
     "latex/before/after arguments. An empty state requires propose_candidate.",
-    "full": " Full tools keep latex/before/after but these must equal runtime values. "
+    "full": " When the current formula is valid and no change is needed, call finish_formula with "
+    "only expected_revision to finish the current revision. This is the preferred "
+    "completion action; do not supply latex or format. The export formats are exactly "
+    "latex, inline, display, markdown; bare is not a format. Do not restate the "
+    "formula inside explanatory prose: prose is not a candidate or completion action."
+    " Full tools keep latex/before/after but these must equal runtime values. "
     "Only empty state compile_tex may supply an initial seed.",
 }
 
@@ -92,6 +97,8 @@ def action_snapshot(state: FormulaState, *, surface: Surface) -> ActionSnapshot:
             allowed.add("propose_candidate")
         if valid:
             allowed.update({"render_math", "export"})
+            if surface == "full":
+                allowed.add("finish_formula")
         if parent is not None:
             allowed.add("semantic_diff")
     else:
@@ -165,6 +172,32 @@ def planner_schemas(
                 },
             }
         )
+    if "finish_formula" in snapshot.allowed:
+        result.insert(
+            0,
+            {
+                "type": "function",
+                "function": {
+                    "name": "finish_formula",
+                    "description": (
+                        "Finish the already compiled current formula without copying "
+                        "or changing it. "
+                        "Use this when no edits are needed."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "expected_revision": {
+                                "type": "integer",
+                                "enum": [snapshot.revision],
+                            }
+                        },
+                        "required": ["expected_revision"],
+                        "additionalProperties": False,
+                    },
+                },
+            },
+        )
     return result
 
 
@@ -180,7 +213,9 @@ def bind_action(
         raise ActionRejected("unknown_action", f"Unknown planner action: {call.name}")
     arguments = dict(call.arguments)
     explicit = "expected_revision" in arguments
-    if not explicit and (surface == "minimal" or call.name == "propose_candidate"):
+    if not explicit and (
+        surface == "minimal" or call.name in {"propose_candidate", "finish_formula"}
+    ):
         raise ActionRejected("missing_revision", "expected_revision is required")
     expected = arguments.pop("expected_revision", snapshot.revision)
     if expected is not None and (type(expected) is not int or expected < 1):
@@ -193,6 +228,16 @@ def bind_action(
     if call.name not in snapshot.allowed or call.name not in live.allowed:
         raise ActionRejected("action_not_applicable", f"{call.name} is unavailable for this state")
     source = "planner_explicit" if explicit else "runtime_turn_snapshot"
+    if call.name == "finish_formula":
+        if arguments:
+            raise ActionRejected(
+                "invalid_arguments", "finish_formula requires only expected_revision"
+            )
+        return BoundAction(
+            PlannerToolCall(call.id, "export", {"latex": live.latex, "format": "latex"}),
+            state.revision,
+            source,
+        )
     if call.name == "propose_candidate":
         if set(arguments) != {"latex"}:
             raise ActionRejected("invalid_arguments", "propose_candidate requires only latex")

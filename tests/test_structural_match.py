@@ -170,8 +170,8 @@ def test_reference_alternatives_are_explicit_and_unsupported_ones_remain_visible
 
 def test_authored_registry_requires_scope_provenance_and_unique_ids(tmp_path):
     references = matcher.load_references(ROOT / "eval/structure_references.yaml")
-    assert len(references) == 8
-    assert all(reference["review_status"] == "agent-reviewed"
+    assert len(references) == 100
+    assert all(reference["review_status"] == "agent-mathematical-reviewed"
                for variants in references.values() for reference in variants)
     path = tmp_path / "references.yaml"
     entry = {"case_id": "001", "scope": "partial_anchor", "references": [_reference("x+y")]}
@@ -254,7 +254,7 @@ async def test_live_runner_adds_independent_optional_structure_without_network(
     if with_references:
         assert report["strict_structure_evaluation"]["references_sha256"] == (
             hashlib.sha256(reference_bytes).hexdigest())
-        assert row["strict_structure"]["reference_review_status"] == "agent-reviewed"
+        assert row["strict_structure"]["reference_review_status"] == "agent-mathematical-reviewed"
     assert report["summary"]["anchor_containment_passed"] == int(not inference_fails)
     assert report["summary"]["strict_structure"]["counts"]["MATCH"] == 0
 

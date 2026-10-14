@@ -267,7 +267,7 @@ async def test_bare_final_cannot_replace_already_compiled_and_rendered_state(
 ):
     from texada.agent import runtime as runtime_module
 
-    planner = ScriptedPlanner([PlannerTurn(content="y+2")])
+    planner = ScriptedPlanner([PlannerTurn(content="y+2")] * (2 if surface == "full" else 1))
     runtime = TeXadaAgentRuntime(
         TeXadaConfig(data_dir=tmp_path, planner_surface=surface), model=planner,
     )
@@ -393,3 +393,107 @@ def test_surface_setting_is_persisted_exposed_and_reversible(tmp_path):
         )
         exported = client.get("/api/export").json()
         assert exported["settings"]["planner_surface"] == "full"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("surface", ["full", "minimal"])
+async def test_export_latex_finishes_compiled_revision_without_rewriting(tmp_path, surface):
+    latex = r"\frac{x+1}{3}"
+    arguments = {"format": "latex"}
+    if surface == "full":
+        arguments["latex"] = latex
+    planner = ScriptedPlanner(
+        [
+            PlannerTurn(tool_calls=[call("propose_candidate", None, latex=latex)]),
+            PlannerTurn(
+                tool_calls=[
+                    call("compile_tex", 1, **({"latex": latex} if surface == "full" else {}))
+                ]
+            ),
+            PlannerTurn(tool_calls=[call("export", 1, **arguments)]),
+        ]
+    )
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, planner_surface=surface), model=planner
+    )
+    runtime.candidate_engine.propose = lambda _: None
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+    result = await runtime.run("format this expression")
+    assert result.valid and result.committed
+    assert result.latex == latex and result.revision == 1
+    assert len(result.formula_ledger["revisions"]) == 1
+
+
+def test_finish_cannot_seed_rewrite_or_bypass_compile():
+    surface = "full"
+    state = compiled_state(r"\text{literal}+x")
+    snap = action_snapshot(state, surface=surface)
+    bound = bind_action(call("finish_formula", 1), snap, state, surface=surface)
+    assert bound.call.name == "export"
+    assert bound.call.arguments == {"latex": state.latex, "format": "latex"}
+    assert not bound.candidate and bound.revision == 1
+    with pytest.raises(ActionRejected, match="only expected_revision"):
+        bind_action(call("finish_formula", 1, latex="changed"), snap, state, surface=surface)
+    state.revise("changed", expected_revision=1, origin="user")
+    with pytest.raises(ActionRejected, match="current turn revision"):
+        bind_action(call("finish_formula", 1), snap, state, surface=surface)
+    current = action_snapshot(state, surface=surface)
+    with pytest.raises(ActionRejected, match="unavailable"):
+        bind_action(call("finish_formula", 2), current, state, surface=surface)
+    empty = FormulaState()
+    with pytest.raises(ActionRejected):
+        bind_action(
+            call("finish_formula", None),
+            action_snapshot(empty, surface=surface),
+            empty,
+            surface=surface,
+        )
+
+
+@pytest.mark.asyncio
+async def test_finish_uses_existing_ocr_review_gate(tmp_path):
+    surface = "full"
+    planner = ScriptedPlanner([PlannerTurn(tool_calls=[call("finish_formula", 1)])])
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, planner_surface=surface), model=planner
+    )
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+    result = await runtime.run("source image", _task="ocr", _initial_candidate="x+1")
+    assert result.valid and not result.committed
+    assert result.review_reasons == ["ocr_source_requires_review"]
+    assert result.latex == "x+1" and result.revision == 1
+
+
+def test_minimal_keeps_existing_action_surface():
+    state = compiled_state()
+    snap = action_snapshot(state, surface="minimal")
+    assert "finish_formula" not in snap.allowed
+    with pytest.raises(ActionRejected, match="unavailable"):
+        bind_action(call("finish_formula", 1), snap, state, surface="minimal")
+
+@pytest.mark.asyncio
+async def test_finish_commits_exact_current_formula_without_second_planner_turn(tmp_path):
+    planner = ScriptedPlanner([PlannerTurn(tool_calls=[call("finish_formula", 1)])])
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+    result = await runtime.run("x plus one", _initial_candidate="x+1")
+    assert result.valid and result.committed
+    assert result.stop_reason == "finish_confirmed"
+    assert result.latex == "x+1" and result.revision == 1
+    assert len(planner.schemas) == 1
+
+
+@pytest.mark.asyncio
+async def test_rejected_prose_recovers_only_through_bound_finish(tmp_path):
+    planner = ScriptedPlanner([
+        PlannerTurn(content="The formula is valid: y+2"),
+        PlannerTurn(tool_calls=[call("finish_formula", 1)]),
+    ])
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+    result = await runtime.run("x plus one", _initial_candidate="x+1")
+    assert result.valid and result.committed and result.latex == "x+1"
+    assert result.revision == 1 and len(result.formula_ledger["revisions"]) == 1
+    assert len(planner.schemas) == 2
+    assert result.trace[1]["observations"][0]["ok"] is False
+    assert result.trace[1]["observations"][0]["output"]["recovery"] == "one_explicit_action_retry"
