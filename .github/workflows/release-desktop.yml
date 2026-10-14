@@ -78,11 +78,11 @@ jobs:
           - name: macOS arm64 dmg
             os: macos-26
             rust-targets: aarch64-apple-darwin
-            tauri-args: --target aarch64-apple-darwin --bundles dmg
+            tauri-args: --target aarch64-apple-darwin --bundles app,dmg
           - name: macOS Intel dmg
             os: macos-15-intel
             rust-targets: x86_64-apple-darwin
-            tauri-args: --target x86_64-apple-darwin --bundles dmg
+            tauri-args: --target x86_64-apple-darwin --bundles app,dmg
           - name: Windows x64 NSIS
             os: windows-2025
             rust-targets: x86_64-pc-windows-msvc
@@ -400,7 +400,9 @@ jobs:
         shell: bash
         run: |
           installer="$(find tauri-shell/src-tauri/target -path '*/bundle/dmg/*.dmg' -print -quit)"
-          python scripts/smoke-installed-desktop.py "$installer" --output "native-smoke-${{ matrix.rust-targets }}.json"
+          app="$(find tauri-shell/src-tauri/target -path '*/bundle/macos/*.app' -type d -print -quit)"
+          test -n "$app" || { echo "::error::Standalone signed app missing."; exit 1; }
+          python scripts/smoke-installed-desktop.py "$installer" --app-bundle "$app" --output "native-smoke-${{ matrix.rust-targets }}.json"
 
       - name: Smoke installed Windows package
         if: runner.os == 'Windows'
@@ -412,6 +414,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Installed Windows smoke failed" }
 
       - name: Upload installer artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}

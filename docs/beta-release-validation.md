@@ -28,8 +28,11 @@ rejected after two regressions and no improvement on the supplement.
 ## Release gates
 
 The final integration must pass Python, frontend, native Rust and Windows
-owned-process checks. All three installers must launch from a clean temporary
-installation, start their bundled backend and render a deterministic formula.
+owned-process checks. Windows must execute the NSIS installer in a clean temporary installation.
+Hosted macOS CI copies the retained signed `.app` into a clean temporary
+installation; DMG mounting has failed in that environment, so the local M4
+additionally mounts and installs the real arm64 DMG. Each native application
+must start its bundled backend and render a deterministic formula.
 The bundled runtime build must be 11609. macOS assets must be signed, notarized
 and stapled; the arm64 installer is additionally exercised on the local M4.
 Windows native CI installation is recorded separately from local macOS tests.

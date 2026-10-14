@@ -45,7 +45,7 @@ All notable changes to TeXada-the-Math-Agent are recorded here.
 - full Planner 增加显式完成当前版本的动作与一次受限终稿重试；保留作用域、提交屏障和人工审核。
 - 评测补齐100题完整参考、定义域、17题改写对照及等价表达审核。M4/16GB、1B Q4_K_M、temperature=0.1、seed=47、候选优先配置下，整条数学正确率75/100；full正确且提交59→74/100，minimal为71/100。补充20题9/20。判定由Codex审核，尚无独立人工复核。
 - full仍有24/100数学错误公式提交成功；生成结果需要核对，语法通过和提交成功均不保证数学正确。
-- 修复macOS默认Bash及Windows.exe打包路径，增加三平台安装包启动、内置后端和KaTeX渲染验证。Windows安装包未做代码签名。
+- 修复macOS默认Bash及Windows.exe打包路径，增加Windows安装包实装、macOS签名app复制安装、内置后端和KaTeX渲染验证；arm64 DMG还须通过本机挂载实装。Windows安装包未做代码签名。
 - 内置运行时的Mach-O最低系统版本为macOS 13.3，安装包最低要求同步为13.3。
 - 这是beta预发布，不替代v0.4.1稳定版。macOS包需完成签名、公证与安装验证后才发布。
 

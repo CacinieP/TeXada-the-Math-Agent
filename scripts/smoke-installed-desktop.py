@@ -35,33 +35,42 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("installer", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--app-bundle", type=Path)
     args = parser.parse_args()
     installer = args.installer.resolve()
     with tempfile.TemporaryDirectory(prefix="texada-installed-smoke-") as directory:
         root = Path(directory)
         app = None
         if sys.platform == "darwin":
-            mount = root / "mounted"
-            mount.mkdir()
-            subprocess.run(
-                [
-                    "hdiutil",
-                    "attach",
-                    str(installer),
-                    "-mountpoint",
-                    str(mount),
-                    "-nobrowse",
-                    "-readonly",
-                    "-quiet",
-                ],
-                check=True,
-            )
-            try:
-                source = next(mount.glob("*.app"))
+            if args.app_bundle:
+                source = args.app_bundle.resolve()
                 app = root / source.name
                 subprocess.run(["ditto", str(source), str(app)], check=True)
-            finally:
-                subprocess.run(["hdiutil", "detach", str(mount), "-quiet"], check=True)
+                installation_mode = "signed built app copied to temporary installation"
+            else:
+                mount = root / "mounted"
+                mount.mkdir()
+                subprocess.run(
+                    [
+                        "hdiutil",
+                        "attach",
+                        str(installer),
+                        "-mountpoint",
+                        str(mount),
+                        "-nobrowse",
+                        "-readonly",
+                    ],
+                    input="Y\n",
+                    text=True,
+                    check=True,
+                )
+                try:
+                    source = next(mount.glob("*.app"))
+                    app = root / source.name
+                    subprocess.run(["ditto", str(source), str(app)], check=True)
+                finally:
+                    subprocess.run(["hdiutil", "detach", str(mount), "-quiet"], check=True)
+                installation_mode = "DMG mounted and app copied to temporary installation"
             subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
             info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
             executable = app / "Contents/MacOS" / info["CFBundleExecutable"]
@@ -73,6 +82,7 @@ def main() -> None:
                 p for p in install_dir.glob("*.exe") if "uninstall" not in p.name.lower()
             )
             runtime = next(p for p in install_dir.rglob("llama-server.exe") if p.is_file())
+            installation_mode = "NSIS installer executed in temporary installation"
         else:
             raise RuntimeError("Native installer smoke only supports macOS and Windows")
         version = subprocess.run(
@@ -122,6 +132,7 @@ def main() -> None:
                         {
                             "platform": sys.platform,
                             "installer": installer.name,
+                            "installation_mode": installation_mode,
                             "installed_desktop_started": True,
                             "bundled_backend_started": True,
                             "bundled_runtime_build": 11609,
