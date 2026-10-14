@@ -162,6 +162,9 @@ jobs:
             exit 1
           }
 
+      - name: Fetch pinned llama-server binary
+        run: bash scripts/fetch-llama-server.sh "${{ matrix.rust-targets }}"
+
       - name: Build bundled FastAPI backend sidecar
         env:
           PYINSTALLER_CODESIGN_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}

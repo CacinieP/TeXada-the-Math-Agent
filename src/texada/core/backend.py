@@ -12,6 +12,42 @@ import httpx
 from texada.config import TeXadaConfig
 
 
+async def probe_models_url(
+    base_url: str, headers: dict[str, str] | None = None, *, timeout: float = 3.0
+) -> bool:
+    """True if an OpenAI-compatible API base answers 200 on its /models route.
+
+    Shared by BackendManager (Ollama) and LlamaServerManager so both local
+    runtimes prove readiness identically. ``base_url`` is the API base
+    (usually ending in /v1), never the complete /models route.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
+            resp = await client.get(
+                f"{base_url.rstrip('/')}/models", headers=headers or {}
+            )
+            return resp.status_code == 200
+    except Exception:
+        return False
+
+
+async def list_models_url(
+    base_url: str, headers: dict[str, str] | None = None, *, timeout: float = 5.0
+) -> list[str]:
+    """List model ids from an API base, appending the /models route once."""
+    try:
+        async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
+            resp = await client.get(
+                f"{base_url.rstrip('/')}/models", headers=headers or {}
+            )
+            if resp.status_code != 200:
+                return []
+            data = resp.json().get("data", [])
+            return [m.get("id", "") for m in data]
+    except Exception:
+        return []
+
+
 class BackendManager:
     """Manages the local Ollama daemon backing TeXada.
 
@@ -44,6 +80,15 @@ class BackendManager:
         if self._ready:
             return True
 
+        if self.config.uses_llama_server:
+            if not await self._is_running():
+                raise RuntimeError("llama-server endpoint 不可达，请从运行时设置启动 llama-server")
+            models = await self._list_models()
+            if not self._model_installed(self.config.active_model_name, models):
+                raise RuntimeError(f"llama-server 模型不可用: {self.config.active_model_name}")
+            self._ready = True
+            return True
+
         if self.config.uses_openai_compatible:
             self._validate_openai_config()
             if not await self._is_running():
@@ -67,6 +112,14 @@ class BackendManager:
 
     async def ensure_vision_ready(self) -> bool:
         """Ensure the configured backend and vision model are reachable."""
+        if self.config.uses_llama_server:
+            await self.ensure_ready()
+            models = await self._list_models()
+            if not self._model_installed(self.config.active_vision_model_name, models):
+                raise RuntimeError(
+                    f"llama-server 视觉模型不可用: {self.config.active_vision_model_name}"
+                )
+            return True
         if self.config.uses_openai_compatible:
             return await self.ensure_ready()
 
@@ -99,24 +152,11 @@ class BackendManager:
 
     async def _is_running(self) -> bool:
         """True if the backend answers on /models."""
-        try:
-            async with httpx.AsyncClient(timeout=3.0, trust_env=False) as client:
-                resp = await client.get(self.models_url, headers=self.headers)
-                return resp.status_code == 200
-        except Exception:
-            return False
+        return await probe_models_url(self.base_url, self.headers)
 
     async def _list_models(self) -> list[str]:
         """List pulled model ids via the OpenAI-compatible endpoint."""
-        try:
-            async with httpx.AsyncClient(timeout=5.0, trust_env=False) as client:
-                resp = await client.get(self.models_url, headers=self.headers)
-                if resp.status_code != 200:
-                    return []
-                data = resp.json().get("data", [])
-                return [m.get("id", "") for m in data]
-        except Exception:
-            return []
+        return await list_models_url(self.base_url, self.headers)
 
     def _model_installed(self, model: str, installed_models: list[str]) -> bool:
         model = model.strip()
@@ -204,6 +244,43 @@ class BackendManager:
 
     async def aget_status(self) -> dict:
         """Async status — safe to call from within a running event loop."""
+        if self.config.uses_llama_server:
+            running = await self._is_running()
+            models = await self._list_models() if running else []
+            text_ready = running and self._model_installed(self.config.active_model_name, models)
+            vision_ready = running and self._model_installed(
+                self.config.active_vision_model_name, models
+            )
+            return {
+                "status": "ready"
+                if text_ready and vision_ready
+                else "partial_ready"
+                if text_ready
+                else "missing_model"
+                if running
+                else "not_running",
+                "ready": bool(text_ready),
+                "backend": self.config.backend,
+                "endpoint": self.base_url,
+                "model": self.config.active_model_name,
+                "vision": self.config.active_vision_model_name,
+                "text_model_installed": bool(text_ready),
+                "vision_model_installed": bool(vision_ready),
+                "missing_models": [
+                    m
+                    for m in sorted(
+                        {self.config.active_model_name, self.config.active_vision_model_name}
+                    )
+                    if not self._model_installed(m, models)
+                ],
+                "installed_model_count": len(models),
+                "message": None
+                if text_ready and vision_ready
+                else "请检查 llama-server 运行时与模型配置",
+                "next_action": None
+                if text_ready and vision_ready
+                else "从运行时设置启动 llama-server 或检查模型配置",
+            }
         if self.config.uses_openai_compatible:
             try:
                 self._validate_openai_config()

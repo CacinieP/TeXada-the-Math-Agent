@@ -138,6 +138,8 @@ class MiniCPMModel:
         """Keep MiniCPM answers visible within the existing token budget."""
         if self._is_minicpm_v47_1b(self._text_model_name()):
             return {"extra_body": {"chat_template_kwargs": {"enable_thinking": False}}}
+        if self.config.uses_llama_server:
+            return {"extra_body": {"reasoning_effort": "none"}}
         if (
             self.config.backend == "ollama"
             and "minicpm5-2b" in self._text_model_name().casefold()
