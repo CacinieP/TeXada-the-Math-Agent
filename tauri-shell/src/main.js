@@ -60,8 +60,9 @@
       'result.renderPreview': '渲染预览',
       'result.latexStructure': '纯 LaTeX 结构预览',
       'result.latexSource': 'LaTeX 源码',
-      'result.valid': '✓ Valid',
-      'result.invalid': '✗ Invalid',
+      'result.valid': '✓ Syntax valid',
+      'result.invalid': '✗ Validation failed',
+      'result.sourceEdited': 'The input changed while this result was being generated. Generate again before adopting it.',
       'result.sourceModel': '🤖 model',
       'result.sourceAgent': '🧭 TeXada Agent',
       'result.sourceShorthand': '⚡ shorthand',
@@ -234,8 +235,9 @@
       'result.renderPreview': 'Rendered preview',
       'result.latexStructure': 'Plain LaTeX structure',
       'result.latexSource': 'LaTeX source',
-      'result.valid': '✓ Valid',
-      'result.invalid': '✗ Invalid',
+      'result.valid': '✓ 语法通过',
+      'result.invalid': '✗ 验证未通过',
+      'result.sourceEdited': '生成期间输入已修改，请重新生成后再采用结果。',
       'result.sourceModel': '🤖 model',
       'result.sourceAgent': '🧭 TeXada Agent',
       'result.sourceShorthand': '⚡ shorthand',
@@ -971,7 +973,12 @@
     setIntent('⏳', t('intent.processing'));
 
     try {
+      const sourceRevision = nlSourceRevision();
       const res = await apiConvert(text);
+      if (nlSourceRevision() !== sourceRevision) {
+        res._reviewInputChanged = true;
+        res._reviewBlocked = true;
+      }
       lastResult = res;
       showResult(res);
       saveHistoryFallback({
@@ -1237,12 +1244,20 @@
     resultReviews.get(root)?.destroy();
     resultReviews.delete(root);
     root.querySelector('.human-review')?.remove();
+    root.querySelector('.source-edited-notice')?.remove();
     delete root._texadaResult;
   }
 
   function mountReview(root, result) {
     clearReview(root);
     root._texadaResult = result;
+    if (result._reviewInputChanged && !result.review) {
+      const notice = document.createElement('p');
+      notice.className = 'source-edited-notice';
+      notice.dataset.i18n = 'result.sourceEdited';
+      notice.textContent = t('result.sourceEdited');
+      root.prepend(notice);
+    }
     if (result.review) {
       const host = document.createElement('section');
       root.prepend(host);
@@ -1386,8 +1401,8 @@
   bindModeOptions();
   bindNlResultButtons();
   bindWindowDrag();
-  window.TeXadaReview.bindInputInvalidation(els.nlInput, () => resultReviews.get(els.nlResult));
-  window.TeXadaReview.bindInputInvalidation(els.completeInput, () => resultReviews.get(els.completeResult));
+  const nlSourceRevision = window.TeXadaReview.bindInputInvalidation(els.nlInput, () => resultReviews.get(els.nlResult));
+  const completeSourceRevision = window.TeXadaReview.bindInputInvalidation(els.completeInput, () => resultReviews.get(els.completeResult));
 
   if ($('#btn-save-backend')) {
     $('#btn-save-backend').addEventListener('click', saveBackendSettings);
@@ -1910,7 +1925,12 @@
     els.completeProcessing.classList.add('active');
     els.completeResult.style.display = 'none';
     try {
+      const sourceRevision = completeSourceRevision();
       const res = await apiComplete(text);
+      if (completeSourceRevision() !== sourceRevision) {
+        res._reviewInputChanged = true;
+        res._reviewBlocked = true;
+      }
       lastResult = res;
       showCompleteResult(res);
       saveHistoryFallback({

@@ -212,3 +212,17 @@ test('recreating a panel preserves a source-edit lock instead of reauthorizing o
   assert.equal(requests, 1);
   assert.equal(panel.refs.accept.disabled, true);
 });
+
+test('source revision detects edits before a review panel exists, including edit and revert', () => {
+  const input = new Element('textarea');
+  let panel = null;
+  const revision = bindInputInvalidation(input, () => panel);
+  const atRequest = revision();
+  input.listeners.input();
+  input.listeners.input();
+  assert.notEqual(revision(), atRequest);
+  const mounted = makePanel(dto(), { sourceEdited: revision() !== atRequest });
+  panel = mounted.panel;
+  assert.equal(panel.refs.accept.disabled, true);
+  assert.equal(panel.refs.reject.disabled, true);
+});
