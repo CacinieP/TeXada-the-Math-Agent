@@ -228,3 +228,49 @@ async def test_ocr_readiness_does_not_require_text_model(monkeypatch, tmp_path):
     monkeypatch.setattr(manager, "_list_models", list_models)
 
     assert await manager.ensure_vision_ready() is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("vision", [False, True])
+async def test_llama_unreachable_never_starts_ollama(monkeypatch, tmp_path, vision):
+    from unittest.mock import AsyncMock
+
+    manager = BackendManager(TeXadaConfig(data_dir=tmp_path, backend="llama_server"))
+    monkeypatch.setattr(manager, "_is_running", AsyncMock(return_value=False))
+    starter = AsyncMock()
+    monkeypatch.setattr(manager, "_start_ollama", starter)
+    with pytest.raises(RuntimeError, match="llama-server endpoint"):
+        await (manager.ensure_vision_ready() if vision else manager.ensure_ready())
+    starter.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_llama_readiness_checks_active_models(monkeypatch, tmp_path):
+    from unittest.mock import AsyncMock
+
+    config = TeXadaConfig(data_dir=tmp_path, backend="llama_server")
+    manager = BackendManager(config)
+    monkeypatch.setattr(manager, "_is_running", AsyncMock(return_value=True))
+    monkeypatch.setattr(
+        manager,
+        "_list_models",
+        AsyncMock(return_value=[config.active_model_name, config.active_vision_model_name]),
+    )
+    assert await manager.ensure_ready()
+    assert await manager.ensure_vision_ready()
+    monkeypatch.setattr(manager, "_list_models", AsyncMock(return_value=[config.active_model_name]))
+    if config.active_model_name != config.active_vision_model_name:
+        with pytest.raises(RuntimeError, match="视觉模型不可用"):
+            await manager.ensure_vision_ready()
+
+
+@pytest.mark.asyncio
+async def test_llama_status_never_recommends_ollama(monkeypatch, tmp_path):
+    from unittest.mock import AsyncMock
+
+    manager = BackendManager(TeXadaConfig(data_dir=tmp_path, backend="llama_server"))
+    monkeypatch.setattr(manager, "_is_running", AsyncMock(return_value=False))
+    status = await manager.aget_status()
+    assert status["backend"] == "llama_server" and not status["ready"]
+    assert "llama-server" in status["next_action"]
+    assert "ollama" not in status["next_action"].lower()
