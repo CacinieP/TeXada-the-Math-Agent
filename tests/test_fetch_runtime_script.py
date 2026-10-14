@@ -1,5 +1,6 @@
 """Archive layout fixtures; no network or actual package integrity validation."""
 
+import hashlib
 import os
 import shutil
 import subprocess
@@ -51,6 +52,8 @@ def test_native_bash_archive_layouts(tmp_path, target, binary, digest):
     else:
         with tarfile.open(archive, "w:gz") as t:
             t.add(fixture, arcname="llama-b11609")
+    fixture_digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    script.write_text(script.read_text().replace(digest, fixture_digest))
     commands = tmp_path / "commands"
     commands.mkdir()
     for name, code in {
@@ -58,7 +61,6 @@ def test_native_bash_archive_layouts(tmp_path, target, binary, digest):
             '#!/bin/sh\nwhile [ "$1" != "-o" ]; do shift; done\nshift\n'
             'cp "$FIXTURE_ARCHIVE" "$1"\n'
         ),
-        "shasum": '#!/bin/sh\necho "$FIXTURE_SHA  fixture"\n',
     }.items():
         p = commands / name
         p.write_text(code)

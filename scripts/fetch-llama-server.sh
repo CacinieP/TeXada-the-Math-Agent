@@ -44,7 +44,17 @@ echo "downloading $ASSET (build $BUILD) for $TARGET"
 curl -fsSL --retry 3 -o "$WORK/$ASSET" "$BASE_URL/$ASSET"
 
 echo "verifying sha256"
-ACTUAL="$(shasum -a 256 "$WORK/$ASSET" | awk '{print $1}')"
+SHA_PYTHON="$(command -v python || command -v python3)"
+ACTUAL="$("$SHA_PYTHON" - "$WORK/$ASSET" <<'PYHASH'
+import hashlib
+import sys
+with open(sys.argv[1], "rb") as source:
+    digest = hashlib.sha256()
+    for chunk in iter(lambda: source.read(1024 * 1024), b""):
+        digest.update(chunk)
+print(digest.hexdigest())
+PYHASH
+)"
 if [ "$ACTUAL" != "$SHA" ]; then
   echo "error: sha256 mismatch for $ASSET" >&2
   echo "  expected: $SHA" >&2
@@ -55,7 +65,13 @@ fi
 echo "extracting"
 case "$ASSET" in
   *.tar.gz) tar -xzf "$WORK/$ASSET" -C "$WORK" ;;
-  *.zip)    unzip -q "$WORK/$ASSET" -d "$WORK" ;;
+  *.zip)    "$SHA_PYTHON" - "$WORK/$ASSET" "$WORK" <<'PYZIP'
+import sys
+import zipfile
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    archive.extractall(sys.argv[2])
+PYZIP
+            ;;
 esac
 
 BINARY="llama-server"
