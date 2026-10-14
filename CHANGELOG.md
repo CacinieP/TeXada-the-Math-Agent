@@ -1,3 +1,15 @@
+## [0.4.2-beta.2] - 2026-10-14
+
+### 中文
+
+- 修复设置页多余闭合标签，数据、快捷键和关于不再出现在其他标签页。
+- 保留原有浮窗置顶行为；其余变更和评测限制见 beta.1。
+
+### English
+
+- Keep Data, Shortcuts and About within Settings when switching tabs.
+- Preserve the existing floating-window behavior. Includes the beta.1 changes and documented evaluation limitations.
+
 # Changelog / 变更记录
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
