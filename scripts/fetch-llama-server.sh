@@ -4,7 +4,7 @@
 # Places llama-server-<target-triple> (plus .exe on Windows) into
 # tauri-shell/src-tauri/binaries/ so Tauri externalBin can bundle it.
 # SHA256 is pinned per asset; the extracted binary is version-checked
-# (build >= 9049, required for MiniCPM-V 4.7).
+# (build >= 11609, required for MiniCPM-V 4.7).
 #
 # Usage: scripts/fetch-llama-server.sh [target-triple]
 #   (default: rustc host triple)

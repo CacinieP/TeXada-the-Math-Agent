@@ -36,5 +36,6 @@ Windows native CI installation is recorded separately from local macOS tests.
 
 The workflow creates a draft beta, preserving v0.4.1 as the stable latest.
 Public publication occurs after artifact verification. Windows installers
-are unsigned. Native smoke scripts do not download model weights or establish
+are unsigned. macOS requires 13.3 or newer, matching the pinned runtime Mach-O
+minimum deployment target. Native smoke scripts do not download model weights or establish
 mathematical accuracy; local inference is measured separately.
