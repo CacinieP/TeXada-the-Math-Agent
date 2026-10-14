@@ -39,7 +39,7 @@ def main() -> None:
     args = parser.parse_args()
     installer = args.installer.resolve()
     with tempfile.TemporaryDirectory(prefix="texada-installed-smoke-") as directory:
-        root = Path(directory)
+        root = Path(directory).resolve()
         app = None
         if sys.platform == "darwin":
             if args.app_bundle:
@@ -97,7 +97,7 @@ def main() -> None:
             TEXADA_DATA_DIR=str(root / "data"),
             TEXADA_BACKEND="llama_server",
         )
-        with (root / "desktop.log").open("w") as log:
+        with (root / "desktop.log").open("w", encoding="utf-8") as log:
             proc = subprocess.Popen(
                 [str(executable)],
                 env=env,
@@ -110,7 +110,8 @@ def main() -> None:
                 while True:
                     if proc.poll() is not None:
                         raise RuntimeError(
-                            "Installed desktop exited: " + (root / "desktop.log").read_text()
+                            "Installed desktop exited: "
+                            + (root / "desktop.log").read_text(encoding="utf-8", errors="replace")
                         )
                     try:
                         status = request(base, "/api/status")
@@ -119,7 +120,9 @@ def main() -> None:
                         if time.monotonic() >= deadline:
                             raise RuntimeError(
                                 "Installed backend unavailable: "
-                                + (root / "desktop.log").read_text()
+                                + (root / "desktop.log").read_text(
+                                    encoding="utf-8", errors="replace"
+                                )
                             ) from None
                         time.sleep(0.5)
                 assert status["backend"] == "llama_server", status
@@ -147,7 +150,8 @@ def main() -> None:
                         ensure_ascii=False,
                         indent=2,
                     )
-                    + "\n"
+                    + "\n",
+                    encoding="utf-8",
                 )
             finally:
                 if os.name == "nt":

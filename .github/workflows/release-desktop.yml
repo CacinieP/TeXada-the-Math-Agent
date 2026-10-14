@@ -407,7 +407,17 @@ jobs:
             echo "::warning::Stapling failed on attempt $staple_attempt; retrying."
             sleep $((staple_attempt * 30))
           done
-          xcrun stapler validate "$dmg"
+          for validate_attempt in 1 2 3; do
+            if xcrun stapler validate "$dmg"; then
+              break
+            fi
+            if [ "$validate_attempt" -eq 3 ]; then
+              echo "::error::Notarization ticket validation failed after $validate_attempt attempts."
+              exit 1
+            fi
+            echo "::warning::Ticket validation failed; retrying after Apple network interruption."
+            sleep $((validate_attempt * 30))
+          done
           spctl -a -t open --context context:primary-signature -v "$dmg"
 
       - name: Smoke installed macOS package
