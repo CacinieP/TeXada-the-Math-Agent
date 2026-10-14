@@ -12,7 +12,7 @@
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue"></a>
 </p>
 
-![TeXada local-first math agent hero](assets/texada-hero-agpl.png)
+![TeXada Math Agent · MiniCPM-V 4.7 single-model workflow](assets/texada-math-agent-cover.png)
 
 <p align="center">
   <strong>Your local AI copilot for LaTeX and structured mathematical writing.</strong><br>
@@ -40,21 +40,22 @@ copy.
 
 It is not a chat wrapper. TeXada is an on-device, agent-driven structured math
 editor whose planner can call narrow, independently testable TeX tools.
-It deliberately has only two model roles: MiniCPM5-2B handles planning and
-text generation, while MiniCPM-V 4.6 handles image understanding and formula
-OCR. Independently testable TeX tools own parsing, validation, deterministic
+It has two model roles: planning/text generation and image understanding/OCR.
+The MiniCPM-V 4.7 profile uses one `MiniCPM-V-4.7-1B` checkpoint for both roles;
+the existing Ollama defaults use MiniCPM5-2B and MiniCPM-V 4.6.
+Independently testable TeX tools own parsing, validation, deterministic
 repair, semantic diffing, rendering and export.
 
 **Not a chatbot. A tool-using math agent.**
 
 ```text
-MiniCPM5 Planner → TeX Tool → Observation → MiniCPM5 Planner
+Planner → TeX Tool → Observation → Planner
                        |
                        v
                  Semantic Unit
 ```
 
-MiniCPM5 does not repair invalid formulas itself. `repair_tex` is a
+The Planner does not repair invalid formulas itself. `repair_tex` is a
 deterministic local syntax tool, not a third model. See
 [Architecture](docs/architecture.md), [Design Evolution](docs/design-evolution.md),
 and [Local E2E](docs/e2e-manual.md).
@@ -69,8 +70,8 @@ formula exists. Raw natural language is never treated as a reference AST.
 | Capability | Description |
 |------------|-------------|
 | Natural language to LaTeX | Describe a formula and get copyable LaTeX or Markdown |
-| Formula OCR | MiniCPM-V proposes a formula; MiniCPM5 reviews it through TeX tools |
-| Completion | Rules or MiniCPM5 propose a completion; the shared Agent validates it |
+| Formula OCR | The vision role proposes a formula; the shared Planner reviews it through TeX tools |
+| Completion | Rules or the configured model propose a completion; the shared Agent validates it |
 | Validation and repair | Check, fix, render and highlight LaTeX |
 | Presets, history, and run logs | Keep reusable presets, reopen results, and inspect each Agent/OCR/completion success or failure with model, latency, tools, and trace |
 | Desktop insertion | Click a formula block to type it at the system cursor |
@@ -88,11 +89,26 @@ formula exists. Raw natural language is never treated as a reference AST.
 See [all recorded examples](examples/README.md), [Why TeXada?](docs/comparison.md),
 and [the design philosophy](docs/design-philosophy.md).
 
+### TeXada Series
+
+| Tool | Workflow | Source |
+|------|----------|--------|
+| Math Agent | Natural language, formula OCR and completion → checked LaTeX candidates | This repository |
+| Studio | Formula syntax and simple table checks in one `.tex` file → candidate Diff → human adoption | [TeXada Studio](https://github.com/CacinieP/TeXada-Studio-with-agentskills) |
+
+Both tools offer a `MiniCPM-V-4.7-1B` profile. Math Agent shares one checkpoint
+between text and vision; Studio proposes formula text repairs and retains its
+deterministic checkers. The current handoff is copying reviewed LaTeX into Studio.
+See [the series workflow and poster](docs/texada-series.md) and
+[the MiniCPM-V 4.7 setup and evidence](docs/minicpm-v47.md).
+The current API profile is experimental; local Q4 requires separate validation.
+The cover illustrates the workflow and is not a screenshot of the desktop app.
+
 ### Agent Technical Highlights
 
 | Layer | Technical highlight |
 |-------|---------------------|
-| MiniCPM5-native planning | Accepts MiniCPM5 XML tool calls and normalized OpenAI `tool_calls` without inventing a separate Agent protocol |
+| Native tool planning | Accepts normalized OpenAI `tool_calls` and legacy MiniCPM5 XML without inventing a separate Agent protocol |
 | Six specialist tools | `parse_tex`, `compile_tex`, deterministic `repair_tex`, `semantic_diff`, `render_math`, and `export` have narrow schemas and independent tests |
 | Semantic state | Pinned KaTeX 0.17.0 runs in reusable in-process V8 and is normalized into fractions, roots, integrals, scripts, matrix rows/cells, and other Semantic Units |
 | Two-level guard | Level 0 preserves critical operators and integral rank; Level 1 compares explicit before/after formulas with role-aware weighted structural Diff |
@@ -242,6 +258,17 @@ Do not add `/v1`; TeXada adds the OpenAI-compatible suffix internally.
 For local loopback endpoints, TeXada can try to start `ollama serve` if the Ollama CLI is installed. Remote Ollama endpoints must already be running and reachable.
 
 ### Cloud Mode
+
+**MiniCPM-V 4.7 single-model profile:** use the official
+[1B checkpoint](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B) through
+`https://api.modelbest.cn/v1`, with `MiniCPM-V-4.7-1B` as both the text and
+vision model. Export `TEXADA_OPENAI_API_KEY`, then run
+`bash scripts/run-minicpm-v47.sh`. The adapter disables thinking for all
+four inference paths and their retries. The same profile can connect to an
+external llama-server using the official
+[Q4 GGUF](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf).
+See [setup, evidence and limits](docs/minicpm-v47.md) and
+[ADR-017](docs/adr/017-minicpm-v47-single-checkpoint.md).
 
 OpenAI-compatible models can be configured from Settings. For cloud providers, enter the complete Chat Completions base URL expected by that provider; TeXada does not append `/v1` to cloud endpoints. Example:
 
@@ -472,20 +499,22 @@ TeXada 是一个面向 LaTeX 与科研写作的本地 AI Copilot。你可以输�
 结构化公式，用确定性工具检查，再渲染为可核对、可复制的结果。
 
 它不是聊天界面套壳，而是基于端侧 Agent 的结构化数学编辑器。产品明确只有两个
-模型角色：MiniCPM5-2B 负责规划、工具选择和文本生成，MiniCPM-V 4.6 负责图片
+模型保留规划/文本与视觉/OCR 两个职责。MiniCPM-V 4.7 profile 用同一个
+`MiniCPM-V-4.7-1B` checkpoint 承担两者；既有 Ollama 默认仍由
+MiniCPM5-2B 负责规划、工具选择和文本生成，MiniCPM-V 4.6 负责图片
 理解与公式 OCR；解析、校验、确定性修复、语义 Diff、渲染与导出由可独立测试的
 TeX 工具负责。
 
 **不是聊天机器人，而是会调用工具的数学 Agent。**
 
 ```text
-MiniCPM5 Planner → TeX Tool → Observation → MiniCPM5 Planner
+Planner → TeX Tool → Observation → Planner
                        |
                        v
                  Semantic Unit
 ```
 
-MiniCPM5 不直接修复非法公式；`repair_tex` 是确定性本地语法工具，不是第三个
+Planner 不直接修复非法公式；`repair_tex` 是确定性本地语法工具，不是第三个
 模型。详见[架构文档](docs/architecture.md)与
 [设计思路与版本迭代](docs/design-evolution.md)、[本地 E2E 指南](docs/e2e-manual.md)。
 
@@ -498,8 +527,8 @@ Level 1，但只在明确存在 before/after 公式时启用，不会把自然�
 | 能力 | 说明 |
 |------|------|
 | 自然语言转 LaTeX | 输入公式描述，生成可复制的 LaTeX 或 Markdown |
-| 公式 OCR | MiniCPM-V 产出候选，MiniCPM5 再通过 TeX 工具审查 |
-| 公式补全 | 规则或 MiniCPM5 产出候选，再由统一 Agent 校验 |
+| 公式 OCR | 视觉职责产出候选，共享 Planner 再通过 TeX 工具审查 |
+| 公式补全 | 规则或配置的模型产出候选，再由统一 Agent 校验 |
 | 校验与修复 | 检查、修复、渲染并高亮 LaTeX |
 | 预设、历史与运行日志 | 保存预设、重新打开结果，并检查每次 Agent/OCR/补全成功或失败的模型、耗时、工具与轨迹 |
 | 桌面键入 | 点击公式块即可在系统当前光标处键入公式 |
@@ -517,11 +546,24 @@ Level 1，但只在明确存在 before/after 公式时启用，不会把自然�
 更多内容见[全部实录示例](examples/README.md)、[为什么选择 TeXada](docs/comparison.md)
 和[设计哲学](docs/design-philosophy.md)。
 
+### TeXada 系列
+
+| 工具 | 工作流 | 源码 |
+|------|--------|------|
+| Math Agent | 自然语言、公式 OCR、补全 → 经过检查的 LaTeX 候选 | 当前仓库 |
+| Studio | 单个 `.tex` 的公式语法、简单表格检查 → 候选 Diff → 人工采用 | [TeXada Studio](https://github.com/CacinieP/TeXada-Studio-with-agentskills) |
+
+两个工具均提供 `MiniCPM-V-4.7-1B` profile。Math Agent 用同一个 checkpoint
+承担文本与视觉；Studio 生成公式文本修复候选，继续交给确定性检查器回判。
+当前交接方式是复制已审阅的 LaTeX 到 Studio。
+见[系列工作流与海报](docs/texada-series.md)和[4.7 配置与验收](docs/minicpm-v47.md)。
+API profile 处于实验阶段，本机 Q4 需单独验收。封面为工作流示意，不是真实桌面截图。
+
 ### Agent 技术亮点
 
 | 层级 | 技术亮点 |
 |------|----------|
-| MiniCPM5 原生规划 | 同时接收 MiniCPM5 XML tool calling 与标准化 OpenAI `tool_calls`，不另造一套 Agent 协议 |
+| 原生工具规划 | 接收标准 OpenAI `tool_calls` 与既有 MiniCPM5 XML，不另造一套 Agent 协议 |
 | 六个专家工具 | `parse_tex`、`compile_tex`、确定性 `repair_tex`、`semantic_diff`、`render_math`、`export` 均有窄 schema 和独立测试 |
 | 结构化状态 | 固定 KaTeX 0.17.0 在可复用进程内 V8 中运行，并归一化为分式、根式、积分、上下标、矩阵行列等 Semantic Unit |
 | 两级守卫 | Level 0 保留关键算符和积分阶数；Level 1 对明确的 before/after 公式执行角色感知加权结构 Diff |
@@ -662,6 +704,16 @@ http://192.168.1.20:11434
 对于本机 loopback 地址，如果已安装 Ollama CLI，TeXada 可以尝试启动 `ollama serve`；远端 Ollama 地址需要你先在远端启动并保证网络可达。
 
 ### 云侧模式
+
+**MiniCPM-V 4.7 单模型链路：**通过 `https://api.modelbest.cn/v1` 调用
+[官方 1B checkpoint](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)，
+文本与视觉均设为 `MiniCPM-V-4.7-1B`。导出环境变量
+`TEXADA_OPENAI_API_KEY` 后执行 `bash scripts/run-minicpm-v47.sh`。
+适配器为规划、生成、补全、OCR 及其重试统一关闭 thinking。
+本机 Q4 使用同一接口连接外置 llama-server，权重来自
+[官方 GGUF 仓库](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf)。
+配置、实测证据与范围见 [适配说明](docs/minicpm-v47.md) 和
+[ADR-017](docs/adr/017-minicpm-v47-single-checkpoint.md)。
 
 OpenAI API 兼容模型可以在设置页配置。云侧 provider 需要填写该服务商要求的完整 Chat Completions base URL；TeXada 不会为云侧 endpoint 自动追加 `/v1`。示例：
 
@@ -872,3 +924,9 @@ GitHub Actions 可以手动从 `main` 构建安装包，也会在版本 tag 上�
 记录的许可证。详见 [LICENSE](LICENSE)。
 
 </details>
+
+## v0.4.2 beta
+
+The built-in backend uses one MiniCPM-V-4.7-1B Q4_K_M checkpoint for text and OCR. Download the model in Settings and start llama-server. Existing Ollama and OpenAI-compatible settings remain selectable. Model files are not included in installers.
+
+Generated formulas require mathematical review: syntax validation and successful submission do not prove correctness. See [the beta validation record](docs/beta-release-validation.md) for configuration, benchmark limits and native installer checks.

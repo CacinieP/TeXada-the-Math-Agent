@@ -97,6 +97,12 @@ and loses router-mode multi-model lifecycle management.
   4.6) and recorded in the build configuration.
 - Weights are never bundled into installers; acquisition is an explicit
   user action.
+- Downloaded weights are accepted only when their SHA-256 matches the value
+  pinned in the catalogue. A right-sized but wrong-content file — the failure
+  mode of any interrupted or mis-assembled chunked transfer — is re-downloaded,
+  never loaded: a silently corrupted `MiniCPM5-2B-Q4_K_M.gguf` reproduces as
+  degenerate output (`content` filled with repeated filler tokens), not as an
+  error.
 
 ## Future
 
@@ -105,3 +111,11 @@ and loses router-mode multi-model lifecycle management.
 - Ollama branch removal reconsidered after measurement history exists.
 - Model catalogue in-app (quantization choice) once a single model per role
   is proven stable.
+
+## Beta integration update (2026-10-14)
+
+v0.4.2-beta.2 replaces the proposed built-in dual-model router with one direct
+MiniCPM-V-4.7-1B checkpoint and its projector. Both roles use the same alias;
+the runtime is pinned to the locally verified b11609. The process ownership,
+explicit settings controls and compatibility backends remain. No runtime
+change is claimed to improve mathematical correctness.

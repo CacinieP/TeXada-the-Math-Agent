@@ -1,19 +1,23 @@
 """FastAPI backend — HTTP API for the shell UI."""
 from __future__ import annotations
 
+import asyncio
+import json
 import time
 from collections.abc import Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import ExitStack, asynccontextmanager
+from contextvars import ContextVar
+from dataclasses import asdict
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, ValidationError
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from texada.agent.runtime import TeXadaAgentRuntime
+from texada.agent.runtime import AgentRunResult, TeXadaAgentRuntime
 from texada.config import (
     TeXadaConfig,
     load_config,
@@ -21,10 +25,28 @@ from texada.config import (
     validate_config_updates,
 )
 from texada.core.backend import BackendManager
+from texada.core.download import download_all
+from texada.core.inference_fingerprint import (
+    build_inference_identity,
+    collect_inference,
+    current_inference_collector,
+    legacy_inference_fingerprint,
+    unavailable_inference_fingerprint,
+    validate_inference_fingerprint,
+    without_inference_collection,
+)
+from texada.core.llama_server import LlamaServerError, LlamaServerManager
 from texada.core.router import InputRouter
+from texada.handoff import FormulaTransfer, HandoffError, TransferRegistry, produce_formula_transfer
 from texada.render.engine import RenderEngine
 from texada.semantic.katex import shared_katex_parser
 from texada.store.history import HistoryStore
+from texada.store.pending_review import (
+    PendingReviewStore,
+    ReviewBinding,
+    ReviewError,
+    input_source_hash,
+)
 from texada.store.run_log import RunLogStore
 from texada.store.shorthand import DEFAULT_SHORTHANDS
 from texada.types import ConvertResult, HistoryEntry, RenderMode, RunLogEntry
@@ -46,8 +68,15 @@ EXPORTABLE_SETTINGS_FIELDS = frozenset({
     "inference_timeout_seconds",
     "api_request_timeout_seconds",
     "agent_max_steps",
+    "planner_surface",
     "run_log_max_days",
     "run_log_max_items",
+})
+
+_request_resources: ContextVar[dict | None] = ContextVar("texada_request_resources", default=None)
+_INFERENCE_RUN_PATHS = frozenset({
+    "/api/convert", "/api/agent", "/api/ocr", "/api/complete", "/api/validate",
+    "/api/handoff/formula",
 })
 
 # ── Request / Response models ──
@@ -79,6 +108,31 @@ class AgentResponse(LaTeXResponse):
     stop_reason: str = "completed"
     revision: int | None = Field(default=None, ge=1)
     committed: bool = False
+    review: dict | None = None
+
+
+class ReviewDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: str = Field(pattern="^(accept|reject)$")
+    input_hash: str = Field(pattern="^[a-f0-9]{64}$")
+    parent_revision: int | None = Field(..., ge=1, strict=True)
+    candidate_hash: str = Field(pattern="^[a-f0-9]{64}$")
+    current_revision: int = Field(ge=1, strict=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_nested_binding(cls, data):
+        if not isinstance(data, dict) or "binding" not in data:
+            return data
+        binding = data["binding"]
+        fields = {"input_hash", "parent_revision", "candidate_hash", "current_revision"}
+        if not isinstance(binding, dict) or set(binding) != fields:
+            raise ValueError("review binding must contain exactly the four source/revision fields")
+        if any(key in data and data[key] != binding[key] for key in fields):
+            raise ValueError("flat and nested review bindings conflict")
+        flattened = {key: value for key, value in data.items() if key != "binding"}
+        flattened.update(binding)
+        return flattened
 
 class ValidateRequest(BaseModel):
     latex: str = Field(min_length=1, max_length=4000)
@@ -123,10 +177,27 @@ class BackendSettingsResponse(BaseModel):
     openai_api_key_set: bool
     inference_timeout_seconds: float
     api_request_timeout_seconds: float
+    planner_surface: str
+    llama_server_host: str
+    llama_server_binary: str
+    llama_models_dir: str
+    llama_context_size: int
+    llama_gpu_layers: int
+    llama_models_max: int
+    llama_idle_sleep_seconds: int
 
 class BackendSettingsUpdate(BaseModel):
-    backend: str | None = Field(default=None, pattern="^(ollama|openai_compatible)$")
+    backend: str | None = Field(
+        default=None, pattern="^(llama_server|ollama|openai_compatible)$"
+    )
     ollama_host: str | None = Field(default=None, max_length=500)
+    llama_server_host: str | None = Field(default=None, max_length=500)
+    llama_server_binary: str | None = Field(default=None, max_length=500)
+    llama_models_dir: str | None = Field(default=None, max_length=500)
+    llama_context_size: int | None = Field(default=None, ge=512, le=131072)
+    llama_gpu_layers: int | None = Field(default=None, ge=-1, le=999)
+    llama_models_max: int | None = Field(default=None, ge=1, le=8)
+    llama_idle_sleep_seconds: int | None = Field(default=None, ge=-1, le=86400)
     model_name: str | None = Field(default=None, max_length=300)
     vision_model_name: str | None = Field(default=None, max_length=300)
     openai_base_url: str | None = Field(default=None, max_length=500)
@@ -135,6 +206,11 @@ class BackendSettingsUpdate(BaseModel):
     openai_api_key: str | None = Field(default=None, max_length=4000)
     inference_timeout_seconds: float | None = Field(default=None, ge=10.0, le=600.0)
     api_request_timeout_seconds: float | None = Field(default=None, ge=30.0, le=900.0)
+    planner_surface: str | None = Field(default=None, pattern="^(full|minimal)$")
+
+
+class LlamaPullRequest(BaseModel):
+    mirror: bool = False
 
 
 class UiSettingsResponse(BaseModel):
@@ -202,6 +278,12 @@ class RunLogImportEntry(BaseModel):
     trace: list[dict] = Field(default_factory=list, max_length=100)
     error_message: str = Field(default="", max_length=8000)
     created_at: str = Field(default="", max_length=80)
+    inference_fingerprint: dict = Field(default_factory=legacy_inference_fingerprint)
+
+    @field_validator("inference_fingerprint")
+    @classmethod
+    def validate_fingerprint(cls, value):
+        return validate_inference_fingerprint(value)
 
 
 class RunLogImportRequest(BaseModel):
@@ -228,7 +310,7 @@ def _app_version() -> str:
     try:
         return version("texada")
     except PackageNotFoundError:
-        return "0.4.1"
+        return "0.4.2-beta.2"
 
 
 def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
@@ -243,6 +325,14 @@ def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
         openai_api_key_set=bool(config.openai_api_key),
         inference_timeout_seconds=config.inference_timeout_seconds,
         api_request_timeout_seconds=config.api_request_timeout_seconds,
+        planner_surface=config.planner_surface,
+        llama_server_host=config.llama_server_host,
+        llama_server_binary=config.llama_server_binary,
+        llama_models_dir=config.llama_models_dir,
+        llama_context_size=config.llama_context_size,
+        llama_gpu_layers=config.llama_gpu_layers,
+        llama_models_max=config.llama_models_max,
+        llama_idle_sleep_seconds=config.llama_idle_sleep_seconds,
     )
 
 
@@ -320,6 +410,7 @@ def _run_log_response(
         "trace_available": entry.trace_available or bool(entry.trace),
         "error_message": entry.error_message,
         "created_at": entry.created_at,
+        "inference_fingerprint": entry.inference_fingerprint,
     }
     if include_trace:
         response["trace"] = entry.trace
@@ -367,6 +458,7 @@ def _exportable_settings(config: TeXadaConfig) -> dict:
         "inference_timeout_seconds": config.inference_timeout_seconds,
         "api_request_timeout_seconds": config.api_request_timeout_seconds,
         "agent_max_steps": config.agent_max_steps,
+        "planner_surface": config.planner_surface,
         "run_log_max_days": config.run_log_max_days,
         "run_log_max_items": config.run_log_max_items,
     }
@@ -421,15 +513,73 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     run_logs = RunLogStore(config)
     render_engine = RenderEngine(config)
     backend_mgr = BackendManager(config)
+    review_store = PendingReviewStore(max_source_bytes=max(32 * 1024 * 1024, config.max_ocr_bytes))
+    llama_mgr = LlamaServerManager(config)
+    runtime_lock = asyncio.Lock()
+    download_lock = asyncio.Lock()
+
+    async def stop_llama_manager() -> None:
+        try:
+            await llama_mgr.stop()
+        except LlamaServerError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    def replace_runtime(new_config: TeXadaConfig) -> None:
+        nonlocal config, router, agent_runtime, shorthand, history, run_logs
+        nonlocal render_engine, backend_mgr, llama_mgr
+        config = new_config
+        router = InputRouter(config)
+        agent_runtime = TeXadaAgentRuntime(config, model=router.model, backend=router.backend)
+        shorthand = router.shorthand_store
+        history = HistoryStore(config)
+        run_logs = RunLogStore(config)
+        render_engine = RenderEngine(config)
+        backend_mgr = BackendManager(config)
+        llama_mgr = LlamaServerManager(config)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         try:
             yield
         finally:
-            shared_katex_parser().close()
+            review_store.clear()
+            try:
+                async with runtime_lock:
+                    await llama_mgr.stop()
+            finally:
+                shared_katex_parser().close()
 
     app = FastAPI(title="TeXada", version=app_version, lifespan=lifespan)
+    app.state.review_store = review_store
+    app.state.transfer_registry = TransferRegistry()
+
+    def register_review_result(
+        result: AgentRunResult, *, source_text: str, source_image: bytes | None = None,
+        source_mime: str = "", input_hash: str | None = None, metadata: dict | None = None,
+    ) -> dict | None:
+        if not result.review_reasons or result.revision is None:
+            return None
+        if result._formula_state is None:
+            raise HTTPException(
+                status_code=503, detail="review state is unavailable; candidate cannot be adopted"
+            )
+        try:
+            review = review_store.register(
+                result._formula_state,
+                input_hash=input_hash or input_source_hash(source_text, source_image),
+                source_text=source_text, source_image=source_image, source_mime=source_mime,
+                render=result.render, reasons=result.review_reasons, metadata=metadata,
+            )
+        except ReviewError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from None
+        if result.trace:
+            result.trace[-1]["human_review"] = {
+                key: review[key] for key in ("id", "status", "input_hash", "parent_revision",
+                                             "candidate_hash", "current_revision", "reasons")
+            }
+        return review
+
+    app.state.register_review_result = register_review_result
     allowed_origins = set(config.api_allowed_origins)
     # CORS — only the local shell UI and Tauri app should call the API from a browser.
     app.add_middleware(
@@ -443,9 +593,101 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     async def record_run(entry: RunLogEntry) -> None:
         """Run logging is best-effort and must never break a user request."""
         try:
-            await run_logs.add(entry)
+            collector = current_inference_collector()
+            resources = _request_resources.get()
+            if collector is not None:
+                entry.inference_fingerprint = collector.snapshot()
+            elif resources is not None and "fingerprint_fallback" in resources:
+                entry.inference_fingerprint = resources["fingerprint_fallback"]
+            target_store = resources["run_logs"] if resources is not None else run_logs
+            await target_store.add(entry)
         except Exception:
             pass
+
+    @app.post("/api/handoff/formula")
+    async def handoff_formula(req: FormulaTransfer):
+        resources = _request_resources.get()
+        frozen_config = resources["config"] if resources is not None else router.config
+        run_id = uuid4().hex
+
+        async def log_transfer(result, response, latency):
+            names = _trace_tool_names(result.trace)
+            await record_run(RunLogEntry(
+                run_id=run_id, operation="formula_handoff", input_type="formula",
+                input_text=req.original_latex, output_latex=result.latex,
+                model_role="configured-transfer", model_name=req.checkpoint,
+                backend=frozen_config.backend, status="success", status_code=200,
+                render_mode="katex", valid=result.valid, latency_ms=latency,
+                tokens_used=result.tokens_used, stop_reason=result.stop_reason,
+                tool_names=names, tool_call_count=len(names), trace=result.trace,
+            ))
+
+        def register_transfer(result, **kwargs):
+            metadata = kwargs.pop("metadata", {})
+            metadata["history_entry"] = asdict(HistoryEntry(
+                run_id=run_id, input_text=req.original_latex, input_type="formula",
+                latex=result.latex, intent="formula_handoff", source="studio",
+                render_mode="katex", valid=result.valid, latency_ms=result.latency_ms,
+                tokens_used=result.tokens_used,
+            ))
+            return register_review_result(result, metadata=metadata, **kwargs)
+
+        async def execute():
+            return await produce_formula_transfer(
+                req, frozen_config, register_transfer, record_result=log_transfer,
+                on_abandon_review=review_store.discard_pending,
+            )
+
+        try:
+            response = await app.state.transfer_registry.execute(req, execute)
+        except HandoffError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.code) from None
+        return JSONResponse(response, headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/reviews/{review_id}")
+    async def get_review(review_id: str):
+        try:
+            return JSONResponse(review_store.get(review_id), headers={"Cache-Control": "no-store"})
+        except ReviewError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from None
+
+    @app.get("/api/reviews/{review_id}/source")
+    async def get_review_source(review_id: str):
+        try:
+            data, mime = review_store.source(review_id)
+        except ReviewError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from None
+        return Response(data, media_type=mime, headers={
+            "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'",
+        })
+
+    @app.post("/api/reviews/{review_id}/decision")
+    async def decide_review(review_id: str, req: ReviewDecisionRequest):
+        try:
+            result = review_store.decide(review_id, decision=req.decision, binding=ReviewBinding(
+                req.input_hash, req.parent_revision, req.candidate_hash, req.current_revision,
+            ))
+            metadata = review_store.claim_accept_event(review_id)
+        except ReviewError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from None
+        if metadata and metadata.get("history_entry"):
+            try:
+                await history.add(HistoryEntry(**metadata["history_entry"]))
+            except Exception:
+                pass  # Adoption is authoritative; history is best-effort.
+        await record_run(RunLogEntry(
+            run_id=uuid4().hex, operation="human_review", input_type="review",
+            input_text=result["id"], output_latex=result["latex"],
+            status="success", status_code=200,
+            valid=result["checks"]["compile"]["status"] == "valid",
+            stop_reason=f"human_review_{result['status']}",
+            trace=[{"human_review": {key: result[key] for key in (
+                "id", "status", "input_hash", "parent_revision",
+                "candidate_hash", "current_revision",
+            )}}],
+        ))
+        return JSONResponse(result, headers={"Cache-Control": "no-store"})
 
     @app.middleware("http")
     async def enforce_browser_origin(
@@ -455,11 +697,42 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         origin = request.headers.get("origin")
         if origin and origin not in allowed_origins:
             return JSONResponse(status_code=403, content={"detail": "Forbidden origin"})
+        route_path = request.scope["path"]
+        root_path = request.scope.get("root_path", "").rstrip("/")
+        if root_path and route_path.startswith(f"{root_path}/"):
+            route_path = route_path[len(root_path):]
+        if request.method == "POST" and route_path in _INFERENCE_RUN_PATHS:
+            # Freeze the objects used by this request before any awaited work;
+            # settings and backup imports may replace the application closures.
+            resources = {
+                "config": router.config, "router": router, "agent_runtime": agent_runtime,
+                "history": history, "run_logs": run_logs,
+            }
+            token = _request_resources.set(resources)
+            try:
+                with ExitStack() as collection:
+                    try:
+                        identity = build_inference_identity(
+                            resources["config"], app_version=app_version,
+                            tool_schemas=resources["agent_runtime"].tools.schemas,
+                        )
+                        collection.enter_context(collect_inference(identity))
+                    except Exception as exc:
+                        resources["fingerprint_fallback"] = unavailable_inference_fingerprint(exc)
+                        collection.enter_context(without_inference_collection())
+                    # Route failures are outside the initialization handler:
+                    # telemetry must never cause a request to be executed twice.
+                    return await call_next(request)
+            finally:
+                _request_resources.reset(token)
         return await call_next(request)
 
     @app.get("/api/status", response_model=StatusResponse)
     async def get_status():
-        info = await backend_mgr.aget_status()
+        if config.uses_llama_server:
+            info = await llama_mgr.aget_status()
+        else:
+            info = await backend_mgr.aget_status()
         return StatusResponse(
             status=info["status"],
             ready=info.get("ready", info["status"] in {"ready", "ok"}),
@@ -498,26 +771,59 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             allowed_image_mime_types=config.allowed_image_mime_types,
         )
 
+    def _require_llama_backend():
+        if not config.uses_llama_server:
+            raise HTTPException(
+                status_code=404,
+                detail="当前后端不是 llama-server，该端点不可用",
+            )
+
+    @app.get("/api/llama/status")
+    async def llama_status():
+        _require_llama_backend()
+        return await llama_mgr.aget_status()
+
+    @app.post("/api/llama/start")
+    async def llama_start():
+        async with runtime_lock:
+            _require_llama_backend()
+            try:
+                await llama_mgr.start()
+            except LlamaServerError as e:
+                raise HTTPException(status_code=503, detail=str(e)) from e
+            return await llama_mgr.aget_status()
+
+    @app.post("/api/llama/stop")
+    async def llama_stop():
+        async with runtime_lock:
+            _require_llama_backend()
+            await stop_llama_manager()
+            return await llama_mgr.aget_status()
+
+    @app.post("/api/llama/pull")
+    async def llama_pull(req: LlamaPullRequest):
+        _require_llama_backend()
+        dest_dir = llama_mgr.models_dir
+
+        async def event_stream():
+            # Concurrent streams must not share and rename the same .part files.
+            # Keep lifecycle controls responsive while serializing only downloads.
+            async with download_lock:
+                async for event in download_all(dest_dir, mirror=req.mirror):
+                    yield json.dumps(event, ensure_ascii=False) + "\n"
+
+        return StreamingResponse(event_stream(), media_type="application/x-ndjson")
+
     @app.post("/api/settings/backend", response_model=BackendSettingsResponse)
     async def update_backend_settings(req: BackendSettingsUpdate):
-        nonlocal config, router, agent_runtime, shorthand, history, run_logs
-        nonlocal render_engine, backend_mgr
         updates = req.model_dump(exclude_none=True)
         if updates.get("openai_api_key") == "":
             updates.pop("openai_api_key")
-        config = save_config_updates(updates, data_dir=config.data_dir)
-        router = InputRouter(config)
-        agent_runtime = TeXadaAgentRuntime(
-            config,
-            model=router.model,
-            backend=router.backend,
-        )
-        shorthand = router.shorthand_store
-        history = HistoryStore(config)
-        run_logs = RunLogStore(config)
-        render_engine = RenderEngine(config)
-        backend_mgr = BackendManager(config)
-        return _settings_response(config)
+        async with runtime_lock:
+            validate_config_updates(updates, data_dir=config.data_dir)
+            await stop_llama_manager()
+            replace_runtime(save_config_updates(updates, data_dir=config.data_dir))
+            return _settings_response(config)
 
     @app.post("/api/settings/ui", response_model=UiSettingsResponse)
     async def update_ui_settings(req: UiSettingsUpdate):
@@ -529,6 +835,8 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.post("/api/convert", response_model=LaTeXResponse)
     async def convert_text(req: ConvertRequest):
+        resources = _request_resources.get()
+        config, router, history = (resources[name] for name in ("config", "router", "history"))
         run_id = uuid4().hex
         started = time.monotonic()
         req_mode = _parse_render_mode(req.render_mode)
@@ -594,6 +902,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     @app.post("/api/agent", response_model=AgentResponse)
     async def run_agent(req: ConvertRequest):
         """Primary NL path: MiniCPM5 planner → tools → observations."""
+        resources = _request_resources.get()
+        config, agent_runtime, history = (
+            resources[name] for name in ("config", "agent_runtime", "history")
+        )
         run_id = uuid4().hex
         started = time.monotonic()
         req_mode = _parse_render_mode(req.render_mode)
@@ -623,8 +935,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 error_message=str(e),
             ))
             raise
-        try:
-            await history.add(HistoryEntry(
+        history_entry = HistoryEntry(
                 run_id=run_id,
                 input_text=req.text,
                 input_type="nl",
@@ -635,9 +946,16 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 valid=result.valid,
                 latency_ms=result.latency_ms,
                 tokens_used=result.tokens_used,
-            ))
-        except Exception:
-            pass
+            )
+        review = register_review_result(
+            result, source_text=req.text,
+            metadata={"history_entry": asdict(history_entry)},
+        )
+        if result.committed:
+            try:
+                await history.add(history_entry)
+            except Exception:
+                pass
         tool_names = _trace_tool_names(result.trace)
         await record_run(RunLogEntry(
             run_id=run_id, operation="agent", input_type="nl",
@@ -659,7 +977,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             valid=result.valid,
             source="agent",
             intent="agent",
-            confidence=1.0 if result.valid else 0.5,
+            confidence=0.0,  # Agent intent fidelity is not calibrated by syntax checks.
             latency_ms=result.latency_ms,
             tokens_used=result.tokens_used,
             semantic_document=result.semantic_document,
@@ -668,10 +986,15 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             stop_reason=result.stop_reason,
             revision=result.revision,
             committed=result.committed,
+            review=review,
         )
 
     @app.post("/api/ocr", response_model=AgentResponse)
     async def convert_image(image: UploadFile, render_mode: str = "katex"):
+        resources = _request_resources.get()
+        config, router, agent_runtime, history = (
+            resources[name] for name in ("config", "router", "agent_runtime", "history")
+        )
         run_id = uuid4().hex
         started = time.monotonic()
         ocr_mode = _parse_render_mode(render_mode)
@@ -700,6 +1023,8 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 candidate,
                 render_mode=ocr_mode,
                 initial_tokens_used=vision_tokens,
+                requires_review=True,
+                _source_image=data,
             )
         except RuntimeError as e:
             await record_run(RunLogEntry(
@@ -723,15 +1048,22 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 error_message=str(e),
             ))
             raise
-        try:
-            await history.add(HistoryEntry(
+        history_entry = HistoryEntry(
                 run_id=run_id, input_text=image.filename or "[image]", input_type="ocr",
                 latex=result.latex, intent="ocr_agent", source="agent",
                 render_mode=ocr_mode.value, valid=result.valid,
                 latency_ms=result.latency_ms, tokens_used=result.tokens_used,
-            ))
-        except Exception:
-            pass  # history is best-effort; never fail the conversion
+            )
+        review = register_review_result(
+            result, source_text=image.filename or "[image]", source_image=data,
+            source_mime=image.content_type or "",
+            metadata={"history_entry": asdict(history_entry)},
+        )
+        if result.committed:
+            try:
+                await history.add(history_entry)
+            except Exception:
+                pass
         tool_names = _trace_tool_names(result.trace)
         await record_run(RunLogEntry(
             run_id=run_id, operation="ocr", input_type="ocr",
@@ -755,7 +1087,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             valid=result.valid,
             source="agent",
             intent="ocr_agent",
-            confidence=1.0 if result.valid else 0.5,
+            confidence=0.0,  # Agent intent fidelity is not calibrated by syntax checks.
             latency_ms=result.latency_ms,
             tokens_used=result.tokens_used,
             semantic_document=result.semantic_document,
@@ -764,10 +1096,15 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             stop_reason=result.stop_reason,
             revision=result.revision,
             committed=result.committed,
+            review=review,
         )
 
     @app.post("/api/complete", response_model=AgentResponse)
     async def complete_latex(req: ConvertRequest):
+        resources = _request_resources.get()
+        config, router, agent_runtime, history = (
+            resources[name] for name in ("config", "router", "agent_runtime", "history")
+        )
         run_id = uuid4().hex
         started = time.monotonic()
         comp_mode = _parse_render_mode(req.render_mode)
@@ -804,16 +1141,22 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 error_message=str(e),
             ))
             raise
-        try:
-            await history.add(HistoryEntry(
+        history_entry = HistoryEntry(
                 run_id=run_id, input_text=req.text, input_type="completion",
                 latex=result.latex,
                 intent="completion_agent", source="agent",
                 render_mode=comp_mode.value, valid=result.valid,
                 latency_ms=result.latency_ms, tokens_used=result.tokens_used,
-            ))
-        except Exception:
-            pass  # history is best-effort; never fail the conversion
+            )
+        review = register_review_result(
+            result, source_text=req.text,
+            metadata={"history_entry": asdict(history_entry)},
+        )
+        if result.committed:
+            try:
+                await history.add(history_entry)
+            except Exception:
+                pass
         tool_names = _trace_tool_names(result.trace)
         await record_run(RunLogEntry(
             run_id=run_id, operation="completion", input_type="completion",
@@ -836,7 +1179,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             valid=result.valid,
             source="agent",
             intent="completion_agent",
-            confidence=1.0 if result.valid else 0.5,
+            confidence=0.0,  # Agent intent fidelity is not calibrated by syntax checks.
             latency_ms=result.latency_ms,
             tokens_used=result.tokens_used,
             semantic_document=result.semantic_document,
@@ -845,6 +1188,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             stop_reason=result.stop_reason,
             revision=result.revision,
             committed=result.committed,
+            review=review,
         )
 
     @app.post("/api/validate", response_model=ValidateResponse)
@@ -993,8 +1337,12 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.post("/api/import")
     async def import_backup(req: BackupImportRequest):
-        nonlocal config, router, agent_runtime, shorthand, history, run_logs
-        nonlocal render_engine, backend_mgr
+        # A backup can rebuild the runtime too. Serialize the entire settings
+        # transition so a concurrent start cannot attach to the old manager.
+        async with runtime_lock:
+            return await import_backup_locked(req)
+
+    async def import_backup_locked(req: BackupImportRequest):
         settings_updates = _importable_settings(req.settings)
         if settings_updates:
             try:
@@ -1004,6 +1352,9 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                     status_code=422,
                     detail=f"Invalid backup settings: {exc}",
                 ) from exc
+            # Fail before importing data or saving settings if the owned
+            # process cannot be reclaimed. Keep the original manager intact.
+            await stop_llama_manager()
 
         history_result = await history.import_entries(
             [_history_import_entry(entry) for entry in req.history],
@@ -1016,18 +1367,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         shorthand_result = shorthand.import_many(req.shorthands, mode=req.mode)
         settings_imported = 0
         if settings_updates:
-            config = save_config_updates(settings_updates, data_dir=config.data_dir)
-            router = InputRouter(config)
-            agent_runtime = TeXadaAgentRuntime(
-                config,
-                model=router.model,
-                backend=router.backend,
-            )
-            shorthand = router.shorthand_store
-            history = HistoryStore(config)
-            run_logs = RunLogStore(config)
-            render_engine = RenderEngine(config)
-            backend_mgr = BackendManager(config)
+            replace_runtime(save_config_updates(settings_updates, data_dir=config.data_dir))
             settings_imported = len(settings_updates)
         return {
             "history": history_result,

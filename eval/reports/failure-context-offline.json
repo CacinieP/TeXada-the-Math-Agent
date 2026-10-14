@@ -1,0 +1,718 @@
+{
+  "schema_version": 1,
+  "scope": "scripted planner / real local tools",
+  "model_requests": 0,
+  "claim": "No model-quality or API-latency conclusion",
+  "rows": [
+    {
+      "case_id": "unknown-small",
+      "mode": "raw",
+      "recovered": true,
+      "planner_rounds": 2,
+      "repeated_proposals": 0,
+      "input_tokens": {
+        "status": "NOT_CHECKED",
+        "reason": "scripted planner"
+      },
+      "request_json_bytes": [
+        2049,
+        2655
+      ],
+      "local_runtime_ms": 179.497,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_id": null,
+        "reference_source": null,
+        "reference_review_status": null,
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "inference_fingerprint": {
+        "schema_version": 1,
+        "status": "RECORDED",
+        "reason": "",
+        "identity": {
+          "application_version": "0.4.1",
+          "application_build": {
+            "status": "NOT_CHECKED",
+            "value": null,
+            "reason": "application build revision is not embedded"
+          },
+          "backend": "openai_compatible",
+          "endpoint": "https://api.modelbest.cn/v1",
+          "configured_models": {
+            "text": "MiniCPM-V-4.7-1B",
+            "vision": "MiniCPM-V-4.7-1B"
+          },
+          "configuration": {
+            "temperature": 0.1,
+            "max_tokens": 2048,
+            "inference_timeout_seconds": 90.0,
+            "api_request_timeout_seconds": 240.0,
+            "agent_max_steps": 3,
+            "tool_timeout_seconds": 10.0,
+            "nl_candidate_first": false,
+            "ocr_preprocessing": "binary"
+          },
+          "client_runtime": {
+            "python": "3.13.13",
+            "openai": "2.41.1",
+            "httpx": "0.28.1",
+            "opencv": "4.13.0.92"
+          },
+          "prompt_manifest_sha256": "a15ee72ac02fd54e3b24f228f894ca3d8e73ac8b563f78e41ad5591c8a2cd90a",
+          "tool_schema_sha256": "6ff8c3433936489d47ad33edb28f87be9a2f805217005b0ea39992c721f4c342",
+          "artifacts": {
+            "weights_sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "actual serving weight bytes are not observable for hashing"
+            },
+            "weights_revision": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "serving checkpoint revision is not exposed by the endpoint"
+            },
+            "quantization": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "actual serving precision cannot be verified from a configured alias"
+            },
+            "mmproj_sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "serving multimodal projector bytes are not observable for hashing"
+            },
+            "runtime_build": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "externally managed server runtime build is not observed"
+            },
+            "chat_template_revision": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "server chat-template revision is not exposed by the endpoint"
+            }
+          },
+          "dataset": {
+            "version": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "interactive request has no dataset identity"
+            },
+            "sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "dataset content hash was not supplied"
+            }
+          },
+          "planner_controls": {
+            "failure_context_projection": false,
+            "surface": "full"
+          }
+        },
+        "identity_sha256": "0176a5681683f19a345bb0ef0905ff3b8588c65cdb0de704d77a28633be81a9d",
+        "calls": [],
+        "capture_status": "COMPLETE",
+        "capture_errors": []
+      }
+    },
+    {
+      "case_id": "unknown-small",
+      "mode": "projected",
+      "recovered": true,
+      "planner_rounds": 2,
+      "repeated_proposals": 0,
+      "input_tokens": {
+        "status": "NOT_CHECKED",
+        "reason": "scripted planner"
+      },
+      "request_json_bytes": [
+        2049,
+        2603
+      ],
+      "local_runtime_ms": 4.565,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_id": null,
+        "reference_source": null,
+        "reference_review_status": null,
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "inference_fingerprint": {
+        "schema_version": 1,
+        "status": "RECORDED",
+        "reason": "",
+        "identity": {
+          "application_version": "0.4.1",
+          "application_build": {
+            "status": "NOT_CHECKED",
+            "value": null,
+            "reason": "application build revision is not embedded"
+          },
+          "backend": "openai_compatible",
+          "endpoint": "https://api.modelbest.cn/v1",
+          "configured_models": {
+            "text": "MiniCPM-V-4.7-1B",
+            "vision": "MiniCPM-V-4.7-1B"
+          },
+          "configuration": {
+            "temperature": 0.1,
+            "max_tokens": 2048,
+            "inference_timeout_seconds": 90.0,
+            "api_request_timeout_seconds": 240.0,
+            "agent_max_steps": 3,
+            "tool_timeout_seconds": 10.0,
+            "nl_candidate_first": false,
+            "ocr_preprocessing": "binary"
+          },
+          "client_runtime": {
+            "python": "3.13.13",
+            "openai": "2.41.1",
+            "httpx": "0.28.1",
+            "opencv": "4.13.0.92"
+          },
+          "prompt_manifest_sha256": "a15ee72ac02fd54e3b24f228f894ca3d8e73ac8b563f78e41ad5591c8a2cd90a",
+          "tool_schema_sha256": "6ff8c3433936489d47ad33edb28f87be9a2f805217005b0ea39992c721f4c342",
+          "artifacts": {
+            "weights_sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "actual serving weight bytes are not observable for hashing"
+            },
+            "weights_revision": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "serving checkpoint revision is not exposed by the endpoint"
+            },
+            "quantization": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "actual serving precision cannot be verified from a configured alias"
+            },
+            "mmproj_sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "serving multimodal projector bytes are not observable for hashing"
+            },
+            "runtime_build": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "externally managed server runtime build is not observed"
+            },
+            "chat_template_revision": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "server chat-template revision is not exposed by the endpoint"
+            }
+          },
+          "dataset": {
+            "version": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "interactive request has no dataset identity"
+            },
+            "sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "dataset content hash was not supplied"
+            }
+          },
+          "planner_controls": {
+            "failure_context_projection": true,
+            "surface": "full"
+          }
+        },
+        "identity_sha256": "953ca1f25f6ee700e65c109b95fd7c2d836a82ea06f3289582f39b8224f8bb0e",
+        "calls": [],
+        "capture_status": "COMPLETE",
+        "capture_errors": []
+      }
+    },
+    {
+      "case_id": "unknown-large",
+      "mode": "raw",
+      "recovered": true,
+      "planner_rounds": 2,
+      "repeated_proposals": 0,
+      "input_tokens": {
+        "status": "NOT_CHECKED",
+        "reason": "scripted planner"
+      },
+      "request_json_bytes": [
+        2049,
+        5330
+      ],
+      "local_runtime_ms": 2.817,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_id": null,
+        "reference_source": null,
+        "reference_review_status": null,
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "inference_fingerprint": {
+        "schema_version": 1,
+        "status": "RECORDED",
+        "reason": "",
+        "identity": {
+          "application_version": "0.4.1",
+          "application_build": {
+            "status": "NOT_CHECKED",
+            "value": null,
+            "reason": "application build revision is not embedded"
+          },
+          "backend": "openai_compatible",
+          "endpoint": "https://api.modelbest.cn/v1",
+          "configured_models": {
+            "text": "MiniCPM-V-4.7-1B",
+            "vision": "MiniCPM-V-4.7-1B"
+          },
+          "configuration": {
+            "temperature": 0.1,
+            "max_tokens": 2048,
+            "inference_timeout_seconds": 90.0,
+            "api_request_timeout_seconds": 240.0,
+            "agent_max_steps": 3,
+            "tool_timeout_seconds": 10.0,
+            "nl_candidate_first": false,
+            "ocr_preprocessing": "binary"
+          },
+          "client_runtime": {
+            "python": "3.13.13",
+            "openai": "2.41.1",
+            "httpx": "0.28.1",
+            "opencv": "4.13.0.92"
+          },
+          "prompt_manifest_sha256": "a15ee72ac02fd54e3b24f228f894ca3d8e73ac8b563f78e41ad5591c8a2cd90a",
+          "tool_schema_sha256": "6ff8c3433936489d47ad33edb28f87be9a2f805217005b0ea39992c721f4c342",
+          "artifacts": {
+            "weights_sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "actual serving weight bytes are not observable for hashing"
+            },
+            "weights_revision": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "serving checkpoint revision is not exposed by the endpoint"
+            },
+            "quantization": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "actual serving precision cannot be verified from a configured alias"
+            },
+            "mmproj_sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "serving multimodal projector bytes are not observable for hashing"
+            },
+            "runtime_build": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "externally managed server runtime build is not observed"
+            },
+            "chat_template_revision": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "server chat-template revision is not exposed by the endpoint"
+            }
+          },
+          "dataset": {
+            "version": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "interactive request has no dataset identity"
+            },
+            "sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "dataset content hash was not supplied"
+            }
+          },
+          "planner_controls": {
+            "failure_context_projection": false,
+            "surface": "full"
+          }
+        },
+        "identity_sha256": "0176a5681683f19a345bb0ef0905ff3b8588c65cdb0de704d77a28633be81a9d",
+        "calls": [],
+        "capture_status": "COMPLETE",
+        "capture_errors": []
+      }
+    },
+    {
+      "case_id": "unknown-large",
+      "mode": "projected",
+      "recovered": true,
+      "planner_rounds": 2,
+      "repeated_proposals": 0,
+      "input_tokens": {
+        "status": "NOT_CHECKED",
+        "reason": "scripted planner"
+      },
+      "request_json_bytes": [
+        2049,
+        2603
+      ],
+      "local_runtime_ms": 2.854,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_id": null,
+        "reference_source": null,
+        "reference_review_status": null,
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "inference_fingerprint": {
+        "schema_version": 1,
+        "status": "RECORDED",
+        "reason": "",
+        "identity": {
+          "application_version": "0.4.1",
+          "application_build": {
+            "status": "NOT_CHECKED",
+            "value": null,
+            "reason": "application build revision is not embedded"
+          },
+          "backend": "openai_compatible",
+          "endpoint": "https://api.modelbest.cn/v1",
+          "configured_models": {
+            "text": "MiniCPM-V-4.7-1B",
+            "vision": "MiniCPM-V-4.7-1B"
+          },
+          "configuration": {
+            "temperature": 0.1,
+            "max_tokens": 2048,
+            "inference_timeout_seconds": 90.0,
+            "api_request_timeout_seconds": 240.0,
+            "agent_max_steps": 3,
+            "tool_timeout_seconds": 10.0,
+            "nl_candidate_first": false,
+            "ocr_preprocessing": "binary"
+          },
+          "client_runtime": {
+            "python": "3.13.13",
+            "openai": "2.41.1",
+            "httpx": "0.28.1",
+            "opencv": "4.13.0.92"
+          },
+          "prompt_manifest_sha256": "a15ee72ac02fd54e3b24f228f894ca3d8e73ac8b563f78e41ad5591c8a2cd90a",
+          "tool_schema_sha256": "6ff8c3433936489d47ad33edb28f87be9a2f805217005b0ea39992c721f4c342",
+          "artifacts": {
+            "weights_sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "actual serving weight bytes are not observable for hashing"
+            },
+            "weights_revision": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "serving checkpoint revision is not exposed by the endpoint"
+            },
+            "quantization": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "actual serving precision cannot be verified from a configured alias"
+            },
+            "mmproj_sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "serving multimodal projector bytes are not observable for hashing"
+            },
+            "runtime_build": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "externally managed server runtime build is not observed"
+            },
+            "chat_template_revision": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "server chat-template revision is not exposed by the endpoint"
+            }
+          },
+          "dataset": {
+            "version": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "interactive request has no dataset identity"
+            },
+            "sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "dataset content hash was not supplied"
+            }
+          },
+          "planner_controls": {
+            "failure_context_projection": true,
+            "surface": "full"
+          }
+        },
+        "identity_sha256": "953ca1f25f6ee700e65c109b95fd7c2d836a82ea06f3289582f39b8224f8bb0e",
+        "calls": [],
+        "capture_status": "COMPLETE",
+        "capture_errors": []
+      }
+    },
+    {
+      "case_id": "syntax-repair",
+      "mode": "raw",
+      "recovered": true,
+      "planner_rounds": 3,
+      "repeated_proposals": 0,
+      "input_tokens": {
+        "status": "NOT_CHECKED",
+        "reason": "scripted planner"
+      },
+      "request_json_bytes": [
+        2049,
+        3333,
+        4916
+      ],
+      "local_runtime_ms": 8.124,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "67e7874c2ace1c7a28a46cddcd000af23f6974f89e1aa4fd11dffb15486e3a68",
+        "reference_tree_sha256": "67e7874c2ace1c7a28a46cddcd000af23f6974f89e1aa4fd11dffb15486e3a68",
+        "reference_id": null,
+        "reference_source": null,
+        "reference_review_status": null,
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "inference_fingerprint": {
+        "schema_version": 1,
+        "status": "RECORDED",
+        "reason": "",
+        "identity": {
+          "application_version": "0.4.1",
+          "application_build": {
+            "status": "NOT_CHECKED",
+            "value": null,
+            "reason": "application build revision is not embedded"
+          },
+          "backend": "openai_compatible",
+          "endpoint": "https://api.modelbest.cn/v1",
+          "configured_models": {
+            "text": "MiniCPM-V-4.7-1B",
+            "vision": "MiniCPM-V-4.7-1B"
+          },
+          "configuration": {
+            "temperature": 0.1,
+            "max_tokens": 2048,
+            "inference_timeout_seconds": 90.0,
+            "api_request_timeout_seconds": 240.0,
+            "agent_max_steps": 3,
+            "tool_timeout_seconds": 10.0,
+            "nl_candidate_first": false,
+            "ocr_preprocessing": "binary"
+          },
+          "client_runtime": {
+            "python": "3.13.13",
+            "openai": "2.41.1",
+            "httpx": "0.28.1",
+            "opencv": "4.13.0.92"
+          },
+          "prompt_manifest_sha256": "a15ee72ac02fd54e3b24f228f894ca3d8e73ac8b563f78e41ad5591c8a2cd90a",
+          "tool_schema_sha256": "6ff8c3433936489d47ad33edb28f87be9a2f805217005b0ea39992c721f4c342",
+          "artifacts": {
+            "weights_sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "actual serving weight bytes are not observable for hashing"
+            },
+            "weights_revision": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "serving checkpoint revision is not exposed by the endpoint"
+            },
+            "quantization": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "actual serving precision cannot be verified from a configured alias"
+            },
+            "mmproj_sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "serving multimodal projector bytes are not observable for hashing"
+            },
+            "runtime_build": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "externally managed server runtime build is not observed"
+            },
+            "chat_template_revision": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "server chat-template revision is not exposed by the endpoint"
+            }
+          },
+          "dataset": {
+            "version": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "interactive request has no dataset identity"
+            },
+            "sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "dataset content hash was not supplied"
+            }
+          },
+          "planner_controls": {
+            "failure_context_projection": false,
+            "surface": "full"
+          }
+        },
+        "identity_sha256": "0176a5681683f19a345bb0ef0905ff3b8588c65cdb0de704d77a28633be81a9d",
+        "calls": [],
+        "capture_status": "COMPLETE",
+        "capture_errors": []
+      }
+    },
+    {
+      "case_id": "syntax-repair",
+      "mode": "projected",
+      "recovered": true,
+      "planner_rounds": 3,
+      "repeated_proposals": 0,
+      "input_tokens": {
+        "status": "NOT_CHECKED",
+        "reason": "scripted planner"
+      },
+      "request_json_bytes": [
+        2049,
+        2655,
+        4186
+      ],
+      "local_runtime_ms": 5.917,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "67e7874c2ace1c7a28a46cddcd000af23f6974f89e1aa4fd11dffb15486e3a68",
+        "reference_tree_sha256": "67e7874c2ace1c7a28a46cddcd000af23f6974f89e1aa4fd11dffb15486e3a68",
+        "reference_id": null,
+        "reference_source": null,
+        "reference_review_status": null,
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "inference_fingerprint": {
+        "schema_version": 1,
+        "status": "RECORDED",
+        "reason": "",
+        "identity": {
+          "application_version": "0.4.1",
+          "application_build": {
+            "status": "NOT_CHECKED",
+            "value": null,
+            "reason": "application build revision is not embedded"
+          },
+          "backend": "openai_compatible",
+          "endpoint": "https://api.modelbest.cn/v1",
+          "configured_models": {
+            "text": "MiniCPM-V-4.7-1B",
+            "vision": "MiniCPM-V-4.7-1B"
+          },
+          "configuration": {
+            "temperature": 0.1,
+            "max_tokens": 2048,
+            "inference_timeout_seconds": 90.0,
+            "api_request_timeout_seconds": 240.0,
+            "agent_max_steps": 3,
+            "tool_timeout_seconds": 10.0,
+            "nl_candidate_first": false,
+            "ocr_preprocessing": "binary"
+          },
+          "client_runtime": {
+            "python": "3.13.13",
+            "openai": "2.41.1",
+            "httpx": "0.28.1",
+            "opencv": "4.13.0.92"
+          },
+          "prompt_manifest_sha256": "a15ee72ac02fd54e3b24f228f894ca3d8e73ac8b563f78e41ad5591c8a2cd90a",
+          "tool_schema_sha256": "6ff8c3433936489d47ad33edb28f87be9a2f805217005b0ea39992c721f4c342",
+          "artifacts": {
+            "weights_sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "actual serving weight bytes are not observable for hashing"
+            },
+            "weights_revision": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "serving checkpoint revision is not exposed by the endpoint"
+            },
+            "quantization": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "actual serving precision cannot be verified from a configured alias"
+            },
+            "mmproj_sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "serving multimodal projector bytes are not observable for hashing"
+            },
+            "runtime_build": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "externally managed server runtime build is not observed"
+            },
+            "chat_template_revision": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "server chat-template revision is not exposed by the endpoint"
+            }
+          },
+          "dataset": {
+            "version": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "interactive request has no dataset identity"
+            },
+            "sha256": {
+              "status": "NOT_CHECKED",
+              "value": null,
+              "reason": "dataset content hash was not supplied"
+            }
+          },
+          "planner_controls": {
+            "failure_context_projection": true,
+            "surface": "full"
+          }
+        },
+        "identity_sha256": "953ca1f25f6ee700e65c109b95fd7c2d836a82ea06f3289582f39b8224f8bb0e",
+        "calls": [],
+        "capture_status": "COMPLETE",
+        "capture_errors": []
+      }
+    }
+  ]
+}

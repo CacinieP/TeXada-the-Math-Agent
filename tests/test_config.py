@@ -1,4 +1,4 @@
-"""Configuration contracts for TeXada's two-model product boundary."""
+"""Configuration contracts for TeXada model roles and backend selection."""
 
 import json
 import tomllib
@@ -46,18 +46,23 @@ def test_release_version_is_synchronized_across_python_node_and_tauri():
     )["version"]
     frontend = (ROOT / "tauri-shell/src/index.html").read_text(encoding="utf-8")
 
+    from packaging.version import Version
+
     assert {
-        python_version,
-        package_version,
-        package_lock_version,
-        package_lock_root_version,
-        cargo_version,
-        cargo_lock_version,
-        tauri_version,
-        uv_lock_version,
-        __version__,
-        _app_version(),
-    } == {"0.4.1"}
+        Version(value)
+        for value in {
+            python_version,
+            package_version,
+            package_lock_version,
+            package_lock_root_version,
+            cargo_version,
+            cargo_lock_version,
+            tauri_version,
+            uv_lock_version,
+            __version__,
+            _app_version(),
+        }
+    } == {Version("0.4.2-beta.2")}
     assert f"v{python_version}" in frontend
 
 
@@ -67,7 +72,7 @@ def test_app_version_fallback_matches_source_version(monkeypatch):
 
     monkeypatch.setattr(api_module, "version", missing_distribution)
 
-    assert _app_version() == "0.4.1"
+    assert _app_version() == "0.4.2-beta.2"
 
 
 def test_license_is_synchronized_as_agpl_v3_or_later():
@@ -91,13 +96,11 @@ def test_license_is_synchronized_as_agpl_v3_or_later():
     } == {expected}
     assert "license-AGPL--3.0--or--later-blue" in readme
     assert "`AGPL-3.0-or-later`" in readme
-    assert "assets/texada-hero-agpl.png" in readme
-    assert (ROOT / "assets/texada-hero-agpl.png").is_file()
     assert "GNU AFFERO GENERAL PUBLIC LICENSE" in license_text
     assert "Version 3, 19 November 2007" in license_text
 
 
-def test_default_product_has_exactly_two_minicpm_model_roles():
+def test_legacy_defaults_preserve_existing_minicpm_model_roles():
     fields = TeXadaConfig.model_fields
 
     assert fields["model_name"].default == "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M"
@@ -106,9 +109,35 @@ def test_default_product_has_exactly_two_minicpm_model_roles():
     assert "tex2tex_max_new_tokens" not in fields
 
 
+@pytest.mark.parametrize("vision_model", ["", "MiniCPM-V-4.7-1B"])
+def test_openai_compatible_single_checkpoint_can_serve_both_roles(vision_model):
+    config = TeXadaConfig(
+        backend="openai_compatible",
+        openai_base_url="https://api.modelbest.cn/v1/",
+        openai_api_key="test-placeholder",
+        openai_model_name="MiniCPM-V-4.7-1B",
+        openai_vision_model_name=vision_model,
+    )
+
+    assert config.active_base_url == "https://api.modelbest.cn/v1"
+    assert config.active_model_name == config.active_vision_model_name == "MiniCPM-V-4.7-1B"
+    assert config.active_api_key == "test-placeholder"
+
+
 def test_saved_settings_do_not_expose_repair_model_configuration():
     assert "tex2tex_model_path" not in SAVED_CONFIG_FIELDS
     assert "tex2tex_max_new_tokens" not in SAVED_CONFIG_FIELDS
+
+
+def test_nl_candidate_first_is_opt_in_and_can_be_saved(tmp_path, monkeypatch):
+    assert TeXadaConfig.model_fields["nl_candidate_first"].default is False
+    assert "nl_candidate_first" in SAVED_CONFIG_FIELDS
+    monkeypatch.setenv("TEXADA_NL_CANDIDATE_FIRST", "true")
+    assert TeXadaConfig().nl_candidate_first is True
+
+    config = save_config_updates({"nl_candidate_first": True}, data_dir=tmp_path)
+    assert config.nl_candidate_first is True
+    assert json.loads((tmp_path / "config.json").read_text())["nl_candidate_first"] is True
 
 
 def test_run_logs_are_unlimited_by_default_but_caps_remain_configurable():
@@ -149,3 +178,65 @@ def test_invalid_config_update_does_not_overwrite_existing_file(tmp_path):
         save_config_updates({"temperature": 99}, data_dir=tmp_path)
 
     assert config_path.read_text(encoding="utf-8") == original
+
+
+def test_llama_server_is_the_default_backend():
+    fields = TeXadaConfig.model_fields
+    assert fields["backend"].default == "llama_server"
+    assert fields["llama_server_host"].default == "http://127.0.0.1:8080"
+    assert fields["llama_context_size"].default == 8192
+    assert fields["llama_gpu_layers"].default == 99
+
+
+def test_llama_server_active_urls_and_routing_names():
+    config = TeXadaConfig(backend="llama_server")
+    assert config.active_base_url == "http://127.0.0.1:8080/v1"
+    assert config.active_model_name == "MiniCPM-V-4.7-1B"
+    assert config.active_vision_model_name == "MiniCPM-V-4.7-1B"
+    assert config.backend_label == "llama-server"
+
+
+def test_llama_server_host_normalization_strips_v1():
+    config = TeXadaConfig(llama_server_host="http://127.0.0.1:8080/v1")
+    assert config.llama_server_host == "http://127.0.0.1:8080"
+
+
+def test_ollama_backend_keeps_original_behavior():
+    config = TeXadaConfig(backend="ollama")
+    assert config.active_base_url == "http://localhost:11434/v1"
+    assert config.active_model_name == "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M"
+    assert config.backend_label == "ollama"
+
+
+def test_openai_compatible_backend_keeps_original_behavior():
+    config = TeXadaConfig(
+        backend="openai_compatible",
+        openai_base_url="https://api.example.com/v1",
+        openai_api_key="k",
+        openai_model_name="m",
+    )
+    assert config.active_base_url == "https://api.example.com/v1"
+    assert config.active_model_name == "m"
+    assert config.backend_label == "openai-compatible"
+
+
+def test_llama_server_fields_are_persistable():
+    assert {
+        "llama_server_host",
+        "llama_models_dir",
+        "llama_context_size",
+        "llama_gpu_layers",
+        "llama_server_binary",
+    } <= SAVED_CONFIG_FIELDS
+
+
+def test_unsupported_backend_still_rejected():
+    with pytest.raises(ValidationError):
+        TeXadaConfig(backend="vllm")
+
+
+def test_llama_server_memory_control_fields_exist():
+    fields = TeXadaConfig.model_fields
+    assert fields["llama_models_max"].default == 1
+    assert fields["llama_idle_sleep_seconds"].default == 300
+    assert {"llama_models_max", "llama_idle_sleep_seconds"} <= SAVED_CONFIG_FIELDS

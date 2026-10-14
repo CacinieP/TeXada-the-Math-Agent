@@ -8,6 +8,9 @@ This directory keeps technical and maintenance documentation. Community health f
 
 | Document | Purpose |
 |----------|---------|
+| [TeXada series](texada-series.md) / [TeXada 系列](texada-series.md) | Math Agent and Studio responsibilities, shared MiniCPM profile, manual handoff and deep-blue visual identity. |
+| [MiniCPM-V 4.7](minicpm-v47.md) / [单模型适配](minicpm-v47.md) | ModelBest API setup, official HF/GGUF sources and separate local Q4 acceptance. |
+| [MiniCPM-V 4.7 evidence](minicpm-v47-evidence.md) / [本次验收](minicpm-v47-evidence.md) | Paired candidate/planner and OCR experiments with explicit sample and metric limits. |
 | [Why TeXada?](comparison.md) / [为什么选择 TeXada](comparison.md) | Product-focus comparison with links to the official documentation of adjacent tools. |
 | [Design philosophy](design-philosophy.md) / [设计哲学](design-philosophy.md) | Why the planner decides, deterministic tools execute, and the compiler verifies. |
 | [Design evolution](design-evolution.md) / [设计思路与版本迭代](design-evolution.md) | Long-form product, architecture, algorithm, and per-version Diff rationale from the original prototype through v0.3.8. |
@@ -34,6 +37,8 @@ This directory keeps technical and maintenance documentation. Community health f
 |----------|---------|
 | [Golden set evidence I design](specs/2026-09-19-golden-set-evidence-i-design.md) / [证据闭环 I 设计](specs/2026-09-19-golden-set-evidence-i-design.md) | Iteration 1 design: golden set automation, repair dataset, recorded and real execution modes, acceptance gates. |
 | [Golden set evidence I implementation plan](specs/2026-09-19-golden-set-evidence-i-plan.md) | Task-by-task implementation plan for the Iteration 1 golden set, including CI wiring and baseline reporting. |
+| [Llama-server runtime design](specs/2026-09-19-llama-server-runtime-design.md) | Iteration 1.5 design: built-in llama-server sidecar, three-backend selection, in-app lifecycle and model pull. |
+| [Llama-server runtime implementation plan](specs/2026-09-19-llama-server-runtime-plan.md) | Task-by-task implementation plan for the llama-server migration. |
 
 ## Community And Release / 社区与发布
 

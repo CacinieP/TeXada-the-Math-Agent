@@ -20,6 +20,13 @@ CONFIG_FILE = TEXADA_HOME / "config.json"
 SAVED_CONFIG_FIELDS = frozenset({
     "backend",
     "ollama_host",
+    "llama_server_host",
+    "llama_server_binary",
+    "llama_models_dir",
+    "llama_context_size",
+    "llama_gpu_layers",
+    "llama_models_max",
+    "llama_idle_sleep_seconds",
     "model_name",
     "vision_model_name",
     "openai_base_url",
@@ -35,6 +42,10 @@ SAVED_CONFIG_FIELDS = frozenset({
     "inference_timeout_seconds",
     "api_request_timeout_seconds",
     "agent_max_steps",
+    "nl_candidate_first",
+    "failure_context_projection",
+    "planner_surface",
+    "ocr_preprocessing",
     "run_log_max_days",
     "run_log_max_items",
 })
@@ -56,9 +67,18 @@ class TeXadaConfig(BaseSettings):
         protected_namespaces=("settings_",),
     )
 
-    # ── Ollama backend (MiniCPM) ──
-    backend: Literal["ollama", "openai_compatible"] = "ollama"
+    # ── Local runtimes (MiniCPM) ──
+    # llama_server is the built-in default; ollama and openai_compatible
+    # remain selectable compatibility backends (ADR-016).
+    backend: Literal["llama_server", "ollama", "openai_compatible"] = "llama_server"
     ollama_host: str = "http://localhost:11434"
+    llama_server_host: str = "http://127.0.0.1:8080"
+    llama_server_binary: str = ""  # empty = packaged path or PATH lookup
+    llama_models_dir: str = ""  # empty = <data_dir>/models
+    llama_context_size: int = 8192
+    llama_gpu_layers: int = 99  # Metal: full offload
+    llama_models_max: int = 1  # router: max simultaneously resident models
+    llama_idle_sleep_seconds: int = 300  # idle sleep before VRAM release (-1 disables)
     model_name: str = "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M"  # Text: MiniCPM5-2B
     vision_model_name: str = "openbmb/minicpm-v4.6:latest"  # MiniCPM-V 4.6 OCR
     openai_base_url: str = ""
@@ -72,9 +92,18 @@ class TeXadaConfig(BaseSettings):
 
     # ── Agent Runtime ──
     agent_max_steps: int = Field(default=3, ge=1, le=8)
+    # Opt in to NL candidate generation before the shared compile/Planner review.
+    nl_candidate_first: bool = False
+    failure_context_projection: bool = True
+    # Full keeps the legacy parameter surface; both modes enforce runtime binding.
+    planner_surface: Literal["full", "minimal"] = "full"
     # Wall-clock budget for one TeX tool call; a pathological input cannot
     # pin the service beyond this bound.
     tool_timeout_seconds: float = Field(default=10.0, gt=0.0, le=120.0)
+
+    # ── OCR ──
+    # Raw preserves decoded pixels; binary retains the legacy preprocessing.
+    ocr_preprocessing: Literal["raw", "binary"] = "binary"
 
     # ── Render ──
     default_render_mode: Literal["katex", "latex"] = "katex"
@@ -138,6 +167,14 @@ class TeXadaConfig(BaseSettings):
             raw = raw[:-3].rstrip("/")
         return raw
 
+    @field_validator("llama_server_host", mode="before")
+    @classmethod
+    def normalize_llama_server_host(cls, value: object) -> str:
+        raw = cls._normalize_url(value)
+        if raw.endswith("/v1"):
+            raw = raw[:-3].rstrip("/")
+        return raw
+
     @field_validator("openai_base_url", mode="before")
     @classmethod
     def normalize_base_url(cls, value: object) -> str:
@@ -161,28 +198,47 @@ class TeXadaConfig(BaseSettings):
         return self.backend == "openai_compatible"
 
     @property
+    def uses_llama_server(self) -> bool:
+        return self.backend == "llama_server"
+
+    @property
     def active_base_url(self) -> str:
         if self.uses_openai_compatible:
             return self.openai_base_url.rstrip("/")
+        if self.uses_llama_server:
+            return f"{self.llama_server_host.rstrip('/')}/v1"
         return f"{self.ollama_host.rstrip('/')}/v1"
 
     @property
     def active_api_key(self) -> str:
         if self.uses_openai_compatible:
             return self.openai_api_key
-        return "ollama"
+        return "ollama"  # local runtimes accept any non-empty key
 
     @property
     def active_model_name(self) -> str:
         if self.uses_openai_compatible:
             return self.openai_model_name
+        if self.uses_llama_server:
+            return "MiniCPM-V-4.7-1B"
         return self.model_name
 
     @property
     def active_vision_model_name(self) -> str:
         if self.uses_openai_compatible:
             return self.openai_vision_model_name or self.openai_model_name
+        if self.uses_llama_server:
+            return "MiniCPM-V-4.7-1B"
         return self.vision_model_name
+
+    @property
+    def backend_label(self) -> str:
+        """Human-readable backend name for run logs and status."""
+        if self.uses_openai_compatible:
+            return "openai-compatible"
+        if self.uses_llama_server:
+            return "llama-server"
+        return "ollama"
 
     @property
     def api_base_url(self) -> str:

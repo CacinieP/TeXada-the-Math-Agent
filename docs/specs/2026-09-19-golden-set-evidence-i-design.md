@@ -6,7 +6,7 @@ Status: Proposed（待评审）
 
 所属层：Evidence Layer（横向质量轨道）
 
-对应 ADR：[013-golden-set-evidence](adr/013-golden-set-evidence.md)
+对应 ADR：[013-golden-set-evidence](../adr/013-golden-set-evidence.md)
 
 对应路线图：[iteration-roadmap-v0.4.1-to-v1.0](../iteration-roadmap-v0.4.1-to-v1.0.md) §3 Iteration 1
 

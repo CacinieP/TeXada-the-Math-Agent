@@ -15,6 +15,7 @@
   let currentTab = 'nl';
   let renderMode = 'katex'; // 'katex' | 'latex'
   let lastResult = null;
+  const resultReviews = new Map();
   let isProcessing = false;
   let isOcrSetup = false;
   let ocrRunId = 0;
@@ -59,10 +60,11 @@
       'result.renderPreview': '渲染预览',
       'result.latexStructure': '纯 LaTeX 结构预览',
       'result.latexSource': 'LaTeX 源码',
-      'result.valid': '✓ Valid',
-      'result.invalid': '✗ Invalid',
+      'result.valid': '✓ 语法通过',
+      'result.invalid': '✗ 验证未通过',
+      'result.sourceEdited': '生成期间输入已修改，请重新生成后再采用结果。',
       'result.sourceModel': '🤖 model',
-      'result.sourceAgent': '🧭 MiniCPM5 Agent',
+      'result.sourceAgent': '🧭 TeXada Agent',
       'result.sourceShorthand': '⚡ shorthand',
       'result.agentTrace': 'Agent 执行轨迹',
       'result.agentTraceCount': '{steps} 步 · {tools} 次工具调用 · {changes} 个语义修改',
@@ -153,6 +155,25 @@
       'settings.backend': '模型后端',
       'settings.ollamaHost': 'Ollama 地址',
       'settings.ollamaHostDesc': '默认 http://localhost:11434，可改任意端口',
+      'settings.llamaHost': 'llama-server 地址',
+      'settings.llamaHostDesc': '内置本地服务地址，默认 http://127.0.0.1:8080',
+      'settings.llamaHostPlaceholder': 'http://127.0.0.1:8080',
+      'settings.llamaBinary': 'llama-server 路径',
+      'settings.llamaBinaryDesc': '留空则使用随应用打包的二进制或 PATH 中的 llama-server',
+      'settings.llamaModelsDir': '模型目录',
+      'settings.llamaModelsDirDesc': '留空则使用 ~/.texada/models',
+      'settings.llamaServiceTitle': '本地推理服务（llama-server）',
+      'settings.llamaStatus': '服务状态',
+      'action.llamaStart': '启动',
+      'action.llamaStop': '停止',
+      'action.llamaPull': '下载模型',
+      'status.stopped': '服务已停止',
+      'status.missingBinary': '未找到 llama-server 二进制',
+      'status.downloading': '正在下载模型',
+      'llama.startFailed': '启动失败',
+      'llama.pullFailed': '下载失败',
+      'llama.pullDone': '模型下载完成',
+      'llama.pullProgress': '{file}：{percent}%',
       'settings.ollamaHostPlaceholder': '例如 http://localhost:11435',
       'settings.localTextModel': '本地文本模型',
       'settings.localVisionModel': '本地视觉模型',
@@ -233,10 +254,11 @@
       'result.renderPreview': 'Rendered preview',
       'result.latexStructure': 'Plain LaTeX structure',
       'result.latexSource': 'LaTeX source',
-      'result.valid': '✓ Valid',
-      'result.invalid': '✗ Invalid',
+      'result.valid': '✓ Syntax valid',
+      'result.invalid': '✗ Validation failed',
+      'result.sourceEdited': 'The input changed while this result was being generated. Generate again before adopting it.',
       'result.sourceModel': '🤖 model',
-      'result.sourceAgent': '🧭 MiniCPM5 Agent',
+      'result.sourceAgent': '🧭 TeXada Agent',
       'result.sourceShorthand': '⚡ shorthand',
       'result.agentTrace': 'Agent execution trace',
       'result.agentTraceCount': '{steps} steps · {tools} tool calls · {changes} semantic edits',
@@ -325,6 +347,24 @@
       'settings.apiAddress': 'API address',
       'settings.apiDesc': 'TeXada FastAPI service address',
       'settings.backend': 'Model backend',
+      'settings.llamaHost': 'llama-server address',
+      'settings.llamaHostDesc': 'Built-in local service; default http://127.0.0.1:8080',
+      'settings.llamaHostPlaceholder': 'http://127.0.0.1:8080',
+      'settings.llamaBinary': 'llama-server executable',
+      'settings.llamaBinaryDesc': 'Leave blank to use the bundled runtime',
+      'settings.llamaModelsDir': 'Model directory',
+      'settings.llamaModelsDirDesc': 'Leave blank to use ~/.texada/models',
+      'settings.llamaServiceTitle': 'Local inference service (llama-server)',
+      'settings.llamaStatus': 'Service status',
+      'action.llamaStart': 'Start',
+      'action.llamaStop': 'Stop',
+      'action.llamaPull': 'Download model',
+      'status.missingBinary': 'llama-server executable not found',
+      'status.downloading': 'Downloading model files…',
+      'llama.startFailed': 'Startup failed',
+      'llama.pullFailed': 'Download failed',
+      'llama.pullDone': 'Model download complete',
+      'llama.pullProgress': '{file}: {percent}%',
       'settings.ollamaHost': 'Ollama address',
       'settings.ollamaHostDesc': 'Default http://localhost:11434; any port is allowed',
       'settings.ollamaHostPlaceholder': 'e.g. http://localhost:11435',
@@ -453,6 +493,15 @@
     inferenceTimeoutInput: document.getElementById('inference-timeout-input'),
     apiTimeoutInput: document.getElementById('api-timeout-input'),
     backendSaveStatus: document.getElementById('backend-save-status'),
+    llamaHostInput: document.getElementById('llama-host-input'),
+    llamaBinaryInput: document.getElementById('llama-binary-input'),
+    llamaModelsDirInput: document.getElementById('llama-models-dir-input'),
+    llamaServiceSection: document.getElementById('llama-service-section'),
+    llamaStatusText: document.getElementById('llama-status-text'),
+    btnLlamaStart: document.getElementById('btn-llama-start'),
+    btnLlamaStop: document.getElementById('btn-llama-stop'),
+    btnLlamaPull: document.getElementById('btn-llama-pull'),
+    llamaPullProgress: document.getElementById('llama-pull-progress'),
     uiLanguageSelect: document.getElementById('ui-language-select'),
     uiZoomInput: document.getElementById('ui-zoom-input'),
     uiZoomValue: document.getElementById('ui-zoom-value'),
@@ -516,6 +565,7 @@
       els.apiBaseValue.textContent = t('settings.detecting');
     }
     applyPlatformLabels();
+    for (const panel of resultReviews.values()) panel.redraw();
     if (!lastResult && !isProcessing) setIntent('🔍', t('intent.waiting'));
     if (currentTab === 'history') {
       if (historyView === 'runs' && runLogData.length) renderRunLogs(runLogData);
@@ -576,6 +626,7 @@
       '.zoom-control',
       '.latex-source',
       '.ocr-preview',
+      '.human-review',
     ].join(', '));
   }
 
@@ -645,6 +696,8 @@
 
   function backendStatusText(info) {
     if (!info) return t('status.offline');
+    if (info.status === 'stopped') return t('status.stopped');
+    if (info.status === 'missing_binary') return t('status.missingBinary');
     if (info.status === 'partial_ready') return t('status.partialReady');
     if (info.status === 'missing_model') return t('status.missingModel');
     if (info.status === 'not_configured') return t('status.notConfigured');
@@ -707,7 +760,9 @@
       const res = await fetch(`${API_BASE}${path}`, fetchOptions);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.detail || `HTTP ${res.status}`);
+        const error = new Error(data.detail || `HTTP ${res.status}`);
+        error.status = res.status;
+        throw error;
       }
       return data;
     } catch (e) {
@@ -960,12 +1015,18 @@
     if (!text || isProcessing) return;
 
     isProcessing = true;
+    clearReview(els.nlResult);
     els.nlProcessing.classList.add('active');
     els.nlResult.style.display = 'none';
     setIntent('⏳', t('intent.processing'));
 
     try {
+      const sourceRevision = nlSourceRevision();
       const res = await apiConvert(text);
+      if (nlSourceRevision() !== sourceRevision) {
+        res._reviewInputChanged = true;
+        res._reviewBlocked = true;
+      }
       lastResult = res;
       showResult(res);
       saveHistoryFallback({
@@ -976,7 +1037,7 @@
         source: res.source,
         render_mode: renderMode,
         valid: res.valid,
-      });
+      }, res);
     } catch (e) {
       showError(String(e));
     } finally {
@@ -1017,6 +1078,7 @@
 
     setIntent('∫', `${res.intent || t('intent.unknown')} · ${Number(res.latency_ms || 0).toFixed(1)}ms`);
 
+    mountReview(els.nlResult, res);
     syncRenderModeOptions();
     updateRender();
     renderAgentTrace(res);
@@ -1088,15 +1150,16 @@
   }
 
   function updateRender() {
-    if (!lastResult) return;
+    const result = els.nlResult._texadaResult || lastResult;
+    if (!result) return;
     if (renderMode === 'katex') {
       els.katexSection.style.display = 'block';
       els.latexSection.style.display = 'none';
-      renderKatexPreview(els.renderPreview, lastResult.latex, lastResult.katex_html);
+      renderKatexPreview(els.renderPreview, result.latex, result.katex_html);
     } else {
       els.katexSection.style.display = 'none';
       els.latexSection.style.display = 'block';
-      els.latexPreview.innerHTML = highlightLatex(lastResult.latex);
+      els.latexPreview.innerHTML = highlightLatex(result.latex);
     }
   }
 
@@ -1135,6 +1198,7 @@
   }
 
   function showError(msg) {
+    clearReview(els.nlResult);
     els.nlResult.style.display = 'block';
     // 保存原始结构（首次出错时）
     if (!els.nlResult.dataset.originalHtml) {
@@ -1153,16 +1217,17 @@
   }
 
   async function copyMain() {
-    if (!lastResult) return;
-    await copyToClipboard(lastResult.copy_text || lastResult.latex);
+    const result = els.nlResult._texadaResult;
+    if (!window.TeXadaReview.canAdopt(result)) return;
+    await copyToClipboard(result.copy_text || result.latex);
     if (isTauri) await invoke('hide_window');
   }
 
-  function formulaText(kind) {
-    if (!lastResult) return '';
-    if (kind === 'markdown') return `$$${lastResult.latex}$$`;
-    if (kind === 'latex') return lastResult.latex;
-    return lastResult.copy_text || lastResult.latex;
+  function formulaText(kind, result = lastResult) {
+    if (!window.TeXadaReview.canAdopt(result)) return '';
+    if (kind === 'markdown') return `$$${result.latex}$$`;
+    if (kind === 'latex') return result.latex;
+    return result.copy_text || result.latex;
   }
 
   function markdownFormula(latex) {
@@ -1204,10 +1269,77 @@
     root.querySelectorAll('.formula-click-target').forEach(target => {
       target.onclick = e => {
         if (e.target.closest('button')) return;
-        const text = target.dataset.insertText || formulaText(target.dataset.insertTarget);
+        const owner = target.closest('#nl-result, #ocr-result, #complete-result');
+        if (owner && !window.TeXadaReview.canAdopt(owner._texadaResult)) return;
+        const text = target.dataset.insertText || formulaText(target.dataset.insertTarget, owner?._texadaResult || lastResult);
         insertAtCursor(text);
       };
     });
+  }
+
+  function updateReviewGate(root, result) {
+    const allowed = window.TeXadaReview.canAdopt(result);
+    root.querySelectorAll('#btn-copy-main, #btn-copy-src, #btn-copy-md, [data-copy-result]').forEach(button => {
+      button.disabled = !allowed;
+    });
+    root.querySelectorAll('.formula-click-target').forEach(target => {
+      target.classList.toggle('review-adoption-blocked', !allowed);
+      target.setAttribute('aria-disabled', String(!allowed));
+    });
+  }
+
+  function clearReview(root) {
+    resultReviews.get(root)?.destroy();
+    resultReviews.delete(root);
+    root.querySelector('.human-review')?.remove();
+    root.querySelector('.source-edited-notice')?.remove();
+    delete root._texadaResult;
+  }
+
+  function mountReview(root, result) {
+    clearReview(root);
+    root._texadaResult = result;
+    if (result._reviewInputChanged && !result.review) {
+      const notice = document.createElement('p');
+      notice.className = 'source-edited-notice';
+      notice.dataset.i18n = 'result.sourceEdited';
+      notice.textContent = t('result.sourceEdited');
+      root.prepend(notice);
+    }
+    if (result.review) {
+      const host = document.createElement('section');
+      root.prepend(host);
+      const panel = window.TeXadaReview.createPanel({
+        document, host, review: result.review, apiBase: API_BASE, request: apiJson,
+        language: () => uiLanguage,
+        sourceEdited: result._reviewInputChanged === true,
+        initialBlocked: result._reviewBlocked === true,
+        renderLatex: (target, latex) => renderKatexPreview(target, latex),
+        onChange: (review, { blocked, inputChanged }) => {
+          result.review = review;
+          result.committed = review.committed;
+          result._reviewBlocked = blocked;
+          result._reviewInputChanged = inputChanged;
+          updateReviewGate(root, result);
+        },
+      });
+      resultReviews.set(root, panel);
+    }
+    updateReviewGate(root, result);
+  }
+
+  function refreshResultLabels() {
+    const result = els.nlResult._texadaResult;
+    if (result) {
+      els.resultValid.textContent = t(result.valid ? 'result.valid' : 'result.invalid');
+      const kind = result.source === 'shorthand' ? 'Shorthand' : result.source === 'agent' ? 'Agent' : 'Model';
+      els.resultSource.textContent = t(`result.source${kind}`);
+      renderAgentTrace(result);
+    }
+    for (const root of [els.ocrResult, els.completeResult]) {
+      const result = root._texadaResult;
+      if (result) root.querySelector('.valid-badge').textContent = t(result.valid ? 'result.valid' : 'result.invalid');
+    }
   }
 
   // ── Keyboard ──
@@ -1303,10 +1435,12 @@
     const retryBtn = $('#btn-retry');
     if (copyMainBtn) copyMainBtn.onclick = copyMain;
     if (copySrcBtn) copySrcBtn.onclick = () => {
-      if (lastResult) copyToClipboard(lastResult.latex);
+      const result = els.nlResult._texadaResult;
+      if (window.TeXadaReview.canAdopt(result)) copyToClipboard(result.latex);
     };
     if (copyMdBtn) copyMdBtn.onclick = () => {
-      if (lastResult) copyToClipboard(`$$${lastResult.latex}$$`);
+      const result = els.nlResult._texadaResult;
+      if (window.TeXadaReview.canAdopt(result)) copyToClipboard(`$$${result.latex}$$`);
     };
     if (retryBtn) retryBtn.onclick = doConvert;
     bindFormulaInsertHandlers(els.nlResult);
@@ -1315,9 +1449,23 @@
   bindModeOptions();
   bindNlResultButtons();
   bindWindowDrag();
+  const nlSourceRevision = window.TeXadaReview.bindInputInvalidation(els.nlInput, () => resultReviews.get(els.nlResult));
+  const completeSourceRevision = window.TeXadaReview.bindInputInvalidation(els.completeInput, () => resultReviews.get(els.completeResult));
 
   if ($('#btn-save-backend')) {
     $('#btn-save-backend').addEventListener('click', saveBackendSettings);
+  }
+  if ($('#btn-llama-start')) {
+    $('#btn-llama-start').addEventListener('click', llamaStart);
+  }
+  if ($('#btn-llama-stop')) {
+    $('#btn-llama-stop').addEventListener('click', llamaStop);
+  }
+  if ($('#btn-llama-pull')) {
+    $('#btn-llama-pull').addEventListener('click', llamaPull);
+  }
+  if (els.backendSelect) {
+    els.backendSelect.addEventListener('change', updateLlamaSectionVisibility);
   }
 
   if ($('#btn-add-shorthand')) {
@@ -1538,14 +1686,14 @@
     if (els.uiLanguageStatus) els.uiLanguageStatus.textContent = '';
     applyZoom();
     applyLanguage();
-    if (lastResult) showResult(lastResult);
+    refreshResultLabels();
   }
 
   async function saveUiSettings() {
     if (els.uiLanguageSelect) uiLanguage = normalizeLanguage(els.uiLanguageSelect.value);
     localStorage.setItem('texada-ui-language', uiLanguage);
     applyLanguage();
-    if (lastResult) showResult(lastResult);
+    refreshResultLabels();
     await persistUiSettings();
   }
 
@@ -1559,7 +1707,7 @@
       localStorage.setItem('texada-ui-zoom', String(uiZoom));
       applyZoom();
       applyLanguage();
-      if (lastResult) showResult(lastResult);
+      refreshResultLabels();
       if (els.uiLanguageStatus) els.uiLanguageStatus.textContent = t('settings.languageSaved');
     } catch (e) {
       if (els.uiLanguageStatus) els.uiLanguageStatus.textContent = String(e).replace(/^Error:\s*/, '');
@@ -1570,7 +1718,7 @@
     if (!els.backendSelect) return;
     try {
       const cfg = await apiGetBackendSettings();
-      els.backendSelect.value = cfg.backend || 'ollama';
+      els.backendSelect.value = cfg.backend || 'llama_server';
       els.ollamaHostInput.value = cfg.ollama_host || '';
       els.localModelInput.value = cfg.model_name || '';
       els.localVisionModelInput.value = cfg.vision_model_name || '';
@@ -1580,9 +1728,14 @@
       els.openaiKeyInput.value = '';
       els.inferenceTimeoutInput.value = String(cfg.inference_timeout_seconds || 90);
       els.apiTimeoutInput.value = String(cfg.api_request_timeout_seconds || 240);
+      els.llamaHostInput.value = cfg.llama_server_host || '';
+      els.llamaBinaryInput.value = cfg.llama_server_binary || '';
+      els.llamaModelsDirInput.value = cfg.llama_models_dir || '';
       requestTimeoutMs = Number(cfg.api_request_timeout_seconds) * 1000 || DEFAULT_REQUEST_TIMEOUT_MS;
       els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? t('settings.keySavedPlaceholder') : t('settings.keyEnterPlaceholder');
       els.backendSaveStatus.textContent = '';
+      updateLlamaSectionVisibility();
+      await refreshLlamaStatus();
     } catch (e) {
       els.backendSaveStatus.textContent = t('settings.loadError');
     }
@@ -1600,6 +1753,9 @@
       openai_vision_model_name: els.openaiVisionModelInput.value.trim(),
       inference_timeout_seconds: Number(els.inferenceTimeoutInput.value),
       api_request_timeout_seconds: Number(els.apiTimeoutInput.value),
+      llama_server_host: els.llamaHostInput.value.trim(),
+      llama_server_binary: els.llamaBinaryInput.value.trim(),
+      llama_models_dir: els.llamaModelsDirInput.value.trim(),
     };
     const key = els.openaiKeyInput.value.trim();
     if (key) payload.openai_api_key = key;
@@ -1613,9 +1769,117 @@
       els.apiTimeoutInput.value = String(cfg.api_request_timeout_seconds);
       requestTimeoutMs = Number(cfg.api_request_timeout_seconds) * 1000 || DEFAULT_REQUEST_TIMEOUT_MS;
       els.backendSaveStatus.textContent = t('settings.saved');
+      updateLlamaSectionVisibility();
+      await refreshLlamaStatus();
       await checkBackend();
     } catch (e) {
       els.backendSaveStatus.textContent = String(e).replace(/^Error:\s*/, '');
+    }
+  }
+
+  // ── llama-server runtime ──
+  async function apiLlamaJson(path, options) {
+    return await apiJson(path, options);
+  }
+
+  function updateLlamaSectionVisibility() {
+    if (!els.llamaServiceSection) return;
+    const isLlama = els.backendSelect && els.backendSelect.value === 'llama_server';
+    els.llamaServiceSection.style.display = isLlama ? '' : 'none';
+  }
+
+  function renderLlamaStatus(info) {
+    if (!els.llamaStatusText) return;
+    if (!info) {
+      els.llamaStatusText.textContent = t('status.offline');
+      return;
+    }
+    const parts = [];
+    if (info.status) parts.push(info.status);
+    if (info.message) parts.push(info.message);
+    if (info.binary) parts.push(info.binary);
+    if (Array.isArray(info.missing_models) && info.missing_models.length) {
+      parts.push('missing: ' + info.missing_models.join(', '));
+    }
+    els.llamaStatusText.textContent = parts.join(' · ') || t('status.offline');
+  }
+
+  async function refreshLlamaStatus() {
+    if (!els.backendSelect || els.backendSelect.value !== 'llama_server') return;
+    try {
+      const info = await apiLlamaJson('/api/llama/status');
+      renderLlamaStatus(info);
+      return info;
+    } catch (e) {
+      renderLlamaStatus(null);
+      return null;
+    }
+  }
+
+  async function llamaStart() {
+    if (!els.llamaStatusText) return;
+    els.llamaStatusText.textContent = t('status.starting');
+    try {
+      const info = await apiLlamaJson('/api/llama/start', { method: 'POST' });
+      renderLlamaStatus(info);
+    } catch (e) {
+      els.llamaStatusText.textContent = t('llama.startFailed') + ': ' + String(e).replace(/^Error:\s*/, '');
+    }
+  }
+
+  async function llamaStop() {
+    if (!els.llamaStatusText) return;
+    try {
+      const info = await apiLlamaJson('/api/llama/stop', { method: 'POST' });
+      renderLlamaStatus(info);
+    } catch (e) {
+      els.llamaStatusText.textContent = t('llama.startFailed') + ': ' + String(e).replace(/^Error:\s*/, '');
+    }
+  }
+
+  async function llamaPull() {
+    if (!els.llamaPullProgress) return;
+    els.llamaPullProgress.textContent = t('status.downloading');
+    try {
+      const res = await fetch(API_BASE + '/api/llama/pull', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mirror: false }),
+      });
+      if (!res.ok || !res.body) {
+        throw new Error('HTTP ' + res.status);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let lastError = null;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let event;
+          try { event = JSON.parse(line); } catch (err) { continue; }
+          if (event.error) {
+            lastError = event.error;
+          } else if (event.done && !event.skipped) {
+            els.llamaPullProgress.textContent = t('llama.pullDone') + ': ' + event.file;
+          } else if (event.total && event.received != null) {
+            const percent = Math.floor((event.received / event.total) * 100);
+            els.llamaPullProgress.textContent = t('llama.pullProgress')
+              .replace('{file}', event.file).replace('{percent}', String(percent));
+          }
+        }
+      }
+      if (lastError) {
+        els.llamaPullProgress.textContent = t('llama.pullFailed') + ': ' + lastError;
+      }
+      await refreshLlamaStatus();
+    } catch (e) {
+      els.llamaPullProgress.textContent = t('llama.pullFailed') + ': ' + String(e).replace(/^Error:\s*/, '');
     }
   }
 
@@ -1665,12 +1929,14 @@
     if (els.ocrProcessing) els.ocrProcessing.classList.remove('active');
     if (els.ocrFileInput) els.ocrFileInput.value = '';
     if (clearResult && els.ocrResult) {
+      clearReview(els.ocrResult);
       els.ocrResult.style.display = 'none';
       els.ocrResult.innerHTML = '';
     }
   }
 
   function prepareOcrUi(file) {
+    clearReview(els.ocrResult);
     if (els.ocrDrop) {
       els.ocrDrop.style.display = 'block';
       els.ocrDrop.classList.add('busy');
@@ -1688,6 +1954,7 @@
   }
 
   function showOcrError(message) {
+    clearReview(els.ocrResult);
     resetOcrUi({ clearResult: false });
     if (els.ocrStatus) els.ocrStatus.textContent = t('ocr.failed');
     els.ocrResult.style.display = 'block';
@@ -1780,7 +2047,7 @@
         source: res.source,
         render_mode: renderMode,
         valid: res.valid,
-      });
+      }, res);
     } catch (e) {
       if (runId === ocrRunId) showOcrError(String(e));
     } finally {
@@ -1798,13 +2065,13 @@
     els.ocrResult.style.display = 'block';
     els.ocrResult.innerHTML = `
       <div class="result-section">
-        <div class="result-label">${t('result.ocrResult')} <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? t('result.valid') : t('result.invalid')}</span></div>
+        <div class="result-label"><span data-i18n="result.ocrResult">${t('result.ocrResult')}</span> <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? t('result.valid') : t('result.invalid')}</span></div>
         <div class="render-preview formula-click-target" data-insert-target="copy">${escapeHtml(res.latex)}</div>
       </div>
       ${inlineAgentTrace(res)}
       <div class="action-row">
-        <button class="action-btn primary" data-copy-result>📋 ${t('action.copyResult')}</button>
-        <button class="action-btn" data-reset-ocr>${t('ocr.chooseAnother')}</button>
+        <button class="action-btn primary" data-copy-result>📋 <span data-i18n="action.copyResult">${t('action.copyResult')}</span></button>
+        <button class="action-btn" data-reset-ocr data-i18n="ocr.chooseAnother">${t('ocr.chooseAnother')}</button>
       </div>
     `;
     const resultText = res.copy_text || res.latex;
@@ -1816,11 +2083,12 @@
       res.katex_html || ''
     );
     els.ocrResult.querySelector('[data-copy-result]').addEventListener('click', e => {
-      copyToClipboard(e.currentTarget.dataset.copyResult);
+      if (window.TeXadaReview.canAdopt(res)) copyToClipboard(e.currentTarget.dataset.copyResult);
     });
     els.ocrResult.querySelector('[data-reset-ocr]').addEventListener('click', () => {
       resetOcrUi();
     });
+    mountReview(els.ocrResult, res);
     bindFormulaInsertHandlers(els.ocrResult);
   }
 
@@ -1829,10 +2097,16 @@
     const text = els.completeInput.value.trim();
     if (!text || isProcessing) return;
     isProcessing = true;
+    clearReview(els.completeResult);
     els.completeProcessing.classList.add('active');
     els.completeResult.style.display = 'none';
     try {
+      const sourceRevision = completeSourceRevision();
       const res = await apiComplete(text);
+      if (completeSourceRevision() !== sourceRevision) {
+        res._reviewInputChanged = true;
+        res._reviewBlocked = true;
+      }
       lastResult = res;
       showCompleteResult(res);
       saveHistoryFallback({
@@ -1843,7 +2117,7 @@
         source: res.source,
         render_mode: renderMode,
         valid: res.valid,
-      });
+      }, res);
     } catch (e) {
       showErrorIn(els.completeResult, String(e));
     } finally {
@@ -1856,12 +2130,12 @@
     els.completeResult.style.display = 'block';
     els.completeResult.innerHTML = `
       <div class="result-section">
-        <div class="result-label">${t('result.completionResult')} <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? t('result.valid') : t('result.invalid')}</span></div>
+        <div class="result-label"><span data-i18n="result.completionResult">${t('result.completionResult')}</span> <span class="valid-badge ${res.valid ? 'ok' : 'err'}">${res.valid ? t('result.valid') : t('result.invalid')}</span></div>
         <div class="render-preview formula-click-target" data-insert-target="copy">${escapeHtml(res.latex)}</div>
       </div>
       ${inlineAgentTrace(res)}
       <div class="action-row">
-        <button class="action-btn primary" data-copy-result>📋 ${t('action.copyResult')}</button>
+        <button class="action-btn primary" data-copy-result>📋 <span data-i18n="action.copyResult">${t('action.copyResult')}</span></button>
       </div>
     `;
     const resultText = res.copy_text || res.latex;
@@ -1873,12 +2147,14 @@
       res.katex_html || ''
     );
     els.completeResult.querySelector('[data-copy-result]').addEventListener('click', e => {
-      copyToClipboard(e.currentTarget.dataset.copyResult);
+      if (window.TeXadaReview.canAdopt(res)) copyToClipboard(e.currentTarget.dataset.copyResult);
     });
+    mountReview(els.completeResult, res);
     bindFormulaInsertHandlers(els.completeResult);
   }
 
   function showErrorIn(el, msg) {
+    clearReview(el);
     el.style.display = 'block';
     el.innerHTML = `<div class="error-box"><span class="icon">⚠️</span><div>${escapeHtml(msg)}</div></div>`;
   }
@@ -2181,7 +2457,9 @@
     });
   }
 
-  function saveHistoryFallback(entry) {
+  function saveHistoryFallback(entry, result) {
+    // Pending/rejected candidates must not re-enter adoption through local history.
+    if (!window.TeXadaReview.canAdopt(result)) return;
     const localEntry = normalizeHistoryItem({
       ...entry,
       created_at: new Date().toISOString(),
@@ -2260,12 +2538,14 @@
     if (!item.input) return;
     if (item.type === 'completion') {
       els.completeInput.value = item.input;
+      els.completeInput.dispatchEvent(new Event('input', { bubbles: true }));
       switchTab('complete');
       setTimeout(() => els.completeInput.focus(), 50);
       setIntent('↺', t('history.reuseCompletion'));
       return;
     }
     els.nlInput.value = item.input;
+    els.nlInput.dispatchEvent(new Event('input', { bubbles: true }));
     switchTab('nl');
     setTimeout(() => els.nlInput.focus(), 50);
     setIntent('↺', t('history.reuseNl'));

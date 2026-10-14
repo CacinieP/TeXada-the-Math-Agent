@@ -28,6 +28,50 @@
   --font-mono:     'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
 }
 
+/* Human review stays beside its bound source, candidate and independent checks. */
+.human-review {
+  margin: 12px 14px;
+  padding: 14px;
+  border: 1px solid var(--accent-cyan);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.human-review h3 { color: var(--accent-cyan); font-size: 14px; }
+.human-review h4 { margin: 10px 0 5px; font-size: 12px; color: var(--text-secondary); }
+.review-status { margin: 6px 0; font-weight: 600; }
+.review-pending, .review-decision-message, .review-position-missing { color: var(--accent-orange); }
+.review-accepted { color: var(--accent-green); }
+.review-rejected { color: var(--accent-red); }
+.review-disclaimer, .review-image-message { color: var(--text-secondary); }
+.review-binding { margin: 8px 0; overflow-wrap: anywhere; }
+.review-binding pre, .review-source {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  padding: 7px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  max-height: 220px;
+  overflow-y: auto;
+  user-select: text;
+}
+.review-comparison, .review-checks { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.review-section { min-width: 0; }
+.review-source-image { display: block; max-width: 100%; max-height: 280px; object-fit: contain; border-radius: var(--radius-sm); }
+.review-candidate-render { overflow-x: auto; margin: 0; }
+.review-reasons { padding-left: 20px; }
+.review-diff { margin: 8px 0; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.review-diff mark { color: var(--bg-base); background: var(--accent-orange); padding: 1px; }
+.review-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.review-adoption-blocked { cursor: default; }
+.action-btn:disabled { cursor: default; opacity: .45; }
+@media (min-width: 780px) {
+  .review-comparison, .review-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 * { margin:0; padding:0; box-sizing:border-box; }
 
 html, body {

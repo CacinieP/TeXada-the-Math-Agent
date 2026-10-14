@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import re
+import time
 from contextvars import ContextVar
 from typing import Any
 
@@ -13,6 +14,7 @@ from openai import APITimeoutError, BadRequestError, OpenAI
 from texada.agent.protocol import MiniCPMToolCallParser, PlannerTurn
 from texada.config import TeXadaConfig
 from texada.core.completion import DeterministicCompletionEngine
+from texada.core.inference_fingerprint import current_inference_collector
 from texada.core.prompts import (
     COMPLETION_PROMPT,
     FEW_SHOT_BY_INTENT,
@@ -22,6 +24,19 @@ from texada.core.prompts import (
 from texada.core.validator import LaTeXValidator
 
 FORMULA_MAX_TOKENS = 768
+NL_RETRY_INSTRUCTION = (
+    "\n\n重要：只输出最终的 LaTeX 公式本身，"
+    "不要任何解释、自然语言或 markdown 代码块。"
+)
+OCR_RETRY_INSTRUCTION = (
+    "\n\n硬性要求：必须在最终回答中输出可见的 LaTeX。"
+    "只提取图片中的单条主体公式，不要输出思考过程。"
+)
+OCR_USER_INSTRUCTION = "识别图片中的数学公式"
+OPERATOR_CONSTRAINT_TEMPLATE = (
+    "\n\n硬性要求：输出公式必须原样包含算符 {operators}，"
+    "不得降级（例如把 \\iint 改成 \\int）或省略。"
+)
 
 
 class MiniCPMModel:
@@ -72,14 +87,47 @@ class MiniCPMModel:
             )
         return self._client
 
-    def _completion_create(self, **kwargs):
+    def _completion_create(
+        self, *, _inference_purpose="unspecified", _inference_fixed_few_shot=None, **kwargs,
+    ):
+        collector = current_inference_collector()
+
+        def capture(stage, *args, **metadata):
+            if collector is None:
+                return None
+            try:
+                return getattr(collector, stage)(*args, **metadata)
+            except Exception as exc:
+                provider_error = metadata.get("error")
+                collector.capture_failure(
+                    stage, exc,
+                    attempt=args[0] if stage == "finish_call" else None,
+                    outcome="error" if provider_error is not None else "success",
+                    provider_error_type=(
+                        type(provider_error).__name__ if provider_error is not None else None
+                    ),
+                )
+                return None
+
+        attempt = capture(
+            "begin_call", _inference_purpose, kwargs,
+            fixed_few_shot=_inference_fixed_few_shot,
+            default_timeout=self.config.inference_timeout_seconds,
+        )
         try:
-            return self.client.chat.completions.create(**kwargs)
-        except (APITimeoutError, httpx.TimeoutException) as exc:
-            raise RuntimeError(
-                f"模型请求超时（{self.config.inference_timeout_seconds:.0f}s），"
-                "请检查 Ollama/endpoint 是否响应，或在配置中调高 inference_timeout_seconds。"
-            ) from exc
+            response = self.client.chat.completions.create(**kwargs)
+        except Exception as exc:
+            if collector is not None and attempt is not None:
+                capture("finish_call", attempt, error=exc)
+            if isinstance(exc, (APITimeoutError, httpx.TimeoutException)):
+                raise RuntimeError(
+                    f"模型请求超时（{self.config.inference_timeout_seconds:.0f}s），"
+                    "请检查 Ollama/endpoint 是否响应，或在配置中调高 inference_timeout_seconds。"
+                ) from exc
+            raise
+        if collector is not None and attempt is not None:
+            capture("finish_call", attempt, response=response, api_key=self.config.active_api_key)
+        return response
 
     def _text_model_name(self) -> str:
         if not self.model:
@@ -87,7 +135,11 @@ class MiniCPMModel:
         return self.model
 
     def _text_request_options(self) -> dict[str, Any]:
-        """Keep local MiniCPM5-2B text answers within the existing token budget."""
+        """Keep MiniCPM answers visible within the existing token budget."""
+        if self._is_minicpm_v47_1b(self._text_model_name()):
+            return {"extra_body": {"chat_template_kwargs": {"enable_thinking": False}}}
+        if self.config.uses_llama_server:
+            return {"extra_body": {"reasoning_effort": "none"}}
         if (
             self.config.backend == "ollama"
             and "minicpm5-2b" in self._text_model_name().casefold()
@@ -95,10 +147,34 @@ class MiniCPMModel:
             return {"extra_body": {"reasoning_effort": "none"}}
         return {}
 
+    @staticmethod
+    def _is_minicpm_v47_1b(model_name: str) -> bool:
+        """Recognize the official checkpoint and descriptive local Q4 aliases."""
+        return bool(re.search(
+            r"minicpm[-_]?v[-_]?4[._-]7[-_]1b(?:$|[-_:/.])",
+            model_name.casefold(),
+        ))
+
+    def _vision_request_options(self) -> dict[str, Any]:
+        if self._is_minicpm_v47_1b(self._vision_model_name()):
+            return {"extra_body": {"chat_template_kwargs": {"enable_thinking": False}}}
+        if self.config.uses_openai_compatible:
+            return {"reasoning_effort": "low"}
+        return {}
+
     def _vision_model_name(self) -> str:
         if not self._vision_model:
             raise RuntimeError("Vision model name is not configured")
         return self._vision_model
+
+    def _deadline_request_options(self, deadline_monotonic: float | None) -> dict[str, Any]:
+        """Cap each candidate call by the original request's remaining budget."""
+        if deadline_monotonic is None:
+            return {}
+        remaining = deadline_monotonic - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("模型请求预算已耗尽，无法继续生成公式。")
+        return {"timeout": min(self.config.inference_timeout_seconds, remaining)}
 
     # ── Public inference methods ──
 
@@ -107,7 +183,7 @@ class MiniCPMModel:
         messages: list[dict],
         tools: list[dict],
     ) -> PlannerTurn:
-        """Run one MiniCPM5 planner turn with its native tool definitions.
+        """Run one planner turn with native tool definitions.
 
         SGLang returns normalized OpenAI ``tool_calls``. Some local runtimes
         leave MiniCPM5's official XML in ``content``; the parser accepts both.
@@ -122,22 +198,36 @@ class MiniCPMModel:
             **self._text_request_options(),
         }
         try:
-            response = await asyncio.to_thread(self._completion_create, **kwargs)
-        except BadRequestError:
+            response = await asyncio.to_thread(
+                self._completion_create, _inference_purpose="planner", **kwargs,
+            )
+        except BadRequestError as exc:
+            body = exc.body
+            if isinstance(body, dict):
+                error = body.get("error", body)
+                if isinstance(error, dict) and error.get("code") == "content_policy_violation":
+                    raise
             # Compatibility path for OpenAI-shaped endpoints that reject the
             # tools field. The runtime will still validate direct LaTeX output.
             kwargs.pop("tools")
             kwargs.pop("tool_choice")
-            response = await asyncio.to_thread(self._completion_create, **kwargs)
+            response = await asyncio.to_thread(
+                self._completion_create, _inference_purpose="planner", **kwargs,
+            )
 
         if not response.choices:
             return PlannerTurn()
         usage = getattr(response, "usage", None)
         tokens = int(getattr(usage, "total_tokens", 0) or 0)
-        return self._tool_parser.parse_message(
+        turn = self._tool_parser.parse_message(
             response.choices[0].message,
             tokens_used=tokens,
         )
+        prompt_tokens = getattr(usage, "prompt_tokens", None)
+        if (isinstance(prompt_tokens, int) and not isinstance(prompt_tokens, bool)
+                and prompt_tokens >= 0):
+            turn.prompt_tokens_used = prompt_tokens
+        return turn
 
     async def generate_latex(
         self,
@@ -145,6 +235,7 @@ class MiniCPMModel:
         intent: str,
         memory_messages: list[dict] | None = None,
         force_operators: list[str] | None = None,
+        deadline_monotonic: float | None = None,
     ) -> str:
         """NL→LaTeX inference — pure chat, no tool calling.
 
@@ -155,6 +246,9 @@ class MiniCPMModel:
         constrained retry (in addition to the existing empty-output retry),
         so the small model can't silently downgrade the operator the symbol
         engine pre-translated into the prompt.
+
+        ``deadline_monotonic`` shares the runtime's original wall-clock budget;
+        each provider call is limited to its remaining time, including retries.
         """
         self._reset_tokens()
         messages: list[dict] = [
@@ -167,20 +261,27 @@ class MiniCPMModel:
 
         response = await asyncio.to_thread(
             self._completion_create,
+            _inference_purpose="nl_generation",
+            _inference_fixed_few_shot=self._build_few_shot(intent),
             model=self._text_model_name(),
             messages=messages,
             temperature=self.temperature,
             max_tokens=min(self.max_tokens, FORMULA_MAX_TOKENS),
             **self._text_request_options(),
+            **self._deadline_request_options(deadline_monotonic),
         )
         self._record_response_tokens(response)
         raw = response.choices[0].message.content if response.choices else ""
-        latex = self._extract_latex(raw)
+        latex = self._extract_visible_latex(raw, model_name=self._text_model_name())
 
         # Reasoning models (e.g. MiniCPM5) often put the real answer in the
         # `reasoning` field and leave `content` empty (especially when max_tokens
         # is consumed by the chain-of-thought). Fall back to extracting from it.
-        if not latex and response.choices:
+        if (
+            not latex
+            and response.choices
+            and not self._is_minicpm_v47_1b(self._text_model_name())
+        ):
             reasoning = getattr(response.choices[0].message, "reasoning", None)
             if reasoning:
                 latex = self._extract_latex(reasoning)
@@ -191,16 +292,18 @@ class MiniCPMModel:
         missing = self._missing_operators(latex, force_operators)
         if not latex or missing:
             constraint = self._operator_constraint(missing or force_operators)
+            deadline_options = self._deadline_request_options(deadline_monotonic)
             try:
                 retry = await asyncio.to_thread(
                     self._completion_create,
+                    _inference_purpose="nl_generation",
+                    _inference_fixed_few_shot=self._build_few_shot(intent),
                     model=self._text_model_name(),
                     messages=[
                         {
                             "role": "system",
                             "content": SYSTEM_PROMPT
-                            + "\n\n重要：只输出最终的 LaTeX 公式本身，"
-                            "不要任何解释、自然语言或 markdown 代码块。"
+                            + NL_RETRY_INSTRUCTION
                             + constraint,
                         },
                         *self._build_few_shot(intent),
@@ -209,10 +312,13 @@ class MiniCPMModel:
                     temperature=0.1,
                     max_tokens=min(self.max_tokens, FORMULA_MAX_TOKENS),
                     **self._text_request_options(),
+                    **deadline_options,
                 )
                 self._record_response_tokens(retry)
                 rraw = retry.choices[0].message.content if retry.choices else ""
-                retry_latex = self._extract_latex(rraw)
+                retry_latex = self._extract_visible_latex(
+                    rraw, model_name=self._text_model_name(),
+                )
                 # Only adopt the retry if it actually fixed the problem;
                 # otherwise keep the (possibly drifted) first answer and let
                 # the validator flag it. Never regress to empty.
@@ -241,6 +347,7 @@ class MiniCPMModel:
         ]
         response = await asyncio.to_thread(
             self._completion_create,
+            _inference_purpose="completion",
             model=self._text_model_name(),
             messages=messages,
             temperature=0.05,
@@ -249,10 +356,14 @@ class MiniCPMModel:
         )
         self._record_response_tokens(response)
         raw = response.choices[0].message.content if response.choices else ""
-        latex = self._extract_latex(raw)
+        latex = self._extract_visible_latex(raw, model_name=self._text_model_name())
         # Reasoning models (e.g. MiniCPM5) may leave `content` empty and put the
         # answer in `reasoning`. Fall back to it before giving up.
-        if not latex and response.choices:
+        if (
+            not latex
+            and response.choices
+            and not self._is_minicpm_v47_1b(self._text_model_name())
+        ):
             reasoning = getattr(response.choices[0].message, "reasoning", None)
             if reasoning:
                 latex = self._extract_latex(reasoning)
@@ -267,7 +378,7 @@ class MiniCPMModel:
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "识别图片中的数学公式"},
+                    {"type": "text", "text": OCR_USER_INSTRUCTION},
                     {
                         "type": "image_url",
                         "image_url": {
@@ -283,15 +394,15 @@ class MiniCPMModel:
             "messages": messages,
             "temperature": 0.05,
             "max_tokens": 512,
+            **self._vision_request_options(),
         }
-        if self.config.uses_openai_compatible:
-            kwargs["reasoning_effort"] = "low"
         response = await asyncio.to_thread(
             self._completion_create,
+            _inference_purpose="ocr",
             **kwargs,
         )
         self._record_response_tokens(response)
-        latex = self._response_latex(response)
+        latex = self._response_latex(response, model_name=self._vision_model_name())
         if latex:
             return latex
 
@@ -304,8 +415,7 @@ class MiniCPMModel:
                 "role": "system",
                 "content": (
                     OCR_SYSTEM_PROMPT
-                    + "\n\n硬性要求：必须在最终回答中输出可见的 LaTeX。"
-                    "只提取图片中的单条主体公式，不要输出思考过程。"
+                    + OCR_RETRY_INSTRUCTION
                 ),
             },
             messages[1],
@@ -318,10 +428,11 @@ class MiniCPMModel:
         }
         retry = await asyncio.to_thread(
             self._completion_create,
+            _inference_purpose="ocr",
             **retry_kwargs,
         )
         self._record_response_tokens(retry)
-        latex = self._response_latex(retry)
+        latex = self._response_latex(retry, model_name=self._vision_model_name())
         if latex:
             return latex
         raise RuntimeError(
@@ -352,13 +463,18 @@ class MiniCPMModel:
         tokens = int(getattr(usage, "total_tokens", 0) or 0)
         self._request_tokens.set(self._request_tokens.get() + tokens)
 
-    def _response_latex(self, response: Any) -> str:
-        """Extract a formula from visible or reasoning response fields."""
+    def _response_latex(self, response: Any, *, model_name: str) -> str:
+        """Extract an answer, keeping V4.7 hidden reasoning out of final results."""
         if not getattr(response, "choices", None):
             return ""
         message = response.choices[0].message
-        for field in ("content", "reasoning", "reasoning_content"):
-            latex = self._extract_latex(getattr(message, field, None))
+        fields = ("content",) if self._is_minicpm_v47_1b(model_name) else (
+            "content", "reasoning", "reasoning_content",
+        )
+        for field in fields:
+            latex = self._extract_visible_latex(
+                getattr(message, field, None), model_name=model_name,
+            )
             if latex:
                 return latex
         return ""
@@ -390,10 +506,16 @@ class MiniCPMModel:
         if not ops:
             return ""
         joined = "、".join(ops)
-        return (
-            f"\n\n硬性要求：输出公式必须原样包含算符 {joined}，"
-            "不得降级（例如把 \\iint 改成 \\int）或省略。"
-        )
+        return OPERATOR_CONSTRAINT_TEMPLATE.format(operators=joined)
+
+    def _extract_visible_latex(self, raw: str | None, *, model_name: str) -> str:
+        """Accept V4.7 final content only, including endpoints that expose think tags."""
+        if raw and self._is_minicpm_v47_1b(model_name):
+            raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL | re.IGNORECASE)
+            # A truncated reasoning block has no confirmed final-answer boundary.
+            if re.search(r"<think\b", raw, flags=re.IGNORECASE):
+                return ""
+        return self._extract_latex(raw)
 
     def _extract_latex(self, raw: str | None) -> str:
         """Strip markdown code fences, math delimiters, and explanatory text."""
@@ -440,4 +562,4 @@ class MiniCPMModel:
 
     def extract_latex(self, raw: str | None) -> str:
         """Public final-answer extractor shared with the Agent Runtime."""
-        return self._extract_latex(raw)
+        return self._extract_visible_latex(raw, model_name=self.model)

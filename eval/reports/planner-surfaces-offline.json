@@ -1,0 +1,928 @@
+{
+  "schema_version": 1,
+  "protocol": "scripted-paired-planner-surfaces-v1",
+  "reference_source": "synthetic_author_reference",
+  "reference_review_status": "agent_reviewed_not_independent_human_verified",
+  "pair_order": "alternating_full_first_and_minimal_first",
+  "parser_warmup_status": "MATCH",
+  "dataset_sha256": "e65db8f1054f8d247ee3836c295174ad9834873fcb73294862603f3063264763",
+  "default_surface": "full",
+  "rows": [
+    {
+      "case_id": "explicit_fraction",
+      "surface": "full",
+      "expected_outcome": "completed",
+      "completed": true,
+      "stop_reason": "render_confirmed",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "3f28dcc245b1d6eb1d789e1508bde39905af83422f6a412c60f90c22c0bf962c",
+        "reference_tree_sha256": "3f28dcc245b1d6eb1d789e1508bde39905af83422f6a412c60f90c22c0bf962c",
+        "reference_id": "explicit_fraction",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 0,
+      "rejected_argument_errors": 0,
+      "rejection_code": null,
+      "executed_illegal_calls": 0,
+      "executed_tools": [
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}"
+          }
+        },
+        {
+          "name": "render_math",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}"
+          }
+        },
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}"
+          }
+        },
+        {
+          "name": "render_math",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}",
+            "mode": "katex"
+          }
+        }
+      ],
+      "latency_ms": 39.245457970537245,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 21669,
+      "schema_bytes": 9906,
+      "planner_turns": 3,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "explicit_fraction",
+      "surface": "minimal",
+      "expected_outcome": "completed",
+      "completed": true,
+      "stop_reason": "render_confirmed",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "3f28dcc245b1d6eb1d789e1508bde39905af83422f6a412c60f90c22c0bf962c",
+        "reference_tree_sha256": "3f28dcc245b1d6eb1d789e1508bde39905af83422f6a412c60f90c22c0bf962c",
+        "reference_id": "explicit_fraction",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 0,
+      "rejected_argument_errors": 0,
+      "rejection_code": null,
+      "executed_illegal_calls": 0,
+      "executed_tools": [
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}"
+          }
+        },
+        {
+          "name": "render_math",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}"
+          }
+        },
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}"
+          }
+        },
+        {
+          "name": "render_math",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}",
+            "mode": "katex"
+          }
+        }
+      ],
+      "latency_ms": 17.518125008791685,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 15170,
+      "schema_bytes": 3430,
+      "planner_turns": 3,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "deterministic_repair",
+      "surface": "minimal",
+      "expected_outcome": "completed",
+      "completed": true,
+      "stop_reason": "render_confirmed",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "3f28dcc245b1d6eb1d789e1508bde39905af83422f6a412c60f90c22c0bf962c",
+        "reference_tree_sha256": "3f28dcc245b1d6eb1d789e1508bde39905af83422f6a412c60f90c22c0bf962c",
+        "reference_id": "deterministic_repair",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 0,
+      "rejected_argument_errors": 0,
+      "rejection_code": null,
+      "executed_illegal_calls": 0,
+      "executed_tools": [
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3"
+          }
+        },
+        {
+          "name": "repair_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3"
+          }
+        },
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}"
+          }
+        },
+        {
+          "name": "render_math",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}"
+          }
+        },
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}"
+          }
+        },
+        {
+          "name": "render_math",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}",
+            "mode": "katex"
+          }
+        }
+      ],
+      "latency_ms": 37.59641700889915,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 23249,
+      "schema_bytes": 4876,
+      "planner_turns": 3,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "deterministic_repair",
+      "surface": "full",
+      "expected_outcome": "completed",
+      "completed": true,
+      "stop_reason": "render_confirmed",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "3f28dcc245b1d6eb1d789e1508bde39905af83422f6a412c60f90c22c0bf962c",
+        "reference_tree_sha256": "3f28dcc245b1d6eb1d789e1508bde39905af83422f6a412c60f90c22c0bf962c",
+        "reference_id": "deterministic_repair",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 0,
+      "rejected_argument_errors": 0,
+      "rejection_code": null,
+      "executed_illegal_calls": 0,
+      "executed_tools": [
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3"
+          }
+        },
+        {
+          "name": "repair_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3"
+          }
+        },
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}"
+          }
+        },
+        {
+          "name": "render_math",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}"
+          }
+        },
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}"
+          }
+        },
+        {
+          "name": "render_math",
+          "arguments": {
+            "latex": "\\frac{x+1}{3}",
+            "mode": "katex"
+          }
+        }
+      ],
+      "latency_ms": 17.242125002667308,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 28328,
+      "schema_bytes": 9885,
+      "planner_turns": 3,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "parent_current_diff",
+      "surface": "full",
+      "expected_outcome": "completed",
+      "completed": true,
+      "stop_reason": "render_confirmed",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "8c0c6bbeb0e1c0eacd1a24d44a856472611a263c77aa4e4e467fbf30a6bbe1cd",
+        "reference_tree_sha256": "8c0c6bbeb0e1c0eacd1a24d44a856472611a263c77aa4e4e467fbf30a6bbe1cd",
+        "reference_id": "parent_current_diff",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 0,
+      "rejected_argument_errors": 0,
+      "rejection_code": null,
+      "executed_illegal_calls": 0,
+      "executed_tools": [
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "x+1"
+          }
+        },
+        {
+          "name": "semantic_diff",
+          "arguments": {
+            "before": "x+1",
+            "after": "x+2"
+          }
+        },
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "x+2"
+          }
+        },
+        {
+          "name": "render_math",
+          "arguments": {
+            "latex": "x+2"
+          }
+        },
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "x+2"
+          }
+        },
+        {
+          "name": "render_math",
+          "arguments": {
+            "latex": "x+2",
+            "mode": "katex"
+          }
+        }
+      ],
+      "latency_ms": 21.32883301237598,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 26558,
+      "schema_bytes": 9885,
+      "planner_turns": 3,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "parent_current_diff",
+      "surface": "minimal",
+      "expected_outcome": "completed",
+      "completed": true,
+      "stop_reason": "render_confirmed",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "8c0c6bbeb0e1c0eacd1a24d44a856472611a263c77aa4e4e467fbf30a6bbe1cd",
+        "reference_tree_sha256": "8c0c6bbeb0e1c0eacd1a24d44a856472611a263c77aa4e4e467fbf30a6bbe1cd",
+        "reference_id": "parent_current_diff",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 0,
+      "rejected_argument_errors": 0,
+      "rejection_code": null,
+      "executed_illegal_calls": 0,
+      "executed_tools": [
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "x+1"
+          }
+        },
+        {
+          "name": "semantic_diff",
+          "arguments": {
+            "before": "x+1",
+            "after": "x+2"
+          }
+        },
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "x+2"
+          }
+        },
+        {
+          "name": "render_math",
+          "arguments": {
+            "latex": "x+2"
+          }
+        },
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "x+2"
+          }
+        },
+        {
+          "name": "render_math",
+          "arguments": {
+            "latex": "x+2",
+            "mode": "katex"
+          }
+        }
+      ],
+      "latency_ms": 17.677291005384177,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 22398,
+      "schema_bytes": 5759,
+      "planner_turns": 3,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "unknown_action",
+      "surface": "minimal",
+      "expected_outcome": "rejected",
+      "completed": false,
+      "stop_reason": "planner_action_rejected",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "NOT_CHECKED",
+        "reason": "missing_full_reference",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": null,
+        "candidate_tree_sha256": null,
+        "reference_tree_sha256": null,
+        "reference_id": "unknown_action",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 1,
+      "rejected_argument_errors": 0,
+      "rejection_code": "unknown_action",
+      "executed_illegal_calls": 0,
+      "executed_tools": [],
+      "latency_ms": 1.9003329798579216,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 3512,
+      "schema_bytes": 372,
+      "planner_turns": 1,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "unknown_action",
+      "surface": "full",
+      "expected_outcome": "rejected",
+      "completed": false,
+      "stop_reason": "planner_action_rejected",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "NOT_CHECKED",
+        "reason": "missing_full_reference",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": null,
+        "candidate_tree_sha256": null,
+        "reference_tree_sha256": null,
+        "reference_id": "unknown_action",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 1,
+      "rejected_argument_errors": 0,
+      "rejection_code": "unknown_action",
+      "executed_illegal_calls": 0,
+      "executed_tools": [],
+      "latency_ms": 1.9404999911785126,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 6464,
+      "schema_bytes": 3316,
+      "planner_turns": 1,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "runtime_value_override",
+      "surface": "full",
+      "expected_outcome": "rejected",
+      "completed": false,
+      "stop_reason": "planner_action_rejected",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_id": "runtime_value_override",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 1,
+      "rejected_argument_errors": 1,
+      "rejection_code": "bound_value_mismatch",
+      "executed_illegal_calls": 0,
+      "executed_tools": [
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "x+1"
+          }
+        }
+      ],
+      "latency_ms": 4.410666006151587,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 7565,
+      "schema_bytes": 3295,
+      "planner_turns": 1,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "runtime_value_override",
+      "surface": "minimal",
+      "expected_outcome": "rejected",
+      "completed": false,
+      "stop_reason": "planner_action_rejected",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_id": "runtime_value_override",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 1,
+      "rejected_argument_errors": 1,
+      "rejection_code": "invalid_arguments",
+      "executed_illegal_calls": 0,
+      "executed_tools": [
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "x+1"
+          }
+        }
+      ],
+      "latency_ms": 4.28608397487551,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 6246,
+      "schema_bytes": 1967,
+      "planner_turns": 1,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "mutation_then_stale_inspection",
+      "surface": "minimal",
+      "expected_outcome": "rejected",
+      "completed": false,
+      "stop_reason": "planner_action_rejected",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "3f28dcc245b1d6eb1d789e1508bde39905af83422f6a412c60f90c22c0bf962c",
+        "reference_tree_sha256": "3f28dcc245b1d6eb1d789e1508bde39905af83422f6a412c60f90c22c0bf962c",
+        "reference_id": "mutation_then_stale_inspection",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 1,
+      "rejected_argument_errors": 0,
+      "rejection_code": "stale_revision",
+      "executed_illegal_calls": 0,
+      "executed_tools": [
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3"
+          }
+        },
+        {
+          "name": "repair_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3"
+          }
+        }
+      ],
+      "latency_ms": 11.728166951797903,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 5845,
+      "schema_bytes": 1084,
+      "planner_turns": 1,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "mutation_then_stale_inspection",
+      "surface": "full",
+      "expected_outcome": "rejected",
+      "completed": false,
+      "stop_reason": "planner_action_rejected",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "3f28dcc245b1d6eb1d789e1508bde39905af83422f6a412c60f90c22c0bf962c",
+        "reference_tree_sha256": "3f28dcc245b1d6eb1d789e1508bde39905af83422f6a412c60f90c22c0bf962c",
+        "reference_id": "mutation_then_stale_inspection",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 1,
+      "rejected_argument_errors": 0,
+      "rejection_code": "stale_revision",
+      "executed_illegal_calls": 0,
+      "executed_tools": [
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3"
+          }
+        },
+        {
+          "name": "repair_tex",
+          "arguments": {
+            "latex": "\\frac{x+1}{3"
+          }
+        }
+      ],
+      "latency_ms": 13.407207967247814,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 8047,
+      "schema_bytes": 3295,
+      "planner_turns": 1,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "bad_render_option",
+      "surface": "full",
+      "expected_outcome": "rejected",
+      "completed": false,
+      "stop_reason": "planner_action_rejected",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_id": "bad_render_option",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 1,
+      "rejected_argument_errors": 1,
+      "rejection_code": "invalid_arguments",
+      "executed_illegal_calls": 0,
+      "executed_tools": [
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "x+1"
+          }
+        }
+      ],
+      "latency_ms": 7.241500017698854,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 7565,
+      "schema_bytes": 3295,
+      "planner_turns": 1,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "bad_render_option",
+      "surface": "minimal",
+      "expected_outcome": "rejected",
+      "completed": false,
+      "stop_reason": "planner_action_rejected",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "MATCH",
+        "reason": "whole_expression_matches",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": "katex-0.17.0-raw-ast",
+        "candidate_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_tree_sha256": "2de045159be2400965ba1d29eff052f5c2da715c1ddb5720fac7bf18329fc1ef",
+        "reference_id": "bad_render_option",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 1,
+      "rejected_argument_errors": 1,
+      "rejection_code": "invalid_arguments",
+      "executed_illegal_calls": 0,
+      "executed_tools": [
+        {
+          "name": "compile_tex",
+          "arguments": {
+            "latex": "x+1"
+          }
+        }
+      ],
+      "latency_ms": 17.96387496870011,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 6246,
+      "schema_bytes": 1967,
+      "planner_turns": 1,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "state_inapplicable_render",
+      "surface": "minimal",
+      "expected_outcome": "rejected",
+      "completed": false,
+      "stop_reason": "planner_action_rejected",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "NOT_CHECKED",
+        "reason": "missing_full_reference",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": null,
+        "candidate_tree_sha256": null,
+        "reference_tree_sha256": null,
+        "reference_id": "state_inapplicable_render",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 1,
+      "rejected_argument_errors": 0,
+      "rejection_code": "action_not_applicable",
+      "executed_illegal_calls": 0,
+      "executed_tools": [],
+      "latency_ms": 2.9374579899013042,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 3512,
+      "schema_bytes": 372,
+      "planner_turns": 1,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    },
+    {
+      "case_id": "state_inapplicable_render",
+      "surface": "full",
+      "expected_outcome": "rejected",
+      "completed": false,
+      "stop_reason": "planner_action_rejected",
+      "outcome_expected": true,
+      "strict_structure": {
+        "status": "NOT_CHECKED",
+        "reason": "missing_full_reference",
+        "normalization_version": "katex-structure-v1",
+        "parser_backend": null,
+        "candidate_tree_sha256": null,
+        "reference_tree_sha256": null,
+        "reference_id": "state_inapplicable_render",
+        "reference_source": "synthetic_author_reference",
+        "reference_review_status": "agent_reviewed",
+        "unsupported_nodes": [],
+        "first_difference": null
+      },
+      "rejected_illegal_calls": 1,
+      "rejected_argument_errors": 0,
+      "rejection_code": "action_not_applicable",
+      "executed_illegal_calls": 0,
+      "executed_tools": [],
+      "latency_ms": 5.183750006835908,
+      "latency_scope": "offline_runtime_and_local_tools_only",
+      "request_bytes": 6464,
+      "schema_bytes": 3316,
+      "planner_turns": 1,
+      "provider_tokens": {
+        "status": "NOT_CHECKED",
+        "value": null
+      },
+      "provider_inference_latency": {
+        "status": "NOT_CHECKED",
+        "value": null
+      }
+    }
+  ],
+  "summary": {
+    "full": {
+      "cases": 8,
+      "expected_outcomes": 8,
+      "completion_rate_positive_cases": 1.0,
+      "strict_match_rate_comparable_positive_cases": 1.0,
+      "strict_comparable_positive_cases": 3,
+      "rejected_illegal_calls": 5,
+      "rejected_argument_errors": 2,
+      "executed_illegal_calls": 0,
+      "request_bytes": 112660,
+      "schema_bytes": 46193,
+      "offline_runtime_latency_ms": 110.00003997469321,
+      "provider_tokens": "NOT_CHECKED",
+      "provider_inference_latency": "NOT_CHECKED"
+    },
+    "minimal": {
+      "cases": 8,
+      "expected_outcomes": 8,
+      "completion_rate_positive_cases": 1.0,
+      "strict_match_rate_comparable_positive_cases": 1.0,
+      "strict_comparable_positive_cases": 3,
+      "rejected_illegal_calls": 5,
+      "rejected_argument_errors": 2,
+      "executed_illegal_calls": 0,
+      "request_bytes": 86178,
+      "schema_bytes": 19827,
+      "offline_runtime_latency_ms": 111.60774988820776,
+      "provider_tokens": "NOT_CHECKED",
+      "provider_inference_latency": "NOT_CHECKED"
+    }
+  }
+}

@@ -1,0 +1,1865 @@
+schema_version: 1
+reference_version: full-formula-semantics-v2
+source_golden_sha256: 1515e47e0d2cb290d3a1e444a3d41330d47e633e5d4dc63bc920263dd3c7916a
+annotation_author: Codex mathematical review, not independent human verification
+frozen_before_new_run: true
+pilot_revision_note: v1 pilot revealed notation-versus-definition and unspecified-Jacobian-dimension ambiguity;
+  three inputs clarified in v2 before all final runs; all pilot evidence preserved
+primary_input_policy: clarified_complete_100; original source preserved and original run also reported
+equivalence_policy:
+- Accept equivalent mathematical quantities and relations under each case domain, not just literal/structural
+  matches.
+- Accept algebraic rearrangement and proper complete computed values for value/expression tasks.
+- Preserve prescribed free variables, domains, relation direction, bound limits, dimensional measure and
+  requested representation constraints.
+- Do not equate quantified/relational tasks to bare tautologies or replace requested factorization with
+  the original unfactored expression.
+- Notation and vector/font aliases are role-specific; do not blindly strip all fonts or rename all variables.
+- Finite geometric closed forms must retain the r=1 case; branches, constants of integration, excluded
+  denominator points and derivative order matter.
+- Original ambiguous inputs can match independently authored reasonable interpretations; report their
+  score separately from clear original cases.
+- Automated supported equality checks provide evidence; all nontrivial outputs receive an explicit per-case
+  agent mathematical verdict. No MiniCPM self-judge.
+entries:
+- case_id: '001'
+  scope: full_expression
+  category: A
+  original_input: x 加上 y
+  input: x 加上 y
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 两个加数都保留；交换加数顺序、代数等价重写可接受。
+  references:
+  - reference_id: full-v1-001-1
+    latex: x+y
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '002'
+  scope: full_expression
+  category: A
+  original_input: a 减去 b 等于 c
+  input: a 减去 b 等于 c
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 等式左右两侧或移项可改变，但必须表示同一自由变量关系。
+  references:
+  - reference_id: full-v1-002-1
+    latex: a-b=c
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '003'
+  scope: full_expression
+  category: A
+  original_input: 三倍 x 加五等于二十
+  input: 三倍 x 加五等于二十
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 同一实数解集的等价方程（如 x=5）可接受，不能遗漏常数。
+  references:
+  - reference_id: full-v1-003-1
+    latex: 3x+5=20
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-003-2
+    latex: x=5
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '004'
+  scope: full_expression
+  category: A
+  original_input: x 的平方加上 y 的平方
+  input: x 的平方加上 y 的平方
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 两个平方项；(x+y)^2 不等价。
+  references:
+  - reference_id: full-v1-004-1
+    latex: x^2+y^2
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '005'
+  scope: full_expression
+  category: A
+  original_input: a 加 b 的平方
+  input: a 与 b 的和的平方
+  input_changed: true
+  source_issue: ambiguous_or_under_specified
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 原文有分组歧义；明确版要求和的平方。原文另外允许 a+b^2。
+  references:
+  - reference_id: full-v1-005-1
+    latex: (a+b)^2
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives:
+  - a+b^2
+- case_id: '006'
+  scope: full_expression
+  category: A
+  original_input: x 与 y 的乘积再加 z
+  input: x 与 y 的乘积再加 z
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 必须包含乘积 xy 和加数 z；显式乘法与因子次序等价。
+  references:
+  - reference_id: full-v1-006-1
+    latex: xy+z
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-006-2
+    latex: yx+z
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-006-3
+    latex: x\cdot y+z
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '007'
+  scope: full_expression
+  category: A
+  original_input: x 的绝对值小于等于一
+  input: x 的绝对值小于等于一
+  input_changed: false
+  source_issue: null
+  domain_assumptions: x real
+  meaning_review: 实数 x；可等价写成 -1\le x\le1，不能把等号条件丢掉。
+  references:
+  - reference_id: full-v1-007-1
+    latex: \lvert x\rvert\le 1
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-007-2
+    latex: -1\le x\le1
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 008
+  scope: full_expression
+  category: A
+  original_input: 向量 x 的二范数
+  input: 向量 x 的二范数
+  input_changed: false
+  source_issue: null
+  domain_assumptions: x real finite-dimensional vector
+  meaning_review: 向量二范数，等价平方和开根；不能只写向量、点积或无意义范数占位。
+  references:
+  - reference_id: full-v1-008-1
+    latex: \lVert\mathbf{x}\rVert_2
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-008-2
+    latex: \lVert\vec x\rVert_2
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-008-3
+    latex: \sqrt{\sum_{i=1}^n x_i^2}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 009
+  scope: full_expression
+  category: A
+  original_input: x 不等于零
+  input: x 不等于零
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 保留非零关系，不是 x=0。
+  references:
+  - reference_id: full-v1-009-1
+    latex: x\ne0
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '010'
+  scope: full_expression
+  category: A
+  original_input: 把 x 平方减一分解成两个因式
+  input: 把 x 平方减一分解成两个因式
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 请求因式分解；完整因子乘积单独输出也可，不能原样返回未分解的 x^2-1。
+  references:
+  - reference_id: full-v1-010-1
+    latex: x^2-1=(x-1)(x+1)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-010-2
+    latex: (x-1)(x+1)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-010-3
+    latex: (x+1)(x-1)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '011'
+  scope: full_expression
+  category: A
+  original_input: 一元二次方程 ax 平方加 bx 加 c 等于零
+  input: 一元二次方程 ax 平方加 bx 加 c 等于零
+  input_changed: false
+  source_issue: null
+  domain_assumptions: a,b,c real, a != 0; x may be real or complex according to equation solution notation
+  meaning_review: a\ne0；完整方程或等价完整求根集合。单根不能代替整个二次方程。
+  references:
+  - reference_id: full-v1-011-1
+    latex: ax^2+bx+c=0
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '012'
+  scope: full_expression
+  category: A
+  original_input: 方程组 x 加 y 等于一，x 减 y 等于三
+  input: 方程组 x 加 y 等于一，x 减 y 等于三
+  input_changed: false
+  source_issue: null
+  domain_assumptions: x,y real
+  meaning_review: 两个方程必须同时成立；等价解 x=2,y=-1 也可。
+  references:
+  - reference_id: full-v1-012-1
+    latex: \begin{cases}x+y=1\\x-y=3\end{cases}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-012-2
+    latex: \begin{cases}x=2\\y=-1\end{cases}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-012-3
+    latex: x=2,\ y=-1
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '013'
+  scope: full_expression
+  category: B
+  original_input: a 除以 b 的分数
+  input: a 除以 b 的分数
+  input_changed: false
+  source_issue: null
+  domain_assumptions: b != 0
+  meaning_review: b\ne0；a/b、ab^{-1} 是同一表达式。
+  references:
+  - reference_id: full-v1-013-1
+    latex: \frac{a}{b}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-013-2
+    latex: a/b
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-013-3
+    latex: ab^{-1}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '014'
+  scope: full_expression
+  category: B
+  original_input: x 加一除以 x 减一
+  input: 分子为 x 加一、分母为 x 减一的分数
+  input_changed: true
+  source_issue: ambiguous_or_under_specified
+  domain_assumptions: x != 1
+  meaning_review: 原文分式分组含糊；明确版是分子 x+1、分母 x-1。原文另允许 x+1/x-1 和 x+1/(x-1)。
+  references:
+  - reference_id: full-v1-014-1
+    latex: \frac{x+1}{x-1}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives:
+  - x+\frac1x-1
+  - x+\frac1{x-1}
+- case_id: '015'
+  scope: full_expression
+  category: B
+  original_input: 一除以一加一除以 x
+  input: 一除以括号内的一加一除以 x，即外层分母是 1+1/x
+  input_changed: true
+  source_issue: ambiguous_or_under_specified
+  domain_assumptions: x != 0,-1
+  meaning_review: 原文分组含糊；明确版内分母为 1+1/x。原文另允许 1+1/x。x/(x+1) 在原式定义域内等价。
+  references:
+  - reference_id: full-v1-015-1
+    latex: \frac{1}{1+\frac1x}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-015-2
+    latex: \frac{x}{x+1}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives:
+  - 1+\frac1x
+- case_id: '016'
+  scope: full_expression
+  category: B
+  original_input: x 的平方根
+  input: x 的平方根
+  input_changed: false
+  source_issue: null
+  domain_assumptions: x >= 0; nonnegative root
+  meaning_review: 实数非负主平方根；x^{1/2} 等价。
+  references:
+  - reference_id: full-v1-016-1
+    latex: \sqrt{x}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-016-2
+    latex: x^{1/2}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '017'
+  scope: full_expression
+  category: B
+  original_input: x 加 y 的平方根
+  input: x 与 y 的和的平方根
+  input_changed: true
+  source_issue: ambiguous_or_under_specified
+  domain_assumptions: x+y >= 0
+  meaning_review: 原文分组含糊；明确版为和的平方根。原文另允许 x+\sqrt y。
+  references:
+  - reference_id: full-v1-017-1
+    latex: \sqrt{x+y}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives:
+  - x+\sqrt y
+- case_id: 018
+  scope: full_expression
+  category: B
+  original_input: x 的立方根
+  input: x 的立方根
+  input_changed: false
+  source_issue: null
+  domain_assumptions: x real; real cube root
+  meaning_review: 实数立方根；实根约定下 x^{1/3} 等价，不能把立方根变为平方根。
+  references:
+  - reference_id: full-v1-018-1
+    latex: \sqrt[3]{x}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-018-2
+    latex: x^{1/3}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 019
+  scope: full_expression
+  category: B
+  original_input: x 的 n 次方根
+  input: x 的 n 次方根
+  input_changed: false
+  source_issue: null
+  domain_assumptions: n integer >=2; real nth-root convention; if n even x>=0
+  meaning_review: n 为大于等于2的整数；偶数根取非负根，奇数根为实根。x^{1/n} 在同一根约定下等价。
+  references:
+  - reference_id: full-v1-019-1
+    latex: \sqrt[n]{x}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-019-2
+    latex: x^{1/n}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '020'
+  scope: full_expression
+  category: B
+  original_input: a 除以 b 的平方根
+  input: a 除以 b 所得商的平方根
+  input_changed: true
+  source_issue: ambiguous_or_under_specified
+  domain_assumptions: b != 0 and a/b >= 0; do not assume a>=0 and b>0 merely to justify root splitting
+  meaning_review: 原文分组含糊；明确版为商的平方根，原文另允许 a/\sqrt b。不能无条件把商的根拆成两根。
+  references:
+  - reference_id: full-v1-020-1
+    latex: \sqrt{\frac ab}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives:
+  - \frac{a}{\sqrt b}
+- case_id: '021'
+  scope: full_expression
+  category: B
+  original_input: x 的二分之一次方
+  input: x 的二分之一次方
+  input_changed: false
+  source_issue: null
+  domain_assumptions: x>=0; real nonnegative square root
+  meaning_review: x\ge0，\sqrt x 是等价答案。
+  references:
+  - reference_id: full-v1-021-1
+    latex: x^{1/2}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-021-2
+    latex: \sqrt x
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '022'
+  scope: full_expression
+  category: B
+  original_input: x 的负二次方
+  input: x 的负二次方
+  input_changed: false
+  source_issue: null
+  domain_assumptions: x != 0
+  meaning_review: x\ne0，1/x^2 等价。
+  references:
+  - reference_id: full-v1-022-1
+    latex: x^{-2}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-022-2
+    latex: \frac1{x^2}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '023'
+  scope: full_expression
+  category: B
+  original_input: x 的下标 i
+  input: x 的下标 i
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 保留下标，不得改为上标或乘法。
+  references:
+  - reference_id: full-v1-023-1
+    latex: x_i
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '024'
+  scope: full_expression
+  category: B
+  original_input: a 下标 i 的平方
+  input: a 下标 i 的平方
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 下标 i、平方同时保留，不得把平方变为下标的一部分。
+  references:
+  - reference_id: full-v1-024-1
+    latex: a_i^2
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '025'
+  scope: full_expression
+  category: B
+  original_input: x 的上标 n 加下标 k
+  input: x 的上标 n 加下标 k
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 同一底数 x 的下标 k 与上标 n；脚标次序不同可接受。
+  references:
+  - reference_id: full-v1-025-1
+    latex: x_k^n
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '026'
+  scope: full_expression
+  category: C
+  original_input: i 从一到 n 的求和
+  input: i 从一到 n，对 i 本身求和
+  input_changed: true
+  source_issue: ambiguous_or_under_specified
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 原文未明确求和项；明确版规定求和 i。原文另接受仅有上下限的求和算符，不接受任意杜撰的求和项。
+  references:
+  - reference_id: full-v1-026-1
+    latex: \sum_{i=1}^{n}i
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives:
+  - \sum_{i=1}^n
+- case_id: '027'
+  scope: full_expression
+  category: C
+  original_input: i 从一到 n 的平方和
+  input: i 从一到 n 的平方和
+  input_changed: false
+  source_issue: null
+  domain_assumptions: n positive integer
+  meaning_review: n 为正整数；n(n+1)(2n+1)/6 等价。
+  references:
+  - reference_id: full-v1-027-1
+    latex: \sum_{i=1}^{n}i^2
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-027-2
+    latex: \frac{n(n+1)(2n+1)}6
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 028
+  scope: full_expression
+  category: C
+  original_input: i 从一到 m、j 从一到 n 的双重求和 a 下标 ij
+  input: i 从一到 m、j 从一到 n 的双重求和 a 下标 ij
+  input_changed: false
+  source_issue: null
+  domain_assumptions: m,n positive integers; finite sums
+  meaning_review: 双指标范围和 a_{ij} 全部保留；有限求和可交换顺序。
+  references:
+  - reference_id: full-v1-028-1
+    latex: \sum_{i=1}^{m}\sum_{j=1}^{n}a_{ij}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-028-2
+    latex: \sum_{j=1}^n\sum_{i=1}^m a_{ij}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 029
+  scope: full_expression
+  category: C
+  original_input: i 从一到 n 的连乘 x 下标 i
+  input: i 从一到 n 的连乘 x 下标 i
+  input_changed: false
+  source_issue: null
+  domain_assumptions: n positive integer
+  meaning_review: 乘积不是求和；所有 x_i 因子均包含。
+  references:
+  - reference_id: full-v1-029-1
+    latex: \prod_{i=1}^{n}x_i
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '030'
+  scope: full_expression
+  category: C
+  original_input: 从 k 等于零到 n 的有限几何级数 r 的 k 次方
+  input: 从 k 等于零到 n 的有限几何级数 r 的 k 次方
+  input_changed: false
+  source_issue: null
+  domain_assumptions: n nonnegative integer; all real r including r=1
+  meaning_review: n 为非负整数；闭式必须处理 r=1，不能把仅对 r\ne1 成立的分式当成全域公式。
+  references:
+  - reference_id: full-v1-030-1
+    latex: \sum_{k=0}^{n}r^k
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-030-2
+    latex: \begin{cases}\frac{1-r^{n+1}}{1-r},&r\ne1\\n+1,&r=1\end{cases}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '031'
+  scope: full_expression
+  category: C
+  original_input: 从 k 等于零到无穷的几何级数 r 的 k 次方
+  input: 从 k 等于零到无穷的几何级数 r 的 k 次方
+  input_changed: false
+  source_issue: null
+  domain_assumptions: '|r|<1 (the convergence domain)'
+  meaning_review: 收敛域 |r|<1；在该域 1/(1-r) 等价，不能丢常数项 k=0。
+  references:
+  - reference_id: full-v1-031-1
+    latex: \sum_{k=0}^{\infty}r^k
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-031-2
+    latex: \frac1{1-r}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '032'
+  scope: full_expression
+  category: C
+  original_input: 数列 a 下标 n 等于一除以 n
+  input: 数列 a 下标 n 等于一除以 n
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: n 为正整数；保留序列名称和等式。
+  references:
+  - reference_id: full-v1-032-1
+    latex: a_n=\frac1n
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '033'
+  scope: full_expression
+  category: C
+  original_input: 递推式 a 下标 n 加一等于二倍 a 下标 n 加一
+  input: 递推式：a 的下标为 n 加一，等于二倍 a 下标 n，再额外加一
+  input_changed: true
+  source_issue: ambiguous_or_under_specified
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 原文上下标的作用域不清；明确版把左右下标分别固定为 n+1 与 n，并在右侧额外加1。
+  references:
+  - reference_id: full-v1-033-1
+    latex: a_{n+1}=2a_n+1
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives:
+  - a_{n+1}=2a_{n+1}
+- case_id: '034'
+  scope: full_expression
+  category: C
+  original_input: 等差数列第 n 项等于首项加 n 减一倍公差
+  input: 等差数列第 n 项等于首项加 n 减一倍公差
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: a_1 为首项；不能无定义地替换成 a_0 或把 n-1 改为 n。
+  references:
+  - reference_id: full-v1-034-1
+    latex: a_n=a_1+(n-1)d
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '035'
+  scope: full_expression
+  category: C
+  original_input: n 选 k 的二项式系数
+  input: n 选 k 的二项式系数
+  input_changed: false
+  source_issue: null
+  domain_assumptions: n,k integers, 0<=k<=n
+  meaning_review: n,k 为整数、0\le k\le n；n!/[k!(n-k)!] 等价。
+  references:
+  - reference_id: full-v1-035-1
+    latex: \binom nk
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-035-2
+    latex: \frac{n!}{k!(n-k)!}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '036'
+  scope: full_expression
+  category: C
+  original_input: n 的阶乘
+  input: n 的阶乘
+  input_changed: false
+  source_issue: null
+  domain_assumptions: n nonnegative integer
+  meaning_review: n 为非负整数；Gamma(n+1) 等价，n^n 不等价。
+  references:
+  - reference_id: full-v1-036-1
+    latex: n!
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-036-2
+    latex: \Gamma(n+1)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '037'
+  scope: full_expression
+  category: C
+  original_input: 从 n 个元素中选 k 个并排列
+  input: 从 n 个元素中选 k 个并排列
+  input_changed: false
+  source_issue: null
+  domain_assumptions: n,k integers, 0<=k<=n
+  meaning_review: n,k 整数且 0\le k\le n；排列数 A_n^k、P(n,k) 或下降阶乘等价，不能用组合数。
+  references:
+  - reference_id: full-v1-037-1
+    latex: \frac{n!}{(n-k)!}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-037-2
+    latex: P(n,k)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-037-3
+    latex: A_n^k
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 038
+  scope: full_expression
+  category: C
+  original_input: 从 n 个元素中选 k 个的组合数
+  input: 从 n 个元素中选 k 个的组合数
+  input_changed: false
+  source_issue: null
+  domain_assumptions: n,k integers, 0<=k<=n
+  meaning_review: n,k 整数且 0\le k\le n；阶乘闭式等价，不得用排列数。
+  references:
+  - reference_id: full-v1-038-1
+    latex: \binom nk
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-038-2
+    latex: \frac{n!}{k!(n-k)!}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 039
+  scope: full_expression
+  category: D
+  original_input: x 趋近于零时 sin x 除以 x 的极限
+  input: x 趋近于零时 sin x 除以 x 的极限
+  input_changed: false
+  source_issue: null
+  domain_assumptions: radians; punctured real neighborhood of 0
+  meaning_review: 角度以弧度计；极限值1、带等号的极限表达式均可。直接 sin x/x 不是完整极限对象。
+  references:
+  - reference_id: full-v1-039-1
+    latex: \lim_{x\to0}\frac{\sin x}{x}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-039-2
+    latex: '1'
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '040'
+  scope: full_expression
+  category: D
+  original_input: x 趋近于无穷时一除以 x 的极限
+  input: x 趋近于无穷时一除以 x 的极限
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 极限值0可接受；原函数 1/x 单独输出不等价。
+  references:
+  - reference_id: full-v1-040-1
+    latex: \lim_{x\to+\infty}\frac1x
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-040-2
+    latex: '0'
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '041'
+  scope: full_expression
+  category: D
+  original_input: x 从右侧趋近于零时 ln x 的极限
+  input: x 从右侧趋近于零时 ln x 的极限
+  input_changed: false
+  source_issue: null
+  domain_assumptions: x>0, right-hand extended-real limit
+  meaning_review: 右极限为负无穷；左极限在实数对数定义域外，不可换向。
+  references:
+  - reference_id: full-v1-041-1
+    latex: \lim_{x\to0^+}\ln x
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-041-2
+    latex: -\infty
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '042'
+  scope: full_expression
+  category: D
+  original_input: n 趋近于无穷时一加一除以 n 的 n 次方
+  input: n 趋近于无穷时，括号内一加一除以 n 的整体 n 次方的极限
+  input_changed: true
+  source_issue: ambiguous_or_under_specified
+  domain_assumptions: n positive integer tending to infinity
+  meaning_review: 原文幂的分组含糊；明确版为括号整体 n 次方，极限 e。原文另有 1+1/n^n 的极限解释。
+  references:
+  - reference_id: full-v1-042-1
+    latex: \lim_{n\to\infty}\left(1+\frac1n\right)^n
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-042-2
+    latex: e
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives:
+  - \lim_{n\to\infty}\left(1+\frac1{n^n}\right)
+  - '1'
+- case_id: '043'
+  scope: full_expression
+  category: D
+  original_input: n 趋近于无穷时数列 a 下标 n 等于 L
+  input: n 趋近于无穷时数列 a 下标 n 等于 L
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 必须表达极限等于 L，a_n=L 或 a_n\to\infty 不等价。
+  references:
+  - reference_id: full-v1-043-1
+    latex: \lim_{n\to\infty}a_n=L
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '044'
+  scope: full_expression
+  category: D
+  original_input: x 趋近于 a 时 f(x) 的极限等于 f(a)
+  input: x 趋近于 a 时 f(x) 的极限等于 f(a)
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 给定点的连续性关系，不能随意换点或遗漏右侧函数值。
+  references:
+  - reference_id: full-v1-044-1
+    latex: \lim_{x\to a}f(x)=f(a)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '045'
+  scope: full_expression
+  category: D
+  original_input: x 趋近于零时 e 的 x 次方减一除以 x
+  input: x 趋近于零时，分子 e 的 x 次方减一、分母 x 的分数的极限
+  input_changed: true
+  source_issue: ambiguous_or_under_specified
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 原文减法和除法作用域含糊；明确版分子 e^x-1，极限值1。原文另允许 lim(e^x-1/x) 的对象表示。
+  references:
+  - reference_id: full-v1-045-1
+    latex: \lim_{x\to0}\frac{e^x-1}{x}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-045-2
+    latex: '1'
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives:
+  - \lim_{x\to0}\left(e^x-\frac1x\right)
+- case_id: '046'
+  scope: full_expression
+  category: D
+  original_input: 数列 a 下标 n 的上极限
+  input: 数列 a 下标 n 的上极限
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 上极限不等于普通极限；inf_N sup_{n\ge N}a_n 等价。
+  references:
+  - reference_id: full-v1-046-1
+    latex: \limsup_{n\to\infty}a_n
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-046-2
+    latex: \inf_N\sup_{n\ge N}a_n
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '047'
+  scope: full_expression
+  category: D
+  original_input: 数列 a 下标 n 的下极限
+  input: 数列 a 下标 n 的下极限
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 下极限不等于普通极限；sup_N inf_{n\ge N}a_n 等价。
+  references:
+  - reference_id: full-v1-047-1
+    latex: \liminf_{n\to\infty}a_n
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-047-2
+    latex: \sup_N\inf_{n\ge N}a_n
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 048
+  scope: full_expression
+  category: D
+  original_input: f 在 x 等于 a 处连续的定义
+  input: f 在 x 等于 a 处连续的定义
+  input_changed: false
+  source_issue: null
+  domain_assumptions: f defined at a and in a neighborhood
+  meaning_review: 在 a 处连续的极限定义；等价 epsilon-delta 定义须包含 a 处函数值及量词条件。
+  references:
+  - reference_id: full-v1-048-1
+    latex: \lim_{x\to a}f(x)=f(a)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 049
+  scope: full_expression
+  category: D
+  original_input: 对任意 epsilon 大于零，存在 delta 大于零
+  input: 对任意 epsilon 大于零，存在 delta 大于零
+  input_changed: false
+  source_issue: null
+  domain_assumptions: epsilon,delta positive reals
+  meaning_review: 仅要求该量词语句，不杜撰函数条件。量词次序和两个正数条件须保留。
+  references:
+  - reference_id: full-v1-049-1
+    latex: \forall\epsilon>0,\ \exists\delta>0
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '050'
+  scope: full_expression
+  category: D
+  original_input: 当 x 趋近无穷时 f(x) 与 g(x) 渐近等价
+  input: 当 x 趋近无穷时 f(x) 与 g(x) 渐近等价
+  input_changed: false
+  source_issue: null
+  domain_assumptions: g eventually nonzero; ratio limit =1
+  meaning_review: g 在趋近过程中非零；lim f/g=1 等价，不能把渐近等价当成逐点相等。
+  references:
+  - reference_id: full-v1-050-1
+    latex: f(x)\sim g(x)\quad(x\to\infty)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-050-2
+    latex: \lim_{x\to\infty}\frac{f(x)}{g(x)}=1
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '051'
+  scope: full_expression
+  category: E
+  original_input: f 对 x 的一阶导数
+  input: f 对 x 的一阶导数
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 一阶导数；df/dx 与 d/dx f(x) 等价，不能用偏导替代未给多元结构的一元导数。
+  references:
+  - reference_id: full-v1-051-1
+    latex: f'(x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-051-2
+    latex: \frac{df}{dx}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-051-3
+    latex: \frac d{dx}f(x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '052'
+  scope: full_expression
+  category: E
+  original_input: y 对 x 的二阶导数
+  input: y 对 x 的二阶导数
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 二阶普通导数；y''(x) 等价，不能只给一阶或偏导。
+  references:
+  - reference_id: full-v1-052-1
+    latex: \frac{d^2y}{dx^2}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-052-2
+    latex: y''(x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '053'
+  scope: full_expression
+  category: E
+  original_input: f 对 x 的 n 阶导数
+  input: f 对 x 的 n 阶导数
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: n 阶普通导数；f^{(n)}(x)、(d/dx)^n f(x) 等价，分母必须体现 n 阶。
+  references:
+  - reference_id: full-v1-053-1
+    latex: \frac{d^nf}{dx^n}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-053-2
+    latex: f^{(n)}(x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-053-3
+    latex: \left(\frac d{dx}\right)^n f(x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '054'
+  scope: full_expression
+  category: E
+  original_input: f 对 x 的偏导数
+  input: f 对 x 的偏导数
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 偏导，不是普通导数 df/dx，除非明确满足额外条件。
+  references:
+  - reference_id: full-v1-054-1
+    latex: \frac{\partial f}{\partial x}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '055'
+  scope: full_expression
+  category: E
+  original_input: f 先对 x 再对 y 的混合偏导
+  input: 二阶连续可微的 f，先对 x 再对 y 的混合偏导
+  input_changed: true
+  source_issue: implicit_assumption_clarified
+  domain_assumptions: f C^2 in a neighborhood
+  meaning_review: 明确版规定 f 为 C^2；顺序交换在此条件下等价。不得变成同变量二阶导数。
+  references:
+  - reference_id: full-v1-055-1
+    latex: \frac{\partial^2 f}{\partial y\partial x}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-055-2
+    latex: \frac{\partial^2f}{\partial x\partial y}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-055-3
+    latex: f_{xy}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '056'
+  scope: full_expression
+  category: E
+  original_input: 标量场 f 的梯度
+  input: 标量场 f 的梯度
+  input_changed: false
+  source_issue: null
+  domain_assumptions: differentiable real scalar field
+  meaning_review: 标量场梯度为向量；分量向量等价，不是散度或拉普拉斯标量。
+  references:
+  - reference_id: full-v1-056-1
+    latex: \nabla f
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '057'
+  scope: full_expression
+  category: E
+  original_input: 向量场 F 的散度
+  input: 向量场 F 的散度
+  input_changed: false
+  source_issue: null
+  domain_assumptions: C^1 real vector field
+  meaning_review: 向量场散度为标量；分量偏导之和等价，叉积/梯度不是散度。
+  references:
+  - reference_id: full-v1-057-1
+    latex: \nabla\cdot\mathbf F
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-057-2
+    latex: \nabla\cdot\vec F
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 058
+  scope: full_expression
+  category: E
+  original_input: 向量场 F 的旋度
+  input: 向量场 F 的旋度
+  input_changed: false
+  source_issue: null
+  domain_assumptions: C^1 vector field on R^3
+  meaning_review: 三维旋度为向量；分量式或行列式表示等价，不是散度。
+  references:
+  - reference_id: full-v1-058-1
+    latex: \nabla\times\mathbf F
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-058-2
+    latex: \nabla\times\vec F
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 059
+  scope: full_expression
+  category: E
+  original_input: 函数 F 对变量 x 的雅可比矩阵
+  input: 一般可微函数 F 从 n 维实空间到 m 维实空间，对向量 x 的雅可比矩阵通用表达式，不指定 n 和 m 的数值
+  input_changed: true
+  source_issue: ambiguous_or_under_specified
+  domain_assumptions: differentiable F:R^n->R^m, x in R^n
+  meaning_review: Jacobian、DF 或 \partial F/\partial x 可作完整算符名称；一般是一阶导数矩阵。
+  references:
+  - reference_id: full-v1-059-1
+    latex: J_F(x)=\left[\frac{\partial F_i}{\partial x_j}\right]_{ij}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-059-2
+    latex: J_F(x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-059-3
+    latex: \frac{\partial F}{\partial x}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-059-4
+    latex: DF(x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives:
+  - \begin{pmatrix}\frac{\partial F}{\partial x_1}&\frac{\partial F}{\partial x_2}\end{pmatrix}
+- case_id: '060'
+  scope: full_expression
+  category: E
+  original_input: 函数 f 的海森矩阵
+  input: 函数 f 的海森矩阵
+  input_changed: false
+  source_issue: null
+  domain_assumptions: C^2 real scalar f on R^n; Hessian is a matrix
+  meaning_review: Hessian 为二阶导数矩阵；在明确海森上下文中 \nabla^2 f 作为常用名称可接受，不能是各对角项之和的拉普拉斯标量。
+  references:
+  - reference_id: full-v1-060-1
+    latex: H_f(x)=\left[\frac{\partial^2 f}{\partial x_i\partial x_j}\right]_{ij}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-060-2
+    latex: H_f
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-060-3
+    latex: \nabla^2 f
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-060-4
+    latex: \operatorname{Hess}(f)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '061'
+  scope: full_expression
+  category: E
+  original_input: 复合函数 f(g(x)) 的链式法则
+  input: 复合函数 f(g(x)) 的链式法则
+  input_changed: false
+  source_issue: null
+  domain_assumptions: f,g differentiable
+  meaning_review: 完整链式等式或完整导数值 RHS 可接受；必须有 g'(x) 且外导数在 g(x) 处求值。
+  references:
+  - reference_id: full-v1-061-1
+    latex: \frac d{dx}f(g(x))=f'(g(x))g'(x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-061-2
+    latex: f'(g(x))g'(x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '062'
+  scope: full_expression
+  category: E
+  original_input: u 除以 v 的求导法则
+  input: u 除以 v 的求导法则
+  input_changed: false
+  source_issue: null
+  domain_assumptions: u,v differentiable; v !=0
+  meaning_review: v\ne0；完整 RHS 也可。符号、分母平方和两个导数项不能省略。
+  references:
+  - reference_id: full-v1-062-1
+    latex: \left(\frac uv\right)'=\frac{u'v-uv'}{v^2}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-062-2
+    latex: \frac{u'v-uv'}{v^2}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-062-3
+    latex: \frac{u'}v-\frac{uv'}{v^2}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '063'
+  scope: full_expression
+  category: F
+  original_input: x 平方的不定积分
+  input: x 平方的不定积分
+  input_changed: false
+  source_issue: null
+  domain_assumptions: C independent of x
+  meaning_review: 不定积分式本身或完整原函数族皆可；仅 x^3/3 没有积分常数时不是完整原函数族。
+  references:
+  - reference_id: full-v1-063-1
+    latex: \int x^2\,dx=\frac{x^3}{3}+C
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-063-2
+    latex: \int x^2\,dx
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-063-3
+    latex: \frac{x^3}3+C
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '064'
+  scope: full_expression
+  category: F
+  original_input: f(x) 从零到一的定积分
+  input: f(x) 从零到一的定积分
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 上下限0和1、被积函数f、微分dx必须齐全；没有给具体f，不应杜撰数值。
+  references:
+  - reference_id: full-v1-064-1
+    latex: \int_0^1 f(x)\,dx
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '065'
+  scope: full_expression
+  category: F
+  original_input: 二重积分 f(x,y) 在区域 D 上
+  input: 二重积分 f(x,y) 在区域 D 上
+  input_changed: false
+  source_issue: null
+  domain_assumptions: integrable scalar f; D subset R^2
+  meaning_review: D\subset R^2；完整二维测度写法 \int_D f\,dA 亦等价。单积分符号与明确二维测度不是数学降维。
+  references:
+  - reference_id: full-v1-065-1
+    latex: \iint_D f(x,y)\,dx\,dy
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-065-2
+    latex: \int_D f(x,y)\,dx\,dy
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-065-3
+    latex: \int_D f\,dA
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '066'
+  scope: full_expression
+  category: F
+  original_input: 三重积分 f(x,y,z) 在区域 Omega 上
+  input: 三重积分 f(x,y,z) 在区域 Omega 上
+  input_changed: false
+  source_issue: null
+  domain_assumptions: integrable scalar f; Omega subset R^3
+  meaning_review: Omega\subset R^3；\int_\Omega f\,dV 等价，不能变成一维微分或漏一个积分变量。
+  references:
+  - reference_id: full-v1-066-1
+    latex: \iiint_{\Omega}f(x,y,z)\,dx\,dy\,dz
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-066-2
+    latex: \int_\Omega f(x,y,z)\,dx\,dy\,dz
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-066-3
+    latex: \int_\Omega f\,dV
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '067'
+  scope: full_expression
+  category: F
+  original_input: 沿闭曲线 C 的环路积分 F 点乘 dr
+  input: 沿闭曲线 C 的环路积分 F 点乘 dr
+  input_changed: false
+  source_issue: null
+  domain_assumptions: closed oriented piecewise-smooth curve; continuous vector F
+  meaning_review: 闭曲线和向量点积，dr 是向量线元；参数化的完整标量积分等价。
+  references:
+  - reference_id: full-v1-067-1
+    latex: \oint_C\mathbf F\cdot d\mathbf r
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 068
+  scope: full_expression
+  category: F
+  original_input: 曲面 S 上 f 的曲面积分
+  input: 曲面 S 上 f 的曲面积分
+  input_changed: false
+  source_issue: null
+  domain_assumptions: scalar f and surface area measure; S is a surface
+  meaning_review: 标量曲面积分；\int_S f\,dS 是合法通用测度记号，不应因只有一个积分符号判错。
+  references:
+  - reference_id: full-v1-068-1
+    latex: \iint_S f\,dS
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-068-2
+    latex: \int_S f\,dS
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 069
+  scope: full_expression
+  category: F
+  original_input: 沿曲线 C 的线积分 f ds
+  input: 沿曲线 C 的线积分 f ds
+  input_changed: false
+  source_issue: null
+  domain_assumptions: scalar f and arc-length ds
+  meaning_review: 标量第一类线积分，ds 是弧长，不是向量点积 dr。
+  references:
+  - reference_id: full-v1-069-1
+    latex: \int_C f\,ds
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '070'
+  scope: full_expression
+  category: F
+  original_input: 从负无穷到正无穷的高斯积分
+  input: 从负无穷到正无穷的高斯积分
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 值 sqrt(pi) 可接受；必须为完整实轴积分，半轴只得 sqrt(pi)/2。
+  references:
+  - reference_id: full-v1-070-1
+    latex: \int_{-\infty}^{\infty}e^{-x^2}\,dx
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-070-2
+    latex: \sqrt\pi
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '071'
+  scope: full_expression
+  category: F
+  original_input: 一除以 x 平方从一到无穷的反常积分
+  input: 一除以 x 平方从一到无穷的反常积分
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 值1可接受；上下限和平方不可改变。
+  references:
+  - reference_id: full-v1-071-1
+    latex: \int_1^{\infty}\frac1{x^2}\,dx
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-071-2
+    latex: '1'
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '072'
+  scope: full_expression
+  category: F
+  original_input: 分部积分公式
+  input: 分部积分公式
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 分部积分的负号及配对微分必须正确；等价移项、定积分版本可接受。
+  references:
+  - reference_id: full-v1-072-1
+    latex: \int u\,dv=uv-\int v\,du
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '073'
+  scope: full_expression
+  category: F
+  original_input: 微积分基本定理：从 a 到 x 的 f(t) 积分对 x 求导
+  input: 微积分基本定理：从 a 到 x 的 f(t) 积分对 x 求导
+  input_changed: false
+  source_issue: null
+  domain_assumptions: f continuous, a fixed
+  meaning_review: a 固定、f 连续；结果 f(x) 单独输出也可，不能求成 f(t) 或把可变上限丢掉。
+  references:
+  - reference_id: full-v1-073-1
+    latex: \frac d{dx}\int_a^x f(t)\,dt=f(x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-073-2
+    latex: f(x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '074'
+  scope: full_expression
+  category: F
+  original_input: 令 u 等于 g(x) 的换元积分公式
+  input: 令 u 等于 g(x) 的换元积分公式
+  input_changed: false
+  source_issue: null
+  domain_assumptions: smooth substitution; both indefinite integrals understood up to a constant
+  meaning_review: 完整换元积分关系须链接 u=g(x)；仅 u=g(x),du=g'(x)dx 是换元关系而未写完整积分公式。
+  references:
+  - reference_id: full-v1-074-1
+    latex: \int f(g(x))g'(x)\,dx=\int f(u)\,du,\quad u=g(x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '075'
+  scope: full_expression
+  category: F
+  original_input: 极坐标下区域 D 的二重积分
+  input: 极坐标下区域 D 的二重积分，被积函数为 f(r,theta)，包括面积雅可比因子
+  input_changed: true
+  source_issue: ambiguous_or_under_specified
+  domain_assumptions: D interpreted in polar coordinates; generic given f(r,theta); r>=0
+  meaning_review: 原题未给被积函数；明确版给出极坐标函数 f(r,theta)。r 是Jacobian，不能漏掉。
+  references:
+  - reference_id: full-v1-075-1
+    latex: \iint_D f(r,\theta)r\,dr\,d\theta
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives:
+  - \iint_D r\,dr\,d\theta
+- case_id: '076'
+  scope: full_expression
+  category: F
+  original_input: 球坐标下区域 Omega 的三重积分
+  input: 球坐标下区域 Omega 的三重积分，被积函数为 f(rho,phi,theta)，rho 是半径，phi 是极角，theta 是方位角，包括体积雅可比因子
+  input_changed: true
+  source_issue: ambiguous_or_under_specified
+  domain_assumptions: rho>=0, phi in [0,pi] polar angle, theta azimuth; scalar f(rho,phi,theta)
+  meaning_review: 明确版 phi为极角、theta为方位角；原文两种角名约定都合理。rho平方、正弦与三个微分必须正确。
+  references:
+  - reference_id: full-v1-076-1
+    latex: \iiint_{\Omega}f(\rho,\phi,\theta)\rho^2\sin\phi\,d\rho\,d\phi\,d\theta
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives:
+  - \iiint_\Omega\rho^2\sin\phi\,d\rho\,d\phi\,d\theta
+  - \iiint_\Omega\rho^2\sin\theta\,d\rho\,d\theta\,d\phi
+- case_id: '077'
+  scope: full_expression
+  category: F
+  original_input: 从零到无穷 x 乘 e 的负 x 次方的积分
+  input: 从零到无穷 x 乘 e 的负 x 次方的积分
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 值1可接受；负号、x因子、积分范围不能遗漏。
+  references:
+  - reference_id: full-v1-077-1
+    latex: \int_0^{\infty}xe^{-x}\,dx
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-077-2
+    latex: '1'
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 078
+  scope: full_expression
+  category: F
+  original_input: 连续随机变量 X 的期望积分
+  input: 具有概率密度 f_X(x) 且期望存在的实连续随机变量 X 的期望积分
+  input_changed: true
+  source_issue: implicit_assumption_clarified
+  domain_assumptions: absolutely continuous real X with density f_X and E|X| finite
+  meaning_review: 实连续RV具有密度、第一绝对矩有限；CDF的完整 Stieltjes 表达等价。不能只积分密度而漏掉x。
+  references:
+  - reference_id: full-v1-078-1
+    latex: \mathbb E[X]=\int_{-\infty}^{\infty}x f_X(x)\,dx
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-078-2
+    latex: \mathbb E[X]=\int_{-\infty}^{\infty}x\,dF_X(x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 079
+  scope: full_expression
+  category: F
+  original_input: 狄拉克 delta 函数从负无穷到正无穷的积分等于一
+  input: 狄拉克 delta 函数从负无穷到正无穷的积分等于一
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: Dirac分布归一化；不能变成离散Kronecker delta或漏积分对象仅写1。
+  references:
+  - reference_id: full-v1-079-1
+    latex: \int_{-\infty}^{\infty}\delta(x)\,dx=1
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 080
+  scope: full_expression
+  category: F
+  original_input: 斯托克斯公式，闭曲线 C 的环路积分等于曲面 S 上旋度的积分
+  input: 斯托克斯公式，闭曲线 C 的环路积分等于曲面 S 上旋度的积分
+  input_changed: false
+  source_issue: null
+  domain_assumptions: oriented S with positive boundary C; F C^1
+  meaning_review: C=正向边界partial S，F为C^1；右侧必须有法向收缩或向量面积元的点积，不能把向量积分当标量。
+  references:
+  - reference_id: full-v1-080-1
+    latex: \oint_C\mathbf F\cdot d\mathbf r=\iint_S(\nabla\times\mathbf F)\cdot\mathbf n\,dS
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 081
+  scope: full_expression
+  category: G
+  original_input: 三维列向量 x 等于 a、b、c
+  input: 三维列向量 x 等于 a、b、c
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 三维列向量，顺序a,b,c和等式x都须保留；方括号、转置行向量记法等价。
+  references:
+  - reference_id: full-v1-081-1
+    latex: \mathbf x=\begin{pmatrix}a\\b\\c\end{pmatrix}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-081-2
+    latex: \mathbf x=\begin{bmatrix}a\\b\\c\end{bmatrix}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-081-3
+    latex: \mathbf x=(a,b,c)^{\mathsf T}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 082
+  scope: full_expression
+  category: G
+  original_input: 二乘二矩阵，第一行 a b，第二行 c d
+  input: 二乘二矩阵，第一行 a b，第二行 c d
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 2乘2，行列位置固定；方括号矩阵也可，不能输出转置。
+  references:
+  - reference_id: full-v1-082-1
+    latex: \begin{pmatrix}a&b\\c&d\end{pmatrix}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-082-2
+    latex: \begin{bmatrix}a&b\\c&d\end{bmatrix}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 083
+  scope: full_expression
+  category: G
+  original_input: 二乘二矩阵 A 的行列式
+  input: 二乘二矩阵 A 的行列式
+  input_changed: false
+  source_issue: null
+  domain_assumptions: real 2x2 A
+  meaning_review: 2乘2行列式；若A元素为a_ij，可写a11*a22-a12*a21；符号det与竖线等价。
+  references:
+  - reference_id: full-v1-083-1
+    latex: \det(A)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-083-2
+    latex: '|A|'
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 084
+  scope: full_expression
+  category: G
+  original_input: 矩阵 A 的逆矩阵
+  input: 矩阵 A 的逆矩阵
+  input_changed: false
+  source_issue: null
+  domain_assumptions: A square and invertible
+  meaning_review: A可逆；不能给转置、负矩阵或元素逐项取倒数。
+  references:
+  - reference_id: full-v1-084-1
+    latex: A^{-1}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 085
+  scope: full_expression
+  category: G
+  original_input: 矩阵 A 的转置
+  input: 矩阵 A 的转置
+  input_changed: false
+  source_issue: null
+  domain_assumptions: real matrix A
+  meaning_review: 实矩阵转置；A^T、A^{top}、transpose(A)等价，不能给逆矩阵。
+  references:
+  - reference_id: full-v1-085-1
+    latex: A^{\mathsf T}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-085-2
+    latex: A^T
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-085-3
+    latex: A^\top
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 086
+  scope: full_expression
+  category: G
+  original_input: 向量 a 与向量 b 的点积
+  input: 向量 a 与向量 b 的点积
+  input_changed: false
+  source_issue: null
+  domain_assumptions: real vectors of same dimension, treated as columns
+  meaning_review: 实列向量；a^T b 或分量乘积之和等价，叉积不等价。
+  references:
+  - reference_id: full-v1-086-1
+    latex: \mathbf a\cdot\mathbf b
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-086-2
+    latex: \mathbf a^{\mathsf T}\mathbf b
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-086-3
+    latex: \sum_{i=1}^n a_i b_i
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 087
+  scope: full_expression
+  category: G
+  original_input: 向量 a 与向量 b 的叉积
+  input: 向量 a 与向量 b 的叉积
+  input_changed: false
+  source_issue: null
+  domain_assumptions: real vectors in R^3
+  meaning_review: R^3叉积，因子次序有符号意义；不得变成点积或反序而不带负号。
+  references:
+  - reference_id: full-v1-087-1
+    latex: \mathbf a\times\mathbf b
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 088
+  scope: full_expression
+  category: G
+  original_input: 特征值方程 A v 等于 lambda v
+  input: 特征值方程 A v 等于 lambda v
+  input_changed: false
+  source_issue: null
+  domain_assumptions: A square and v nonzero
+  meaning_review: 特征方程，v\ne0；(A-lambda I)v=0等价，不得仅返回Av或特征值lambda。
+  references:
+  - reference_id: full-v1-088-1
+    latex: A\mathbf v=\lambda\mathbf v
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-088-2
+    latex: (A-\lambda I)\mathbf v=0
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 089
+  scope: full_expression
+  category: G
+  original_input: 矩阵 A 的奇异值分解等于 U Sigma V 转置
+  input: 矩阵 A 的奇异值分解等于 U Sigma V 转置
+  input_changed: false
+  source_issue: null
+  domain_assumptions: real matrix A; real SVD
+  meaning_review: 实SVD；Sigma是奇异值对角阵，V转置必须保留；没有给数值不应杜撰分解数值。
+  references:
+  - reference_id: full-v1-089-1
+    latex: A=U\Sigma V^{\mathsf T}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 090
+  scope: full_expression
+  category: G
+  original_input: 二乘二矩阵 A 与二乘二矩阵 B 的乘积
+  input: 两个未给具体元素的二乘二矩阵 A 与 B，写出 A 乘 B 的符号乘积
+  input_changed: true
+  source_issue: implicit_assumption_clarified
+  domain_assumptions: arbitrary real 2x2 A,B; no specified entries
+  meaning_review: A,B为2乘2符号矩阵且未给元素；AB是完整答案，不能强行要求两个带杜撰数值的矩阵。
+  references:
+  - reference_id: full-v1-090-1
+    latex: AB
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 091
+  scope: full_expression
+  category: H
+  original_input: 在 B 发生条件下 A 的条件概率
+  input: 在 B 发生条件下 A 的条件概率
+  input_changed: false
+  source_issue: null
+  domain_assumptions: P(B)>0
+  meaning_review: P(B)>0；P(A intersect B)/P(B)等价；不能反转条件。
+  references:
+  - reference_id: full-v1-091-1
+    latex: P(A\mid B)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-091-2
+    latex: \frac{P(A\cap B)}{P(B)}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 092
+  scope: full_expression
+  category: H
+  original_input: 贝叶斯公式
+  input: 贝叶斯公式
+  input_changed: false
+  source_issue: null
+  domain_assumptions: P(B)>0; P(B|A) defined for the displayed version
+  meaning_review: 条件概率的方向、分母事件B和先验A不能错；P(B)>0且条件项定义。
+  references:
+  - reference_id: full-v1-092-1
+    latex: P(A\mid B)=\frac{P(B\mid A)P(A)}{P(B)}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 093
+  scope: full_expression
+  category: H
+  original_input: 离散随机变量 X 的期望
+  input: 离散随机变量 X 的期望，用所有可能取值及其概率写出求和计算公式
+  input_changed: true
+  source_issue: ambiguous_or_under_specified
+  domain_assumptions: discrete real X, E|X| finite
+  meaning_review: 离散RV、一阶绝对矩有限；sum_k x_k p_k 也是完整表达，p_k按约定为对应质量。
+  references:
+  - reference_id: full-v1-093-1
+    latex: \mathbb E[X]=\sum_{x\in\operatorname{supp}X}xP(X=x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-093-2
+    latex: \mathbb E[X]=\sum_x xP(X=x)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-093-3
+    latex: \mathbb E[X]=\sum_k x_k p_k
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives:
+  - \mathbb E[X]
+- case_id: 094
+  scope: full_expression
+  category: H
+  original_input: 随机变量 X 的方差
+  input: 随机变量 X 的方差，用期望写出完整定义或等价计算公式
+  input_changed: true
+  source_issue: ambiguous_or_under_specified
+  domain_assumptions: E[X^2] finite, mu=E[X]
+  meaning_review: 二阶矩有限；E[X^2]-E[X]^2等价，mu按约定是均值；方差不是标准差。
+  references:
+  - reference_id: full-v1-094-1
+    latex: \operatorname{Var}(X)=\mathbb E[(X-\mathbb E[X])^2]
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-094-2
+    latex: \operatorname{Var}(X)=\mathbb E[X^2]-(\mathbb E[X])^2
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-094-3
+    latex: \operatorname{Var}(X)=\mathbb E[(X-\mu)^2]
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives:
+  - \operatorname{Var}(X)
+- case_id: 095
+  scope: full_expression
+  category: H
+  original_input: 均值 mu、方差 sigma 平方的正态分布密度
+  input: 均值 mu、方差 sigma 平方的正态分布密度
+  input_changed: false
+  source_issue: null
+  domain_assumptions: x,mu real, sigma>0
+  meaning_review: sigma>0；必须同时包含归一化系数、负指数、均值平移和方差sigma平方。
+  references:
+  - reference_id: full-v1-095-1
+    latex: f_X(x)=\frac1{\sigma\sqrt{2\pi}}\exp\!\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 096
+  scope: full_expression
+  category: H
+  original_input: 集合 A 与集合 B 的并集和交集
+  input: 集合 A 与集合 B 的并集和交集
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 两个指定集合运算都要完整；不要求虚构二者相等的等式。
+  references:
+  - reference_id: full-v1-096-1
+    latex: A\cup B,\quad A\cap B
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 097
+  scope: full_expression
+  category: H
+  original_input: A 是 B 的子集且 B 是 C 的真子集
+  input: A 是 B 的子集且 B 是 C 的真子集
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 第一段非严格包含，第二段真包含；链式记法可接受，不能把第一段强制为真包含。
+  references:
+  - reference_id: full-v1-097-1
+    latex: A\subseteq B\ \land\ B\subsetneq C
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-097-2
+    latex: A\subseteq B\subsetneq C
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 098
+  scope: full_expression
+  category: H
+  original_input: 对任意 x 属于实数，都存在 y 大于 x
+  input: 对任意 x 属于实数，都存在 y 大于 x
+  input_changed: false
+  source_issue: null
+  domain_assumptions: x,y real
+  meaning_review: 域为实数，量词forall x在exists y外；不能交换量词次序。
+  references:
+  - reference_id: full-v1-098-1
+    latex: \forall x\in\mathbb R,\ \exists y\in\mathbb R:\ y>x
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: 099
+  scope: full_expression
+  category: H
+  original_input: 命题 P 蕴含 Q，并且 Q 当且仅当 R
+  input: 命题 P 蕴含 Q，并且 Q 当且仅当 R
+  input_changed: false
+  source_issue: null
+  domain_assumptions: standard real scalar symbols; no arbitrary renaming of prescribed free variables
+  meaning_review: 两个命题关系的合取，不能把蕴含或等价方向丢掉；含糊的箭头串需人工判别关联。
+  references:
+  - reference_id: full-v1-099-1
+    latex: (P\Rightarrow Q)\land(Q\Leftrightarrow R)
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []
+- case_id: '100'
+  scope: full_expression
+  category: H
+  original_input: 分段函数：x 大于等于零时是 x 平方，x 小于零时是负 x
+  input: 分段函数：x 大于等于零时是 x 平方，x 小于零时是负 x
+  input_changed: false
+  source_issue: null
+  domain_assumptions: x real; function label not prescribed
+  meaning_review: 原文没有指定函数名；任意函数标签可。0处两支值一致，因此x>0与x<=0的边界替换也等价。
+  references:
+  - reference_id: full-v1-100-1
+    latex: f(x)=\begin{cases}x^2,&x\ge0\\-x,&x<0\end{cases}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  - reference_id: full-v1-100-2
+    latex: f(x)=\begin{cases}x^2,&x>0\\-x,&x\le0\end{cases}
+    reference_source: authored_from_original_prompt_with_explicit_scope_review
+    review_status: agent-mathematical-reviewed
+  original_interpretation_alternatives: []

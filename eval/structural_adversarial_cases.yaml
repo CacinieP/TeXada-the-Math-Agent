@@ -1,0 +1,125 @@
+schema_version: 1
+reference_source: synthetic_author_reference
+review_status: agent-reviewed
+scope: 'Deterministic matcher fixtures; proposed verdicts are not independent human review.'
+entries:
+  - id: spacing
+    reference_latex: 'x+y'
+    candidate_latex: 'x\,+y'
+    expected_status: MATCH
+    proposed_verdict: same_structure
+    reason: 'Math spacing changes presentation without changing ordered terms.'
+  - id: fraction-style
+    reference_latex: '\frac{a}{b}'
+    candidate_latex: '\dfrac{a}{b}'
+    expected_status: MATCH
+    proposed_verdict: same_structure
+    reason: 'Display sizing preserves numerator, denominator and fraction bar.'
+  - id: script-spelling
+    reference_latex: 'x_k^n'
+    candidate_latex: 'x^{n}_{k}'
+    expected_status: MATCH
+    proposed_verdict: same_structure
+    reason: 'Source ordering and transparent braces do not swap script roles.'
+  - id: delimiter-script-binding
+    reference_latex: '\left(x+1\right)^2'
+    candidate_latex: '(x+1)^2'
+    expected_status: MATCH
+    proposed_verdict: same_structure
+    reason: 'Both scripts bind to the full explicit parenthesized group (G-001).'
+  - id: fraction-role-swap
+    reference_latex: '\frac{a}{b}'
+    candidate_latex: '\frac{b}{a}'
+    expected_status: DIFFERENT
+    proposed_verdict: different_structure
+    reason: 'Numerator and denominator are distinct roles.'
+  - id: nested-fraction-scope
+    reference_latex: '\frac{a}{\frac{b}{c}}'
+    candidate_latex: '\frac{\frac{a}{b}}{c}'
+    expected_status: DIFFERENT
+    proposed_verdict: different_structure
+    reason: 'Nested fraction belongs to the opposite argument role.'
+  - id: exponent-scope
+    reference_latex: '(a+b)^2'
+    candidate_latex: 'a+b^2'
+    expected_status: DIFFERENT
+    proposed_verdict: different_structure
+    reason: 'The exponent applies to a group versus a single variable.'
+  - id: script-role-swap
+    reference_latex: 'x_i^2'
+    candidate_latex: 'x_2^i'
+    expected_status: DIFFERENT
+    proposed_verdict: different_structure
+    reason: 'Subscript and superscript values are exchanged.'
+  - id: bound-role-swap
+    reference_latex: '\int_0^1 f(x)\,dx'
+    candidate_latex: '\int_1^0 f(x)\,dx'
+    expected_status: DIFFERENT
+    proposed_verdict: different_structure
+    reason: 'Integral lower and upper bounds are exchanged.'
+  - id: integral-rank
+    reference_latex: '\iiint_D f\,dV'
+    candidate_latex: '\int_D f\,dV'
+    expected_status: DIFFERENT
+    proposed_verdict: different_structure
+    reason: 'A triple integral is replaced by a single integral.'
+  - id: limit-direction
+    reference_latex: '\lim_{x\to0^+}f(x)'
+    candidate_latex: '\lim_{x\to0^-}f(x)'
+    expected_status: DIFFERENT
+    proposed_verdict: different_structure
+    reason: 'The one-sided direction is part of the bound structure.'
+  - id: radical-scope
+    reference_latex: '\sqrt{x+y}'
+    candidate_latex: '\sqrt{x}+y'
+    expected_status: DIFFERENT
+    proposed_verdict: different_structure
+    reason: 'The added term moves outside the radicand.'
+  - id: root-index
+    reference_latex: '\sqrt[3]{x}'
+    candidate_latex: '\sqrt{x}'
+    expected_status: DIFFERENT
+    proposed_verdict: different_structure
+    reason: 'The explicit cube-root index is absent.'
+  - id: matrix-row-order
+    reference_latex: '\begin{pmatrix}a&b\\c&d\end{pmatrix}'
+    candidate_latex: '\begin{pmatrix}c&d\\a&b\end{pmatrix}'
+    expected_status: DIFFERENT
+    proposed_verdict: different_structure
+    reason: 'Matrix row roles preserve their order.'
+  - id: matrix-dimensions
+    reference_latex: '\begin{pmatrix}a&b\\c&d\end{pmatrix}'
+    candidate_latex: '\begin{pmatrix}a&b&c&d\end{pmatrix}'
+    expected_status: DIFFERENT
+    proposed_verdict: different_structure
+    reason: 'A 2 by 2 matrix becomes a 1 by 4 matrix.'
+  - id: matrix-delimiters
+    reference_latex: '\begin{pmatrix}a&b\\c&d\end{pmatrix}'
+    candidate_latex: '\begin{bmatrix}a&b\\c&d\end{bmatrix}'
+    expected_status: DIFFERENT
+    proposed_verdict: different_notation_structure
+    reason: 'Explicitly requested parentheses and brackets remain distinct.'
+  - id: cases-condition-pairing
+    reference_latex: '\begin{cases}x&x>0\\-x&x\le0\end{cases}'
+    candidate_latex: '\begin{cases}x&x\le0\\-x&x>0\end{cases}'
+    expected_status: DIFFERENT
+    proposed_verdict: different_structure
+    reason: 'Branch conditions move to the other expression row.'
+  - id: binomial-fraction-loss
+    reference_latex: '\binom{n}{k}'
+    candidate_latex: '\frac{n}{k}'
+    expected_status: DIFFERENT
+    proposed_verdict: different_structure
+    reason: 'Raw AST bar and delimiter fields distinguish the lossy mapper collision.'
+  - id: invisible-phantom-loss
+    reference_latex: 'x+y'
+    candidate_latex: '\phantom{x}+y'
+    expected_status: UNSUPPORTED
+    proposed_verdict: different_visibility_requires_review
+    reason: 'An invisible wrapper must not disappear and produce a false MATCH.'
+  - id: unknown-macro-identical
+    reference_latex: '\futuremath{x}'
+    candidate_latex: '\futuremath{x}'
+    expected_status: UNSUPPORTED
+    proposed_verdict: requires_macro_definition
+    reason: 'Identical unknown commands have no verified structural meaning.'

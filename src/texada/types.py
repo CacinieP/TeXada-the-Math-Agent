@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from texada.core.inference_fingerprint import legacy_inference_fingerprint
+
 
 class Tab(StrEnum):
     NL = "nl"
@@ -127,6 +129,7 @@ class RunLogEntry:
     tool_names: list[str] = field(default_factory=list)
     trace: list[dict] = field(default_factory=list)
     trace_available: bool = False
+    inference_fingerprint: dict = field(default_factory=legacy_inference_fingerprint)
     error_message: str = ""
     created_at: str = ""
 

@@ -1,3 +1,15 @@
+## 0.4.2-beta.2 - 2026-10-14
+
+### 中文
+
+- 修复设置页多余闭合标签，数据、快捷键和关于不再出现在其他标签页。
+- 保留原有浮窗置顶行为；其余变更和评测限制见 beta.1。
+
+### English
+
+- Keep Data, Shortcuts and About within Settings when switching tabs.
+- Preserve the existing floating-window behavior. Includes the beta.1 changes and documented evaluation limitations.
+
 # Changelog / 变更记录
 
 All notable changes to TeXada-the-Math-Agent are recorded here.
@@ -35,6 +47,30 @@ All notable changes to TeXada-the-Math-Agent are recorded here.
 - 在中英文 README 补充 macOS 本地模型说明：Apple Silicon 原生 Ollama 的 Metal
   加速、Docker Desktop 容器限制、A18 Pro / 8GB 文本模型内存实测，以及 Intel
   性能尚未实测。
+
+## 0.4.2-beta.1 - 2026-10-14
+
+### 中文
+
+- 整合内置 llama-server、MiniCPM-V-4.7-1B 单模型、运行时进程管理、公式版本绑定与人工审核。文本和 OCR 共用一个 Q4_K_M 模型，安装包包含 llama.cpp b11609，权重与视觉投影按固定修订及 SHA-256 下载。
+- 修复生成期间编辑输入后仍能采用旧结果的问题，包括编辑后改回原文的情况；明确标注“语法通过”。
+- full Planner 增加显式完成当前版本的动作与一次受限终稿重试；保留作用域、提交屏障和人工审核。
+- 评测补齐100题完整参考、定义域、17题改写对照及等价表达审核。M4/16GB、1B Q4_K_M、temperature=0.1、seed=47、候选优先配置下，整条数学正确率75/100；full正确且提交59→74/100，minimal为71/100。补充20题9/20。判定由Codex审核，尚无独立人工复核。
+- full仍有24/100数学错误公式提交成功；生成结果需要核对，语法通过和提交成功均不保证数学正确。
+- 修复macOS默认Bash及Windows.exe打包路径，增加Windows安装包实装、macOS签名app复制安装、内置后端和KaTeX渲染验证；arm64 DMG还须通过本机挂载实装。Windows安装包未做代码签名。
+- 内置运行时的Mach-O最低系统版本为macOS 13.3，安装包最低要求同步为13.3。
+- 这是beta预发布，不替代v0.4.1稳定版。macOS包需完成签名、公证与安装验证后才发布。
+
+### English
+
+- Integrate the owned llama-server lifecycle, one MiniCPM-V-4.7-1B Q4_K_M checkpoint for text and OCR, revision-bound actions, scoped edits, CAS shadow evidence and human review.
+- Pin llama.cpp b11609 and model downloads to a specific revision and SHA-256. Weights are downloaded separately from installers.
+- Invalidate results when the source changes during generation, including edit-and-revert. Label syntax validation explicitly.
+- Add a full-Planner finish action and one bounded rejected-final retry while retaining commit and review barriers.
+- On the frozen, clarified 100-case text benchmark, whole-formula correctness is 75/100. Correct-and-committed improves from 59 to 74/100 for full; minimal remains 71/100. A separate exploratory 20-case set scores 9/20. These are Codex-adjudicated results without independent human verification, using the documented candidate-first configuration, not a general accuracy guarantee.
+- Full still commits 24 mathematically incorrect formulas in the 100-case run. Generated mathematics requires review.
+- Verify native installer launch, the bundled backend/runtime and KaTeX on macOS arm64/Intel and Windows x64. Windows installers are unsigned.
+- Beta prerelease; v0.4.1 remains the stable latest release. Public release follows signed/notarized macOS package verification and installation testing.
 
 ## 0.4.1 - 2026-09-12
 

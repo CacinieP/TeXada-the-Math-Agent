@@ -6,6 +6,7 @@ import json
 import aiosqlite
 
 from texada.config import TeXadaConfig
+from texada.core.inference_fingerprint import legacy_inference_fingerprint
 from texada.types import RunLogEntry
 
 SCHEMA = """
@@ -32,6 +33,7 @@ CREATE TABLE IF NOT EXISTS run_logs (
     tool_call_count INTEGER NOT NULL DEFAULT 0,
     tool_names_json TEXT NOT NULL DEFAULT '[]',
     trace_json      TEXT NOT NULL DEFAULT '[]',
+    inference_fingerprint_json TEXT NOT NULL DEFAULT '',
     error_message   TEXT NOT NULL DEFAULT '',
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -56,10 +58,34 @@ class RunLogStore:
         conn = await aiosqlite.connect(self.db_path)
         conn.row_factory = aiosqlite.Row
         if not self._initialized:
-            await conn.executescript(SCHEMA)
-            await conn.commit()
-            self._initialized = True
+            try:
+                await conn.executescript(SCHEMA)
+                await self._migrate_inference_fingerprint(conn)
+                await conn.commit()
+                self._initialized = True
+            except BaseException:
+                await conn.close()
+                raise
         return conn
+
+    @staticmethod
+    async def _migrate_inference_fingerprint(conn: aiosqlite.Connection) -> None:
+        column_name = "inference_fingerprint_json"
+        columns = await conn.execute_fetchall("PRAGMA table_info(run_logs)")
+        if any(row["name"] == column_name for row in columns):
+            return
+        try:
+            await conn.execute(
+                "ALTER TABLE run_logs "
+                "ADD COLUMN inference_fingerprint_json TEXT NOT NULL DEFAULT ''"
+            )
+        except aiosqlite.OperationalError as exc:
+            if f"duplicate column name: {column_name}" not in str(exc).lower():
+                raise
+            # Another store may have migrated this database since our PRAGMA.
+            columns = await conn.execute_fetchall("PRAGMA table_info(run_logs)")
+            if not any(row["name"] == column_name for row in columns):
+                raise
 
     async def add(self, entry: RunLogEntry) -> str:
         if not entry.run_id.strip():
@@ -73,10 +99,10 @@ class RunLogStore:
                     model_role, model_name, backend, status, status_code, output_latex,
                     intent, source, render_mode, valid, latency_ms, tokens_used,
                     stop_reason, tool_call_count, tool_names_json, trace_json,
-                    error_message, created_at
+                    inference_fingerprint_json, error_message, created_at
                 )
                 VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     COALESCE(NULLIF(?, ''), CURRENT_TIMESTAMP)
                 )
                 """,
@@ -134,7 +160,7 @@ class RunLogStore:
                     "input_mime, model_role, model_name, backend, status, status_code, "
                     "output_latex, intent, source, render_mode, valid, latency_ms, "
                     "tokens_used, stop_reason, tool_call_count, tool_names_json, "
-                    "'' AS trace_json, error_message, created_at, "
+                    "'' AS trace_json, inference_fingerprint_json, error_message, created_at, "
                     "CASE WHEN LENGTH(TRIM(trace_json)) > 2 THEN 1 ELSE 0 END "
                     "AS stored_trace_available FROM run_logs"
                 )
@@ -192,10 +218,10 @@ class RunLogStore:
                         model_role, model_name, backend, status, status_code, output_latex,
                         intent, source, render_mode, valid, latency_ms, tokens_used,
                         stop_reason, tool_call_count, tool_names_json, trace_json,
-                        error_message, created_at
+                        inference_fingerprint_json, error_message, created_at
                     )
                     VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                         COALESCE(NULLIF(?, ''), CURRENT_TIMESTAMP)
                     )
                     """,
@@ -267,6 +293,7 @@ class RunLogStore:
             entry.tool_call_count,
             json.dumps(entry.tool_names, ensure_ascii=False),
             json.dumps(entry.trace, ensure_ascii=False),
+            json.dumps(entry.inference_fingerprint, ensure_ascii=False),
             entry.error_message,
             entry.created_at,
         )
@@ -278,6 +305,16 @@ class RunLogStore:
             return value if isinstance(value, list) else []
         except (TypeError, json.JSONDecodeError):
             return []
+
+    @staticmethod
+    def _loads_inference_fingerprint(raw: str | None) -> dict:
+        try:
+            value = json.loads(raw or "")
+            if isinstance(value, dict):
+                return value
+        except (TypeError, json.JSONDecodeError):
+            pass
+        return legacy_inference_fingerprint()
 
     @classmethod
     def _row_to_entry(cls, row: aiosqlite.Row) -> RunLogEntry:
@@ -309,6 +346,11 @@ class RunLogStore:
             tool_names=cls._loads_list(row["tool_names_json"]),
             trace=trace,
             trace_available=trace_available,
+            inference_fingerprint=cls._loads_inference_fingerprint(
+                row["inference_fingerprint_json"]
+                if "inference_fingerprint_json" in row.keys()
+                else None
+            ),
             error_message=row["error_message"],
             created_at=row["created_at"],
         )
