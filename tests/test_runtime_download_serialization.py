@@ -1,4 +1,5 @@
 """Concurrent API streams cannot write the same partial model files."""
+
 import asyncio
 
 import httpx
@@ -27,7 +28,9 @@ async def test_model_download_requests_are_serialized(monkeypatch, tmp_path):
 
     monkeypatch.setattr("texada.api.download_all", fake_download)
     app = create_app(TeXadaConfig(data_dir=tmp_path, backend="llama_server"))
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         results = await asyncio.gather(*[client.post("/api/llama/pull", json={}) for _ in range(2)])
     assert all(r.status_code == 200 and '"done": true' in r.text for r in results)
     assert peak == 1 and completed == 2 and active == 0
