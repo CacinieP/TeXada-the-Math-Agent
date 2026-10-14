@@ -85,7 +85,9 @@
   }
 
   function bindInputInvalidation(input, getPanel) {
-    input.addEventListener('input', () => getPanel()?.invalidate());
+    let revision = 0;
+    input.addEventListener('input', () => { revision += 1; getPanel()?.invalidate(); });
+    return () => revision;
   }
 
   function createPanel({ document, host, review, apiBase, request, language = () => 'zh', renderLatex, onChange = () => {}, sourceEdited = false, initialBlocked = false }) {
