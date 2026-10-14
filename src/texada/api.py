@@ -516,6 +516,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     review_store = PendingReviewStore(max_source_bytes=max(32 * 1024 * 1024, config.max_ocr_bytes))
     llama_mgr = LlamaServerManager(config)
     runtime_lock = asyncio.Lock()
+    download_lock = asyncio.Lock()
 
     async def stop_llama_manager() -> None:
         try:
@@ -805,8 +806,11 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         dest_dir = llama_mgr.models_dir
 
         async def event_stream():
-            async for event in download_all(dest_dir, mirror=req.mirror):
-                yield json.dumps(event, ensure_ascii=False) + "\n"
+            # Concurrent streams must not share and rename the same .part files.
+            # Keep lifecycle controls responsive while serializing only downloads.
+            async with download_lock:
+                async for event in download_all(dest_dir, mirror=req.mirror):
+                    yield json.dumps(event, ensure_ascii=False) + "\n"
 
         return StreamingResponse(event_stream(), media_type="application/x-ndjson")
 
