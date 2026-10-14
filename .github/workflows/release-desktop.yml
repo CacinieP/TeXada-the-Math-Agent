@@ -177,9 +177,10 @@ jobs:
           set -euo pipefail
           runtime_dir="tauri-shell/src-tauri/resources/llama-server"
           while IFS= read -r -d '' item; do
-            codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$item"
-          done < <(find "$runtime_dir" -type f -name '*.dylib' -print0)
-          codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$runtime_dir/llama-server"
+            case "$(file -b "$item")" in
+              *Mach-O*) codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$item" ;;
+            esac
+          done < <(find "$runtime_dir" -type f -print0)
 
       - name: Build bundled FastAPI backend sidecar
         env:
