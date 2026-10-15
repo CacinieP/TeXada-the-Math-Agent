@@ -216,6 +216,8 @@ use. Change the llama-server address to a free local port, save, then retry Star
 
 ### Quick Start With Ollama
 
+**Local test status (2026-10-15, Mac mini M4 / 16GB):** Ollama **0.40.3 and 0.40.4** both failed to load the 4.7 1B projector (`unknown projector type: minicpmv4_7`) for text and image inference. Use **Built-in llama-server** on this tested setup. The steps below describe model preparation, not a passed Ollama acceptance test. See the [local test record and evidence summary](docs/local-model-benchmark-2026-10-15.md).
+
 1. Install or update [Ollama](https://ollama.com/download) and open it. If you use the CLI without a running service, run `ollama serve` in a separate terminal.
 2. Download the official **MiniCPM-V 4.7 1B** model, then create a descriptive local alias for TeXada's 4.7 profile:
 
@@ -723,6 +725,8 @@ beta.3 设置页只展示所选后端。文本与 OCR 保留独立角色；内�
 如有冲突，将 llama-server 地址改为可用的本机端口，保存后再次启动。
 
 ### Ollama 快速启动
+
+**本机实测状态（2026-10-15，Mac mini M4 / 16GB）：**Ollama **0.40.3 和 0.40.4** 均无法加载 4.7 1B 视觉投影，文本和图片推理都报 `unknown projector type: minicpmv4_7`。本次环境请使用 **Built-in llama-server**。下方步骤仅说明模型准备方式，不代表 Ollama 已通过验收，详见[本机实测记录与证据摘要](docs/local-model-benchmark-2026-10-15.md)。
 
 1. 安装或更新并打开 [Ollama](https://ollama.com/download)。如果只使用 CLI 且服务未运行，在单独终端执行 `ollama serve`。
 2. 下载官方 **MiniCPM-V 4.7 1B**，再创建用于 TeXada 4.7 配置识别的本地别名：

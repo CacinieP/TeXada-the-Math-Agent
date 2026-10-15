@@ -1,0 +1,120 @@
+{
+  "date": "2026-10-15",
+  "hardware": {
+    "model": "Mac mini Mac16,10",
+    "chip": "Apple M4",
+    "cores": 10,
+    "memory_gb": 16,
+    "macos": "26.6.2 (25G83)"
+  },
+  "app_version": "0.4.2-beta.3",
+  "release_commit": "da18578e34abc671c3d8ec0da4be0c9126aaf2e1",
+  "weights": [
+    {
+      "name": "MiniCPM-V-4_7-1B-Q4_K_M.gguf",
+      "bytes": 672003680,
+      "sha256": "588c6c94c82f756b86dba35c42ed9ba9ec187d65824eb52f039c347df563e63d"
+    },
+    {
+      "name": "mmproj-model-f16.gguf",
+      "bytes": 1110117984,
+      "sha256": "fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900"
+    }
+  ],
+  "dataset_sha256": "50dd12207aa1fc027dd982ce9b9d4046d370dca2a122cd2c4469ef0654bce707",
+  "references_sha256": "dbad1dab2df614fe1d01d5ba5007d094fcd2fb076300b7f0cd4cdc5f7fd1b4b1",
+  "parameters": {
+    "temperature": 0.1,
+    "max_tokens": 2048,
+    "agent_max_steps": 3,
+    "nl_candidate_first": true,
+    "planner_surface": "full",
+    "context_size": 8192,
+    "server_seed": 47,
+    "ocr_preprocessing": "binary"
+  },
+  "nl": {
+    "total": 100,
+    "http_200": 100,
+    "syntax_valid": 99,
+    "rendered": 100,
+    "committed": 98,
+    "strict_structure": {
+      "MATCH": 49,
+      "DIFFERENT": 35,
+      "UNSUPPORTED": 16
+    },
+    "median_seconds": 1.062,
+    "p95_seconds": 2.053,
+    "provider_calls": 201,
+    "stop_reasons": {
+      "finish_confirmed": 54,
+      "deterministic_candidate": 4,
+      "planner_final": 40,
+      "human_review_required": 1,
+      "planner_action_rejected": 1
+    }
+  },
+  "ocr_synthetic": {
+    "total": 8,
+    "http_200": 8,
+    "strict_structure": {
+      "MATCH": 7,
+      "DIFFERENT": 1
+    },
+    "pending_review": 8
+  },
+  "historical_judgment_crosscheck": {
+    "byte_identical_candidates": 100,
+    "unchanged_commit_states": 100,
+    "historically_incorrect_committed_again": 24,
+    "not_new_independent_adjudication": true
+  },
+  "fresh_packaged_runtime": {
+    "start": 7.063,
+    "cold_text": 2.541,
+    "ocr": 3.495,
+    "stop": 0.178,
+    "original_service_preserved": true
+  },
+  "ollama": {
+    "installed_0.40.3": "text/OCR load fails",
+    "latest_isolated_0.40.4": "text/OCR load fails",
+    "root_error": "unknown projector type: minicpmv4_7",
+    "pull_error": "download redirected hostname resolved to non-public 198.18.0.33; blocked by Ollama, not bypassed"
+  },
+  "ollama_runtime_probes": [
+    {
+      "version": "0.40.3",
+      "purpose": "text",
+      "http_status": 500,
+      "elapsed_seconds": 5.121,
+      "error": "{\"error\":\"llama-server process has terminated: exit status 1: error: Failed to load CLIP model from <OLLAMA_MODEL_STORE>/sha256-fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900\\nerror: Failed to load CLIP model from <OLLAMA_MODEL_STORE>/sha256-fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900\"}"
+    },
+    {
+      "version": "0.40.3",
+      "purpose": "ocr",
+      "http_status": 500,
+      "elapsed_seconds": 0.784,
+      "error": "{\"error\":\"llama-server process has terminated: exit status 1: error: Failed to load CLIP model from <OLLAMA_MODEL_STORE>/sha256-fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900\\nerror: Failed to load CLIP model from <OLLAMA_MODEL_STORE>/sha256-fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900\"}"
+    },
+    {
+      "version": "0.40.4",
+      "purpose": "text",
+      "http_status": 500,
+      "elapsed_seconds": 1.319,
+      "error": "{\"error\": \"llama-server process has terminated: exit status 1: error: Failed to load CLIP model from <OLLAMA_MODEL_STORE>/sha256-fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900\\nerror: Failed to load CLIP model from <OLLAMA_MODEL_STORE>/sha256-fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900\"}"
+    },
+    {
+      "version": "0.40.4",
+      "purpose": "ocr",
+      "http_status": 500,
+      "elapsed_seconds": 0.799,
+      "error": "{\"error\": \"llama-server process has terminated: exit status 1: error: Failed to load CLIP model from <OLLAMA_MODEL_STORE>/sha256-fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900\\nerror: Failed to load CLIP model from <OLLAMA_MODEL_STORE>/sha256-fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900\"}"
+    }
+  ],
+  "independent_human_review": false,
+  "real_page_or_handwriting_ocr": false,
+  "scope": "Live released-app testing on this Mac; no independent mathematical accuracy claim. NL uses an already-running warm b11609 service. Fresh packaged runtime separately tested.",
+  "ollama_loader_log_excerpt": "load_hparams: unknown projector type: minicpmv4_7"
+}
