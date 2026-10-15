@@ -723,6 +723,8 @@
 
   function backendStatusText(info) {
     if (!info) return t('status.offline');
+    if (info.status === 'unverified' || info.status === 'inference_failed') return info.message;
+    if (info.status === 'partial_ready' && info.backend === 'ollama') return info.message;
     if (info.status === 'stopped') return t('status.stopped');
     if (info.status === 'missing_binary') return t('status.missingBinary');
     if (info.status === 'partial_ready') return t('status.partialReady');
@@ -745,6 +747,7 @@
     if (info.missing_models && info.missing_models.length) {
       parts.push(`Missing: ${info.missing_models.join(', ')}`);
     }
+    if (info.message) parts.push(info.message);
     if (info.next_action) parts.push(`Next: ${info.next_action}`);
     return parts.join('\n');
   }
@@ -754,7 +757,7 @@
     const span = els.statusDot.querySelector('span');
     dot.className = 'dot';
     if (!online && state !== 'starting') dot.classList.add('offline');
-    if (state === 'starting' || (online && state === 'partial_ready')) {
+    if (state === 'starting' || state === 'unverified' || (online && state === 'partial_ready')) {
       dot.classList.add('warning');
     }
     span.textContent = text || (online ? t('status.online') : t('status.offline'));
@@ -821,9 +824,10 @@
   async function checkBackend({ starting = false } = {}) {
     try {
       const info = isTauri ? await invoke('get_status') : await apiJson('/api/status');
-      const isOnline = Boolean(info.ready) || info.status === 'ok' || info.status === 'ready' || info.status === 'partial_ready';
+      const isOnline = info.ready ?? (info.status === 'ok' || info.status === 'ready');
       setStatus(isOnline, backendStatusText(info), info.status, info);
-      return isOnline;
+      // The API has started even if inference remains unverified or failed.
+      return true;
     } catch (e) {
       setStatus(false, t(starting ? 'status.starting' : 'status.noApi'), starting ? 'starting' : '');
       return false;

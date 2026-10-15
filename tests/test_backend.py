@@ -117,8 +117,8 @@ async def test_ollama_status_reports_partial_ready_for_missing_vision_model(monk
 
     status = await manager.aget_status()
 
-    assert status["status"] == "partial_ready"
-    assert status["ready"] is True
+    assert status["status"] == "unverified"
+    assert status["ready"] is False
     assert status["endpoint"] == "http://localhost:11435/v1"
     assert status["text_model_installed"] is True
     assert status["vision_model_installed"] is False
@@ -274,3 +274,135 @@ async def test_llama_status_never_recommends_ollama(monkeypatch, tmp_path):
     assert status["backend"] == "llama_server" and not status["ready"]
     assert "llama-server" in status["next_action"]
     assert "ollama" not in status["next_action"].lower()
+
+
+@pytest.fixture
+def inference_server():
+    """Registration succeeds even when loading the projector fails."""
+    state = {"fail": True, "posts": 0, "error": "unknown projector type: minicpmv4_7"}
+
+    class Handler(BaseHTTPRequestHandler):
+        def respond(self, status, data):
+            body = json.dumps(data).encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self):
+            self.respond(200, {"data": [{"id": "shared"}]})
+
+        def do_POST(self):
+            self.rfile.read(int(self.headers["Content-Length"]))
+            state["posts"] += 1
+            if state["fail"]:
+                self.respond(500, {"error": {"message": state["error"]}})
+            else:
+                self.respond(200, {"id": "test", "choices": [
+                    {"index": 0, "message": {"role": "assistant", "content": "x"}}
+                ]})
+
+        def log_message(self, *_):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}", state
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+@pytest.mark.parametrize("vision", [False, True])
+async def test_registered_model_500_updates_actual_inference_status(
+    tmp_path, inference_server, vision,
+):
+    from texada.core.model import MiniCPMModel
+
+    host, state = inference_server
+    config = TeXadaConfig(data_dir=tmp_path, backend="ollama", ollama_host=host,
+                          model_name="shared", vision_model_name="shared")
+    model = MiniCPMModel(config)
+    manager = model.backend
+    assert await manager.ensure_ready()
+    assert await manager.ensure_vision_ready()
+    before = await manager.aget_status()
+    assert before["service_reachable"] and before["text_model_installed"]
+    assert before["status"] == "unverified" and not before["ready"]
+    assert state["posts"] == 0
+    kwargs = {"model": "shared", "messages": [{"role": "user", "content": "x"}],
+              "max_tokens": 1, "_inference_purpose": "ocr" if vision else "planner"}
+    with pytest.raises(RuntimeError, match="内置 llama-server"):
+        model._completion_create(**kwargs)
+    for _ in range(3):
+        status = await manager.aget_status()
+        assert status["status"] == "inference_failed" and not status["ready"]
+        assert "minicpmv4_7" in status["message"]
+        assert "保存" in status["next_action"] and "启动" in status["next_action"]
+    assert state["posts"] == 1  # no automatic retries or polling inference
+    state["fail"] = False
+    model._completion_create(**kwargs)
+    status = await manager.aget_status()
+    role = "vision" if vision else "text"
+    other = "text" if vision else "vision"
+    assert status[f"{role}_inference_status"] == "verified"
+    assert status[f"{other}_inference_status"] == "unverified"
+    assert status["status"] != "ready"  # text cannot certify OCR, or vice versa
+    model._completion_create(**{**kwargs, "_inference_purpose": "planner" if vision else "ocr"})
+    assert (await manager.aget_status())["status"] == "ready"
+
+
+async def test_inference_observations_expire_and_do_not_cross_settings(tmp_path, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    manager = BackendManager(TeXadaConfig(data_dir=tmp_path, backend="ollama",
+                                         model_name="shared", vision_model_name="shared"))
+    monkeypatch.setattr(manager, "_is_running", AsyncMock(return_value=True))
+    monkeypatch.setattr(manager, "_list_models", AsyncMock(return_value=["shared"]))
+    monkeypatch.setattr("texada.core.backend.time.monotonic", lambda: 100)
+    manager.record_inference("shared", vision=False)
+    assert (await manager.aget_status())["ready"]
+    manager.config.ollama_host = "http://localhost:11435"
+    assert not (await manager.aget_status())["ready"]
+    manager.config.ollama_host = "http://localhost:11434"
+    monkeypatch.setattr("texada.core.backend.time.monotonic", lambda: 401)
+    assert not (await manager.aget_status())["ready"]
+
+
+async def test_api_status_observes_router_inference_failure(tmp_path, inference_server):
+    from fastapi.testclient import TestClient
+
+    from texada.api import create_app
+
+    host, state = inference_server
+    config = TeXadaConfig(data_dir=tmp_path, backend="ollama", ollama_host=host,
+                          model_name="shared", vision_model_name="shared")
+    with TestClient(create_app(config)) as client:
+        before = client.get("/api/status").json()
+        assert before["status"] == "unverified" and not before["ready"]
+        assert before["service_reachable"] and before["text_model_installed"]
+        response = client.post("/api/convert", json={"text": "写出正态分布的概率密度函数"})
+        assert response.status_code == 503
+        assert "minicpmv4_7" in response.json()["detail"]
+        after = client.get("/api/status").json()
+        assert after["status"] == "inference_failed" and not after["ready"]
+        assert after["text_inference_status"] == "failed"
+        assert state["posts"] == 1
+
+
+async def test_generic_500_does_not_claim_projector_diagnosis(tmp_path, inference_server):
+    from texada.core.model import MiniCPMModel
+
+    host, state = inference_server
+    state["error"] = "runner process has terminated"
+    model = MiniCPMModel(TeXadaConfig(data_dir=tmp_path, backend="ollama", ollama_host=host,
+                                    model_name="shared", vision_model_name="shared"))
+    with pytest.raises(RuntimeError, match="若包含 unknown projector type"):
+        model._completion_create(model="shared", messages=[{"role": "user", "content": "x"}])
+    status = await model.backend.aget_status()
+    assert not status["ready"] and status["text_inference_status"] == "failed"
+    assert state["posts"] == 1

@@ -113,3 +113,22 @@ test('remote text and OCR each save their own endpoint, model and key', async ()
   await f.context.saveBackendSettings();
   assert.equal('openai_vision_api_key' in f.sent[1], false);
 });
+
+test('unverified and failed inference stay visible without restarting API wait', async () => {
+  const statusSource = source.slice(source.indexOf('  function backendStatusText('), source.indexOf('  async function apiJson('));
+  const checkSource = source.slice(source.indexOf('  async function checkBackend('), source.indexOf('  function waitForBackendStartup('));
+  for (const status of ['unverified', 'inference_failed']) {
+    const info = {backend: 'ollama', status, ready: false, message: 'Inference needs attention', next_action: 'Switch to built-in llama-server'};
+    const classes = new Set();
+    const dot = {classList: {add: value => classes.add(value)}};
+    const span = {};
+    const statusDot = {querySelector: selector => selector === '.dot' ? dot : span};
+    const context = {els: {statusDot}, t: key => key, isTauri: false, apiJson: async () => info};
+    vm.createContext(context); vm.runInContext(statusSource + checkSource, context);
+    assert.equal(await context.checkBackend(), true); // API reachable, inference not ready
+    assert.equal(span.textContent, info.message);
+    assert.match(statusDot.title, /Switch to built-in/);
+    assert.ok(classes.has('offline'));
+    if (status === 'unverified') assert.ok(classes.has('warning'));
+  }
+});
