@@ -125,11 +125,19 @@ The Ollama port is configurable. The default is `http://localhost:11434`, but Se
 
 ### Download
 
+For the built-in llama-server setup below, install
+[v0.4.2-beta.2 (prerelease)](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.2-beta.2).
+Choose `TeXada_0.4.2-beta.2_aarch64.dmg` for Apple Silicon,
+`TeXada_0.4.2-beta.2_x64.dmg` for Intel Macs, or
+`TeXada_0.4.2-beta.2_x64-setup.exe` for Windows. macOS requires 13.3 or later.
+Model weights download separately after installation. The older stable release
+is listed below; it does not include the beta's built-in runtime.
+
 The `v0.4.1` desktop release is licensed
 `AGPL-3.0-or-later`. Tagged releases retain the license recorded in their
 immutable tag: earlier `v0.3.6` artifacts are `GPL-3.0-or-later`, while
 `v0.3.7` and later are `AGPL-3.0-or-later`. Current `main` development is
-version `0.4.1`.
+version `0.4.2-beta.2`.
 
 | Platform | Package |
 |----------|---------|
@@ -152,9 +160,11 @@ TeXada release packages are built for end users. You do not need Python, Node.js
    - macOS: open the DMG and drag TeXada into Applications.
    - Windows: run the setup EXE and start TeXada from the Start menu.
 
-3. Pick one model path:
-   - Local path: install Ollama and pull the default text model. Pull the vision model too if you want OCR.
-   - Cloud path: skip Ollama, open Settings, choose `OpenAI-compatible`, enter the provider base URL, text model, vision model and API key, then save.
+3. Choose one local backend in **Settings → Backend** and click **Save**:
+   - **New to TeXada? Choose `Built-in llama-server`** (beta.2 default). Follow [the built-in setup](#quick-start-with-built-in-llama-server): download the model in the app, then click Start. No Ollama installation or API key is needed.
+   - **Already using Ollama? Choose `Local Ollama`.** Follow [the Ollama setup](#quick-start-with-ollama): start Ollama, pull the models, and save their names in TeXada.
+   - Switching the dropdown alone does not download models. Existing installations keep their saved backend; choose explicitly when switching.
+   - A hosted endpoint remains available under `OpenAI-compatible`; see [Cloud Mode](#cloud-mode).
 
 4. Generate the first formula.
    - Open the `NL` tab.
@@ -164,7 +174,8 @@ TeXada release packages are built for end users. You do not need Python, Node.js
 
 5. Try OCR after the vision model is ready.
    - Paste or drop a screenshot into the OCR tab.
-   - If the title bar says `Text ready · OCR missing`, text conversion still works; pull or configure the vision model before OCR.
+   - With llama-server, wait for both the model weights and vision projector to finish downloading. With Ollama, install the separate vision model if needed.
+   - OCR candidates require review before adoption; compilation and rendering do not establish mathematical correctness.
 
 6. Reuse previous work from History.
    - Open the `History` tab to search saved natural-language, completion, OCR, and LaTeX results.
@@ -172,36 +183,58 @@ TeXada release packages are built for end users. You do not need Python, Node.js
    - Click `Reuse input` to send a saved natural-language or completion prompt back to the matching tab for editing and rerun.
    - Switch to `Run logs` to filter request-level records and expand execution details.
 
+### Choose A Local Backend
+
+| Choice in Settings | Best fit | Model setup | Default address |
+|--------------------|----------|-------------|-----------------|
+| `Built-in llama-server` | First-time users of beta.2 | Download in TeXada; one `MiniCPM-V-4.7-1B` Q4_K_M checkpoint handles text and OCR, with an F16 vision projector | `http://127.0.0.1:8080` |
+| `Local Ollama` | Users who already manage models with Ollama | Pull the text model; add the separate vision model for OCR | `http://localhost:11434` |
+
+Both options run model inference locally. Pick one; you do not need to install
+both runtimes. Initial model downloads require an internet connection.
+
+### Quick Start With Built-in llama-server
+
+1. Install and open **v0.4.2-beta.2** from the release link above.
+2. Open **Settings → Backend**, select **`Built-in llama-server`**, and click **Save**.
+   Keep the default address `http://127.0.0.1:8080`. Leave **llama-server executable** and **Model directory** blank to use the packaged runtime and `~/.texada/models`.
+3. In **Local inference service (llama-server)**, click **Download model**. Wait until downloading finishes for both the model weights and the vision projector. They are not included in the installer.
+4. Click **Start** in the same section. Wait for the service to be ready, then return to **NL** and try `x plus y`.
+5. To try OCR, open **OCR** and paste or drop a formula image. The same 4.7 model handles text and OCR; review the candidate before adopting it.
+
+You do not need terminal commands, an Ollama model name, or an API key for this
+route. If model files are missing, complete **Download model** first. If the
+service cannot start, check its status message; port `8080` may already be in
+use. Change the llama-server address to a free local port, save, then retry Start.
+
 ### Quick Start With Ollama
 
-The 2B default and compatibility fixes are included from v0.4.1 onward.
-Upgrade older installers to receive the code fixes; changing their model
-setting alone does not install them. See the [v0.4.1 changelog](CHANGELOG.md#041---2026-09-12).
-
-1. Install Ollama from [ollama.com/download](https://ollama.com/download).
-   - macOS: use the official download app.
-   - Windows: use the official Windows installer, then launch Ollama once from the Start menu.
-
-2. Pull the required text model from the official [OpenBMB Hugging Face repository](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF). Ollama can download the Hugging Face GGUF directly with this model reference:
+1. Install [Ollama](https://ollama.com/download) and open it. If you use the CLI without a running service, run `ollama serve` in a separate terminal.
+2. In a terminal (PowerShell on Windows), download the text model:
 
 ```bash
 ollama pull hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M
 ```
 
-   Optional: install the separate vision model if you also want local OCR:
+3. Optional: for OCR, also download the vision model:
 
 ```bash
 ollama pull openbmb/minicpm-v4.6:latest
 ```
 
-3. Open TeXada from the downloaded `.dmg` or `.exe`. The packaged app includes the TeXada FastAPI backend and starts it automatically; no separate Python install or manual API server is needed.
-   - Existing saved settings keep their model selection. To switch, set the text model in Settings → Backend to `hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M` and save.
+4. In TeXada, open **Settings → Backend**, choose **`Local Ollama`**, fill in the following values, then click **Save**:
 
-4. Check the status in the title bar.
-   - `Ready`: text conversion and OCR are available.
-   - `Text ready · OCR missing`: text conversion works; pull the vision model shown in the status tooltip.
-   - `Model missing`: pull the text model shown in the status tooltip.
-   - `Disconnected`: start Ollama or check the configured port.
+| Field | Value |
+|-------|-------|
+| Ollama address | `http://localhost:11434` |
+| Local text model | `hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M` |
+| Local vision model | `openbmb/minicpm-v4.6:latest` |
+
+Do not add `/v1` to the Ollama address. These are the existing Ollama defaults;
+the shared 4.7 checkpoint described above belongs to the built-in llama-server
+setup, not an instruction to paste that alias into Ollama.
+
+5. Return to **NL** and try `x plus y`. `Text ready · OCR missing` means you can use text now and add the vision model later. If disconnected, make sure Ollama is running; if a model is missing, check `ollama list` and ensure its name matches Settings exactly.
 
 ### macOS Local Model Notes
 
@@ -222,16 +255,19 @@ ollama pull openbmb/minicpm-v4.6:latest
 TeXada uses two local HTTP layers. They should normally use different ports:
 
 ```text
-Desktop UI -> TeXada FastAPI API -> Ollama or cloud model endpoint
+Desktop UI -> TeXada FastAPI API -> llama-server, Ollama, or a hosted model endpoint
 ```
 
 | Layer | Default | What it is for |
 |-------|---------|----------------|
 | TeXada FastAPI API | `http://127.0.0.1:18732` | Bundled with the installer and auto-started by the desktop app |
+| Built-in llama-server | `http://127.0.0.1:8080` | Model service controlled by Download model / Start / Stop in Settings |
 | Ollama model endpoint | `http://localhost:11434` | The FastAPI backend calls local model APIs and adds `/v1` internally |
 | Cloud model endpoint | Provider-specific `/v1` base URL | Used only when Backend is `OpenAI-compatible` |
 
-Do not set the FastAPI address and Ollama address to the same port unless you are deliberately running a custom proxy. If Settings shows a network/API error, restart TeXada and check whether `18732` is already occupied. If FastAPI is reachable but status says `Disconnected` or `Model missing`, check Ollama and the model names.
+Do not set the FastAPI address and Ollama address to the same port unless you are deliberately running a custom proxy. If Settings shows a network/API error, restart TeXada and check whether `18732` is already occupied. If FastAPI is reachable but status says `Disconnected` or `Model missing`, check the selected runtime and its model files or names.
+
+The following defaults apply to **Ollama**; built-in llama-server uses the shared 4.7 checkpoint.
 
 | Role | Default | Notes |
 |------|---------|-------|
@@ -298,7 +334,8 @@ The StepFun Step Plan OpenAI-compatible Chat Completions base URL is `https://ap
 
 ### Configuration
 
-Persistent config lives at `~/.texada/config.json`.
+Persistent config lives at `~/.texada/config.json`. Most users can use Settings instead.
+The following is an **Ollama example**, not the default backend for a fresh beta.2 install.
 
 ```json
 {
@@ -318,7 +355,9 @@ Persistent config lives at `~/.texada/config.json`.
 
 | Variable | Purpose |
 |----------|---------|
-| `TEXADA_BACKEND` | `ollama` or `openai_compatible` |
+| `TEXADA_BACKEND` | `llama_server` (default), `ollama`, or `openai_compatible` |
+| `TEXADA_LLAMA_SERVER_HOST` | Built-in model service address; default `http://127.0.0.1:8080` |
+| `TEXADA_LLAMA_SERVER_BINARY`, `TEXADA_LLAMA_MODELS_DIR` | Optional runtime executable and model directory overrides |
 | `TEXADA_OLLAMA_HOST` | Local Ollama base URL, including custom ports |
 | `TEXADA_MODEL_NAME`, `TEXADA_VISION_MODEL_NAME` | Local text and vision model names |
 | `TEXADA_OPENAI_BASE_URL` | Full OpenAI-compatible cloud base URL |
@@ -347,6 +386,7 @@ See [docs/data-backup.md](docs/data-backup.md) for the JSON format.
 
 | Topic | Behavior |
 |-------|----------|
+| Built-in llama-server | Model requests stay on the configured local llama-server endpoint |
 | Local Ollama mode | Model requests stay on the configured Ollama endpoint |
 | Cloud mode | Text and images are sent to the configured provider endpoint |
 | API keys | Saved in `~/.texada/config.json`; do not paste keys into public issues |
@@ -358,7 +398,8 @@ See [docs/data-backup.md](docs/data-backup.md) for the JSON format.
 | Symptom | Check |
 |---------|-------|
 | Settings shows API/network error | Restart TeXada; if it persists, check whether another process already uses `127.0.0.1:18732` |
-| Status is `Disconnected` | Ollama is not running or `ollama_host` points to the wrong host/port |
+| Status is `Disconnected` | Check the selected backend: Start llama-server in Settings, or open Ollama; verify its host/port |
+| llama-server reports missing models | Click Download model and wait for both weights and projector to finish |
 | Status is `Model missing` | Pull the text model shown in the status tooltip |
 | Status is `Text ready · OCR missing` | Pull the vision model shown in the status tooltip |
 | Cloud mode returns 401/403 | API key, provider base URL, and model name |
@@ -581,10 +622,17 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 
 ### 下载
 
+使用下方内置 llama-server 路线，请安装
+[v0.4.2-beta.2 预发布版](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.2-beta.2)。
+Apple Silicon Mac 选择 `TeXada_0.4.2-beta.2_aarch64.dmg`，
+Intel Mac 选择 `TeXada_0.4.2-beta.2_x64.dmg`，
+Windows 选择 `TeXada_0.4.2-beta.2_x64-setup.exe`。macOS 需要 13.3 或更新版本。
+模型权重在安装后单独下载。下表保留旧稳定版下载信息；旧稳定版不包含 beta 的内置运行时。
+
 `v0.4.1` 桌面版本适用 `AGPL-3.0-or-later`。每个标签及其
 安装包继续适用标签内记录的许可证：`v0.3.6` 及更早产物为
 `GPL-3.0-or-later`，`v0.3.7` 起为 `AGPL-3.0-or-later`。当前 `main` 开发
-版本为 `0.4.1`。
+版本为 `0.4.2-beta.2`。
 
 | 平台 | 安装包 |
 |------|--------|
@@ -607,9 +655,11 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
    - macOS：打开 DMG，把 TeXada 拖到 Applications。
    - Windows：运行安装器，然后从开始菜单启动 TeXada。
 
-3. 选择一种模型路线。
-   - 本地路线：安装 Ollama，并拉取默认文本模型；如果要用 OCR，再拉取视觉模型。
-   - 云侧路线：可以跳过 Ollama；进入设置页，选择 `OpenAI-compatible`，填写 provider base URL、文本模型、视觉模型和 API key，然后保存。
+3. 在**设置 → 后端连接**中选择一种本地后端，然后点击**保存**。
+   - **第一次使用，建议选 `Built-in llama-server`**（beta.2 默认值）：按[内置启动步骤](#内置-llama-server-快速启动)，在应用内下载模型并点击启动，无需安装 Ollama 或填写 API key。
+   - **已经在用 Ollama，选 `Local Ollama`**：按 [Ollama 启动步骤](#ollama-快速启动)，启动 Ollama、下载模型，并在 TeXada 保存模型名。
+   - 只切换下拉框不会自动下载模型。升级安装会保留已有后端设置，需要切换时请明确选择。
+   - 远程服务仍可选择 `OpenAI-compatible`，详见[云侧模式](#云侧模式)。
 
 4. 生成第一个公式。
    - 打开 `NL` 页签。
@@ -619,7 +669,8 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 
 5. 视觉模型准备好后再试 OCR。
    - 在 OCR 页签粘贴或拖入公式截图。
-   - 如果标题栏显示 `文本可用 · OCR 缺模型`，文本转换仍可用；OCR 需要先拉取或配置视觉模型。
+   - llama-server 需要模型权重与视觉投影文件均下载完成；Ollama 路线则需要单独的视觉模型。
+   - OCR 候选需要人工审阅后采用；编译和渲染成功不代表数学含义正确。
 
 6. 从历史页复用旧记录。
    - 打开 `历史` 页签，搜索保存过的自然语言、补全、OCR 和 LaTeX 结果。
@@ -627,35 +678,57 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
    - 点击 `复用输入` 可以把历史自然语言或补全片段送回对应页签，继续编辑或重新生成。
    - 切换到 `运行日志`，可以筛选请求并展开查看执行详情。
 
+### 选择本地后端
+
+| 设置中的选项 | 适合谁 | 模型准备 | 默认地址 |
+|--------------|--------|----------|----------|
+| `Built-in llama-server` | 首次使用 beta.2 的用户 | 在 TeXada 内下载；同一个 `MiniCPM-V-4.7-1B` Q4_K_M 模型负责文本和 OCR，配合 F16 视觉投影文件 | `http://127.0.0.1:8080` |
+| `Local Ollama` | 已经用 Ollama 管理模型的用户 | 下载文本模型；需要 OCR 时再下载独立视觉模型 | `http://localhost:11434` |
+
+两条路线都在本地执行模型推理，选一条即可，无需同时安装两个运行时。
+首次下载模型需要联网。
+
+### 内置 llama-server 快速启动
+
+1. 从上方 Release 链接安装并打开 **v0.4.2-beta.2**。
+2. 打开**设置 → 后端连接**，选择 **`Built-in llama-server`**，点击**保存**。
+   地址保留 `http://127.0.0.1:8080`；**llama-server 路径**和**模型目录**留空，使用应用内置运行时及 `~/.texada/models`。
+3. 在**本地推理服务（llama-server）**中点击**下载模型**，等待模型权重和视觉投影文件全部下载完成。安装包不包含这些文件。
+4. 在同一区域点击**启动**，等待服务就绪，回到 **NL** 页签输入 `x 加上 y` 试用。
+5. 需要识图时，进入 **OCR** 页签粘贴或拖入公式图片。文本和 OCR 使用同一个 4.7 模型；采用前请审阅候选结果。
+
+这条路线无需终端命令、Ollama 模型名或 API key。
+提示缺模型时，先完成**下载模型**；启动失败时查看服务状态信息，确认 `8080` 端口是否被占用。
+如有冲突，将 llama-server 地址改为可用的本机端口，保存后再次启动。
+
 ### Ollama 快速启动
 
-以下 2B 默认值与兼容修复从 v0.4.1 起提供。旧版本安装包需要升级才能获得代码修复；
-只切换模型设置不会安装这些修复。详见 [v0.4.1 变更记录](CHANGELOG.md#041---2026-09-12)。
-
-1. 从 [ollama.com/download](https://ollama.com/download) 安装 Ollama。
-   - macOS：使用官方下载版应用。
-   - Windows：使用官方 Windows 安装器，安装后先从开始菜单启动一次 Ollama。
-
-2. 从 [OpenBMB 官方 Hugging Face 仓库](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF)拉取必需的文本模型。Ollama 可以通过以下模型地址直接下载 Hugging Face 上的 GGUF：
+1. 安装并打开 [Ollama](https://ollama.com/download)。如果只使用 CLI 且服务未运行，在单独终端执行 `ollama serve`。
+2. 打开终端（Windows 可用 PowerShell），下载文本模型：
 
 ```bash
 ollama pull hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M
 ```
 
-   可选：如果需要本地 OCR，再安装独立的视觉模型：
+3. 可选：需要 OCR 时，再下载视觉模型：
 
 ```bash
 ollama pull openbmb/minicpm-v4.6:latest
 ```
 
-3. 打开下载好的 TeXada `.dmg` 或 `.exe` 安装包。安装包内置 TeXada FastAPI 后端，并会在应用启动时自动拉起；不需要单独安装 Python 或手动启动 API 服务。
-   - 已保存的设置会保留原来的模型选择。需要切换时，在设置页 → 后端连接中将文本模型改为 `hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M` 并保存。
+4. 在 TeXada 的**设置 → 后端连接**中选择 **`Local Ollama`**，填写下表并点击**保存**：
 
-4. 看标题栏状态。
-   - `Ready`：文本转换和 OCR 都可用。
-   - `文本可用 · OCR 缺模型`：文本可用，按状态 tooltip 里的命令拉取视觉模型。
-   - `模型缺失`：按状态 tooltip 里的命令拉取文本模型。
-   - `未连接`：启动 Ollama，或检查配置的端口。
+| 设置项 | 填写内容 |
+|--------|----------|
+| Ollama 地址 | `http://localhost:11434` |
+| 本地文本模型 | `hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M` |
+| 本地视觉模型 | `openbmb/minicpm-v4.6:latest` |
+
+Ollama 地址不要加 `/v1`。这些是既有 Ollama 默认模型；上方“同一个 4.7 模型”
+对应内置 llama-server 路线，不是让你把该别名直接填入 Ollama。
+
+5. 回到 **NL** 输入 `x 加上 y`。显示 `文本可用 · OCR 缺模型` 时可以先使用文本功能，之后再下载视觉模型。
+   显示未连接时，先确认 Ollama 已启动；显示模型缺失时，用 `ollama list` 检查已安装模型，确保名称与设置完全一致。
 
 ### macOS 本地模型使用说明
 
@@ -674,16 +747,19 @@ ollama pull openbmb/minicpm-v4.6:latest
 TeXada 使用两层本地 HTTP 服务。它们通常应该是不同端口：
 
 ```text
-桌面 UI -> TeXada FastAPI API -> Ollama 或云侧模型 endpoint
+桌面 UI -> TeXada FastAPI API -> llama-server、Ollama 或远程模型 endpoint
 ```
 
 | 层级 | 默认值 | 用途 |
 |------|--------|------|
 | TeXada FastAPI API | `http://127.0.0.1:18732` | 随安装包内置，由桌面应用自动启动 |
+| 内置 llama-server | `http://127.0.0.1:8080` | 在设置中下载模型、启动和停止的推理服务 |
 | Ollama 模型 endpoint | `http://localhost:11434` | FastAPI 后端调用本地模型接口，并在内部自动拼接 `/v1` |
 | 云侧模型 endpoint | 服务商提供的 `/v1` base URL | 仅在后端选择 `OpenAI-compatible` 时使用 |
 
-除非你主动配置了自定义代理，不要把 FastAPI 地址和 Ollama 地址设成同一个端口。如果设置页显示 API/网络错误，先重启 TeXada，并检查 `18732` 是否已被其他进程占用；如果 FastAPI 可达但状态是 `未连接` 或 `模型缺失`，再检查 Ollama 和模型名。
+除非你主动配置了自定义代理，不要把 FastAPI 地址和 Ollama 地址设成同一个端口。如果设置页显示 API/网络错误，先重启 TeXada，并检查 `18732` 是否已被其他进程占用；如果 FastAPI 可达但状态是 `未连接` 或 `模型缺失`，再检查所选运行时及其模型文件或模型名。
+
+下表是 **Ollama** 默认配置；内置 llama-server 使用同一个 4.7 模型。
 
 | 角色 | 默认模型 | 说明 |
 |------|----------|------|
@@ -745,7 +821,8 @@ StepFun Step Plan 示例：
 
 ### 配置文件
 
-持久配置文件位于 `~/.texada/config.json`。
+持久配置文件位于 `~/.texada/config.json`，普通用户直接在设置中操作即可。
+下面是 **Ollama 配置示例**，不是 beta.2 全新安装时的默认后端。
 
 ```json
 {
@@ -763,7 +840,9 @@ StepFun Step Plan 示例：
 
 | 环境变量 | 用途 |
 |----------|------|
-| `TEXADA_BACKEND` | `ollama` 或 `openai_compatible` |
+| `TEXADA_BACKEND` | `llama_server`（默认）、`ollama` 或 `openai_compatible` |
+| `TEXADA_LLAMA_SERVER_HOST` | 内置推理服务地址，默认 `http://127.0.0.1:8080` |
+| `TEXADA_LLAMA_SERVER_BINARY`, `TEXADA_LLAMA_MODELS_DIR` | 可选：指定运行时路径和模型目录 |
 | `TEXADA_OLLAMA_HOST` | 本地 Ollama 地址，支持自定义端口 |
 | `TEXADA_MODEL_NAME`, `TEXADA_VISION_MODEL_NAME` | 本地文本模型和视觉模型名称 |
 | `TEXADA_OPENAI_BASE_URL` | 完整 OpenAI-compatible 云侧 base URL |
@@ -793,6 +872,7 @@ JSON 格式见 [docs/data-backup.md](docs/data-backup.md)。
 
 | 项目 | 行为 |
 |------|------|
+| 内置 llama-server | 模型请求只发送到配置的本地 llama-server endpoint |
 | 本地 Ollama 模式 | 模型请求只发送到配置的 Ollama endpoint |
 | 云侧模式 | 文本和图片会发送到你配置的 provider endpoint |
 | API key | 保存在 `~/.texada/config.json`；不要粘贴到公开 issue |
@@ -804,7 +884,8 @@ JSON 格式见 [docs/data-backup.md](docs/data-backup.md)。
 | 现象 | 检查项 |
 |------|--------|
 | 设置页显示 API/网络错误 | 重启 TeXada；如果仍存在，检查是否有其他进程占用 `127.0.0.1:18732` |
-| 状态是 `未连接` | Ollama 没启动，或 `ollama_host` 主机/端口不对 |
+| 状态是 `未连接` | 按所选后端，在设置中启动 llama-server，或打开 Ollama；核对相应地址与端口 |
+| llama-server 提示模型缺失 | 点击下载模型，等待权重与视觉投影文件全部下载完成 |
 | 状态是 `模型缺失` | 按状态 tooltip 拉取文本模型 |
 | 状态是 `文本可用 · OCR 缺模型` | 按状态 tooltip 拉取视觉模型 |
 | 云侧模式返回 401/403 | API key、provider base URL 和模型名 |
