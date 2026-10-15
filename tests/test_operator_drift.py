@@ -550,3 +550,39 @@ def test_factorial_description_binds_other_symbol_and_punctuation():
     guard = OperatorDriftGuard()
     assert not guard.check("", "k!", user_input="k 的阶乘。")
     assert guard.check("", "n!", user_input="k 的阶乘。")
+
+
+def test_sequence_limit_statement_keeps_equality_outside_the_subscript():
+    guard = OperatorDriftGuard()
+    description = "n 趋近于无穷时数列 a 下标 n 等于 L"
+    for candidate in (
+        r"\lim_{n \to \infty} a_{n=L}",
+        r"\lim_{n\to\infty}a_n", "a_n=L",
+        r"\lim_{n\to\infty}a_m=L", r"\lim_{m\to\infty}a_n=L",
+        r"\lim_{n\to\infty}b_n=L", r"\lim_{n\to\infty}a_n=M",
+        r"\limsup_{n\to\infty}a_n=L",
+        r"\text{\lim_{n\to\infty}a_n=L}",
+    ):
+        assert guard.check("", candidate, user_input=description), candidate
+    for candidate in (
+        r"\lim_{n\to\infty}a_n=L",
+        r"\lim\limits_{n\rightarrow+\infty}a_{n}=L",
+        r"\lim_{n\to\infty}\left(a_n\right)=L",
+        r"a_n\xrightarrow{n\to\infty}L",
+        r"a_n\to L",
+    ):
+        assert not guard.check("", candidate, user_input=description), candidate
+    for description in (
+        "不要写 n 趋近于无穷时数列 a 下标 n 等于 L",
+        "计算 n 趋近于无穷时数列 a 下标 n 等于 L",
+        "n 趋近于无穷时数列 a 下标 m 等于 L",
+        "n 趋近于无穷时数列 a 下标 n 等于 L.png",
+    ):
+        assert not guard.forced_operators("", description)
+
+
+def test_sequence_limit_template_binds_other_symbols():
+    guard = OperatorDriftGuard()
+    description = "k 趋近于无穷时，数列 b 下标 k 等于 M。"
+    assert not guard.check("", r"\lim_{k\to\infty}b_k=M", user_input=description)
+    assert guard.check("", r"\lim_{n\to\infty}a_n=L", user_input=description)

@@ -135,6 +135,18 @@ class OperatorDriftGuard:
             if pattern.search(request):
                 forced.append(operator)
 
+        sequence_limit = re.fullmatch(
+            r"(?P<index>[A-Za-z])\s*趋近于\s*(?:正)?无穷\s*时\s*[，,]?\s*"
+            r"数列\s*(?P<base>[A-Za-z])\s*下标\s*(?P=index)\s*等于\s*"
+            r"(?P<value>[A-Za-z])\s*[。.]?",
+            request,
+        )
+        if sequence_limit:
+            forced.append(
+                f"sequence limit: {sequence_limit['base']}_{sequence_limit['index']} "
+                f"equals {sequence_limit['value']} at positive infinity"
+            )
+
         factorial = re.fullmatch(r"([A-Za-z])\s*的\s*阶乘\s*[。.]?", request)
         if factorial:
             forced.append(f"unevaluated factorial of {factorial[1]}")
@@ -373,6 +385,22 @@ class OperatorDriftGuard:
         user_input: str = "",
     ) -> bool:
         """Check exact commands plus the few structural request anchors."""
+        sequence_limit = re.fullmatch(
+            r"sequence limit: ([A-Za-z])_([A-Za-z]) equals ([A-Za-z]) at positive infinity",
+            anchor,
+        )
+        if sequence_limit:
+            base, index, value = map(re.escape, sequence_limit.groups())
+            term = rf"{base}_(?:{index}|\{{{index}\}})"
+            approach = rf"{index}\\(?:to|rightarrow)\+?\\infty"
+            body = rf"(?:{term}|\({term}\)|\\left\({term}\\right\))"
+            # Equality belongs to the statement, never inside the subscript.
+            return bool(re.fullmatch(
+                rf"\\lim(?:\\limits)?_\{{{approach}\}}{body}={value}"
+                rf"|{term}\\xrightarrow\{{{approach}\}}{value}"
+                rf"|{term}\\(?:to|rightarrow){value}",
+                re.sub(r"\s+|\\[,!;:]", "", candidate),
+            ))
         factorial = re.fullmatch(r"unevaluated factorial of ([A-Za-z])", anchor)
         if factorial:
             symbol = re.escape(factorial[1])

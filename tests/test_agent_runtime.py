@@ -1428,3 +1428,33 @@ async def test_runtime_passes_intact_factorial_pretranslation_to_planner(tmp_pat
     assert "n 的阶乘" in prompt  # The original request remains available.
     assert "n 的!" in prompt
     assert r"阶\times" not in prompt
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate_first", [False, True])
+@pytest.mark.parametrize("candidate,should_commit", [
+    (r"\lim_{n \to \infty} a_{n=L}", False),
+    (r"\lim_{n\to\infty}a_n=L", True),
+    (r"a_n\xrightarrow{n\to\infty}L", True),
+    (r"a_n\to L", True),
+])
+async def test_runtime_preserves_sequence_limit_statement(
+    tmp_path, candidate_first, candidate, should_commit,
+):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first), model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("n 趋近于无穷时数列 a 下标 n 等于 L")
+
+    assert result.committed is should_commit
+    assert result.latex == candidate
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
+        assert result.formula_ledger["commits"] == []
