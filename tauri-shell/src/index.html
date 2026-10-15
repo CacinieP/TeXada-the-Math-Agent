@@ -6,7 +6,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: http://127.0.0.1:* http://localhost:* http://[::1]:*; connect-src 'self' http://127.0.0.1:* http://localhost:* http://[::1]:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
 <title>TeXada</title>
 <link rel="stylesheet" href="vendor/katex/katex.min.css?v=0.4.1-20260912">
-<link rel="stylesheet" href="style.css?v=0.4.1-20260912">
+<link rel="stylesheet" href="style.css?v=0.4.2-backend-settings">
 </head>
 <body>
 <div id="app">
@@ -217,92 +217,113 @@
     </div>
     <div class="settings-section">
       <div class="settings-title" data-i18n="settings.backendTitle">后端连接</div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label" data-i18n="settings.apiAddress">API 地址</div>
-          <div class="setting-desc" data-i18n="settings.apiDesc">TeXada FastAPI 服务地址</div>
-        </div>
-        <div class="setting-value" id="api-base-value">检测中...</div>
-      </div>
       <div class="setting-row form-row">
         <label class="setting-label" for="backend-select" data-i18n="settings.backend">模型后端</label>
         <select class="setting-control" id="backend-select">
-          <option value="llama_server">Built-in llama-server</option>
-          <option value="ollama">Local Ollama</option>
+          <option value="llama_server" data-i18n="settings.builtinBackend">Built-in llama-server</option>
+          <option value="ollama" data-i18n="settings.ollamaBackend">Local Ollama</option>
           <option value="openai_compatible">OpenAI-compatible</option>
         </select>
       </div>
-      <div class="setting-row form-row">
-        <div>
-          <label class="setting-label" for="ollama-host-input" data-i18n="settings.ollamaHost">Ollama 地址</label>
-          <div class="setting-desc" data-i18n="settings.ollamaHostDesc">默认 http://localhost:11434，可改任意端口</div>
+      <p class="setting-desc backend-save-note" id="backend-save-note" data-i18n="settings.saveBackendFirst">保存后应用当前后端设置。</p>
+      <div class="backend-panel" data-backend-panel="llama_server">
+        <div class="setting-row">
+          <div class="setting-label" data-i18n="settings.textModel">文本模型</div>
+          <output class="setting-value">MiniCPM-V-4.7-1B</output>
         </div>
-        <input class="setting-control" id="ollama-host-input" type="text" data-i18n-placeholder="settings.ollamaHostPlaceholder" placeholder="http://localhost:11434" autocomplete="off">
-      </div>
-      <div class="setting-row form-row">
-        <div>
-          <label class="setting-label" for="llama-host-input" data-i18n="settings.llamaHost">llama-server 地址</label>
-          <div class="setting-desc" data-i18n="settings.llamaHostDesc">内置本地服务地址，默认 http://127.0.0.1:8080</div>
+        <div class="setting-row">
+          <div class="setting-label" data-i18n="settings.ocrModel">OCR 模型</div>
+          <output class="setting-value">MiniCPM-V-4.7-1B</output>
         </div>
-        <input class="setting-control" id="llama-host-input" type="text" data-i18n-placeholder="settings.llamaHostPlaceholder" placeholder="http://127.0.0.1:8080" autocomplete="off">
+        <p class="setting-desc" data-i18n="settings.sharedModelNote">当前文本与 OCR 共用同一个内置模型，模型由运行时管理，无需填写模型名。</p>
       </div>
-      <div class="setting-row form-row">
-        <div>
-          <label class="setting-label" for="llama-binary-input" data-i18n="settings.llamaBinary">llama-server 路径</label>
-          <div class="setting-desc" data-i18n="settings.llamaBinaryDesc">留空则使用随应用打包的二进制或 PATH 中的 llama-server</div>
+      <div class="backend-panel" data-backend-panel="ollama" hidden>
+        <div class="setting-row form-row">
+          <div>
+            <label class="setting-label" for="ollama-host-input" data-i18n="settings.ollamaHost">Ollama 地址</label>
+            <div class="setting-desc" data-i18n="settings.ollamaHostDesc">默认 http://localhost:11434，可改任意端口</div>
+          </div>
+          <input class="setting-control" id="ollama-host-input" type="text" data-i18n-placeholder="settings.ollamaHostPlaceholder" placeholder="http://localhost:11434" autocomplete="off">
         </div>
-        <input class="setting-control" id="llama-binary-input" type="text" placeholder="" autocomplete="off">
-      </div>
-      <div class="setting-row form-row">
-        <div>
-          <label class="setting-label" for="llama-models-dir-input" data-i18n="settings.llamaModelsDir">模型目录</label>
-          <div class="setting-desc" data-i18n="settings.llamaModelsDirDesc">留空则使用 ~/.texada/models</div>
+        <div class="setting-row form-row">
+          <label class="setting-label" for="local-model-input" data-i18n="settings.textModel">文本模型</label>
+          <input class="setting-control" id="local-model-input" type="text" autocomplete="off">
         </div>
-        <input class="setting-control" id="llama-models-dir-input" type="text" placeholder="" autocomplete="off">
-      </div>
-      <div class="setting-row form-row">
-        <label class="setting-label" for="local-model-input" data-i18n="settings.localTextModel">本地文本模型</label>
-        <input class="setting-control" id="local-model-input" type="text" autocomplete="off">
-      </div>
-      <div class="setting-row form-row">
-        <label class="setting-label" for="local-vision-model-input" data-i18n="settings.localVisionModel">本地视觉模型</label>
-        <input class="setting-control" id="local-vision-model-input" type="text" autocomplete="off">
-      </div>
-      <div class="setting-row form-row">
-        <label class="setting-label" for="openai-endpoint-input" data-i18n="settings.cloudEndpoint">云端 Endpoint</label>
-        <input class="setting-control" id="openai-endpoint-input" type="url" placeholder="https://.../v1" autocomplete="off">
-      </div>
-      <div class="setting-row form-row">
-        <label class="setting-label" for="openai-model-input" data-i18n="settings.cloudModel">云端模型名</label>
-        <input class="setting-control" id="openai-model-input" type="text" autocomplete="off">
-      </div>
-      <div class="setting-row form-row">
-        <label class="setting-label" for="openai-vision-model-input" data-i18n="settings.cloudVisionModel">云端视觉模型</label>
-        <input class="setting-control" id="openai-vision-model-input" type="text" data-i18n-placeholder="settings.sameModelPlaceholder" placeholder="留空则使用同一模型" autocomplete="off">
-      </div>
-      <div class="setting-row form-row">
-        <label class="setting-label" for="openai-key-input" data-i18n="settings.cloudApiKey">云端 API Key</label>
-        <input class="setting-control" id="openai-key-input" type="password" data-i18n-placeholder="settings.keepKeyPlaceholder" placeholder="留空则保持不变" autocomplete="off">
-      </div>
-      <div class="setting-row form-row">
-        <div>
-          <label class="setting-label" for="inference-timeout-input" data-i18n="settings.inferenceTimeout">单次推理超时</label>
-          <div class="setting-desc" data-i18n="settings.inferenceTimeoutDesc">本地模型较慢时可适当增加</div>
+        <div class="setting-row form-row">
+          <label class="setting-label" for="local-vision-model-input" data-i18n="settings.ocrModel">OCR 模型</label>
+          <input class="setting-control" id="local-vision-model-input" type="text" autocomplete="off">
         </div>
-        <input class="setting-control setting-number" id="inference-timeout-input" type="number" min="10" max="600" step="5" inputmode="numeric">
       </div>
-      <div class="setting-row form-row">
-        <div>
-          <label class="setting-label" for="api-timeout-input" data-i18n="settings.apiTimeout">整次请求超时</label>
-          <div class="setting-desc" data-i18n="settings.apiTimeoutDesc">应高于单次推理超时，OCR 可能包含多次调用</div>
+      <div class="backend-panel" data-backend-panel="openai_compatible" hidden>
+        <div class="setting-row form-row">
+          <label class="setting-label" for="openai-endpoint-input" data-i18n="settings.cloudEndpoint">服务地址</label>
+          <input class="setting-control" id="openai-endpoint-input" type="url" placeholder="https://.../v1" autocomplete="off">
         </div>
-        <input class="setting-control setting-number" id="api-timeout-input" type="number" min="30" max="900" step="10" inputmode="numeric">
+        <div class="setting-row form-row">
+          <label class="setting-label" for="openai-model-input" data-i18n="settings.textModel">文本模型</label>
+          <input class="setting-control" id="openai-model-input" type="text" autocomplete="off">
+        </div>
+        <div class="setting-row form-row">
+          <label class="setting-label" for="openai-vision-model-input" data-i18n="settings.ocrModel">OCR 模型</label>
+          <input class="setting-control" id="openai-vision-model-input" type="text" data-i18n-placeholder="settings.sameModelPlaceholder" placeholder="留空则使用同一模型" autocomplete="off">
+        </div>
+        <div class="setting-row form-row">
+          <label class="setting-label" for="openai-key-input" data-i18n="settings.cloudApiKey">API Key</label>
+          <input class="setting-control" id="openai-key-input" type="password" data-i18n-placeholder="settings.keepKeyPlaceholder" placeholder="留空则保持不变" autocomplete="off">
+        </div>
       </div>
+      <details class="backend-advanced">
+        <summary data-i18n="settings.advanced">高级设置</summary>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label" data-i18n="settings.apiAddress">API 地址</div>
+            <div class="setting-desc" data-i18n="settings.apiDesc">TeXada FastAPI 服务地址</div>
+          </div>
+          <div class="setting-value" id="api-base-value">检测中...</div>
+        </div>
+        <div data-backend-panel="llama_server">
+          <div class="setting-row form-row">
+            <div>
+              <label class="setting-label" for="llama-host-input" data-i18n="settings.llamaHost">llama-server 地址</label>
+              <div class="setting-desc" data-i18n="settings.llamaHostDesc">内置本地服务地址，默认 http://127.0.0.1:8080</div>
+            </div>
+            <input class="setting-control" id="llama-host-input" type="text" data-i18n-placeholder="settings.llamaHostPlaceholder" placeholder="http://127.0.0.1:8080" autocomplete="off">
+          </div>
+          <div class="setting-row form-row">
+            <div>
+              <label class="setting-label" for="llama-binary-input" data-i18n="settings.llamaBinary">llama-server 路径</label>
+              <div class="setting-desc" data-i18n="settings.llamaBinaryDesc">留空则使用随应用打包的二进制或 PATH 中的 llama-server</div>
+            </div>
+            <input class="setting-control" id="llama-binary-input" type="text" placeholder="" autocomplete="off">
+          </div>
+          <div class="setting-row form-row">
+            <div>
+              <label class="setting-label" for="llama-models-dir-input" data-i18n="settings.llamaModelsDir">模型目录</label>
+              <div class="setting-desc" data-i18n="settings.llamaModelsDirDesc">留空则使用 ~/.texada/models</div>
+            </div>
+            <input class="setting-control" id="llama-models-dir-input" type="text" placeholder="" autocomplete="off">
+          </div>
+        </div>
+        <div class="setting-row form-row">
+          <div>
+            <label class="setting-label" for="inference-timeout-input" data-i18n="settings.inferenceTimeout">单次推理超时</label>
+            <div class="setting-desc" data-i18n="settings.inferenceTimeoutDesc">本地模型较慢时可适当增加</div>
+          </div>
+          <input class="setting-control setting-number" id="inference-timeout-input" type="number" min="10" max="600" step="5" inputmode="numeric">
+        </div>
+        <div class="setting-row form-row">
+          <div>
+            <label class="setting-label" for="api-timeout-input" data-i18n="settings.apiTimeout">整次请求超时</label>
+            <div class="setting-desc" data-i18n="settings.apiTimeoutDesc">应高于单次推理超时，OCR 可能包含多次调用</div>
+          </div>
+          <input class="setting-control setting-number" id="api-timeout-input" type="number" min="30" max="900" step="10" inputmode="numeric">
+        </div>
+      </details>
       <div class="settings-actions">
         <button class="action-btn primary" id="btn-save-backend" data-i18n="action.save">保存</button>
-        <span class="setting-desc" id="backend-save-status"></span>
+        <span class="setting-desc" id="backend-save-status" role="status" aria-live="polite"></span>
       </div>
-      <div class="settings-subsection" id="llama-service-section">
+      <div class="settings-subsection" id="llama-service-section" data-backend-panel="llama_server">
         <div class="settings-title" data-i18n="settings.llamaServiceTitle">本地推理服务（llama-server）</div>
         <div class="setting-row form-row">
           <div>
@@ -310,9 +331,9 @@
             <div class="setting-desc" id="llama-status-text"></div>
           </div>
           <div class="llama-actions">
-            <button class="action-btn" id="btn-llama-start" data-i18n="action.llamaStart">启动</button>
-            <button class="action-btn" id="btn-llama-stop" data-i18n="action.llamaStop">停止</button>
-            <button class="action-btn" id="btn-llama-pull" data-i18n="action.llamaPull">下载模型</button>
+            <button class="action-btn" id="btn-llama-start" disabled data-i18n="action.llamaStart">启动</button>
+            <button class="action-btn" id="btn-llama-stop" disabled data-i18n="action.llamaStop">停止</button>
+            <button class="action-btn" id="btn-llama-pull" disabled data-i18n="action.llamaPull">下载模型</button>
           </div>
         </div>
         <div class="setting-row">
@@ -393,6 +414,6 @@
 <script src="vendor/katex/katex.min.js?v=0.4.1-20260912"></script>
 <script src="api-config.js?v=0.4.1-20260912"></script>
 <script src="review-ui.js?v=0.4.1-human-review"></script>
-<script src="main.js?v=0.4.1-20260912"></script>
+<script src="main.js?v=0.4.2-backend-settings"></script>
 </body>
 </html>

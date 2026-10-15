@@ -755,9 +755,14 @@ async def test_llama_endpoints_404_on_non_llama_backend(tmp_path):
     assert client.post("/api/llama/pull", json={}).status_code == 404
 
 
-async def test_llama_status_reflects_stopped_manager(tmp_path):
+async def test_llama_status_reflects_stopped_manager(tmp_path, monkeypatch):
+    from unittest.mock import AsyncMock
+
     from texada.api import create_app
     from texada.config import TeXadaConfig
+
+    # A real desktop runtime may already be listening on this developer machine.
+    monkeypatch.setattr("texada.core.llama_server.probe_models_url", AsyncMock(return_value=False))
 
     # Pin the binary so the assertion is about a stopped manager, not about
     # whether this machine happens to have llama.cpp on PATH or a dev-checkout
@@ -844,3 +849,34 @@ async def test_backend_settings_accept_llama_server_fields(tmp_path):
     assert body["llama_context_size"] == 8192
     saved = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
     assert saved["llama_context_size"] == 8192
+
+
+async def test_switching_backend_preserves_inactive_models_and_credentials(tmp_path):
+    """Selected-only frontend payloads retain each backend's saved roles."""
+    from texada.api import create_app
+
+    client = TestClient(create_app(TeXadaConfig(data_dir=tmp_path)))
+    saved = client.post("/api/settings/backend", json={
+        "backend": "openai_compatible",
+        "openai_base_url": "https://example.test/v1",
+        "openai_model_name": "remote-text",
+        "openai_vision_model_name": "remote-ocr",
+        "openai_api_key": "test-only-key",
+        "ollama_host": "http://localhost:11435",
+        "model_name": "ollama-text",
+        "vision_model_name": "ollama-ocr",
+    })
+    assert saved.status_code == 200
+    for backend in ("llama_server", "ollama", "openai_compatible"):
+        response = client.post("/api/settings/backend", json={"backend": backend})
+        assert response.status_code == 200
+        body = client.get("/api/settings/backend").json()
+        assert body["backend"] == backend
+        assert (body["model_name"], body["vision_model_name"]) == ("ollama-text", "ollama-ocr")
+        assert (body["openai_model_name"], body["openai_vision_model_name"]) == (
+            "remote-text", "remote-ocr",
+        )
+        assert body["ollama_host"] == "http://localhost:11435"
+        assert body["openai_api_key_set"] is True
+        assert "openai_api_key" not in body
+    assert json.loads((tmp_path / "config.json").read_text())["openai_api_key"] == "test-only-key"

@@ -1075,6 +1075,27 @@ body {
   margin-left: auto;
   margin-right: auto;
 }
+.backend-panel,
+.backend-advanced,
+.backend-save-note,
+.settings-subsection {
+  width: 100%;
+  max-width: 920px;
+  margin-left: auto;
+  margin-right: auto;
+}
+[data-backend-panel][hidden], .backend-save-note[hidden] { display: none; }
+.backend-save-note { margin-bottom: 10px; }
+.backend-panel > .setting-desc { margin: 5px 0 10px; line-height: 1.5; }
+.backend-advanced { margin-top: 14px; }
+.backend-advanced > summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 8px 0;
+}
+.backend-advanced > summary:focus-visible { outline: 2px solid var(--border-focus); }
+.llama-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .settings-section:last-child { border-bottom: none; }
 .settings-title {
   font-size: 10px;

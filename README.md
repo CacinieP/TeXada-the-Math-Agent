@@ -193,6 +193,11 @@ TeXada release packages are built for end users. You do not need Python, Node.js
 Both options run model inference locally. Pick one; you do not need to install
 both runtimes. Initial model downloads require an internet connection.
 
+The current development Settings screen shows only the selected backend. Text
+and OCR remain separate roles; the built-in runtime currently displays the same
+4.7 model for both. Runtime paths, port and timeouts are under **Advanced settings**.
+Save after changing the backend or its runtime paths before using service controls.
+
 ### Quick Start With Built-in llama-server
 
 1. Install and open **v0.4.2-beta.2** from the release link above.
@@ -687,6 +692,10 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 
 两条路线都在本地执行模型推理，选一条即可，无需同时安装两个运行时。
 首次下载模型需要联网。
+
+当前开发版设置页只展示所选后端。文本与 OCR 保留独立角色；内置运行时当前
+显示二者共用的 4.7 模型。运行时路径、端口和超时位于**高级设置**。
+切换后端或修改运行时路径后，先保存再操作服务按钮。
 
 ### 内置 llama-server 快速启动
 

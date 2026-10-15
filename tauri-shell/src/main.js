@@ -28,6 +28,9 @@
   let historyView = 'results';
   let pendingDataImport = null;
   let backendStartupPromise = null;
+  let savedBackend = null;
+  let savedLlamaSettings = null;
+  let backendSettingsSaving = false;
   let runtimeConfig = {
     maxOcrBytes: null,
     allowedImageTypes: new Set(),
@@ -150,6 +153,13 @@
       'settings.zoomOut': '缩小',
       'settings.zoomReset': '重置缩放',
       'settings.backendTitle': '后端连接',
+      'settings.textModel': '文本模型',
+      'settings.ocrModel': 'OCR 模型',
+      'settings.sharedModelNote': '当前文本与 OCR 共用同一个内置模型，模型由运行时管理，无需填写模型名。',
+      'settings.advanced': '高级设置',
+      'settings.saveBackendFirst': '保存后应用当前后端设置。',
+      'settings.builtinBackend': '内置 llama-server',
+      'settings.ollamaBackend': '本地 Ollama',
       'settings.apiAddress': 'API 地址',
       'settings.apiDesc': 'TeXada FastAPI 服务地址',
       'settings.backend': '模型后端',
@@ -177,10 +187,10 @@
       'settings.ollamaHostPlaceholder': '例如 http://localhost:11435',
       'settings.localTextModel': '本地文本模型',
       'settings.localVisionModel': '本地视觉模型',
-      'settings.cloudEndpoint': '云端 Endpoint',
+      'settings.cloudEndpoint': '服务地址',
       'settings.cloudModel': '云端模型名',
       'settings.cloudVisionModel': '云端视觉模型',
-      'settings.cloudApiKey': '云端 API Key',
+      'settings.cloudApiKey': 'API Key',
       'settings.inferenceTimeout': '单次推理超时（秒）',
       'settings.inferenceTimeoutDesc': '本地模型较慢时可适当增加',
       'settings.apiTimeout': '整次请求超时（秒）',
@@ -344,6 +354,13 @@
       'settings.zoomOut': 'Zoom out',
       'settings.zoomReset': 'Reset zoom',
       'settings.backendTitle': 'Backend',
+      'settings.textModel': 'Text model',
+      'settings.ocrModel': 'OCR model',
+      'settings.sharedModelNote': 'Text and OCR currently share one built-in model. The runtime manages it; no model names are needed.',
+      'settings.advanced': 'Advanced settings',
+      'settings.saveBackendFirst': 'Save to apply the current backend settings.',
+      'settings.builtinBackend': 'Built-in llama-server',
+      'settings.ollamaBackend': 'Local Ollama',
       'settings.apiAddress': 'API address',
       'settings.apiDesc': 'TeXada FastAPI service address',
       'settings.backend': 'Model backend',
@@ -370,10 +387,10 @@
       'settings.ollamaHostPlaceholder': 'e.g. http://localhost:11435',
       'settings.localTextModel': 'Local text model',
       'settings.localVisionModel': 'Local vision model',
-      'settings.cloudEndpoint': 'Cloud endpoint',
+      'settings.cloudEndpoint': 'Service address',
       'settings.cloudModel': 'Cloud model',
       'settings.cloudVisionModel': 'Cloud vision model',
-      'settings.cloudApiKey': 'Cloud API key',
+      'settings.cloudApiKey': 'API key',
       'settings.inferenceTimeout': 'Inference timeout (seconds)',
       'settings.inferenceTimeoutDesc': 'Increase this for slower local models',
       'settings.apiTimeout': 'Request timeout (seconds)',
@@ -1467,6 +1484,9 @@
   if (els.backendSelect) {
     els.backendSelect.addEventListener('change', updateLlamaSectionVisibility);
   }
+  for (const input of [els.llamaHostInput, els.llamaBinaryInput, els.llamaModelsDirInput]) {
+    if (input) input.addEventListener('input', updateLlamaSectionVisibility);
+  }
 
   if ($('#btn-add-shorthand')) {
     $('#btn-add-shorthand').addEventListener('click', addShorthandFromForm);
@@ -1718,7 +1738,8 @@
     if (!els.backendSelect) return;
     try {
       const cfg = await apiGetBackendSettings();
-      els.backendSelect.value = cfg.backend || 'llama_server';
+      savedBackend = cfg.backend || 'llama_server';
+      els.backendSelect.value = savedBackend;
       els.ollamaHostInput.value = cfg.ollama_host || '';
       els.localModelInput.value = cfg.model_name || '';
       els.localVisionModelInput.value = cfg.vision_model_name || '';
@@ -1731,6 +1752,7 @@
       els.llamaHostInput.value = cfg.llama_server_host || '';
       els.llamaBinaryInput.value = cfg.llama_server_binary || '';
       els.llamaModelsDirInput.value = cfg.llama_models_dir || '';
+      savedLlamaSettings = llamaSettingsDraft();
       requestTimeoutMs = Number(cfg.api_request_timeout_seconds) * 1000 || DEFAULT_REQUEST_TIMEOUT_MS;
       els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? t('settings.keySavedPlaceholder') : t('settings.keyEnterPlaceholder');
       els.backendSaveStatus.textContent = '';
@@ -1743,27 +1765,51 @@
 
   async function saveBackendSettings() {
     if (!els.backendSelect) return;
+    if (backendSettingsSaving) return;
+    const backend = els.backendSelect.value;
     const payload = {
-      backend: els.backendSelect.value,
-      ollama_host: els.ollamaHostInput.value.trim(),
-      model_name: els.localModelInput.value.trim(),
-      vision_model_name: els.localVisionModelInput.value.trim(),
-      openai_base_url: els.openaiEndpointInput.value.trim(),
-      openai_model_name: els.openaiModelInput.value.trim(),
-      openai_vision_model_name: els.openaiVisionModelInput.value.trim(),
+      backend,
       inference_timeout_seconds: Number(els.inferenceTimeoutInput.value),
       api_request_timeout_seconds: Number(els.apiTimeoutInput.value),
-      llama_server_host: els.llamaHostInput.value.trim(),
-      llama_server_binary: els.llamaBinaryInput.value.trim(),
-      llama_models_dir: els.llamaModelsDirInput.value.trim(),
     };
-    const key = els.openaiKeyInput.value.trim();
-    if (key) payload.openai_api_key = key;
+    // Only the selected backend may update its saved fields. Hidden drafts
+    // remain in the form, while inactive persisted configuration stays intact.
+    if (backend === 'llama_server') {
+      Object.assign(payload, {
+        llama_server_host: els.llamaHostInput.value.trim(),
+        llama_server_binary: els.llamaBinaryInput.value.trim(),
+        llama_models_dir: els.llamaModelsDirInput.value.trim(),
+      });
+    } else if (backend === 'ollama') {
+      Object.assign(payload, {
+        ollama_host: els.ollamaHostInput.value.trim(),
+        model_name: els.localModelInput.value.trim(),
+        vision_model_name: els.localVisionModelInput.value.trim(),
+      });
+    } else if (backend === 'openai_compatible') {
+      Object.assign(payload, {
+        openai_base_url: els.openaiEndpointInput.value.trim(),
+        openai_model_name: els.openaiModelInput.value.trim(),
+        openai_vision_model_name: els.openaiVisionModelInput.value.trim(),
+      });
+      const key = els.openaiKeyInput.value.trim();
+      if (key) payload.openai_api_key = key;
+    } else {
+      return;
+    }
+    backendSettingsSaving = true;
+    els.backendSelect.disabled = true;
+    document.getElementById('btn-save-backend').disabled = true;
+    updateLlamaSectionVisibility();
 
     els.backendSaveStatus.textContent = t('settings.saving');
     try {
       const cfg = await apiSaveBackendSettings(payload);
-      els.openaiKeyInput.value = '';
+      savedBackend = cfg.backend;
+      if (backend === 'llama_server') savedLlamaSettings = {
+        host: payload.llama_server_host, binary: payload.llama_server_binary, models: payload.llama_models_dir,
+      };
+      if (backend === 'openai_compatible') els.openaiKeyInput.value = '';
       els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? t('settings.keySavedPlaceholder') : t('settings.keyEnterPlaceholder');
       els.inferenceTimeoutInput.value = String(cfg.inference_timeout_seconds);
       els.apiTimeoutInput.value = String(cfg.api_request_timeout_seconds);
@@ -1774,6 +1820,11 @@
       await checkBackend();
     } catch (e) {
       els.backendSaveStatus.textContent = String(e).replace(/^Error:\s*/, '');
+    } finally {
+      backendSettingsSaving = false;
+      els.backendSelect.disabled = false;
+      document.getElementById('btn-save-backend').disabled = false;
+      updateLlamaSectionVisibility();
     }
   }
 
@@ -1782,10 +1833,29 @@
     return await apiJson(path, options);
   }
 
+  function llamaSettingsDraft() {
+    return {
+      host: els.llamaHostInput.value.trim(),
+      binary: els.llamaBinaryInput.value.trim(),
+      models: els.llamaModelsDirInput.value.trim(),
+    };
+  }
+
   function updateLlamaSectionVisibility() {
-    if (!els.llamaServiceSection) return;
-    const isLlama = els.backendSelect && els.backendSelect.value === 'llama_server';
-    els.llamaServiceSection.style.display = isLlama ? '' : 'none';
+    if (!els.backendSelect) return;
+    const backend = els.backendSelect.value;
+    document.querySelectorAll('[data-backend-panel]').forEach(panel => {
+      panel.hidden = panel.dataset.backendPanel !== backend;
+    });
+    const draft = llamaSettingsDraft();
+    const pending = savedBackend !== backend || (backend === 'llama_server' && (
+      !savedLlamaSettings || Object.keys(draft).some(key => draft[key] !== savedLlamaSettings[key])
+    ));
+    const note = document.getElementById('backend-save-note');
+    if (note) note.hidden = !pending;
+    for (const button of [els.btnLlamaStart, els.btnLlamaStop, els.btnLlamaPull]) {
+      if (button) button.disabled = pending || backendSettingsSaving;
+    }
   }
 
   function renderLlamaStatus(info) {
@@ -1797,7 +1867,6 @@
     const parts = [];
     if (info.status) parts.push(info.status);
     if (info.message) parts.push(info.message);
-    if (info.binary) parts.push(info.binary);
     if (Array.isArray(info.missing_models) && info.missing_models.length) {
       parts.push('missing: ' + info.missing_models.join(', '));
     }
@@ -1805,10 +1874,10 @@
   }
 
   async function refreshLlamaStatus() {
-    if (!els.backendSelect || els.backendSelect.value !== 'llama_server') return;
+    if (!els.backendSelect || els.backendSelect.value !== 'llama_server' || savedBackend !== 'llama_server') return;
     try {
       const info = await apiLlamaJson('/api/llama/status');
-      renderLlamaStatus(info);
+      if (els.backendSelect.value === 'llama_server' && savedBackend === 'llama_server') renderLlamaStatus(info);
       return info;
     } catch (e) {
       renderLlamaStatus(null);
