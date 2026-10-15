@@ -12,7 +12,12 @@
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue"></a>
 </p>
 
-![TeXada Math Agent · MiniCPM-V 4.7 single-model workflow](assets/texada-math-agent-cover.png)
+<a id="english"></a>
+
+<details open>
+<summary><strong>English</strong></summary>
+
+![TeXada Local-First Math Agent · MiniCPM-V-4.7-1B for text and OCR](assets/texada-hero-en.png)
 
 <p align="center">
   <strong>Your local AI copilot for LaTeX and structured mathematical writing.</strong><br>
@@ -24,11 +29,6 @@
 <p align="center">
   Natural language → structured LaTeX · Image → formula · Broken TeX → valid TeX · Local by default
 </p>
-
-<a id="english"></a>
-
-<details open>
-<summary><strong>English</strong></summary>
 
 ## TeXada
 
@@ -491,6 +491,8 @@ releases retain the license recorded in their immutable tag. See [LICENSE](LICEN
 
 <details>
 <summary><strong>中文</strong></summary>
+
+![TeXada 本地优先的数学智能体 · MiniCPM-V-4.7-1B 文本生成与公式识别](assets/texada-hero-zh.png)
 
 ## TeXada
 
