@@ -341,3 +341,23 @@ def test_paired_set_anchor_does_not_expand_single_negated_or_filename_requests()
         "并集和交集.png",
     ):
         assert not guard.forced_operators("", request), request
+
+
+def test_sequence_upper_and_lower_limits_preserve_distinct_notation():
+    guard = OperatorDriftGuard()
+    for label, command, alternate, decorated in (
+        ("上", r"\limsup", r"\varlimsup", r"\overline{\lim}"),
+        ("下", r"\liminf", r"\varliminf", r"\underline{\lim}"),
+    ):
+        request = f"数列 a 下标 n 的{label}极限"
+        assert guard.forced_operators("", request) == [command]
+        assert guard.check("", r"\lim_{n\to\infty}a_n", user_input=request)
+        for notation in (command, alternate, decorated):
+            assert not guard.check("", notation + r"_{n\to\infty}a_n", user_input=request)
+        assert guard.check("", command + "extra", user_input=request)
+        assert not guard.forced_operators("", "不要写" + request)
+        assert not guard.forced_operators("", request.replace("的", "不要求的"))
+        opposite = r"\liminf" if label == "上" else r"\limsup"
+        assert guard.check("", opposite + r"_{n\to\infty}a_n", user_input=request)
+    for request in ("数列 a 下标 n 的极限", "上极限.png", "积分的上极限"):
+        assert not guard.forced_operators("", request)

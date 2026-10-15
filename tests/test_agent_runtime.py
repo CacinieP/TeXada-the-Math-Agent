@@ -1183,3 +1183,44 @@ async def test_runtime_blocks_human_review_case_096_missing_intersection(tmp_pat
     guard = result.trace[-1]["observations"][0]
     assert guard["output"]["missing_requirements"] == [r"\cap"]
     assert r"\cap" not in result.latex  # The guard must not invent the missing formula.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case_id,label,candidate,required", [
+    ("046", "上", r"\lim_{n \to \infty} a_{n}", r"\limsup"),
+    ("047", "下", r"\lim_{n \to \infty} a_n", r"\liminf"),
+])
+async def test_runtime_blocks_reviewed_sequence_limit_downgrades(
+    tmp_path, case_id, label, candidate, required,
+):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run(f"数列 a 下标 n 的{label}极限")
+
+    assert not result.committed, case_id
+    assert result.stop_reason == "semantic_anchor_unresolved"
+    assert required in result.trace[-1]["observations"][0]["output"]["missing_requirements"]
+    assert required not in result.latex  # No fabricated replacement formula.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("label,candidate", [
+    ("上", r"\limsup_{n\to\infty} a_n"),
+    ("下", r"\liminf_{n\to\infty} a_n"),
+])
+async def test_runtime_keeps_explicit_sequence_limit_notation(tmp_path, label, candidate):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run(f"数列 a 下标 n 的{label}极限")
+
+    assert result.valid
+    assert result.committed
+    assert result.latex == candidate

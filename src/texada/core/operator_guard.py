@@ -135,6 +135,15 @@ class OperatorDriftGuard:
             if pattern.search(request):
                 forced.append(operator)
 
+        for match in re.finditer(
+            r"数列[^，,。；;！!？?\n]*?的\s*(?P<side>[上下])极限"
+            r"(?=\s*(?:[，,。；;！!？?\n]|$))",
+            request,
+        ):
+            prefix = re.split(r"[，,。；;！!？?\n]", request[:match.start("side")])[-1]
+            if not re.search(r"不要|不用|无需|不必|不能|禁止|勿|别|不", prefix):
+                forced.append(r"\limsup" if match["side"] == "上" else r"\liminf")
+
         # A narrowly phrased request for both set operations must retain both
         # notation anchors. This is completeness evidence, not equivalence proof.
         for match in re.finditer(
@@ -420,6 +429,14 @@ class OperatorDriftGuard:
         if re.fullmatch(r"\\[A-Za-z]+", anchor):
             aliases = {
                 r"\lim": r"\\lim(?:inf|sup)?(?![A-Za-z])",
+                r"\limsup": (
+                    r"\\(?:limsup|varlimsup)(?![A-Za-z])"
+                    r"|\\overline\s*\{\s*\\lim\s*\}"
+                ),
+                r"\liminf": (
+                    r"\\(?:liminf|varliminf)(?![A-Za-z])"
+                    r"|\\underline\s*\{\s*\\lim\s*\}"
+                ),
                 r"\ge": r"\\ge(?:q)?(?![A-Za-z])",
                 r"\le": r"\\le(?:q)?(?![A-Za-z])",
                 r"\ne": r"\\ne(?:q)?(?![A-Za-z])",
