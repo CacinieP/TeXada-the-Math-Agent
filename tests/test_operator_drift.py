@@ -614,3 +614,33 @@ def test_paired_script_template_binds_other_symbols_and_punctuation():
     assert not guard.check("", "a_q^p", user_input=description)
     assert guard.check("", "a_p^q", user_input=description)
     assert guard.check("", "x_k^n", user_input=description)
+
+
+def test_vector_two_norm_requires_operand_inside_norm_and_order_two():
+    guard = OperatorDriftGuard()
+    description = "向量 x 的二范数"
+    for candidate in (
+        r"\vec x \cdot \|\cdot\|", r"\lVert\cdot\rVert_2",
+        r"\vec{x}", r"\vec{x}\cdot\vec{x}",
+        r"\lVert y\rVert_2", r"\lVert x\rVert_1",
+        r"\lVert x\rVert", r"|x|_2", r"\lVert x\rVert_2=5",
+        r"\text{\lVert x\rVert_2}",
+    ):
+        assert guard.check("", candidate, user_input=description), candidate
+    for candidate in (
+        r"\lVert x\rVert_2", r"\Vert x\Vert_{2}", r"\|x\|_2", "||x||_2",
+        r"\left\|\vec{x}\right\|_2", r"\lVert\vec x\rVert_2",
+        r"\left\lVert\mathbf{x}\right\rVert_{2}", r"\lVert\boldsymbol{x}\rVert_2",
+    ):
+        assert not guard.check("", candidate, user_input=description), candidate
+    for description in (
+        "计算向量 x 的二范数", "不要写向量 x 的二范数",
+        "向量 x 的一范数", "向量 x 的二范数.png",
+    ):
+        assert not guard.forced_operators("", description)
+
+
+def test_vector_two_norm_template_binds_other_operand():
+    guard = OperatorDriftGuard()
+    assert not guard.check("", r"\lVert v\rVert_2", user_input="向量 v 的二范数。")
+    assert guard.check("", r"\lVert x\rVert_2", user_input="向量 v 的二范数。")

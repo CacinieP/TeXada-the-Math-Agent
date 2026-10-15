@@ -135,6 +135,10 @@ class OperatorDriftGuard:
             if pattern.search(request):
                 forced.append(operator)
 
+        vector_norm = re.fullmatch(r"向量\s*([A-Za-z])\s*的二范数\s*[。.]?", request)
+        if vector_norm:
+            forced.append(f"vector two-norm of {vector_norm[1]}")
+
         paired_scripts = re.fullmatch(
             r"([A-Za-z])\s*的上标\s*([A-Za-z])\s*加下标\s*([A-Za-z])\s*[。.]?",
             request,
@@ -393,6 +397,25 @@ class OperatorDriftGuard:
         user_input: str = "",
     ) -> bool:
         """Check exact commands plus the few structural request anchors."""
+        vector_norm = re.fullmatch(r"vector two-norm of ([A-Za-z])", anchor)
+        if vector_norm:
+            symbol = re.escape(vector_norm[1])
+            operand = (
+                rf"(?:{symbol}|\{{{symbol}\}}|\\vec(?:{symbol}|\{{{symbol}\}})"
+                rf"|\\(?:mathbf|boldsymbol)\{{{symbol}\}})"
+            )
+            forms = []
+            for opening, closing in (
+                (r"\lVert", r"\rVert"), (r"\Vert", r"\Vert"),
+                (r"\|", r"\|"), ("||", "||"),
+            ):
+                left, right = re.escape(opening), re.escape(closing)
+                forms.append(rf"{left}{operand}{right}")
+                forms.append(rf"\\left{left}{operand}\\right{right}")
+            return bool(re.fullmatch(
+                rf"(?:{'|'.join(forms)})_(?:2|\{{2\}})",
+                re.sub(r"\s+|\\[,!;:]", "", candidate),
+            ))
         paired_scripts = re.fullmatch(
             r"paired scripts: base ([A-Za-z]), upper ([A-Za-z]), lower ([A-Za-z])",
             anchor,
