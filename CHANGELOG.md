@@ -1,3 +1,23 @@
+## 0.4.2-beta.3 - 2026-10-15
+
+### 中文
+
+- 后端设置提供内置 llama-server、Ollama、OpenAI-compatible 三选一，仅显示所选后端配置；运行时路径、模型目录和超时归入高级设置。内置 MiniCPM-V-4.7-1B 同时承担文本和 OCR 工作。
+- OpenAI-compatible 的文本和 OCR 各自支持服务地址、API Key、模型名；OCR 请求、重试和连接检查使用自己的连接。兼容旧共享配置，不向不同 OCR 地址自动转发文本 Key 或沿用文本模型名。
+- 切换后端保留其他后端配置及未保存的 Key 草稿；空白 Key 保留已保存值，API 响应和设置备份不包含 Key。修改内置连接后须保存才能下载、启动或停止运行时。
+- 中英文 README 更新后端上手指南与宣传首图。保留 revision-bound 工具证据和人工审查机制；本版未更换模型，也未修改数学语义提交门禁。
+- **数学语义风险仍未解决：** beta 历史 100 题记录中，整式正确 75/100，正确且提交 74/100，仍有 24 条数学错误公式成功提交。判定来自 Codex，尚无独立人工复核；本版没有新的数学准确率验证。编译、渲染、提交成功或结构相似均不等于数学证明，使用结果前仍需人工核对。OCR smoke 不代表真实图片语义正确。
+- 本版继续作为 Beta 预发布，不替代 v0.4.1 稳定版。安装包检查验证启动、内置后端和确定性编译渲染，不证明真实模型准确性；macOS 包须通过签名、公证与安装检查，Windows NSIS 未做代码签名。
+
+### English
+
+- Choose built-in llama-server, Ollama, or OpenAI-compatible in Settings, with provider-specific fields and advanced runtime/path/timeout controls. Built-in MiniCPM-V-4.7-1B handles both text and OCR.
+- Configure a separate service URL, API key, and model name for text and OCR on OpenAI-compatible services. OCR requests, retries, and readiness checks use the OCR connection. Legacy shared configurations remain supported; a different OCR URL never automatically inherits the text key or model name.
+- Preserve inactive provider configuration and unsaved key drafts. Blank keys preserve saved values; responses and settings backups exclude keys. Save changed built-in connection settings before downloading, starting, or stopping its runtime.
+- Update bilingual README getting-started guidance and hero images. Revision-bound tool evidence and human review remain in place. No model replacement or mathematical submission-gate change is included.
+- **Unresolved mathematical semantic risk:** historical beta evidence contains 75/100 whole-formula correct results and 74/100 correct committed results, with 24 mathematically incorrect formulas also committed. Judgments came from Codex without independent human review; this release provides no new mathematical accuracy validation. Compilation, rendering, submission, and structural similarity are not mathematical proofs. Human verification remains necessary. OCR smoke does not establish real-image semantic correctness.
+- This Beta prerelease does not replace stable v0.4.1. Package checks cover startup, the bundled backend, and deterministic compilation/rendering, not live-model accuracy. macOS packages must pass signing, notarization, and installation checks; Windows NSIS is not code-signed.
+
 ## 0.4.2-beta.2 - 2026-10-14
 
 ### 中文
