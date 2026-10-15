@@ -126,10 +126,12 @@ The Ollama port is configurable. The default is `http://localhost:11434`, but Se
 ### Download
 
 For the built-in llama-server setup below, install
-[v0.4.2-beta.2 (prerelease)](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.2-beta.2).
-Choose `TeXada_0.4.2-beta.2_aarch64.dmg` for Apple Silicon,
-`TeXada_0.4.2-beta.2_x64.dmg` for Intel Macs, or
-`TeXada_0.4.2-beta.2_x64-setup.exe` for Windows. macOS requires 13.3 or later.
+[v0.4.2-beta.3 (prerelease)](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.2-beta.3).
+Choose [TeXada_0.4.2-beta.3_aarch64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.3/TeXada_0.4.2-beta.3_aarch64.dmg) for Apple Silicon,
+[TeXada_0.4.2-beta.3_x64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.3/TeXada_0.4.2-beta.3_x64.dmg) for Intel Macs, or
+[TeXada_0.4.2-beta.3_x64-setup.exe](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.3/TeXada_0.4.2-beta.3_x64-setup.exe) for Windows. macOS requires 13.3 or later.
+This is a prerelease. Historical beta evaluation still includes 24 mathematically incorrect committed formulas, with Codex judgments and no independent human review. This release provides no new mathematical accuracy validation; compilation, rendering, or submission success does not establish mathematical correctness.
+
 Model weights download separately after installation. The older stable release
 is listed below; it does not include the beta's built-in runtime.
 
@@ -137,7 +139,7 @@ The `v0.4.1` desktop release is licensed
 `AGPL-3.0-or-later`. Tagged releases retain the license recorded in their
 immutable tag: earlier `v0.3.6` artifacts are `GPL-3.0-or-later`, while
 `v0.3.7` and later are `AGPL-3.0-or-later`. Current `main` development is
-version `0.4.2-beta.2`.
+version `0.4.2-beta.3`.
 
 | Platform | Package |
 |----------|---------|
@@ -161,7 +163,7 @@ TeXada release packages are built for end users. You do not need Python, Node.js
    - Windows: run the setup EXE and start TeXada from the Start menu.
 
 3. Choose one local backend in **Settings → Backend** and click **Save**:
-   - **New to TeXada? Choose `Built-in llama-server`** (beta.2 default). Follow [the built-in setup](#quick-start-with-built-in-llama-server): download the model in the app, then click Start. No Ollama installation or API key is needed.
+   - **New to TeXada? Choose `Built-in llama-server`** (beta.3 default). Follow [the built-in setup](#quick-start-with-built-in-llama-server): download the model in the app, then click Start. No Ollama installation or API key is needed.
    - **Already using Ollama? Choose `Local Ollama`.** Follow [the Ollama setup](#quick-start-with-ollama): start Ollama, pull the models, and save their names in TeXada.
    - Switching the dropdown alone does not download models. Existing installations keep their saved backend; choose explicitly when switching.
    - A hosted endpoint remains available under `OpenAI-compatible`; see [Cloud Mode](#cloud-mode).
@@ -187,7 +189,7 @@ TeXada release packages are built for end users. You do not need Python, Node.js
 
 | Choice in Settings | Best fit | Model setup | Default address |
 |--------------------|----------|-------------|-----------------|
-| `Built-in llama-server` | First-time users of beta.2 | Download in TeXada; one `MiniCPM-V-4.7-1B` Q4_K_M checkpoint handles text and OCR, with an F16 vision projector | `http://127.0.0.1:8080` |
+| `Built-in llama-server` | First-time users of beta.3 | Download in TeXada; one `MiniCPM-V-4.7-1B` Q4_K_M checkpoint handles text and OCR, with an F16 vision projector | `http://127.0.0.1:8080` |
 | `Local Ollama` | Users who already manage models with Ollama | Pull the text model; add the separate vision model for OCR | `http://localhost:11434` |
 
 Both options run model inference locally. Pick one; you do not need to install
@@ -200,7 +202,7 @@ Save after changing the backend or its runtime paths before using service contro
 
 ### Quick Start With Built-in llama-server
 
-1. Install and open **v0.4.2-beta.2** from the release link above.
+1. Install and open **v0.4.2-beta.3** from the release link above.
 2. Open **Settings → Backend**, select **`Built-in llama-server`**, and click **Save**.
    Keep the default address `http://127.0.0.1:8080`. Leave **llama-server executable** and **Model directory** blank to use the packaged runtime and `~/.texada/models`.
 3. In **Local inference service (llama-server)**, click **Download model**. Wait until downloading finishes for both the model weights and the vision projector. They are not included in the installer.
@@ -347,7 +349,7 @@ The StepFun Step Plan OpenAI-compatible Chat Completions base URL is `https://ap
 ### Configuration
 
 Persistent config lives at `~/.texada/config.json`. Most users can use Settings instead.
-The following is an **Ollama example**, not the default backend for a fresh beta.2 install.
+The following is an **Ollama example**, not the default backend for a fresh beta.3 install.
 
 ```json
 {
@@ -636,16 +638,18 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 ### 下载
 
 使用下方内置 llama-server 路线，请安装
-[v0.4.2-beta.2 预发布版](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.2-beta.2)。
-Apple Silicon Mac 选择 `TeXada_0.4.2-beta.2_aarch64.dmg`，
-Intel Mac 选择 `TeXada_0.4.2-beta.2_x64.dmg`，
-Windows 选择 `TeXada_0.4.2-beta.2_x64-setup.exe`。macOS 需要 13.3 或更新版本。
+[v0.4.2-beta.3 预发布版](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.2-beta.3)。
+Apple Silicon Mac 选择 [TeXada_0.4.2-beta.3_aarch64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.3/TeXada_0.4.2-beta.3_aarch64.dmg)，
+Intel Mac 选择 [TeXada_0.4.2-beta.3_x64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.3/TeXada_0.4.2-beta.3_x64.dmg)，
+Windows 选择 [TeXada_0.4.2-beta.3_x64-setup.exe](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.3/TeXada_0.4.2-beta.3_x64-setup.exe)。macOS 需要 13.3 或更新版本。
+这是预发布版。历史 beta 评测仍有 24 条数学错误公式成功提交，判定来自 Codex，尚无独立人工复核。本版未新增数学准确率验证；编译、渲染或提交成功均不保证数学语义正确。
+
 模型权重在安装后单独下载。下表保留旧稳定版下载信息；旧稳定版不包含 beta 的内置运行时。
 
 `v0.4.1` 桌面版本适用 `AGPL-3.0-or-later`。每个标签及其
 安装包继续适用标签内记录的许可证：`v0.3.6` 及更早产物为
 `GPL-3.0-or-later`，`v0.3.7` 起为 `AGPL-3.0-or-later`。当前 `main` 开发
-版本为 `0.4.2-beta.2`。
+版本为 `0.4.2-beta.3`。
 
 | 平台 | 安装包 |
 |------|--------|
@@ -669,7 +673,7 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
    - Windows：运行安装器，然后从开始菜单启动 TeXada。
 
 3. 在**设置 → 后端连接**中选择一种本地后端，然后点击**保存**。
-   - **第一次使用，建议选 `Built-in llama-server`**（beta.2 默认值）：按[内置启动步骤](#内置-llama-server-快速启动)，在应用内下载模型并点击启动，无需安装 Ollama 或填写 API key。
+   - **第一次使用，建议选 `Built-in llama-server`**（beta.3 默认值）：按[内置启动步骤](#内置-llama-server-快速启动)，在应用内下载模型并点击启动，无需安装 Ollama 或填写 API key。
    - **已经在用 Ollama，选 `Local Ollama`**：按 [Ollama 启动步骤](#ollama-快速启动)，启动 Ollama、下载模型，并在 TeXada 保存模型名。
    - 只切换下拉框不会自动下载模型。升级安装会保留已有后端设置，需要切换时请明确选择。
    - 远程服务仍可选择 `OpenAI-compatible`，详见[云侧模式](#云侧模式)。
@@ -695,7 +699,7 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 
 | 设置中的选项 | 适合谁 | 模型准备 | 默认地址 |
 |--------------|--------|----------|----------|
-| `Built-in llama-server` | 首次使用 beta.2 的用户 | 在 TeXada 内下载；同一个 `MiniCPM-V-4.7-1B` Q4_K_M 模型负责文本和 OCR，配合 F16 视觉投影文件 | `http://127.0.0.1:8080` |
+| `Built-in llama-server` | 首次使用 beta.3 的用户 | 在 TeXada 内下载；同一个 `MiniCPM-V-4.7-1B` Q4_K_M 模型负责文本和 OCR，配合 F16 视觉投影文件 | `http://127.0.0.1:8080` |
 | `Local Ollama` | 已经用 Ollama 管理模型的用户 | 下载文本模型；需要 OCR 时再下载独立视觉模型 | `http://localhost:11434` |
 
 两条路线都在本地执行模型推理，选一条即可，无需同时安装两个运行时。
@@ -707,7 +711,7 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 
 ### 内置 llama-server 快速启动
 
-1. 从上方 Release 链接安装并打开 **v0.4.2-beta.2**。
+1. 从上方 Release 链接安装并打开 **v0.4.2-beta.3**。
 2. 打开**设置 → 后端连接**，选择 **`Built-in llama-server`**，点击**保存**。
    地址保留 `http://127.0.0.1:8080`；**llama-server 路径**和**模型目录**留空，使用应用内置运行时及 `~/.texada/models`。
 3. 在**本地推理服务（llama-server）**中点击**下载模型**，等待模型权重和视觉投影文件全部下载完成。安装包不包含这些文件。
@@ -846,7 +850,7 @@ StepFun Step Plan 示例：
 ### 配置文件
 
 持久配置文件位于 `~/.texada/config.json`，普通用户直接在设置中操作即可。
-下面是 **Ollama 配置示例**，不是 beta.2 全新安装时的默认后端。
+下面是 **Ollama 配置示例**，不是 beta.3 全新安装时的默认后端。
 
 ```json
 {
