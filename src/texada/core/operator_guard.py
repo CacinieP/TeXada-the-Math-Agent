@@ -135,6 +135,10 @@ class OperatorDriftGuard:
             if pattern.search(request):
                 forced.append(operator)
 
+        factorial = re.fullmatch(r"([A-Za-z])\s*的\s*阶乘\s*[。.]?", request)
+        if factorial:
+            forced.append(f"unevaluated factorial of {factorial[1]}")
+
         symbolic_product = re.fullmatch(
             r"两个未给具体元素的二乘二矩阵\s*(?P<left>[A-Za-z])\s*与\s*"
             r"(?P<right>[A-Za-z])\s*[，,]\s*写出\s*(?P=left)\s*乘\s*"
@@ -369,6 +373,15 @@ class OperatorDriftGuard:
         user_input: str = "",
     ) -> bool:
         """Check exact commands plus the few structural request anchors."""
+        factorial = re.fullmatch(r"unevaluated factorial of ([A-Za-z])", anchor)
+        if factorial:
+            symbol = re.escape(factorial[1])
+            compact = re.sub(r"\s+|\\[,!;:]", "", candidate)
+            return bool(re.fullmatch(
+                rf"(?:{symbol}|\{{{symbol}\}}|\({symbol}\)|"
+                rf"\\left\({symbol}\\right\))!|\{{{symbol}!\}}",
+                compact,
+            ))
         symbolic_product = re.fullmatch(
             r"unexpanded matrix product: ([A-Za-z]) then ([A-Za-z])", anchor,
         )

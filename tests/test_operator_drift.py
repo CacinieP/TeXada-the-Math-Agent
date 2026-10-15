@@ -528,3 +528,25 @@ def test_symbolic_matrix_product_binds_other_names_without_commuting_them():
     assert not guard.check("", "PQ", user_input=description)
     assert guard.check("", "QP", user_input=description)
     assert guard.check("", "AB", user_input=description)
+
+
+def test_explicit_factorial_description_preserves_unevaluated_notation():
+    guard = OperatorDriftGuard()
+    description = "n 的阶乘"
+    for candidate in (
+        r"n^{\text{阶}}", "n", "m!", "n!!", "n! = 120",
+        r"\text{n!}", r"n\!", "n!+1",
+    ):
+        assert guard.check("", candidate, user_input=description), candidate
+    for candidate in ("n!", "n !", "{n}!", "(n)!", r"\left(n\right)!", "{n!}"):
+        assert not guard.check("", candidate, user_input=description), candidate
+    for description in (
+        "计算 n 的阶乘", "不要写 n 的阶乘", "n 的双阶乘", "n 的阶乘.png",
+    ):
+        assert not guard.forced_operators("", description)
+
+
+def test_factorial_description_binds_other_symbol_and_punctuation():
+    guard = OperatorDriftGuard()
+    assert not guard.check("", "k!", user_input="k 的阶乘。")
+    assert guard.check("", "n!", user_input="k 的阶乘。")

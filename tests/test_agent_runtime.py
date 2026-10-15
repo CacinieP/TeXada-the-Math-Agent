@@ -1378,3 +1378,32 @@ async def test_runtime_preserves_symbolic_matrix_product(
     else:
         assert result.stop_reason == "semantic_anchor_unresolved"
         assert result.formula_ledger["commits"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate_first", [False, True])
+@pytest.mark.parametrize("candidate,should_commit", [
+    (r"n^{\text{阶}}", False),
+    ("n!", True),
+    (r"\left(n\right)!", True),
+])
+async def test_runtime_preserves_unevaluated_factorial(
+    tmp_path, candidate_first, candidate, should_commit,
+):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first), model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("n 的阶乘")
+
+    assert result.committed is should_commit
+    assert result.latex == candidate
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
+        assert result.formula_ledger["commits"] == []
