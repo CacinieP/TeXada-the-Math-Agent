@@ -55,3 +55,20 @@ def test_named_concepts_are_not_corrupted_by_partial_symbol_replacement():
     assert engine.pre_translate("导数定义") == "导数定义"
     assert engine.pre_translate("极限定义式") == "极限定义式"
     assert engine.pre_translate("概率密度函数") == "概率密度函数"
+
+
+def test_factorial_is_one_term_and_does_not_become_multiplication():
+    engine = SymbolEngine()
+    assert engine.translate("阶乘") == "!"
+    assert engine.pre_translate("n 的阶乘") == "n 的!"
+    assert engine.pre_translate("5 的阶乘") == "5 的!"  # Not the evaluated value.
+    assert engine.pre_translate("n 的阶乘乘 m") == r"n 的!\times m"
+    assert engine.pre_translate("a 乘 b") == r"a \times b"
+    assert engine.pre_translate(r"n! + n\!") == r"n! + n\!"
+
+
+def test_other_factorial_concepts_are_not_partially_translated():
+    engine = SymbolEngine()
+    for term in ("双阶乘", "升阶乘", "降阶乘", "多重阶乘", "阶乘函数", "阶乘定义"):
+        assert engine.pre_translate(term) == term, term
+    assert engine.pre_translate("n 的阶乘与 n 的双阶乘") == "n 的!与 n 的双阶乘"

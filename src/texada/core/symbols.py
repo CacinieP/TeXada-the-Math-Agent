@@ -10,6 +10,7 @@ SYMBOL_MAP: dict[str, str] = {
     "叉乘": r"\times",
     "正负": r"\pm",
     "负正": r"\mp",
+    "阶乘": "!",
     "乘": r"\times",
     "除以": r"\div",
     "除": r"\div",
@@ -137,6 +138,12 @@ SYMBOL_MAP: dict[str, str] = {
 # "空" protects compound terms like 向量空间 / 概率空间 from partial symbol hits.
 _COMPOUND_SUFFIXES = frozenset("学论法方程式表系理性质义题体器列种项定密空")
 
+# Preserve unsupported factorial concepts as whole words, rather than reducing
+# them to an ordinary factorial or substituting the inner multiplication term.
+_PRESERVED_FACTORIAL_COMPOUNDS = (
+    "多重阶乘", "阶乘函数", "双阶乘", "升阶乘", "降阶乘",
+)
+
 
 class SymbolEngine:
     """Deterministic pre-translation: Chinese math terms → LaTeX symbols."""
@@ -161,17 +168,21 @@ class SymbolEngine:
             else:
                 # Negative lookahead only: not followed by a compound suffix.
                 cjk_patterns.append(rf"{escaped}(?![{suffix_class}])")
-        self._pattern = re.compile("|".join([*cjk_patterns, *ascii_patterns]))
+        preserved_patterns = [re.escape(term) for term in _PRESERVED_FACTORIAL_COMPOUNDS]
+        self._pattern = re.compile("|".join([
+            *preserved_patterns, *cjk_patterns, *ascii_patterns,
+        ]))
 
     def pre_translate(self, text: str) -> str:
         """Replace Chinese terms with LaTeX, preserving unknown parts for the model.
 
         E.g. "积分学" stays intact, but "积分 f(x)" becomes "\\int f(x)".
-        Compound suffix protection alone is sufficient (e.g. "积分学" → suffix
-        "学" blocks translation); prefix protection is not used because it
-        caused false negatives like "高概率" failing to translate "概率".
+        Compound suffix protection handles e.g. "积分学" (suffix "学" blocks
+        translation); selected unsupported factorial concepts are preserved
+        whole. Generic prefix protection is not used because it caused false
+        negatives like "高概率" failing to translate "概率".
         """
-        return self._pattern.sub(lambda m: SYMBOL_MAP[m.group(0)], text)
+        return self._pattern.sub(lambda m: SYMBOL_MAP.get(m.group(0), m.group(0)), text)
 
     def translate(self, term: str) -> str | None:
         """Look up a single term's LaTeX equivalent. Used by the lookup_symbol tool."""

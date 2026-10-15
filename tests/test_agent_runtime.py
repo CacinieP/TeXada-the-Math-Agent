@@ -1407,3 +1407,24 @@ async def test_runtime_preserves_unevaluated_factorial(
     else:
         assert result.stop_reason == "semantic_anchor_unresolved"
         assert result.formula_ledger["commits"] == []
+
+
+@pytest.mark.asyncio
+async def test_runtime_passes_intact_factorial_pretranslation_to_planner(tmp_path):
+    candidate = "n!"
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=False), model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("n 的阶乘")
+
+    assert result.valid
+    assert result.committed
+    prompt = planner.seen_messages[0][1]["content"]
+    assert "n 的阶乘" in prompt  # The original request remains available.
+    assert "n 的!" in prompt
+    assert r"阶\times" not in prompt
