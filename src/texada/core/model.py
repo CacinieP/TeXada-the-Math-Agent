@@ -45,10 +45,11 @@ class MiniCPMModel:
     def __init__(self, config: TeXadaConfig):
         self.config = config
         self._client: OpenAI | None = None
+        self._vision_client: OpenAI | None = None
         self.model = config.active_model_name
         self.temperature = config.temperature
         self.max_tokens = config.max_tokens
-        # Vision (OCR) uses the same endpoint, with an optional separate model name.
+        # OCR may use an independent endpoint, credential and model.
         self._vision_model = config.active_vision_model_name
         self._tool_parser = MiniCPMToolCallParser()
         self._formula_validator = LaTeXValidator()
@@ -60,32 +61,40 @@ class MiniCPMModel:
             default=0,
         )
 
+    def _make_client(self, base_url: str, api_key: str) -> OpenAI:
+        if not base_url:
+            raise RuntimeError("Inference endpoint is not configured")
+        if not api_key:
+            raise RuntimeError("Inference API key is not configured")
+        timeout = httpx.Timeout(
+            self.config.inference_timeout_seconds,
+            connect=min(10.0, self.config.inference_timeout_seconds),
+        )
+        return OpenAI(
+            base_url=base_url, api_key=api_key,
+            timeout=self.config.inference_timeout_seconds, max_retries=0,
+            http_client=httpx.Client(timeout=timeout, trust_env=self.config.uses_openai_compatible),
+        )
+
     @property
     def client(self) -> OpenAI:
         if self._client is None:
-            base_url = self.config.active_base_url
-            api_key = self.config.active_api_key
-            if not base_url:
-                raise RuntimeError("Inference endpoint is not configured")
-            if not api_key:
-                raise RuntimeError("Inference API key is not configured")
-            timeout = httpx.Timeout(
-                self.config.inference_timeout_seconds,
-                connect=min(10.0, self.config.inference_timeout_seconds),
-            )
-            self._client = OpenAI(
-                base_url=base_url,
-                api_key=api_key,
-                timeout=self.config.inference_timeout_seconds,
-                # The request-level timeout is an explicit product contract.
-                # SDK retries would otherwise turn 45 seconds into ~135 seconds.
-                max_retries=0,
-                http_client=httpx.Client(
-                    timeout=timeout,
-                    trust_env=self.config.uses_openai_compatible,
-                ),
+            self._client = self._make_client(
+                self.config.active_base_url, self.config.active_api_key,
             )
         return self._client
+
+    @property
+    def vision_client(self) -> OpenAI:
+        if (self.config.active_vision_base_url, self.config.active_vision_api_key) == (
+            self.config.active_base_url, self.config.active_api_key,
+        ):
+            return self.client
+        if self._vision_client is None:
+            self._vision_client = self._make_client(
+                self.config.active_vision_base_url, self.config.active_vision_api_key,
+            )
+        return self._vision_client
 
     def _completion_create(
         self, *, _inference_purpose="unspecified", _inference_fixed_few_shot=None, **kwargs,
@@ -115,7 +124,8 @@ class MiniCPMModel:
             default_timeout=self.config.inference_timeout_seconds,
         )
         try:
-            response = self.client.chat.completions.create(**kwargs)
+            client = self.vision_client if _inference_purpose == "ocr" else self.client
+            response = client.chat.completions.create(**kwargs)
         except Exception as exc:
             if collector is not None and attempt is not None:
                 capture("finish_call", attempt, error=exc)
@@ -126,7 +136,9 @@ class MiniCPMModel:
                 ) from exc
             raise
         if collector is not None and attempt is not None:
-            capture("finish_call", attempt, response=response, api_key=self.config.active_api_key)
+            api_key = (self.config.active_vision_api_key if _inference_purpose == "ocr"
+                       else self.config.active_api_key)
+            capture("finish_call", attempt, response=response, api_key=api_key)
         return response
 
     def _text_model_name(self) -> str:

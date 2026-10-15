@@ -10,13 +10,13 @@ const visibility = source.slice(source.indexOf('  function llamaSettingsDraft()'
 const defaults = {
   backend: 'llama_server', ollama_host: 'http://localhost:11434', model_name: 'text-a', vision_model_name: 'ocr-b',
   openai_base_url: 'https://example.test/v1', openai_model_name: 'remote-text', openai_vision_model_name: 'remote-ocr',
-  openai_api_key_set: true, inference_timeout_seconds: 90, api_request_timeout_seconds: 240,
+  openai_api_key_set: true, openai_vision_api_key_set: true, openai_vision_base_url: 'https://ocr.example.test/v1', inference_timeout_seconds: 90, api_request_timeout_seconds: 240,
   llama_server_host: 'http://127.0.0.1:8080', llama_server_binary: '', llama_models_dir: '',
 };
 function fixture() {
   const panels = ['llama_server', 'ollama', 'openai_compatible', 'llama_server', 'llama_server'].map(backendPanel => ({dataset: {backendPanel}, hidden: false}));
   const els = {};
-  for (const name of ['backendSelect', 'ollamaHostInput', 'localModelInput', 'localVisionModelInput', 'openaiEndpointInput', 'openaiModelInput', 'openaiVisionModelInput', 'openaiKeyInput', 'inferenceTimeoutInput', 'apiTimeoutInput', 'llamaHostInput', 'llamaBinaryInput', 'llamaModelsDirInput', 'backendSaveStatus', 'btnLlamaStart', 'btnLlamaStop', 'btnLlamaPull']) els[name] = { value: '', disabled: false, textContent: '' };
+  for (const name of ['backendSelect', 'ollamaHostInput', 'localModelInput', 'localVisionModelInput', 'openaiEndpointInput', 'openaiModelInput', 'openaiVisionModelInput', 'openaiVisionEndpointInput', 'openaiVisionKeyInput', 'openaiKeyInput', 'inferenceTimeoutInput', 'apiTimeoutInput', 'llamaHostInput', 'llamaBinaryInput', 'llamaModelsDirInput', 'backendSaveStatus', 'btnLlamaStart', 'btnLlamaStop', 'btnLlamaPull']) els[name] = { value: '', disabled: false, textContent: '' };
   const nodes = {'backend-save-note': {hidden: false}, 'btn-save-backend': {disabled: false}};
   const sent = [];
   let persisted = {...defaults};
@@ -43,11 +43,12 @@ test('three backend choices show only their own fields and retain text/OCR draft
 
 test('saving local settings cannot overwrite hidden remote drafts or transmit their API key', async () => {
   const f = fixture(); await f.context.loadBackendSettings();
-  f.els.openaiKeyInput.value = 'unsaved-private-key'; f.els.openaiEndpointInput.value = 'invalid hidden draft';
+  f.els.openaiKeyInput.value = 'unsaved-private-key'; f.els.openaiVisionKeyInput.value = 'ocr-draft-key'; f.els.openaiEndpointInput.value = 'invalid hidden draft';
   f.els.backendSelect.value = 'ollama'; f.els.localModelInput.value = 'new-text'; f.els.localVisionModelInput.value = 'new-ocr';
   await f.context.saveBackendSettings();
   assert.deepEqual(Object.keys(f.sent[0]).sort(), ['backend','inference_timeout_seconds','api_request_timeout_seconds','ollama_host','model_name','vision_model_name'].sort());
   assert.equal(f.persisted().openai_base_url, defaults.openai_base_url); assert.equal(f.els.openaiKeyInput.value, 'unsaved-private-key');
+  assert.equal(f.els.openaiVisionKeyInput.value, 'ocr-draft-key');
   await f.context.loadBackendSettings();
   assert.equal(f.els.localModelInput.value, 'new-text'); assert.equal(f.els.localVisionModelInput.value, 'new-ocr');
 });
@@ -94,4 +95,21 @@ test('editing runtime paths disables service actions until that exact draft is s
   await f.context.saveBackendSettings(); assert.equal(f.els.btnLlamaPull.disabled, false);
   f.els.llamaHostInput.value = 'http://127.0.0.1:8081'; f.context.updateLlamaSectionVisibility();
   assert.equal(f.els.btnLlamaStart.disabled, true);
+});
+
+
+test('remote text and OCR each save their own endpoint, model and key', async () => {
+  const f = fixture(); await f.context.loadBackendSettings();
+  f.els.backendSelect.value = 'openai_compatible';
+  f.els.openaiEndpointInput.value = 'https://text.example.test/v1';
+  f.els.openaiVisionEndpointInput.value = 'https://vision.example.test/v1';
+  f.els.openaiKeyInput.value = 'text-key'; f.els.openaiVisionKeyInput.value = 'vision-key';
+  await f.context.saveBackendSettings();
+  assert.equal(f.sent[0].openai_base_url, 'https://text.example.test/v1');
+  assert.equal(f.sent[0].openai_vision_base_url, 'https://vision.example.test/v1');
+  assert.equal(f.sent[0].openai_api_key, 'text-key');
+  assert.equal(f.sent[0].openai_vision_api_key, 'vision-key');
+  assert.equal(f.els.openaiKeyInput.value, ''); assert.equal(f.els.openaiVisionKeyInput.value, '');
+  await f.context.saveBackendSettings();
+  assert.equal('openai_vision_api_key' in f.sent[1], false);
 });

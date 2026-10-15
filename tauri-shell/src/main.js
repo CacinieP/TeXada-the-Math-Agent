@@ -154,6 +154,10 @@
       'settings.zoomReset': '重置缩放',
       'settings.backendTitle': '后端连接',
       'settings.textModel': '文本模型',
+      'settings.modelName': '模型名',
+      'settings.sameEndpointPlaceholder': '留空则沿用文本服务地址',
+      'settings.ocrConnectionNote': 'OCR 地址留空时沿用文本地址；使用不同服务时，请单独填写 OCR 的 API Key 和模型名。',
+      'settings.ocrKeyEnterPlaceholder': '同一服务可沿用文本 Key；不同服务请填写',
       'settings.ocrModel': 'OCR 模型',
       'settings.sharedModelNote': '当前文本与 OCR 共用同一个内置模型，模型由运行时管理，无需填写模型名。',
       'settings.advanced': '高级设置',
@@ -355,6 +359,10 @@
       'settings.zoomReset': 'Reset zoom',
       'settings.backendTitle': 'Backend',
       'settings.textModel': 'Text model',
+      'settings.modelName': 'Model name',
+      'settings.sameEndpointPlaceholder': 'Leave blank to use the text service address',
+      'settings.ocrConnectionNote': 'Leave the OCR address blank to use the text service. A different service requires its own API key and model name.',
+      'settings.ocrKeyEnterPlaceholder': 'Same service: use text key; different service: enter OCR key',
       'settings.ocrModel': 'OCR model',
       'settings.sharedModelNote': 'Text and OCR currently share one built-in model. The runtime manages it; no model names are needed.',
       'settings.advanced': 'Advanced settings',
@@ -506,6 +514,8 @@
     openaiEndpointInput: document.getElementById('openai-endpoint-input'),
     openaiModelInput: document.getElementById('openai-model-input'),
     openaiVisionModelInput: document.getElementById('openai-vision-model-input'),
+    openaiVisionEndpointInput: document.getElementById('openai-vision-endpoint-input'),
+    openaiVisionKeyInput: document.getElementById('openai-vision-key-input'),
     openaiKeyInput: document.getElementById('openai-key-input'),
     inferenceTimeoutInput: document.getElementById('inference-timeout-input'),
     apiTimeoutInput: document.getElementById('api-timeout-input'),
@@ -729,6 +739,7 @@
     if (!info) return '';
     const parts = [];
     if (info.endpoint) parts.push(`Endpoint: ${info.endpoint}`);
+    if (info.vision_endpoint && info.vision_endpoint !== info.endpoint) parts.push(`OCR endpoint: ${info.vision_endpoint}`);
     if (info.model) parts.push(`Text: ${info.model}`);
     if (info.vision) parts.push(`Vision: ${info.vision}`);
     if (info.missing_models && info.missing_models.length) {
@@ -1746,6 +1757,9 @@
       els.openaiEndpointInput.value = cfg.openai_base_url || '';
       els.openaiModelInput.value = cfg.openai_model_name || '';
       els.openaiVisionModelInput.value = cfg.openai_vision_model_name || '';
+      els.openaiVisionEndpointInput.value = cfg.openai_vision_base_url || '';
+      els.openaiVisionKeyInput.value = '';
+      els.openaiVisionKeyInput.placeholder = cfg.openai_vision_api_key_set ? t('settings.keySavedPlaceholder') : t('settings.ocrKeyEnterPlaceholder');
       els.openaiKeyInput.value = '';
       els.inferenceTimeoutInput.value = String(cfg.inference_timeout_seconds || 90);
       els.apiTimeoutInput.value = String(cfg.api_request_timeout_seconds || 240);
@@ -1791,9 +1805,12 @@
         openai_base_url: els.openaiEndpointInput.value.trim(),
         openai_model_name: els.openaiModelInput.value.trim(),
         openai_vision_model_name: els.openaiVisionModelInput.value.trim(),
+        openai_vision_base_url: els.openaiVisionEndpointInput.value.trim(),
       });
       const key = els.openaiKeyInput.value.trim();
       if (key) payload.openai_api_key = key;
+      const visionKey = els.openaiVisionKeyInput.value.trim();
+      if (visionKey) payload.openai_vision_api_key = visionKey;
     } else {
       return;
     }
@@ -1809,7 +1826,11 @@
       if (backend === 'llama_server') savedLlamaSettings = {
         host: payload.llama_server_host, binary: payload.llama_server_binary, models: payload.llama_models_dir,
       };
-      if (backend === 'openai_compatible') els.openaiKeyInput.value = '';
+      if (backend === 'openai_compatible') {
+        els.openaiKeyInput.value = '';
+        els.openaiVisionKeyInput.value = '';
+      }
+      els.openaiVisionKeyInput.placeholder = cfg.openai_vision_api_key_set ? t('settings.keySavedPlaceholder') : t('settings.ocrKeyEnterPlaceholder');
       els.openaiKeyInput.placeholder = cfg.openai_api_key_set ? t('settings.keySavedPlaceholder') : t('settings.keyEnterPlaceholder');
       els.inferenceTimeoutInput.value = String(cfg.inference_timeout_seconds);
       els.apiTimeoutInput.value = String(cfg.api_request_timeout_seconds);

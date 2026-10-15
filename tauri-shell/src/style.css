@@ -1250,3 +1250,8 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+.model-connection { border: 0; padding: 0; margin: 14px 0; min-width: 0; }
+.model-connection + .model-connection { border-top: 1px solid var(--border); padding-top: 14px; }
+.model-connection > legend { font-size: 12px; color: var(--accent); padding: 0 0 6px; }
+.model-connection > .setting-desc { line-height: 1.5; margin-top: 6px; }

@@ -255,22 +255,37 @@
         </div>
       </div>
       <div class="backend-panel" data-backend-panel="openai_compatible" hidden>
-        <div class="setting-row form-row">
-          <label class="setting-label" for="openai-endpoint-input" data-i18n="settings.cloudEndpoint">服务地址</label>
-          <input class="setting-control" id="openai-endpoint-input" type="url" placeholder="https://.../v1" autocomplete="off">
-        </div>
-        <div class="setting-row form-row">
-          <label class="setting-label" for="openai-model-input" data-i18n="settings.textModel">文本模型</label>
-          <input class="setting-control" id="openai-model-input" type="text" autocomplete="off">
-        </div>
-        <div class="setting-row form-row">
-          <label class="setting-label" for="openai-vision-model-input" data-i18n="settings.ocrModel">OCR 模型</label>
-          <input class="setting-control" id="openai-vision-model-input" type="text" data-i18n-placeholder="settings.sameModelPlaceholder" placeholder="留空则使用同一模型" autocomplete="off">
-        </div>
-        <div class="setting-row form-row">
-          <label class="setting-label" for="openai-key-input" data-i18n="settings.cloudApiKey">API Key</label>
-          <input class="setting-control" id="openai-key-input" type="password" data-i18n-placeholder="settings.keepKeyPlaceholder" placeholder="留空则保持不变" autocomplete="off">
-        </div>
+        <fieldset class="model-connection">
+          <legend data-i18n="settings.textModel">文本模型</legend>
+          <div class="setting-row form-row">
+            <label class="setting-label" for="openai-endpoint-input" data-i18n="settings.cloudEndpoint">服务地址</label>
+            <input class="setting-control" id="openai-endpoint-input" type="url" placeholder="https://.../v1" autocomplete="off">
+          </div>
+          <div class="setting-row form-row">
+            <label class="setting-label" for="openai-key-input" data-i18n="settings.cloudApiKey">API Key</label>
+            <input class="setting-control" id="openai-key-input" type="password" data-i18n-placeholder="settings.keepKeyPlaceholder" placeholder="留空则保持不变" autocomplete="off">
+          </div>
+          <div class="setting-row form-row">
+            <label class="setting-label" for="openai-model-input" data-i18n="settings.modelName">模型名</label>
+            <input class="setting-control" id="openai-model-input" type="text" autocomplete="off">
+          </div>
+        </fieldset>
+        <fieldset class="model-connection">
+          <legend data-i18n="settings.ocrModel">OCR 模型</legend>
+          <div class="setting-row form-row">
+            <label class="setting-label" for="openai-vision-endpoint-input" data-i18n="settings.cloudEndpoint">服务地址</label>
+            <input class="setting-control" id="openai-vision-endpoint-input" type="url" data-i18n-placeholder="settings.sameEndpointPlaceholder" placeholder="留空则沿用文本服务地址" autocomplete="off">
+          </div>
+          <div class="setting-row form-row">
+            <label class="setting-label" for="openai-vision-key-input" data-i18n="settings.cloudApiKey">API Key</label>
+            <input class="setting-control" id="openai-vision-key-input" type="password" data-i18n-placeholder="settings.keepKeyPlaceholder" placeholder="留空则保持不变" autocomplete="off">
+          </div>
+          <div class="setting-row form-row">
+            <label class="setting-label" for="openai-vision-model-input" data-i18n="settings.modelName">模型名</label>
+            <input class="setting-control" id="openai-vision-model-input" type="text" data-i18n-placeholder="settings.sameModelPlaceholder" placeholder="留空则使用同一模型" autocomplete="off">
+          </div>
+          <p class="setting-desc" data-i18n="settings.ocrConnectionNote">OCR 地址留空时沿用文本地址；使用不同服务时，请单独填写 OCR 的 API Key 和模型名。</p>
+        </fieldset>
       </div>
       <details class="backend-advanced">
         <summary data-i18n="settings.advanced">高级设置</summary>
