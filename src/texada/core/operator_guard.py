@@ -135,6 +135,18 @@ class OperatorDriftGuard:
             if pattern.search(request):
                 forced.append(operator)
 
+        symbolic_product = re.fullmatch(
+            r"两个未给具体元素的二乘二矩阵\s*(?P<left>[A-Za-z])\s*与\s*"
+            r"(?P<right>[A-Za-z])\s*[，,]\s*写出\s*(?P=left)\s*乘\s*"
+            r"(?P=right)\s*的符号乘积\s*[。.]?",
+            request,
+        )
+        if symbolic_product:
+            forced.append(
+                f"unexpanded matrix product: {symbolic_product['left']} "
+                f"then {symbolic_product['right']}"
+            )
+
         literal_matrix = re.fullmatch(
             r"二乘二矩阵\s*[，,]\s*第一行\s*([A-Za-z])\s+([A-Za-z])"
             r"\s*[，,]\s*第二行\s*([A-Za-z])\s+([A-Za-z])\s*[。.]?",
@@ -357,6 +369,20 @@ class OperatorDriftGuard:
         user_input: str = "",
     ) -> bool:
         """Check exact commands plus the few structural request anchors."""
+        symbolic_product = re.fullmatch(
+            r"unexpanded matrix product: ([A-Za-z]) then ([A-Za-z])", anchor,
+        )
+        if symbolic_product:
+            factors = [
+                rf"(?:{name}|\{{{name}\}}|\\(?:mathbf|boldsymbol|mathrm)\{{{name}\}})"
+                for name in map(re.escape, symbolic_product.groups())
+            ]
+            product = rf"{factors[0]}(?:\\(?:cdot|times))?{factors[1]}"
+            compact = re.sub(r"\s+|\\[,!;:]", "", candidate)
+            # Match the whole ordered product, not names inside an expansion.
+            return bool(re.fullmatch(
+                rf"{product}|\({product}\)|\\left\({product}\\right\)", compact,
+            ))
         literal_matrix = re.fullmatch(
             r"literal 2x2 matrix rows: ([A-Za-z]),([A-Za-z]);([A-Za-z]),([A-Za-z])",
             anchor,

@@ -495,3 +495,36 @@ def test_explicit_matrix_template_binds_different_entries_and_punctuation():
     description = "二乘二矩阵, 第一行 p q, 第二行 r s。"
     assert not guard.check("", r"\begin{bmatrix}p&q\\r&s\end{bmatrix}", user_input=description)
     assert guard.check("", r"\begin{bmatrix}a&b\\c&d\end{bmatrix}", user_input=description)
+
+
+def test_unspecified_matrix_entries_require_only_the_ordered_symbolic_product():
+    guard = OperatorDriftGuard()
+    description = "两个未给具体元素的二乘二矩阵 A 与 B，写出 A 乘 B 的符号乘积"
+    for candidate in (
+        "BA", "AC", "A+B", "AB=BA", "AB=0",
+        r"\begin{pmatrix}a&b\\c&d\end{pmatrix}\begin{pmatrix}e&f\\g&h\end{pmatrix}",
+        r"AB=\begin{pmatrix}ae+bg&af+bh\\ce+dg&cg+dh\end{pmatrix}",
+        r"\text{AB}",
+    ):
+        assert guard.check("", candidate, user_input=description), candidate
+    for candidate in (
+        "AB", "A B", r"A\,B", r"A\cdot B", r"A\times B",
+        r"\mathbf{A}\mathbf{B}", r"\boldsymbol{A}\cdot\boldsymbol{B}",
+        "(AB)", r"\left(AB\right)",
+    ):
+        assert not guard.check("", candidate, user_input=description), candidate
+    for description in (
+        "计算矩阵 A 与 B 的乘积",
+        "不要写两个未给具体元素的二乘二矩阵 A 与 B，写出 A 乘 B 的符号乘积",
+        "两个未给具体元素的二乘二矩阵 A 与 B，写出 B 乘 A 的符号乘积",
+        "两个未给具体元素的二乘二矩阵 A 与 B，写出 A 乘 B 的符号乘积.png",
+    ):
+        assert not guard.forced_operators("", description)
+
+
+def test_symbolic_matrix_product_binds_other_names_without_commuting_them():
+    guard = OperatorDriftGuard()
+    description = "两个未给具体元素的二乘二矩阵 P 与 Q, 写出 P 乘 Q 的符号乘积。"
+    assert not guard.check("", "PQ", user_input=description)
+    assert guard.check("", "QP", user_input=description)
+    assert guard.check("", "AB", user_input=description)

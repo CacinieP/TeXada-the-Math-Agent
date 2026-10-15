@@ -1341,3 +1341,40 @@ async def test_runtime_preserves_literal_matrix_description(tmp_path, candidate,
     else:
         assert result.stop_reason == "semantic_anchor_unresolved"
         assert result.formula_ledger["commits"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate_first", [False, True])
+@pytest.mark.parametrize("candidate,should_commit", [
+    (
+        r"\begin{pmatrix} a & b \\ c & d \end{pmatrix} \times "
+        r"\begin{pmatrix} e & f \\ g & h \end{pmatrix} = "
+        r"\begin{pmatrix} ae+bg & af+bh \\ ce+dg & cg+dh \end{pmatrix}",
+        False,
+    ),
+    ("AB", True),
+    (r"A\times B", True),
+    (r"\mathbf{A}\cdot\mathbf{B}", True),
+])
+async def test_runtime_preserves_symbolic_matrix_product(
+    tmp_path, candidate_first, candidate, should_commit,
+):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first), model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run(
+        "两个未给具体元素的二乘二矩阵 A 与 B，写出 A 乘 B 的符号乘积"
+    )
+
+    assert result.committed is should_commit
+    assert result.latex == candidate
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
+        assert result.formula_ledger["commits"] == []
