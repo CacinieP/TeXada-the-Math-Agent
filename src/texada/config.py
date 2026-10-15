@@ -33,6 +33,8 @@ SAVED_CONFIG_FIELDS = frozenset({
     "openai_api_key",
     "openai_model_name",
     "openai_vision_model_name",
+    "openai_vision_base_url",
+    "openai_vision_api_key",
     "temperature",
     "max_tokens",
     "default_render_mode",
@@ -54,9 +56,9 @@ SAVED_CONFIG_FIELDS = frozenset({
 class TeXadaConfig(BaseSettings):
     """All TeXada settings, loaded from ~/.texada/config.json + env vars.
 
-    TeXada defaults to local Ollama MiniCPM models and can be switched to any
-    OpenAI-compatible endpoint. Both paths speak the standard OpenAI chat API;
-    text and vision (OCR) requests use separate configurable model names.
+    TeXada defaults to built-in llama-server and also supports Ollama or
+    OpenAI-compatible services. Text and OCR may use independent remote
+    endpoints, credentials and model names.
     """
 
     model_config = SettingsConfigDict(
@@ -85,6 +87,8 @@ class TeXadaConfig(BaseSettings):
     openai_api_key: str = ""
     openai_model_name: str = ""
     openai_vision_model_name: str = ""
+    openai_vision_base_url: str = ""
+    openai_vision_api_key: str = ""
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
     max_tokens: int = Field(default=2048, ge=64, le=32768)
     inference_timeout_seconds: float = Field(default=90.0, gt=0.0, le=600.0)
@@ -175,7 +179,7 @@ class TeXadaConfig(BaseSettings):
             raw = raw[:-3].rstrip("/")
         return raw
 
-    @field_validator("openai_base_url", mode="before")
+    @field_validator("openai_base_url", "openai_vision_base_url", mode="before")
     @classmethod
     def normalize_base_url(cls, value: object) -> str:
         return cls._normalize_url(value)
@@ -216,6 +220,25 @@ class TeXadaConfig(BaseSettings):
         return "ollama"  # local runtimes accept any non-empty key
 
     @property
+    def active_vision_base_url(self) -> str:
+        if self.uses_openai_compatible:
+            return self.openai_vision_base_url or self.active_base_url
+        return self.active_base_url
+
+    @property
+    def vision_uses_separate_endpoint(self) -> bool:
+        return self.active_vision_base_url != self.active_base_url
+
+    @property
+    def active_vision_api_key(self) -> str:
+        if self.uses_openai_compatible:
+            # Never send text credentials to an independently configured URL.
+            return self.openai_vision_api_key or (
+                "" if self.vision_uses_separate_endpoint else self.active_api_key
+            )
+        return self.active_api_key
+
+    @property
     def active_model_name(self) -> str:
         if self.uses_openai_compatible:
             return self.openai_model_name
@@ -226,7 +249,9 @@ class TeXadaConfig(BaseSettings):
     @property
     def active_vision_model_name(self) -> str:
         if self.uses_openai_compatible:
-            return self.openai_vision_model_name or self.openai_model_name
+            return self.openai_vision_model_name or (
+                "" if self.vision_uses_separate_endpoint else self.openai_model_name
+            )
         if self.uses_llama_server:
             return "MiniCPM-V-4.7-1B"
         return self.vision_model_name

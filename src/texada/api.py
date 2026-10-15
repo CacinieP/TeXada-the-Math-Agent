@@ -59,6 +59,7 @@ EXPORTABLE_SETTINGS_FIELDS = frozenset({
     "openai_base_url",
     "openai_model_name",
     "openai_vision_model_name",
+    "openai_vision_base_url",
     "temperature",
     "max_tokens",
     "default_render_mode",
@@ -154,6 +155,7 @@ class StatusResponse(BaseModel):
     ready: bool = False
     backend: str
     endpoint: str | None = None
+    vision_endpoint: str | None = None
     model: str | None = None
     vision: str | None = None
     message: str | None = None
@@ -174,6 +176,8 @@ class BackendSettingsResponse(BaseModel):
     openai_base_url: str
     openai_model_name: str
     openai_vision_model_name: str
+    openai_vision_base_url: str
+    openai_vision_api_key_set: bool
     openai_api_key_set: bool
     inference_timeout_seconds: float
     api_request_timeout_seconds: float
@@ -204,6 +208,8 @@ class BackendSettingsUpdate(BaseModel):
     openai_model_name: str | None = Field(default=None, max_length=300)
     openai_vision_model_name: str | None = Field(default=None, max_length=300)
     openai_api_key: str | None = Field(default=None, max_length=4000)
+    openai_vision_base_url: str | None = Field(default=None, max_length=500)
+    openai_vision_api_key: str | None = Field(default=None, max_length=4000)
     inference_timeout_seconds: float | None = Field(default=None, ge=10.0, le=600.0)
     api_request_timeout_seconds: float | None = Field(default=None, ge=30.0, le=900.0)
     planner_surface: str | None = Field(default=None, pattern="^(full|minimal)$")
@@ -322,6 +328,8 @@ def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
         openai_base_url=config.openai_base_url,
         openai_model_name=config.openai_model_name,
         openai_vision_model_name=config.openai_vision_model_name,
+        openai_vision_base_url=config.openai_vision_base_url,
+        openai_vision_api_key_set=bool(config.openai_vision_api_key),
         openai_api_key_set=bool(config.openai_api_key),
         inference_timeout_seconds=config.inference_timeout_seconds,
         api_request_timeout_seconds=config.api_request_timeout_seconds,
@@ -449,6 +457,7 @@ def _exportable_settings(config: TeXadaConfig) -> dict:
         "openai_base_url": config.openai_base_url,
         "openai_model_name": config.openai_model_name,
         "openai_vision_model_name": config.openai_vision_model_name,
+        "openai_vision_base_url": config.openai_vision_base_url,
         "temperature": config.temperature,
         "max_tokens": config.max_tokens,
         "default_render_mode": config.default_render_mode,
@@ -817,8 +826,9 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     @app.post("/api/settings/backend", response_model=BackendSettingsResponse)
     async def update_backend_settings(req: BackendSettingsUpdate):
         updates = req.model_dump(exclude_none=True)
-        if updates.get("openai_api_key") == "":
-            updates.pop("openai_api_key")
+        for key in ("openai_api_key", "openai_vision_api_key"):
+            if updates.get(key) == "":
+                updates.pop(key)
         async with runtime_lock:
             validate_config_updates(updates, data_dir=config.data_dir)
             await stop_llama_manager()

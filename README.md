@@ -193,6 +193,11 @@ TeXada release packages are built for end users. You do not need Python, Node.js
 Both options run model inference locally. Pick one; you do not need to install
 both runtimes. Initial model downloads require an internet connection.
 
+The current development Settings screen shows only the selected backend. Text
+and OCR remain separate roles; the built-in runtime currently displays the same
+4.7 model for both. Runtime paths, port and timeouts are under **Advanced settings**.
+Save after changing the backend or its runtime paths before using service controls.
+
 ### Quick Start With Built-in llama-server
 
 1. Install and open **v0.4.2-beta.2** from the release link above.
@@ -306,15 +311,22 @@ external llama-server using the official
 See [setup, evidence and limits](docs/minicpm-v47.md) and
 [ADR-017](docs/adr/017-minicpm-v47-single-checkpoint.md).
 
-OpenAI-compatible models can be configured from Settings. For cloud providers, enter the complete Chat Completions base URL expected by that provider; TeXada does not append `/v1` to cloud endpoints. Example:
+OpenAI-compatible models can be configured from Settings. **Text and OCR each
+have their own service address, API key and model name.** OCR requests and their
+retries use the OCR connection; planning and text generation use the text connection.
+Existing shared-service configurations still work: an empty OCR address uses the
+text address. A different OCR address requires its own key and model name; text
+credentials are never automatically sent to that different service. For cloud providers, enter the complete Chat Completions base URL expected by that provider; TeXada does not append `/v1` to cloud endpoints. Example:
 
 ```json
 {
   "backend": "openai_compatible",
   "openai_base_url": "https://your-provider.example/v1",
+  "openai_vision_base_url": "https://your-ocr-provider.example/v1",
   "openai_model_name": "your-text-model",
   "openai_vision_model_name": "your-vision-model",
-  "openai_api_key": "your-api-key"
+  "openai_api_key": "your-text-api-key",
+  "openai_vision_api_key": "your-ocr-api-key"
 }
 ```
 
@@ -362,7 +374,8 @@ The following is an **Ollama example**, not the default backend for a fresh beta
 | `TEXADA_MODEL_NAME`, `TEXADA_VISION_MODEL_NAME` | Local text and vision model names |
 | `TEXADA_OPENAI_BASE_URL` | Full OpenAI-compatible cloud base URL |
 | `TEXADA_OPENAI_MODEL_NAME`, `TEXADA_OPENAI_VISION_MODEL_NAME` | Cloud text and vision model names |
-| `TEXADA_OPENAI_API_KEY` | Cloud provider API key |
+| `TEXADA_OPENAI_API_KEY` | Text service API key |
+| `TEXADA_OPENAI_VISION_BASE_URL`, `TEXADA_OPENAI_VISION_API_KEY` | Independent OCR service address and API key |
 | `TEXADA_API_HOST`, `TEXADA_API_PORT` | FastAPI bind address |
 | `TEXADA_API_BASE` | Explicit desktop shell API base |
 | `TEXADA_DISABLE_BUNDLED_BACKEND` | Set to `1` only when you want to manage the FastAPI backend yourself |
@@ -688,6 +701,10 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 两条路线都在本地执行模型推理，选一条即可，无需同时安装两个运行时。
 首次下载模型需要联网。
 
+当前开发版设置页只展示所选后端。文本与 OCR 保留独立角色；内置运行时当前
+显示二者共用的 4.7 模型。运行时路径、端口和超时位于**高级设置**。
+切换后端或修改运行时路径后，先保存再操作服务按钮。
+
 ### 内置 llama-server 快速启动
 
 1. 从上方 Release 链接安装并打开 **v0.4.2-beta.2**。
@@ -793,15 +810,22 @@ http://192.168.1.20:11434
 配置、实测证据与范围见 [适配说明](docs/minicpm-v47.md) 和
 [ADR-017](docs/adr/017-minicpm-v47-single-checkpoint.md)。
 
-OpenAI API 兼容模型可以在设置页配置。云侧 provider 需要填写该服务商要求的完整 Chat Completions base URL；TeXada 不会为云侧 endpoint 自动追加 `/v1`。示例：
+OpenAI-compatible 在设置页分别提供**文本**与 **OCR** 两组配置，每组都有
+**服务地址、API Key、模型名**。OCR 请求及重试使用 OCR 连接，规划和文本生成使用文本连接。
+既有共用服务配置继续有效：OCR 地址留空时沿用文本地址；使用不同 OCR 地址时，必须
+填写独立 Key 和模型名，不会自动把文本服务的 Key 发送到另一服务。
+
+云侧 provider 需要填写该服务商要求的完整 Chat Completions base URL；TeXada 不会为云侧 endpoint 自动追加 `/v1`。示例：
 
 ```json
 {
   "backend": "openai_compatible",
   "openai_base_url": "https://your-provider.example/v1",
+  "openai_vision_base_url": "https://your-ocr-provider.example/v1",
   "openai_model_name": "your-text-model",
   "openai_vision_model_name": "your-vision-model",
-  "openai_api_key": "your-api-key"
+  "openai_api_key": "your-text-api-key",
+  "openai_vision_api_key": "your-ocr-api-key"
 }
 ```
 
@@ -847,7 +871,8 @@ StepFun Step Plan 示例：
 | `TEXADA_MODEL_NAME`, `TEXADA_VISION_MODEL_NAME` | 本地文本模型和视觉模型名称 |
 | `TEXADA_OPENAI_BASE_URL` | 完整 OpenAI-compatible 云侧 base URL |
 | `TEXADA_OPENAI_MODEL_NAME`, `TEXADA_OPENAI_VISION_MODEL_NAME` | 云侧文本模型和视觉模型名称 |
-| `TEXADA_OPENAI_API_KEY` | 云侧 provider API key |
+| `TEXADA_OPENAI_API_KEY` | 文本服务 API key |
+| `TEXADA_OPENAI_VISION_BASE_URL`, `TEXADA_OPENAI_VISION_API_KEY` | 独立 OCR 服务地址及 API key |
 | `TEXADA_API_HOST`, `TEXADA_API_PORT` | FastAPI 监听地址 |
 | `TEXADA_API_BASE` | 桌面壳使用的完整 API 地址 |
 | `TEXADA_DISABLE_BUNDLED_BACKEND` | 仅当你想自行管理 FastAPI 后端时设为 `1` |

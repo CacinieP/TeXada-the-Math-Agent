@@ -121,7 +121,12 @@ class BackendManager:
                 )
             return True
         if self.config.uses_openai_compatible:
-            return await self.ensure_ready()
+            self._validate_openai_config(vision=True)
+            if not await probe_models_url(self.config.active_vision_base_url, self.vision_headers):
+                raise RuntimeError(
+                    "OCR OpenAI-compatible endpoint 不可达，请检查 OCR endpoint 和 key"
+                )
+            return True
 
         if not await self._is_running():
             await self._ensure_ollama_running_or_startable()
@@ -139,16 +144,25 @@ class BackendManager:
         self._ready = True
         return True
 
-    def _validate_openai_config(self) -> None:
-        missing: list[str] = []
-        if not self.config.openai_base_url.strip():
-            missing.append("endpoint")
-        if not self.config.openai_api_key.strip():
-            missing.append("api key")
-        if not self.config.openai_model_name.strip():
-            missing.append("model name")
+    @property
+    def vision_headers(self) -> dict[str, str]:
+        key = self.config.active_vision_api_key
+        return {"Authorization": f"Bearer {key}"} if key else {}
+
+    def _validate_openai_config(self, *, vision: bool = False) -> None:
+        values = (
+            (self.config.active_vision_base_url, self.config.active_vision_api_key,
+             self.config.active_vision_model_name)
+            if vision else (
+                self.base_url, self.config.active_api_key, self.config.active_model_name,
+            )
+        )
+        missing = [name for name, value in zip(
+            ("endpoint", "api key", "model name"), values, strict=True,
+        ) if not value.strip()]
         if missing:
-            raise RuntimeError("OpenAI-compatible 配置缺失: " + ", ".join(missing))
+            role = "OCR " if vision else ""
+            raise RuntimeError(role + "OpenAI-compatible 配置缺失: " + ", ".join(missing))
 
     async def _is_running(self) -> bool:
         """True if the backend answers on /models."""
@@ -295,7 +309,26 @@ class BackendManager:
                     "message": str(e),
                     "missing_models": [],
                 }
-            return self._build_status(await self._is_running())
+            text_ready = await self._is_running()
+            result = self._build_status(text_ready)
+            result["vision_endpoint"] = self.config.active_vision_base_url
+            vision_error = None
+            try:
+                self._validate_openai_config(vision=True)
+                same_connection = (
+                    self.config.active_vision_base_url == self.base_url
+                    and self.vision_headers == self.headers
+                )
+                vision_ready = text_ready if same_connection else await probe_models_url(
+                    self.config.active_vision_base_url, self.vision_headers,
+                )
+            except RuntimeError as exc:
+                vision_ready = False
+                vision_error = str(exc)
+            result.update(text_model_installed=text_ready, vision_model_installed=vision_ready)
+            if text_ready and not vision_ready:
+                result.update(status="partial_ready", message=vision_error or "OCR endpoint 不可达")
+            return result
 
         running = await self._is_running()
         if not running:

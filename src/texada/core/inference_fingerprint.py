@@ -115,6 +115,7 @@ class InferenceIdentity(_Contract):
     application_build: IdentityEvidence
     backend: Literal["llama_server", "ollama", "openai_compatible"]
     endpoint: str = Field(max_length=500)
+    vision_endpoint: str | None = Field(default=None, max_length=500)
     configured_models: ConfiguredModels
     configuration: InferenceConfiguration
     client_runtime: ClientRuntime
@@ -127,14 +128,16 @@ class InferenceIdentity(_Contract):
     @model_serializer(mode="wrap")
     def preserve_legacy_identity_bytes(self, handler):
         data = handler(self)
+        if self.vision_endpoint is None:
+            data.pop("vision_endpoint", None)
         if self.planner_controls is None:
             data.pop("planner_controls", None)
         return data
 
-    @field_validator("endpoint")
+    @field_validator("endpoint", "vision_endpoint")
     @classmethod
     def endpoint_contains_no_url_secrets(cls, value):
-        if value != sanitized_endpoint(value):
+        if value is not None and value != sanitized_endpoint(value):
             raise ValueError("fingerprint endpoint must not contain URL credentials or query")
         return value
 
@@ -320,6 +323,8 @@ def build_inference_identity(
         application_build=_not_checked("application build revision is not embedded"),
         backend=config.backend,
         endpoint=sanitized_endpoint(config.active_base_url),
+        vision_endpoint=(sanitized_endpoint(config.active_vision_base_url)
+                         if config.vision_uses_separate_endpoint else None),
         configured_models={
             "text": config.active_model_name, "vision": config.active_vision_model_name,
         },
