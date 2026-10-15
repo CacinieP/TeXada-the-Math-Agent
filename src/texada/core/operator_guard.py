@@ -135,6 +135,14 @@ class OperatorDriftGuard:
             if pattern.search(request):
                 forced.append(operator)
 
+        paired_scripts = re.fullmatch(
+            r"([A-Za-z])\s*的上标\s*([A-Za-z])\s*加下标\s*([A-Za-z])\s*[。.]?",
+            request,
+        )
+        if paired_scripts:
+            base, upper, lower = paired_scripts.groups()
+            forced.append(f"paired scripts: base {base}, upper {upper}, lower {lower}")
+
         sequence_limit = re.fullmatch(
             r"(?P<index>[A-Za-z])\s*趋近于\s*(?:正)?无穷\s*时\s*[，,]?\s*"
             r"数列\s*(?P<base>[A-Za-z])\s*下标\s*(?P=index)\s*等于\s*"
@@ -385,6 +393,20 @@ class OperatorDriftGuard:
         user_input: str = "",
     ) -> bool:
         """Check exact commands plus the few structural request anchors."""
+        paired_scripts = re.fullmatch(
+            r"paired scripts: base ([A-Za-z]), upper ([A-Za-z]), lower ([A-Za-z])",
+            anchor,
+        )
+        if paired_scripts:
+            base, upper, lower = map(re.escape, paired_scripts.groups())
+            superscript = rf"\^(?:{upper}|\{{{upper}\}})"
+            subscript = rf"_(?:{lower}|\{{{lower}\}})"
+            # Both scripts belong to this base; either LaTeX order is valid.
+            return bool(re.fullmatch(
+                rf"(?:{base}|\{{{base}\}})"
+                rf"(?:{superscript}{subscript}|{subscript}{superscript})",
+                re.sub(r"\s+|\\[,!;:]", "", candidate),
+            ))
         sequence_limit = re.fullmatch(
             r"sequence limit: ([A-Za-z])_([A-Za-z]) equals ([A-Za-z]) at positive infinity",
             anchor,

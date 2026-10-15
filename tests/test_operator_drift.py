@@ -586,3 +586,31 @@ def test_sequence_limit_template_binds_other_symbols():
     description = "k 趋近于无穷时，数列 b 下标 k 等于 M。"
     assert not guard.check("", r"\lim_{k\to\infty}b_k=M", user_input=description)
     assert guard.check("", r"\lim_{n\to\infty}a_n=L", user_input=description)
+
+
+def test_explicit_paired_scripts_keep_symbols_and_roles_on_the_same_base():
+    guard = OperatorDriftGuard()
+    description = "x 的上标 n 加下标 k"
+    for candidate in (
+        r"x^{\text{上标 n}}_{\text{下标 k}}",
+        r"x_n^k", r"y_k^n", r"x^{n_k}", r"x_{k^n}",
+        r"x^n+x_k", r"x^n", r"x_k", r"\text{x_k^n}",
+    ):
+        assert guard.check("", candidate, user_input=description), candidate
+    for candidate in ("x_k^n", "x^n_k", r"x^{n}_{k}", r"x_{k}^{n}", r"{x}_{k}^{n}"):
+        assert not guard.check("", candidate, user_input=description), candidate
+    for description in (
+        "不要写 x 的上标 n 加下标 k",
+        "计算 x 的上标 n 加下标 k",
+        "x 的上标 n 加下标 k.png",
+        "x 的上标 n", "x 的下标 k",
+    ):
+        assert not guard.forced_operators("", description)
+
+
+def test_paired_script_template_binds_other_symbols_and_punctuation():
+    guard = OperatorDriftGuard()
+    description = "a 的上标 p 加下标 q。"
+    assert not guard.check("", "a_q^p", user_input=description)
+    assert guard.check("", "a_p^q", user_input=description)
+    assert guard.check("", "x_k^n", user_input=description)
