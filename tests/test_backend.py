@@ -406,3 +406,45 @@ async def test_generic_500_does_not_claim_projector_diagnosis(tmp_path, inferenc
     status = await model.backend.aget_status()
     assert not status["ready"] and status["text_inference_status"] == "failed"
     assert state["posts"] == 1
+
+
+async def test_missing_vision_model_does_not_hide_text_inference_failure(tmp_path, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    manager = BackendManager(TeXadaConfig(
+        data_dir=tmp_path, backend="ollama", model_name="text", vision_model_name="vision",
+    ))
+    monkeypatch.setattr(manager, "_is_running", AsyncMock(return_value=True))
+    monkeypatch.setattr(manager, "_list_models", AsyncMock(return_value=["text"]))
+    manager.record_inference(
+        "text", vision=False, error=RuntimeError("unknown projector type: minicpmv4_7"),
+    )
+    status = await manager.aget_status()
+    assert status["status"] == "inference_failed" and not status["ready"]
+    assert status["missing_models"] == ["vision"]
+    assert "minicpmv4_7" in status["message"]
+    assert "内置 llama-server" in status["next_action"]
+
+
+@pytest.mark.parametrize("vision", [False, True])
+@pytest.mark.parametrize("failed", [False, True])
+async def test_model_removal_invalidates_observation_on_reregistration(
+    tmp_path, monkeypatch, vision, failed,
+):
+    from unittest.mock import AsyncMock
+
+    manager = BackendManager(TeXadaConfig(
+        data_dir=tmp_path, backend="ollama", model_name="shared", vision_model_name="shared",
+    ))
+    monkeypatch.setattr(manager, "_is_running", AsyncMock(return_value=True))
+    listing = AsyncMock(return_value=[])
+    monkeypatch.setattr(manager, "_list_models", listing)
+    manager.record_inference(
+        "shared", vision=vision, error=RuntimeError("load failure") if failed else None,
+    )
+    await manager.aget_status()  # Model removed, so prior evidence is no longer valid.
+    listing.return_value = ["shared"]
+    status = await manager.aget_status()
+    assert status["text_inference_status"] == "unverified"
+    assert status["vision_inference_status"] == "unverified"
+    assert status["status"] == "unverified" and not status["ready"]

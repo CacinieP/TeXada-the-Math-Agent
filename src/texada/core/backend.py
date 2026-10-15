@@ -382,9 +382,11 @@ class BackendManager:
             self.config.vision_model_name, vision=True,
         )
         if not text_installed:
-            text_state = "unverified"
+            self._inference_results.pop((self.base_url, self.config.model_name, False), None)
+            text_state, text_error = "unverified", None
         if not vision_installed:
-            vision_state = "unverified"
+            self._inference_results.pop((self.base_url, self.config.vision_model_name, True), None)
+            vision_state, vision_error = "unverified", None
         ready = text_installed and text_state == "verified"
         status = (
             "ready" if ready and vision_installed and vision_state == "verified"
@@ -398,10 +400,7 @@ class BackendManager:
             ready = False
             message = text_error or vision_error
             next_action = self._llama_switch_action()
-        elif ready and status != "ready":
-            status = "partial_ready"
-            message = "文本推理已验证，OCR 推理尚未验证"
-        if not text_installed:
+        elif not text_installed:
             status = "missing_model"
             ready = False
             message = "文本模型未安装"
@@ -410,6 +409,9 @@ class BackendManager:
             status = "partial_ready" if ready else "unverified"
             message = "文本模型已注册，OCR 视觉模型未安装"
             next_action = self._pull_command(self.config.vision_model_name)
+        elif ready and status != "ready":
+            status = "partial_ready"
+            message = "文本推理已验证，OCR 推理尚未验证"
 
         return {
             "status": status,
@@ -449,7 +451,8 @@ class BackendManager:
                 "status": "not_running",
                 "ready": False,
                 "model": self.config.active_model_name,
-                "service_reachable": False,                "text_inference_status": "unverified",
+                "service_reachable": False,
+                "text_inference_status": "unverified",
                 "vision_inference_status": "unverified",
                 "backend": self.config.backend,
                 "endpoint": self.base_url,
