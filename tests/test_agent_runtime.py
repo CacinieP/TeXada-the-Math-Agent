@@ -1224,3 +1224,45 @@ async def test_runtime_keeps_explicit_sequence_limit_notation(tmp_path, label, c
     assert result.valid
     assert result.committed
     assert result.latex == candidate
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate,should_commit", [
+    (r"\oint_C f\,ds", False),
+    (r"\int_C f\,ds", True),
+])
+async def test_runtime_preserves_unspecified_curve_closure(tmp_path, candidate, should_commit):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("沿曲线 C 的线积分 f ds")
+
+    assert result.committed is should_commit
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
+        assert result.latex == candidate  # No silent change of curve assumptions.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("description", [
+    "沿闭合曲线 C 的线积分 f ds",
+    "沿曲线 C 的闭合线积分 f ds",
+])
+async def test_runtime_keeps_explicit_closed_curve_integrals(tmp_path, description):
+    candidate = r"\oint_C f\,ds"
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run(description)
+
+    assert result.valid
+    assert result.committed
+    assert result.latex == candidate

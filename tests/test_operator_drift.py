@@ -361,3 +361,28 @@ def test_sequence_upper_and_lower_limits_preserve_distinct_notation():
         assert guard.check("", opposite + r"_{n\to\infty}a_n", user_input=request)
     for request in ("数列 a 下标 n 的极限", "上极限.png", "积分的上极限"):
         assert not guard.forced_operators("", request)
+
+
+def test_line_integral_does_not_assume_an_unspecified_closed_curve():
+    guard = OperatorDriftGuard()
+    request = "沿曲线 C 的线积分 f ds"
+    assert guard.check("", r"\oint_C f\,ds", user_input=request)
+    assert guard.check("", r"\int_C f\,ds + \oint_C f\,ds", user_input=request)
+    assert not guard.check("", r"\int_C f\,ds", user_input=request)
+    assert not guard.check("", r"\int\limits_C f\,ds", user_input=request)
+    for other in (
+        "沿闭合曲线 C 的线积分 f ds",
+        "沿曲线 C 的闭合线积分 f ds",
+        "不要写沿曲线 C 的线积分 f ds",
+        "沿曲线 C 的线积分 f ds.png",
+    ):
+        assert not guard.forced_operators("", other)
+
+
+def test_line_integral_pretranslation_does_not_add_closure():
+    from texada.core.symbols import SymbolEngine
+
+    engine = SymbolEngine()
+    assert r"\int" in engine.pre_translate("沿曲线 C 的线积分 f ds")
+    assert r"\oint" not in engine.pre_translate("沿曲线 C 的线积分 f ds")
+    assert r"\oint" in engine.pre_translate("闭合线积分")

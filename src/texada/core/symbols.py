@@ -40,7 +40,8 @@ SYMBOL_MAP: dict[str, str] = {
     # 微积分
     "三重积分": r"\iiint",
     "二重积分": r"\iint",
-    "线积分": r"\oint",
+    "闭合线积分": r"\oint",
+    "线积分": r"\int",
     "偏导": r"\frac{\partial}{\partial x}",
     "梯度": r"\nabla",
     "积分": r"\int",

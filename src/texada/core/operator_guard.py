@@ -135,6 +135,14 @@ class OperatorDriftGuard:
             if pattern.search(request):
                 forced.append(operator)
 
+        # Do not infer that a curve is closed from the term "line integral".
+        # Limit this prohibition to an explicit description-only template.
+        if re.fullmatch(
+            r"\s*沿曲线\s*[A-Za-z]\s*的线积分\s*[A-Za-z]\s+ds\s*[。.]?\s*",
+            request,
+        ):
+            forced.append("line-integral-without-assumed-closure")
+
         for match in re.finditer(
             r"数列[^，,。；;！!？?\n]*?的\s*(?P<side>[上下])极限"
             r"(?=\s*(?:[，,。；;！!？?\n]|$))",
@@ -325,6 +333,10 @@ class OperatorDriftGuard:
         user_input: str = "",
     ) -> bool:
         """Check exact commands plus the few structural request anchors."""
+        if anchor == "line-integral-without-assumed-closure":
+            return bool(re.search(r"\\int(?![A-Za-z])", candidate)) and not bool(
+                re.search(r"\\oint(?![A-Za-z])", candidate)
+            )
         if anchor in self.INTEGRAL_LADDER:
             rank_preserved = self.integral_rank(candidate) >= (
                 self.INTEGRAL_LADDER.index(anchor) + 1
