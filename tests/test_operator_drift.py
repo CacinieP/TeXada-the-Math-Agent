@@ -315,3 +315,29 @@ def test_guard_keeps_integral_that_already_has_the_required_domain():
         )
         == candidate
     )
+
+
+def test_explicit_chinese_paired_set_operations_require_both_operators():
+    guard = OperatorDriftGuard()
+    for request in (
+        "集合 A 与集合 B 的并集和交集",
+        "写出 A、B 的交集与并集。",
+        "不要计算，请描述 A 和 B 的并集及交集。",
+    ):
+        assert set(guard.forced_operators("", request)) == {r"\cup", r"\cap"}
+        assert guard.missing_requirements("", r"A \cup B", user_input=request) == [r"\cap"]
+        assert guard.missing_requirements("", r"A \cap B", user_input=request) == [r"\cup"]
+        assert not guard.check("", r"A \cup B,\quad A \cap B", user_input=request)
+        assert guard.check("", r"A \cup B\caption{x}", user_input=request)
+
+
+def test_paired_set_anchor_does_not_expand_single_negated_or_filename_requests():
+    guard = OperatorDriftGuard()
+    for request in (
+        "集合 A 与集合 B 的并集",
+        "集合 A 与集合 B 的交集",
+        "不要写并集和交集。",
+        "只写并集，不要写交集。",
+        "并集和交集.png",
+    ):
+        assert not guard.forced_operators("", request), request

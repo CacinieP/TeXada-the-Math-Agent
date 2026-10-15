@@ -135,6 +135,18 @@ class OperatorDriftGuard:
             if pattern.search(request):
                 forced.append(operator)
 
+        # A narrowly phrased request for both set operations must retain both
+        # notation anchors. This is completeness evidence, not equivalence proof.
+        for match in re.finditer(
+            r"(?:并集\s*[和与及、]\s*交集|交集\s*[和与及、]\s*并集)"
+            r"(?=\s*(?:[，,。；;！!？?\n]|$))",
+            request,
+        ):
+            prefix = re.split(r"[，,。；;！!？?\n]", request[:match.start()])[-1]
+            if not re.search(r"不要|不用|无需|不必|不能|禁止|勿|别|不", prefix):
+                forced.extend((r"\cup", r"\cap"))
+                break
+
         for match in re.finditer(r"(?:写成|写为|表示为|使用)\s*(?:分式|分数)", request):
             # Keep this request anchor narrow. A negation earlier in the same
             # clause (including "不要把结果写成分式") makes it non-mandatory.

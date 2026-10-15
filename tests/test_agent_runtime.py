@@ -1164,3 +1164,22 @@ async def test_nl_candidate_first_and_planner_share_original_request_budget(tmp_
         planner.generate_latex.assert_not_awaited()
         assert result.tokens_used == 0
         assert result.revision is None
+
+
+@pytest.mark.asyncio
+async def test_runtime_blocks_human_review_case_096_missing_intersection(tmp_path):
+    # Replay the reviewed candidate without calling or changing a model.
+    candidate = r"A \cup B = \{x | x \in A \text{ 或 } x \in B\}"
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("集合 A 与集合 B 的并集和交集")
+
+    assert not result.committed
+    assert result.stop_reason == "semantic_anchor_unresolved"
+    guard = result.trace[-1]["observations"][0]
+    assert guard["output"]["missing_requirements"] == [r"\cap"]
+    assert r"\cap" not in result.latex  # The guard must not invent the missing formula.
