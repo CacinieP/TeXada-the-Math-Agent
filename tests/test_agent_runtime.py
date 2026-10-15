@@ -1516,3 +1516,24 @@ async def test_runtime_preserves_vector_two_norm(
     else:
         assert result.stop_reason == "semantic_anchor_unresolved"
         assert result.formula_ledger["commits"] == []
+
+
+@pytest.mark.asyncio
+async def test_runtime_passes_bound_vector_norm_to_planner(tmp_path):
+    candidate = r"\lVert x\rVert_2"
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=False), model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("向量 x 的二范数")
+
+    assert result.valid
+    assert result.committed
+    prompt = planner.seen_messages[0][1]["content"]
+    assert "向量 x 的二范数" in prompt
+    assert r"\lVert x\rVert_2" in prompt
+    assert r"\|\cdot\|" not in prompt

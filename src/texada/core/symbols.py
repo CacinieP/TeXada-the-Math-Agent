@@ -59,7 +59,6 @@ SYMBOL_MAP: dict[str, str] = {
     "行列式": r"\det",
     "转置": r"^{\top}",
     "逆": r"^{-1}",
-    "范数": r"\|\cdot\|",
     "内积": r"\langle \cdot, \cdot \rangle",
     "张量积": r"\otimes",
     "直和": r"\oplus",
@@ -182,6 +181,13 @@ class SymbolEngine:
         whole. Generic prefix protection is not used because it caused false
         negatives like "高概率" failing to translate "概率".
         """
+        # An applied norm needs an operand; a bare word-to-placeholder mapping
+        # must not be presented to the planner as an authoritative formula.
+        vector_norm = re.fullmatch(
+            r"\s*向量\s*([A-Za-z])\s*的二范数\s*[。.]?\s*", text,
+        )
+        if vector_norm:
+            return rf"\lVert {vector_norm[1]}\rVert_2"
         return self._pattern.sub(lambda m: SYMBOL_MAP.get(m.group(0), m.group(0)), text)
 
     def translate(self, term: str) -> str | None:
