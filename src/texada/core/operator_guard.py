@@ -135,6 +135,20 @@ class OperatorDriftGuard:
             if pattern.search(request):
                 forced.append(operator)
 
+        nth_derivative = re.fullmatch(
+            r"(?P<function>[A-Za-z])\s*对\s*(?P<variable>[A-Za-z])"
+            r"\s*的\s*n\s*阶导数\s*[。.]?",
+            request,
+        )
+        if nth_derivative:
+            # The pretranslator's generic derivative fraction is not mandatory:
+            # f^{(n)}(x) is another supported description of this request.
+            forced = [operator for operator in forced if operator != r"\frac"]
+            forced.append(
+                f"n-th ordinary derivative of {nth_derivative['function']} "
+                f"with respect to {nth_derivative['variable']}"
+            )
+
         # Do not infer that a curve is closed from the term "line integral".
         # Limit this prohibition to an explicit description-only template.
         if re.fullmatch(
@@ -333,6 +347,22 @@ class OperatorDriftGuard:
         user_input: str = "",
     ) -> bool:
         """Check exact commands plus the few structural request anchors."""
+        nth_derivative = re.fullmatch(
+            r"n-th ordinary derivative of ([A-Za-z]) with respect to ([A-Za-z])",
+            anchor,
+        )
+        if nth_derivative:
+            function, variable = map(re.escape, nth_derivative.groups())
+            compact = re.sub(r"\s+|\\[,!;:]", "", candidate)
+            compact = compact.replace(r"\mathrm{d}", "d")
+            order = r"\^(?:n|\{n\})"
+            # Match the whole supported notation, not two unrelated exponents.
+            return bool(re.fullmatch(
+                rf"\\(?:frac|dfrac|tfrac)\{{d{order}{function}"
+                rf"(?:\({variable}\))?\}}\{{d{variable}{order}\}}"
+                rf"|{function}\^\{{\(n\)\}}\({variable}\)",
+                compact,
+            ))
         if anchor == "line-integral-without-assumed-closure":
             return bool(re.search(r"\\int(?![A-Za-z])", candidate)) and not bool(
                 re.search(r"\\oint(?![A-Za-z])", candidate)

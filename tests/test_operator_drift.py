@@ -386,3 +386,40 @@ def test_line_integral_pretranslation_does_not_add_closure():
     assert r"\int" in engine.pre_translate("沿曲线 C 的线积分 f ds")
     assert r"\oint" not in engine.pre_translate("沿曲线 C 的线积分 f ds")
     assert r"\oint" in engine.pre_translate("闭合线积分")
+
+
+def test_explicit_nth_ordinary_derivative_preserves_denominator_order():
+    guard = OperatorDriftGuard()
+    request = "f 对 x 的 n 阶导数"
+    for candidate in (
+        r"\frac{d^n f}{dx}",
+        r"\frac{d^n f}{dx^2}",
+        r"\frac{d^n f}{dy^n}",
+        r"\frac{d^n g}{dx^n}",
+        r"\frac{\partial^n f}{\partial x^n}",
+        r"\frac{d^n f}{dx} + x^n",
+        r"\text{\frac{d^n f}{dx^n}}",
+        r"f^{(n)}(y)",
+    ):
+        assert guard.check("", candidate, user_input=request), candidate
+    for candidate in (
+        r"\frac{d^n f}{dx^n}",
+        r"\frac{d^{n}f}{d x^{n}}",
+        r"\dfrac{\mathrm{d}^{n} f}{\mathrm{d} x^{n}}",
+        r"f^{(n)}(x)",
+        r"\tfrac{d^n f(x)}{dx^n}",
+    ):
+        # Pretranslation normally introduces a fraction; alternative notation
+        # must not be rejected solely for omitting that implicit fraction.
+        assert not guard.check(r"\frac{d}{dx}", candidate, user_input=request), candidate
+    for request in ("不要写 f 对 x 的 n 阶导数", "f 对 x 的 n 阶偏导数", "f 对 x 的一阶导数"):
+        assert not guard.forced_operators("", request)
+
+
+def test_nth_derivative_template_binds_other_function_and_variable_names():
+    guard = OperatorDriftGuard()
+    request = "g 对 t 的 n 阶导数。"
+    assert not guard.check("", r"\frac{d^n g}{dt^n}", user_input=request)
+    assert not guard.check("", r"g^{(n)}(t)", user_input=request)
+    assert guard.check("", r"\frac{d^n g}{dx^n}", user_input=request)
+    assert guard.check("", r"f^{(n)}(t)", user_input=request)

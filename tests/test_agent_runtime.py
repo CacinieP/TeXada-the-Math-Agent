@@ -1266,3 +1266,26 @@ async def test_runtime_keeps_explicit_closed_curve_integrals(tmp_path, descripti
     assert result.valid
     assert result.committed
     assert result.latex == candidate
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate,should_commit", [
+    (r"\frac{d^n f}{dx}", False),
+    (r"\frac{d^n f}{dx^n}", True),
+    (r"f^{(n)}(x)", True),
+])
+async def test_runtime_preserves_nth_derivative_description(tmp_path, candidate, should_commit):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("f 对 x 的 n 阶导数")
+
+    assert result.committed is should_commit
+    assert result.latex == candidate
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
