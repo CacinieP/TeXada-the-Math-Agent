@@ -423,3 +423,42 @@ def test_nth_derivative_template_binds_other_function_and_variable_names():
     assert not guard.check("", r"g^{(n)}(t)", user_input=request)
     assert guard.check("", r"\frac{d^n g}{dx^n}", user_input=request)
     assert guard.check("", r"f^{(n)}(t)", user_input=request)
+
+
+def test_explicit_second_ordinary_derivative_preserves_order_and_kind():
+    guard = OperatorDriftGuard()
+    description = "y 对 x 的二阶导数"
+    for candidate in (
+        r"\frac{\partial y}{\partial x}",
+        r"\frac{\partial^2 y}{\partial x^2}",
+        r"\frac{dy}{dx}",
+        r"\frac{d^2y}{dx}",
+        r"\frac{d^2y}{dt^2}",
+        r"\frac{d^2f}{dx^2}",
+        r"\frac{dy}{dx}+x^2+y^2",
+        r"y'(x)",
+        r"\text{y''}",
+    ):
+        assert guard.check("", candidate, user_input=description), candidate
+    for candidate in (
+        r"\frac{d^2y}{dx^2}",
+        r"\dfrac{\mathrm{d}^{2}y}{\mathrm{d}x^{2}}",
+        r"\tfrac{d^2y(x)}{dx^2}",
+        "y''", "y''(x)", r"y^{\prime\prime}",
+        r"y^{\prime\prime}(x)", r"y^{(2)}(x)",
+    ):
+        assert not guard.check(r"\frac{d}{dx}", candidate, user_input=description), candidate
+    for description in (
+        "不要写 y 对 x 的二阶导数", "y 对 x 的二阶偏导数",
+        "y 对 x 的一阶导数", "y 对 x 的二阶导数.png",
+    ):
+        assert not guard.forced_operators("", description)
+
+
+def test_second_derivative_template_binds_other_names():
+    guard = OperatorDriftGuard()
+    description = "g 对 t 的二阶导数。"
+    assert not guard.check("", r"\frac{d^2g}{dt^2}", user_input=description)
+    assert not guard.check("", "g''(t)", user_input=description)
+    assert guard.check("", "g''(x)", user_input=description)
+    assert guard.check("", "f''(t)", user_input=description)

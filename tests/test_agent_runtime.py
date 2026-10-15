@@ -1289,3 +1289,31 @@ async def test_runtime_preserves_nth_derivative_description(tmp_path, candidate,
         assert result.valid
     else:
         assert result.stop_reason == "semantic_anchor_unresolved"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate,should_commit", [
+    (r"\frac{\partial y}{\partial x}", False),
+    (r"\frac{\partial^2 y}{\partial x^2}", False),
+    (r"\frac{dy}{dx}", False),
+    (r"\frac{d^2y}{dx^2}", True),
+    ("y''(x)", True),
+    (r"y^{(2)}(x)", True),
+])
+async def test_runtime_preserves_second_ordinary_derivative(
+    tmp_path, candidate, should_commit,
+):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("y 对 x 的二阶导数")
+
+    assert result.committed is should_commit
+    assert result.latex == candidate  # Reject rather than compute or rewrite.
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"

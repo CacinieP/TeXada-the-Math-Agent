@@ -135,18 +135,19 @@ class OperatorDriftGuard:
             if pattern.search(request):
                 forced.append(operator)
 
-        nth_derivative = re.fullmatch(
+        ordinary_derivative = re.fullmatch(
             r"(?P<function>[A-Za-z])\s*对\s*(?P<variable>[A-Za-z])"
-            r"\s*的\s*n\s*阶导数\s*[。.]?",
+            r"\s*的\s*(?P<order>n|二)\s*阶导数\s*[。.]?",
             request,
         )
-        if nth_derivative:
+        if ordinary_derivative:
             # The pretranslator's generic derivative fraction is not mandatory:
-            # f^{(n)}(x) is another supported description of this request.
+            # superscript order and double primes are supported alternatives.
             forced = [operator for operator in forced if operator != r"\frac"]
+            order = "n-th" if ordinary_derivative["order"] == "n" else "second"
             forced.append(
-                f"n-th ordinary derivative of {nth_derivative['function']} "
-                f"with respect to {nth_derivative['variable']}"
+                f"{order} ordinary derivative of {ordinary_derivative['function']} "
+                f"with respect to {ordinary_derivative['variable']}"
             )
 
         # Do not infer that a curve is closed from the term "line integral".
@@ -347,20 +348,28 @@ class OperatorDriftGuard:
         user_input: str = "",
     ) -> bool:
         """Check exact commands plus the few structural request anchors."""
-        nth_derivative = re.fullmatch(
-            r"n-th ordinary derivative of ([A-Za-z]) with respect to ([A-Za-z])",
+        ordinary_derivative = re.fullmatch(
+            r"(n-th|second) ordinary derivative of ([A-Za-z]) with respect to ([A-Za-z])",
             anchor,
         )
-        if nth_derivative:
-            function, variable = map(re.escape, nth_derivative.groups())
+        if ordinary_derivative:
+            label, function, variable = ordinary_derivative.groups()
+            function, variable = map(re.escape, (function, variable))
+            power = "n" if label == "n-th" else "2"
             compact = re.sub(r"\s+|\\[,!;:]", "", candidate)
             compact = compact.replace(r"\mathrm{d}", "d")
-            order = r"\^(?:n|\{n\})"
+            order = rf"\^(?:{power}|\{{{power}\}})"
+            alternatives = rf"{function}\^\{{\({power}\)\}}\({variable}\)"
+            if power == "2":
+                alternatives += (
+                    rf"|{function}(?:''|\^\{{\\prime\\prime\}})"
+                    rf"(?:\({variable}\))?"
+                )
             # Match the whole supported notation, not two unrelated exponents.
             return bool(re.fullmatch(
                 rf"\\(?:frac|dfrac|tfrac)\{{d{order}{function}"
                 rf"(?:\({variable}\))?\}}\{{d{variable}{order}\}}"
-                rf"|{function}\^\{{\(n\)\}}\({variable}\)",
+                rf"|{alternatives}",
                 compact,
             ))
         if anchor == "line-integral-without-assumed-closure":
