@@ -462,3 +462,36 @@ def test_second_derivative_template_binds_other_names():
     assert not guard.check("", "g''(t)", user_input=description)
     assert guard.check("", "g''(x)", user_input=description)
     assert guard.check("", "f''(t)", user_input=description)
+
+
+def test_explicit_matrix_description_does_not_become_determinant_calculation():
+    guard = OperatorDriftGuard()
+    description = "二乘二矩阵，第一行 a b，第二行 c d"
+    matrix = r"\begin{pmatrix} a & b \\ c & d \end{pmatrix}"
+    for candidate in (
+        r"\det" + matrix + " = ad - bc",
+        r"\det" + matrix,
+        matrix + " = ad-bc",
+        r"\begin{vmatrix}a&b\\c&d\end{vmatrix}",
+        r"\begin{pmatrix}a&c\\b&d\end{pmatrix}",
+        r"\begin{pmatrix}a&b\\c&x\end{pmatrix}",
+        r"\begin{pmatrix}a&b&c&d\end{pmatrix}",
+    ):
+        assert guard.check("", candidate, user_input=description), candidate
+    for environment in ("pmatrix", "bmatrix", "matrix", "smallmatrix"):
+        candidate = matrix.replace("pmatrix", environment)
+        assert not guard.check("", candidate, user_input=description), candidate
+    for description in (
+        "二乘二矩阵 A 的行列式",
+        "不要写二乘二矩阵，第一行 a b，第二行 c d",
+        "计算二乘二矩阵，第一行 a b，第二行 c d 的行列式",
+        "二乘二矩阵，第一行 a b，第二行 c d.png",
+    ):
+        assert not guard.forced_operators("", description)
+
+
+def test_explicit_matrix_template_binds_different_entries_and_punctuation():
+    guard = OperatorDriftGuard()
+    description = "二乘二矩阵, 第一行 p q, 第二行 r s。"
+    assert not guard.check("", r"\begin{bmatrix}p&q\\r&s\end{bmatrix}", user_input=description)
+    assert guard.check("", r"\begin{bmatrix}a&b\\c&d\end{bmatrix}", user_input=description)

@@ -1317,3 +1317,27 @@ async def test_runtime_preserves_second_ordinary_derivative(
         assert result.valid
     else:
         assert result.stop_reason == "semantic_anchor_unresolved"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate,should_commit", [
+    (r"\det\begin{pmatrix} a & b \\ c & d \end{pmatrix} = ad - bc", False),
+    (r"\begin{pmatrix}a&b\\c&d\end{pmatrix}", True),
+    (r"\begin{bmatrix}a&b\\c&d\end{bmatrix}", True),
+])
+async def test_runtime_preserves_literal_matrix_description(tmp_path, candidate, should_commit):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("二乘二矩阵，第一行 a b，第二行 c d")
+
+    assert result.committed is should_commit
+    assert result.latex == candidate
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
+        assert result.formula_ledger["commits"] == []

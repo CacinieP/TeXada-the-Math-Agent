@@ -135,6 +135,15 @@ class OperatorDriftGuard:
             if pattern.search(request):
                 forced.append(operator)
 
+        literal_matrix = re.fullmatch(
+            r"二乘二矩阵\s*[，,]\s*第一行\s*([A-Za-z])\s+([A-Za-z])"
+            r"\s*[，,]\s*第二行\s*([A-Za-z])\s+([A-Za-z])\s*[。.]?",
+            request,
+        )
+        if literal_matrix:
+            a, b, c, d = literal_matrix.groups()
+            forced.append(f"literal 2x2 matrix rows: {a},{b};{c},{d}")
+
         ordinary_derivative = re.fullmatch(
             r"(?P<function>[A-Za-z])\s*对\s*(?P<variable>[A-Za-z])"
             r"\s*的\s*(?P<order>n|二)\s*阶导数\s*[。.]?",
@@ -348,6 +357,18 @@ class OperatorDriftGuard:
         user_input: str = "",
     ) -> bool:
         """Check exact commands plus the few structural request anchors."""
+        literal_matrix = re.fullmatch(
+            r"literal 2x2 matrix rows: ([A-Za-z]),([A-Za-z]);([A-Za-z]),([A-Za-z])",
+            anchor,
+        )
+        if literal_matrix:
+            a, b, c, d = map(re.escape, literal_matrix.groups())
+            # Only the requested array: no determinant, evaluation or extras.
+            return bool(re.fullmatch(
+                rf"\\begin\{{(?P<env>pmatrix|bmatrix|matrix|smallmatrix)\}}"
+                rf"{a}&{b}\\\\{c}&{d}\\end\{{(?P=env)\}}",
+                re.sub(r"\s+", "", candidate),
+            ))
         ordinary_derivative = re.fullmatch(
             r"(n-th|second) ordinary derivative of ([A-Za-z]) with respect to ([A-Za-z])",
             anchor,
