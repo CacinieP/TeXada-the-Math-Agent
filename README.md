@@ -176,7 +176,7 @@ TeXada release packages are built for end users. You do not need Python, Node.js
 
 5. Try OCR after the vision model is ready.
    - Paste or drop a screenshot into the OCR tab.
-   - With llama-server, wait for both the model weights and vision projector to finish downloading. With Ollama, install the separate vision model if needed.
+   - With llama-server, wait for both the model weights and vision projector to finish downloading. With Ollama, configure the shared 4.7 model in both role fields and verify image inference support.
    - OCR candidates require review before adoption; compilation and rendering do not establish mathematical correctness.
 
 6. Reuse previous work from History.
@@ -190,12 +190,12 @@ TeXada release packages are built for end users. You do not need Python, Node.js
 | Choice in Settings | Best fit | Model setup | Default address |
 |--------------------|----------|-------------|-----------------|
 | `Built-in llama-server` | First-time users of beta.3 | Download in TeXada; one `MiniCPM-V-4.7-1B` Q4_K_M checkpoint handles text and OCR, with an F16 vision projector | `http://127.0.0.1:8080` |
-| `Local Ollama` | Users who already manage models with Ollama | Pull the text model; add the separate vision model for OCR | `http://localhost:11434` |
+| `Local Ollama` | Users who already manage models with Ollama | Pull 4.7 1B once; set both text and OCR fields to its local alias (requires a compatible engine) | `http://localhost:11434` |
 
 Both options run model inference locally. Pick one; you do not need to install
 both runtimes. Initial model downloads require an internet connection.
 
-The current development Settings screen shows only the selected backend. Text
+The beta.3 Settings screen shows only the selected backend. Text
 and OCR remain separate roles; the built-in runtime currently displays the same
 4.7 model for both. Runtime paths, port and timeouts are under **Advanced settings**.
 Save after changing the backend or its runtime paths before using service controls.
@@ -216,39 +216,42 @@ use. Change the llama-server address to a free local port, save, then retry Star
 
 ### Quick Start With Ollama
 
-1. Install [Ollama](https://ollama.com/download) and open it. If you use the CLI without a running service, run `ollama serve` in a separate terminal.
-2. In a terminal (PowerShell on Windows), download the text model:
+1. Install or update [Ollama](https://ollama.com/download) and open it. If you use the CLI without a running service, run `ollama serve` in a separate terminal.
+2. Download the official **MiniCPM-V 4.7 1B** model, then create a descriptive local alias for TeXada's 4.7 profile:
 
 ```bash
-ollama pull hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M
+ollama pull openbmb/minicpm-v4.7:1b
+ollama cp openbmb/minicpm-v4.7:1b minicpm-v4.7-1b
 ```
 
-3. Optional: for OCR, also download the vision model:
+The [official registry model](https://ollama.com/openbmb/minicpm-v4.7) contains Q4_K_M weights and the vision projector. The alias reuses the downloaded files. Use the explicit `:1b` tag; do not substitute an unqualified tag that may select a larger model.
+
+3. Check that your Ollama engine can load the model:
 
 ```bash
-ollama pull openbmb/minicpm-v4.6:latest
+ollama run minicpm-v4.7-1b "Reply only: OK"
 ```
 
-4. In TeXada, open **Settings → Backend**, choose **`Local Ollama`**, fill in the following values, then click **Save**:
+**Runtime compatibility:** the [official 4.7 Ollama guide](https://opensqz.github.io/MiniCPM-V-CookBook/site/en/v4.7/deployment/ollama.html) notes that the bundled inference engine must support the new 4.7 GGUF/projector format. A successful pull does not establish inference or OCR support. If loading fails with `unknown projector type: minicpmv4_7` or a CLIP/projector error, use **Built-in llama-server** while waiting for a compatible Ollama release. This README update is not a new TeXada/Ollama text or real-image accuracy validation.
+
+4. In TeXada, open **Settings → Backend**, choose **`Local Ollama`**, fill in both model fields, then click **Save**:
 
 | Field | Value |
 |-------|-------|
 | Ollama address | `http://localhost:11434` |
-| Local text model | `hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M` |
-| Local vision model | `openbmb/minicpm-v4.6:latest` |
+| Local text model | `minicpm-v4.7-1b` |
+| Local vision model | `minicpm-v4.7-1b` |
 
-Do not add `/v1` to the Ollama address. These are the existing Ollama defaults;
-the shared 4.7 checkpoint described above belongs to the built-in llama-server
-setup, not an instruction to paste that alias into Ollama.
+Do not add `/v1` to the Ollama address. Text generation, planning, completion and OCR use the same model here; the two fields remain independently configurable. The descriptive alias ensures beta.3 recognizes the 4.7 1B profile. Existing installations retain their saved names, so set **both** fields explicitly.
 
-5. Return to **NL** and try `x plus y`. `Text ready · OCR missing` means you can use text now and add the vision model later. If disconnected, make sure Ollama is running; if a model is missing, check `ollama list` and ensure its name matches Settings exactly.
+5. Return to **NL** and try `x plus y`, then test a formula image in **OCR** and review the result. If disconnected, check that Ollama is running. For missing models, compare both Settings names with `ollama list`. Model presence, successful text output, and successful rendering do not establish OCR or mathematical correctness.
 
 ### macOS Local Model Notes
 
 - **Apple Silicon:** run the native Ollama app or CLI to use automatic Metal
   GPU acceleration. Running Ollama inside a Docker Desktop container on macOS
   does not provide GPU acceleration; see the [Ollama FAQ](https://docs.ollama.com/faq#how-do-i-use-ollama-with-gpu-acceleration-in-docker).
-- **8GB memory:** local text inference was validated on an A18 Pro Mac with
+- **Historical 8GB measurement (not a 4.7 result):** local text inference was validated on an A18 Pro Mac with
   8GB unified memory using MiniCPM5-2B Q4_K_M and a 4096-token context. Ollama
   reported about 1.66 GiB of model residency; the app, macOS and other programs
   need additional memory. See the [local measurements](docs/local-model-benchmark-2026-09-12.md)
@@ -274,17 +277,14 @@ Desktop UI -> TeXada FastAPI API -> llama-server, Ollama, or a hosted model endp
 
 Do not set the FastAPI address and Ollama address to the same port unless you are deliberately running a custom proxy. If Settings shows a network/API error, restart TeXada and check whether `18732` is already occupied. If FastAPI is reachable but status says `Disconnected` or `Model missing`, check the selected runtime and its model files or names.
 
-The following defaults apply to **Ollama**; built-in llama-server uses the shared 4.7 checkpoint.
+The following is the current **Ollama setup example**, configured explicitly after the quick start above. Beta.3 retains legacy Ollama defaults (`MiniCPM5-2B` text and `MiniCPM-V 4.6` OCR) and saved settings; it does not migrate them automatically.
 
-| Role | Default | Notes |
+| Role | Configured model | Notes |
 |------|---------|-------|
-| Text | `hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M` | Planning, natural language conversion and completion |
-| Vision | `openbmb/minicpm-v4.6:latest` | OCR from screenshots and images |
+| Text | `minicpm-v4.7-1b` | Planning, natural language conversion and completion |
+| Vision | `minicpm-v4.7-1b` | OCR from screenshots and images |
 
-Local Ollama MiniCPM5-2B text requests disable thinking to fit the existing
-output budgets. OCR and other model/backend configurations retain their
-existing behavior. The local validation used a 4096-token context; this is a
-benchmark setting, not a new TeXada environment variable.
+The older MiniCPM5-2B Ollama text profile disables thinking to fit its output budget. Its historical local validation used a 4096-token context; those measurements do not validate the 4.7 Ollama configuration above.
 
 These are the only two supported model roles. OpenAI-compatible configuration
 is a transport option for serving the same MiniCPM models through vLLM, SGLang,
@@ -355,8 +355,8 @@ The following is an **Ollama example**, not the default backend for a fresh beta
 {
   "backend": "ollama",
   "ollama_host": "http://localhost:11434",
-  "model_name": "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M",
-  "vision_model_name": "openbmb/minicpm-v4.6:latest",
+  "model_name": "minicpm-v4.7-1b",
+  "vision_model_name": "minicpm-v4.7-1b",
   "api_host": "127.0.0.1",
   "api_port": 18732,
   "ui_language": "zh",
@@ -686,7 +686,7 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 
 5. 视觉模型准备好后再试 OCR。
    - 在 OCR 页签粘贴或拖入公式截图。
-   - llama-server 需要模型权重与视觉投影文件均下载完成；Ollama 路线则需要单独的视觉模型。
+   - llama-server 需要模型权重与视觉投影文件均下载完成；Ollama 路线请在两个角色字段填写同一个 4.7 模型，并确认引擎支持图片推理。
    - OCR 候选需要人工审阅后采用；编译和渲染成功不代表数学含义正确。
 
 6. 从历史页复用旧记录。
@@ -700,12 +700,12 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 | 设置中的选项 | 适合谁 | 模型准备 | 默认地址 |
 |--------------|--------|----------|----------|
 | `Built-in llama-server` | 首次使用 beta.3 的用户 | 在 TeXada 内下载；同一个 `MiniCPM-V-4.7-1B` Q4_K_M 模型负责文本和 OCR，配合 F16 视觉投影文件 | `http://127.0.0.1:8080` |
-| `Local Ollama` | 已经用 Ollama 管理模型的用户 | 下载文本模型；需要 OCR 时再下载独立视觉模型 | `http://localhost:11434` |
+| `Local Ollama` | 已经用 Ollama 管理模型的用户 | 下载一次 4.7 1B；文本和 OCR 都填写其本地别名（需要兼容引擎） | `http://localhost:11434` |
 
 两条路线都在本地执行模型推理，选一条即可，无需同时安装两个运行时。
 首次下载模型需要联网。
 
-当前开发版设置页只展示所选后端。文本与 OCR 保留独立角色；内置运行时当前
+beta.3 设置页只展示所选后端。文本与 OCR 保留独立角色；内置运行时当前
 显示二者共用的 4.7 模型。运行时路径、端口和超时位于**高级设置**。
 切换后端或修改运行时路径后，先保存再操作服务按钮。
 
@@ -724,39 +724,42 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 
 ### Ollama 快速启动
 
-1. 安装并打开 [Ollama](https://ollama.com/download)。如果只使用 CLI 且服务未运行，在单独终端执行 `ollama serve`。
-2. 打开终端（Windows 可用 PowerShell），下载文本模型：
+1. 安装或更新并打开 [Ollama](https://ollama.com/download)。如果只使用 CLI 且服务未运行，在单独终端执行 `ollama serve`。
+2. 下载官方 **MiniCPM-V 4.7 1B**，再创建用于 TeXada 4.7 配置识别的本地别名：
 
 ```bash
-ollama pull hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M
+ollama pull openbmb/minicpm-v4.7:1b
+ollama cp openbmb/minicpm-v4.7:1b minicpm-v4.7-1b
 ```
 
-3. 可选：需要 OCR 时，再下载视觉模型：
+[官方仓库模型](https://ollama.com/openbmb/minicpm-v4.7)包含 Q4_K_M 权重和视觉投影文件，别名复用已下载文件。请明确使用 `:1b`，不要省略标签而误选更大的模型。
+
+3. 先确认当前 Ollama 引擎可以加载模型：
 
 ```bash
-ollama pull openbmb/minicpm-v4.6:latest
+ollama run minicpm-v4.7-1b "Reply only: OK"
 ```
 
-4. 在 TeXada 的**设置 → 后端连接**中选择 **`Local Ollama`**，填写下表并点击**保存**：
+**运行时兼容性：**[官方 4.7 Ollama 指南](https://opensqz.github.io/MiniCPM-V-CookBook/site/en/v4.7/deployment/ollama.html)提醒，Ollama 内置推理引擎需要支持新的 4.7 GGUF 与视觉投影格式。下载成功不等于推理或 OCR 可用。如果出现 `unknown projector type: minicpmv4_7` 或 CLIP/视觉投影加载错误，请先使用 **Built-in llama-server**，等待兼容的 Ollama 版本。本次 README 更新不代表完成新的 TeXada/Ollama 文本或真实图片准确率验证。
+
+4. 在 TeXada 的**设置 → 后端连接**中选择 **`Local Ollama`**，填写两个模型字段并点击**保存**：
 
 | 设置项 | 填写内容 |
 |--------|----------|
 | Ollama 地址 | `http://localhost:11434` |
-| 本地文本模型 | `hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M` |
-| 本地视觉模型 | `openbmb/minicpm-v4.6:latest` |
+| 本地文本模型 | `minicpm-v4.7-1b` |
+| 本地视觉模型 | `minicpm-v4.7-1b` |
 
-Ollama 地址不要加 `/v1`。这些是既有 Ollama 默认模型；上方“同一个 4.7 模型”
-对应内置 llama-server 路线，不是让你把该别名直接填入 Ollama。
+Ollama 地址不要加 `/v1`。此处文本生成、规划、补全和 OCR 使用同一个模型；两个字段仍可分别配置。上述明确的本地别名可让 beta.3 识别 4.7 1B 配置。升级安装会保留原有名称，请手动修改**两个**字段。
 
-5. 回到 **NL** 输入 `x 加上 y`。显示 `文本可用 · OCR 缺模型` 时可以先使用文本功能，之后再下载视觉模型。
-   显示未连接时，先确认 Ollama 已启动；显示模型缺失时，用 `ollama list` 检查已安装模型，确保名称与设置完全一致。
+5. 回到 **NL** 输入 `x 加上 y`，再到 **OCR** 测试公式图片并人工核对结果。显示未连接时，先确认 Ollama 已启动；显示模型缺失时，用 `ollama list` 核对两个模型名。模型已安装、文本输出成功和渲染成功均不证明 OCR 或数学语义正确。
 
 ### macOS 本地模型使用说明
 
 - **Apple Silicon：**使用原生 Ollama 应用或 CLI，会自动使用 Metal GPU 加速。
   在 macOS 的 Docker Desktop 容器内运行 Ollama 不提供 GPU 加速，详见
   [Ollama 官方说明](https://docs.ollama.com/faq#how-do-i-use-ollama-with-gpu-acceleration-in-docker)。
-- **8GB 内存：**已在 A18 Pro、8GB 统一内存的 Mac 上验证 MiniCPM5-2B Q4_K_M
+- **历史 8GB 测量（不是 4.7 的结果）：**已在 A18 Pro、8GB 统一内存的 Mac 上验证 MiniCPM5-2B Q4_K_M
   配合 4096 token 上下文可用于本地文本推理。Ollama 报告模型驻留约 1.66 GiB；
   应用、macOS 和其他程序还需要额外内存。测试配置和范围见
   [本机实测记录](docs/local-model-benchmark-2026-09-12.md)；本次未测试 OCR 的内存需求。
@@ -780,14 +783,14 @@ TeXada 使用两层本地 HTTP 服务。它们通常应该是不同端口：
 
 除非你主动配置了自定义代理，不要把 FastAPI 地址和 Ollama 地址设成同一个端口。如果设置页显示 API/网络错误，先重启 TeXada，并检查 `18732` 是否已被其他进程占用；如果 FastAPI 可达但状态是 `未连接` 或 `模型缺失`，再检查所选运行时及其模型文件或模型名。
 
-下表是 **Ollama** 默认配置；内置 llama-server 使用同一个 4.7 模型。
+下表是按上述步骤手动设置的 **Ollama 配置示例**。beta.3 仍保留旧 Ollama 默认值（文本 `MiniCPM5-2B`、OCR `MiniCPM-V 4.6`）与已保存配置，不会自动迁移。
 
-| 角色 | 默认模型 | 说明 |
+| 角色 | 配置模型 | 说明 |
 |------|----------|------|
-| 文本 | `hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M` | 规划、自然语言转换和补全 |
-| 视觉 | `openbmb/minicpm-v4.6:latest` | 从截图和图片识别公式 |
+| 文本 | `minicpm-v4.7-1b` | 规划、自然语言转换和补全 |
+| 视觉 | `minicpm-v4.7-1b` | 从截图和图片识别公式 |
 
-本地 Ollama 的 MiniCPM5-2B 文本请求关闭思考，以适配现有输出预算；OCR 与其他模型/后端配置保留原有行为。本机测试使用 4096 token 上下文，这是测试配置，不是新增的 TeXada 环境变量。
+旧 MiniCPM5-2B Ollama 文本配置关闭思考以适配输出预算；其历史本机测试使用 4096 token 上下文。这些测量不构成上方 4.7 Ollama 配置的验证。
 
 产品只支持这两个模型角色。OpenAI-compatible 配置只是让同一组 MiniCPM 模型可以
 通过 vLLM、SGLang 或其他兼容 endpoint 部署，不会引入第三个产品模型。
@@ -856,8 +859,8 @@ StepFun Step Plan 示例：
 {
   "backend": "ollama",
   "ollama_host": "http://localhost:11434",
-  "model_name": "hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M",
-  "vision_model_name": "openbmb/minicpm-v4.6:latest",
+  "model_name": "minicpm-v4.7-1b",
+  "vision_model_name": "minicpm-v4.7-1b",
   "api_host": "127.0.0.1",
   "api_port": 18732,
   "ui_language": "zh",
