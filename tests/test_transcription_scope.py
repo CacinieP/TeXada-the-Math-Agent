@@ -58,3 +58,10 @@ async def test_api_rejects_computation_as_product_boundary_not_server_failure(tm
         response = await client.post(path, json={'text': '计算 7+5'})
     assert response.status_code == 422
     assert '仅支持公式识别、转写和排版' in response.json()['detail']
+
+
+def test_matrix_completion_marks_unknown_cell_without_inventing_a_value():
+    from texada.core.completion import DeterministicCompletionEngine
+    partial = r'\begin{pmatrix}1 & 2 \\ 3 &'
+    result = DeterministicCompletionEngine().complete(partial)
+    assert result.latex == partial + r'\placeholder{}'

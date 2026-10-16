@@ -105,7 +105,7 @@ class DeterministicCompletionEngine:
     )
     _EMPTY_SCRIPT = re.compile(r"(?P<operator>[_^])\s*\{\s*\}")
     _TRAILING_SCRIPT = re.compile(r"(?P<operator>[_^])\s*$")
-    _TRAILING_BINARY = re.compile(r"(?P<operator>[=+\-*/])\s*$")
+    _TRAILING_BINARY = re.compile(r"(?P<operator>[=+\-*/&])\s*$")
 
     def complete(self, partial: str) -> DeterministicCompletion | None:
         """Return a safe completion, or ``None`` when semantics are required."""

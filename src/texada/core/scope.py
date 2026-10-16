@@ -48,3 +48,10 @@ def requests_computation(text: str) -> bool:
 def require_transcription(text: str) -> None:
     if requests_computation(text):
         raise ComputationOutsideScope(SCOPE_MESSAGE)
+
+
+def transcription_description(text: str) -> str:
+    """Remove presentation wrappers only; callers must still match whole patterns."""
+    text = text.strip().rstrip('。.!！?？')
+    text = re.sub(r'^(?:请)?(?:帮我)?(?:输入|排版|转写)\s*', '', text)
+    return re.sub(r'(?:的)?(?:记号|符号)$', '', text).strip()

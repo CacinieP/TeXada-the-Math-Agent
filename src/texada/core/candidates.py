@@ -4,6 +4,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from texada.core.scope import transcription_description
+
 
 @dataclass(frozen=True)
 class DeterministicCandidate:
@@ -124,7 +126,7 @@ class DeterministicCandidateEngine:
                 rule="inline_latex_hint",
             )
 
-        structured_text = text.rstrip(self._TRAILING_NL_PUNCTUATION)
+        structured_text = transcription_description(text.rstrip(self._TRAILING_NL_PUNCTUATION))
         concept = self._canonical_concept(structured_text)
         if concept:
             return DeterministicCandidate(
@@ -328,6 +330,14 @@ class DeterministicCandidateEngine:
 
     def _canonical_concept(self, text: str) -> str:
         """Return a standard formula only for an explicit named concept."""
+        # These are notation requests, never evaluation of a concrete matrix.
+        matrix = re.fullmatch(r"矩阵\s*([A-Za-z])\s*的逆矩阵", text)
+        if matrix:
+            return rf"{matrix[1]}^{{-1}}"
+        norm = re.fullmatch(r"向量\s*([A-Za-z])\s*的二范数", text)
+        if norm:
+            return rf"\lVert\mathbf{{{norm[1]}}}\rVert_2"
+
         dot = self._DOT_PRODUCT_EN.fullmatch(text)
         if not dot:
             dot = self._DOT_PRODUCT_ZH.fullmatch(text)
