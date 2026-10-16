@@ -1,0 +1,99 @@
+{
+  "date": "2026-10-16",
+  "version": "0.4.2-beta.4",
+  "release_commit": "1329999162eaa22d17ac5f4198450ee09af9f1ab",
+  "hardware": "Mac mini M4, 16 GB, macOS 26.6.2",
+  "installation": "Downloaded CI artifact; mounted actual DMG; copied signed app to isolated directory; launched actual packaged shell and sidecar",
+  "dmg_sha256": "d122c383fd860faa458587e0991fc814046740b3f97648ef2204805eac08796a",
+  "bundled_runtime_build": 11669,
+  "signature_verified": true,
+  "notarization_ticket_verified": true,
+  "ci_run": "https://github.com/CacinieP/TeXada-the-Math-Agent/actions/runs/38837015778",
+  "ci": "All platform builds, audit and native installation checks passed",
+  "python_tests": {
+    "passed": 1064,
+    "skipped": 13
+  },
+  "frontend_tests_passed": 24,
+  "built_in": {
+    "backend": "packaged-built-in-b11669",
+    "source_commit": "release-v0.4.2-beta.4",
+    "nl": {
+      "total": 100,
+      "http_200": 100,
+      "rendered": 100,
+      "committed": 89,
+      "strict_structure": {
+        "MATCH": 50,
+        "DIFFERENT": 34,
+        "UNSUPPORTED": 16
+      },
+      "median_seconds": 1.0805,
+      "provider_calls": 235,
+      "stop_reasons": {
+        "finish_confirmed": 46,
+        "deterministic_candidate": 4,
+        "planner_final": 39,
+        "semantic_anchor_unresolved": 6,
+        "planner_action_rejected": 4,
+        "human_review_required": 1
+      },
+      "workflow_valid": 90
+    },
+    "ocr": {
+      "total": 8,
+      "http_200": 8,
+      "rendered": 8,
+      "committed": 0,
+      "strict_structure": {
+        "MATCH": 7,
+        "DIFFERENT": 1
+      },
+      "median_seconds": 2.294,
+      "provider_calls": 16,
+      "stop_reasons": {
+        "human_review_required": 7,
+        "planner_action_rejected": 1
+      },
+      "workflow_valid": 7
+    },
+    "completion": {
+      "total": 6,
+      "http_200": 6,
+      "rendered": 6,
+      "committed": 6,
+      "strict_structure": {
+        "NOT_CHECKED": 6
+      },
+      "median_seconds": 0.004,
+      "provider_calls": 0,
+      "stop_reasons": {
+        "deterministic_candidate": 6
+      },
+      "workflow_valid": 6
+    },
+    "scope": "Fresh installed TeXada beta.4 packaged backend and bundled llama-server inference. Synthetic images, no independent mathematical adjudication; no desktop UI acceptance claim."
+  },
+  "ollama": {
+    "requests": 8,
+    "all_http_200": true,
+    "empty_formulas": 0,
+    "all_calls_reasoning_effort_none": true,
+    "initial_readiness": [
+      "unverified",
+      "unverified"
+    ],
+    "final_readiness": [
+      "verified",
+      "verified"
+    ]
+  },
+  "limitations": [
+    "API valid means workflow validity, not isolated syntax validity",
+    "Model proposed unsupported export format on one integral OCR run; guarded and left pending review; formula compiled and matched reference",
+    "28 committed NL formulas differ from strict references; no independent mathematical adjudication",
+    "No real-page/handwriting or Windows/Intel model-accuracy acceptance",
+    "Native app launched; requests exercised its packaged backend via HTTP, not full UI click-through acceptance",
+    "Source Ollama prior run and built-in packaged run use different runtime paths/settings; not a controlled accuracy comparison"
+  ]
+}

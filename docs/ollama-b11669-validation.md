@@ -15,18 +15,18 @@ Same 100 clarified inputs and full-expression references, 8 synthetic OCR fixtur
 | Check | Before fix | After fix |
 |---|---:|---:|
 | NL HTTP 200 | 100/100 | 100/100 |
-| NL syntax-valid | 89/100 | 92/100 |
+| NL API `valid=true` | 89/100 | 92/100 |
 | NL strict structure MATCH | 46/100 | 53/100 |
 | NL structure DIFFERENT / UNSUPPORTED | 39 / 15 | 32 / 15 |
 | NL committed | 85/100 | 90/100 |
 | Empty candidate model_request_failed | 4 | 0 |
 | NL median wall time | 2.755 s | 1.154 s |
-| OCR HTTP 200 / syntax-valid | 8/8 | 8/8 |
+| OCR HTTP 200 / API `valid=true` | 8/8 | 8/8 |
 | OCR strict structure MATCH | 7/8 | 7/8 |
 | OCR median wall time | 3.290 s | 1.141 s |
-| Completion HTTP 200 / syntax-valid | 6/6 | 6/6 |
+| Completion HTTP 200 / API `valid=true` | 6/6 | 6/6 |
 
-All OCR results remain pending review; none auto-committed. All six completion cases were deterministic, with zero provider calls, so they do not establish model completion quality. HTTP 200 is not task success: the before-fix run includes four runtime-guard failures returned in a successful HTTP response. Rendered HTML presence is not mathematical correctness. No invalid formula was committed, but 26 committed after-fix formulas differ from the strict references. Strict differences are not independent mathematical adjudication.
+All OCR results remain pending review; none auto-committed. All six completion cases were deterministic, with zero provider calls, so they do not establish model completion quality. The API `valid` flag reflects the completed workflow, including guards and tool-action outcomes; it is not a pure LaTeX syntax test. HTTP 200 is not task success: the before-fix run includes four runtime-guard failures returned in a successful HTTP response. Rendered HTML presence is not mathematical correctness. No invalid formula was committed, but 26 committed after-fix formulas differ from the strict references. Strict differences are not independent mathematical adjudication.
 
 These are individual runs, with no explicit seed set by TeXada; latency/output differences are observations, not a statistical performance or accuracy claim. Candidate-first is enabled for this evaluation and remains opt-in.
 

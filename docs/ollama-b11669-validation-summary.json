@@ -27,7 +27,6 @@
     "nl": {
       "total": 100,
       "http_200": 100,
-      "syntax_valid": 89,
       "rendered": 100,
       "committed": 85,
       "strict_structure": {
@@ -48,12 +47,12 @@
         "human_review_required": 4,
         "semantic_anchor_unresolved": 2,
         "repeated_tool_call": 1
-      }
+      },
+      "workflow_valid": 89
     },
     "ocr": {
       "total": 8,
       "http_200": 8,
-      "syntax_valid": 8,
       "rendered": 8,
       "committed": 0,
       "strict_structure": {
@@ -64,12 +63,12 @@
       "provider_calls": 16,
       "stop_reasons": {
         "human_review_required": 8
-      }
+      },
+      "workflow_valid": 8
     },
     "completion": {
       "total": 6,
       "http_200": 6,
-      "syntax_valid": 6,
       "rendered": 6,
       "committed": 6,
       "strict_structure": {
@@ -79,7 +78,8 @@
       "provider_calls": 0,
       "stop_reasons": {
         "deterministic_candidate": 6
-      }
+      },
+      "workflow_valid": 6
     },
     "scope": "Real local TeXada source backend and real Ollama inference. Synthetic images, no independent mathematical adjudication; no desktop UI acceptance claim."
   },
@@ -89,7 +89,6 @@
     "nl": {
       "total": 100,
       "http_200": 100,
-      "syntax_valid": 92,
       "rendered": 100,
       "committed": 90,
       "strict_structure": {
@@ -106,12 +105,12 @@
         "semantic_anchor_unresolved": 7,
         "human_review_required": 2,
         "planner_action_rejected": 1
-      }
+      },
+      "workflow_valid": 92
     },
     "ocr": {
       "total": 8,
       "http_200": 8,
-      "syntax_valid": 8,
       "rendered": 8,
       "committed": 0,
       "strict_structure": {
@@ -122,12 +121,12 @@
       "provider_calls": 16,
       "stop_reasons": {
         "human_review_required": 8
-      }
+      },
+      "workflow_valid": 8
     },
     "completion": {
       "total": 6,
       "http_200": 6,
-      "syntax_valid": 6,
       "rendered": 6,
       "committed": 6,
       "strict_structure": {
@@ -137,7 +136,8 @@
       "provider_calls": 0,
       "stop_reasons": {
         "deterministic_candidate": 6
-      }
+      },
+      "workflow_valid": 6
     },
     "scope": "Real local TeXada source backend and real Ollama inference. Synthetic images, no independent mathematical adjudication; no desktop UI acceptance claim."
   },
@@ -150,5 +150,6 @@
     "Single passes; results vary and are not a controlled speed benchmark",
     "Existing beta desktop binary not rebuilt or replaced",
     "26 after-fix committed formulas differ from strict references; no invalid formulas committed"
-  ]
+  ],
+  "valid_metric_note": "API valid=true is workflow validity, not isolated LaTeX syntax validity."
 }
