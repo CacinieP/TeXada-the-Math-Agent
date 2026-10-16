@@ -1,0 +1,154 @@
+{
+  "date": "2026-10-16",
+  "hardware": "Apple M4, 16 GB, macOS 26.6.2",
+  "texada_base_commit": "86fb3275b17551049dc35ba9e18e603a702cf3b2",
+  "texada_changes": [
+    "src/texada/core/model.py",
+    "tests/test_model.py"
+  ],
+  "ollama_commit": "d919272e53593d1d55d40e1180eaa06dfbede3ac",
+  "llama_cpp_tag": "b11669",
+  "model": "minicpm-v4.7-1b",
+  "parameters": {
+    "temperature": 0.1,
+    "max_tokens": 2048,
+    "formula_max_tokens": 768,
+    "agent_max_steps": 3,
+    "nl_candidate_first": true,
+    "planner_surface": "full",
+    "ocr_preprocessing": "binary",
+    "seed": "not explicitly set by TeXada; no fixed-seed reproducibility claim"
+  },
+  "dataset_sha256": "50dd12207aa1fc027dd982ce9b9d4046d370dca2a122cd2c4469ef0654bce707",
+  "references_sha256": "dbad1dab2df614fe1d01d5ba5007d094fcd2fb076300b7f0cd4cdc5f7fd1b4b1",
+  "before": {
+    "backend": "ollama-b11669",
+    "source_commit": "86fb327",
+    "nl": {
+      "total": 100,
+      "http_200": 100,
+      "syntax_valid": 89,
+      "rendered": 100,
+      "committed": 85,
+      "strict_structure": {
+        "MATCH": 46,
+        "DIFFERENT": 39,
+        "UNSUPPORTED": 15
+      },
+      "median_seconds": 2.7545,
+      "provider_calls": 236,
+      "stop_reasons": {
+        "finish_confirmed": 50,
+        "deterministic_candidate": 4,
+        "planner_final": 29,
+        "validation_failed_after_repair": 2,
+        "render_confirmed": 1,
+        "model_request_failed": 4,
+        "planner_action_rejected": 3,
+        "human_review_required": 4,
+        "semantic_anchor_unresolved": 2,
+        "repeated_tool_call": 1
+      }
+    },
+    "ocr": {
+      "total": 8,
+      "http_200": 8,
+      "syntax_valid": 8,
+      "rendered": 8,
+      "committed": 0,
+      "strict_structure": {
+        "MATCH": 7,
+        "DIFFERENT": 1
+      },
+      "median_seconds": 3.29,
+      "provider_calls": 16,
+      "stop_reasons": {
+        "human_review_required": 8
+      }
+    },
+    "completion": {
+      "total": 6,
+      "http_200": 6,
+      "syntax_valid": 6,
+      "rendered": 6,
+      "committed": 6,
+      "strict_structure": {
+        "NOT_CHECKED": 6
+      },
+      "median_seconds": 0.005,
+      "provider_calls": 0,
+      "stop_reasons": {
+        "deterministic_candidate": 6
+      }
+    },
+    "scope": "Real local TeXada source backend and real Ollama inference. Synthetic images, no independent mathematical adjudication; no desktop UI acceptance claim."
+  },
+  "after": {
+    "backend": "ollama-b11669",
+    "source_commit": "86fb327",
+    "nl": {
+      "total": 100,
+      "http_200": 100,
+      "syntax_valid": 92,
+      "rendered": 100,
+      "committed": 90,
+      "strict_structure": {
+        "MATCH": 53,
+        "DIFFERENT": 32,
+        "UNSUPPORTED": 15
+      },
+      "median_seconds": 1.1535,
+      "provider_calls": 236,
+      "stop_reasons": {
+        "finish_confirmed": 43,
+        "deterministic_candidate": 4,
+        "planner_final": 43,
+        "semantic_anchor_unresolved": 7,
+        "human_review_required": 2,
+        "planner_action_rejected": 1
+      }
+    },
+    "ocr": {
+      "total": 8,
+      "http_200": 8,
+      "syntax_valid": 8,
+      "rendered": 8,
+      "committed": 0,
+      "strict_structure": {
+        "MATCH": 7,
+        "DIFFERENT": 1
+      },
+      "median_seconds": 1.141,
+      "provider_calls": 16,
+      "stop_reasons": {
+        "human_review_required": 8
+      }
+    },
+    "completion": {
+      "total": 6,
+      "http_200": 6,
+      "syntax_valid": 6,
+      "rendered": 6,
+      "committed": 6,
+      "strict_structure": {
+        "NOT_CHECKED": 6
+      },
+      "median_seconds": 0.0055,
+      "provider_calls": 0,
+      "stop_reasons": {
+        "deterministic_candidate": 6
+      }
+    },
+    "scope": "Real local TeXada source backend and real Ollama inference. Synthetic images, no independent mathematical adjudication; no desktop UI acceptance claim."
+  },
+  "unit_tests": "100 passed; 1 third-party deprecation warning",
+  "packaged_desktop": "v0.4.2-beta.3 launched with isolated configuration; actual packaged sidecar tested by HTTP; no UI click-through acceptance",
+  "limits": [
+    "Synthetic OCR only; no real-page or handwriting acceptance",
+    "No independent human mathematical review",
+    "Strict AST match is not mathematical equivalence or accuracy",
+    "Single passes; results vary and are not a controlled speed benchmark",
+    "Existing beta desktop binary not rebuilt or replaced",
+    "26 after-fix committed formulas differ from strict references; no invalid formulas committed"
+  ]
+}

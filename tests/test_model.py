@@ -293,9 +293,13 @@ async def test_v47_single_checkpoint_disables_thinking_for_every_inference_role(
 
     assert len(requests) == 4
     assert [request["model"] for request in requests] == [name] * 4
-    assert all(request["chat_template_kwargs"] == {"enable_thinking": False}
-               for request in requests)
-    assert all("reasoning_effort" not in request for request in requests)
+    if backend == "ollama":
+        assert [request["reasoning_effort"] for request in requests] == ["none"] * 4
+        assert all("chat_template_kwargs" not in request for request in requests)
+    else:
+        assert all(request["chat_template_kwargs"] == {"enable_thinking": False}
+                   for request in requests)
+        assert all("reasoning_effort" not in request for request in requests)
     assert [request["max_tokens"] for request in requests] == [2048, 768, 768, 512]
     assert requests[0]["tool_choice"] == "auto"
     assert requests[3]["messages"][1]["content"][1]["image_url"]["url"].startswith(

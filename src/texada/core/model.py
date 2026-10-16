@@ -149,6 +149,9 @@ class MiniCPMModel:
     def _text_request_options(self) -> dict[str, Any]:
         """Keep MiniCPM answers visible within the existing token budget."""
         if self._is_minicpm_v47_1b(self._text_model_name()):
+            if self.config.backend == "ollama":
+                # Ollama maps reasoning_effort to think; it ignores template kwargs.
+                return {"reasoning_effort": "none"}
             return {"extra_body": {"chat_template_kwargs": {"enable_thinking": False}}}
         if self.config.uses_llama_server:
             return {"extra_body": {"reasoning_effort": "none"}}
@@ -169,6 +172,9 @@ class MiniCPMModel:
 
     def _vision_request_options(self) -> dict[str, Any]:
         if self._is_minicpm_v47_1b(self._vision_model_name()):
+            if self.config.backend == "ollama":
+                # Ollama maps reasoning_effort to think; it ignores template kwargs.
+                return {"reasoning_effort": "none"}
             return {"extra_body": {"chat_template_kwargs": {"enable_thinking": False}}}
         if self.config.uses_openai_compatible:
             return {"reasoning_effort": "low"}

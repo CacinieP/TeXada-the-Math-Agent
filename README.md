@@ -234,7 +234,7 @@ The [official registry model](https://ollama.com/openbmb/minicpm-v4.7) contains 
 ollama run minicpm-v4.7-1b "Reply only: OK"
 ```
 
-**Runtime compatibility:** the [official 4.7 Ollama guide](https://opensqz.github.io/MiniCPM-V-CookBook/site/en/v4.7/deployment/ollama.html) notes that the bundled inference engine must support the new 4.7 GGUF/projector format. A successful pull does not establish inference or OCR support. If loading fails with `unknown projector type: minicpmv4_7` or a CLIP/projector error, use **Built-in llama-server** while waiting for a compatible Ollama release. This README update is not a new TeXada/Ollama text or real-image accuracy validation.
+**Runtime compatibility:** the [official 4.7 Ollama guide](https://opensqz.github.io/MiniCPM-V-CookBook/site/en/v4.7/deployment/ollama.html) notes that the bundled inference engine must support the new 4.7 GGUF/projector format. A successful pull does not establish inference or OCR support. If loading fails with `unknown projector type: minicpmv4_7` or a CLIP/projector error, use **Built-in llama-server** while waiting for a compatible Ollama release. A later [local TeXada validation on 2026-10-16](docs/ollama-b11669-validation.md) exercised an Ollama source build pinned to b11669 with 100 NL inputs and 8 synthetic OCR fixtures, and identified the Ollama-specific thinking control fixed below. This does not establish support in older installed releases, real-image accuracy, or mathematical correctness.
 
 4. In TeXada, open **Settings → Backend**, choose **`Local Ollama`**, fill in both model fields, then click **Save**:
 
