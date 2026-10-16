@@ -32,7 +32,7 @@ async def test_recorded_case_passes_all_layers(tmp_path, text):
     rec = RECORDINGS[text]
     entry = GOLDEN[text]
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, data_dir=tmp_path),
         model=RecordedPlanner(rec["turns"]),
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -56,7 +56,7 @@ async def test_agent_endpoint_writes_run_log_with_trace(tmp_path, monkeypatch):
     from texada.config import TeXadaConfig
     from texada.store.run_log import RunLogStore
 
-    config = TeXadaConfig(data_dir=tmp_path)
+    config = TeXadaConfig(nl_candidate_first=False, data_dir=tmp_path)
     text = RECORDED_INPUTS[0]
 
     def factory(cfg, *, model=None, backend=None):

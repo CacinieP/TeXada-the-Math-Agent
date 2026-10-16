@@ -30,7 +30,9 @@ def review_client(tmp_path, monkeypatch):
     monkeypatch.setattr(InputRouter, "create_ocr_candidate", candidate)
     monkeypatch.setattr(MiniCPMModel, "plan", plan)
     monkeypatch.setattr(BackendManager, "ensure_ready", AsyncMock(return_value=True))
-    app = create_app(TeXadaConfig(nl_require_review=False, data_dir=tmp_path))
+    app = create_app(
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path)
+    )
     yield TestClient(app)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "texada-the-math-agent",
-  "version": "0.4.2-rc.1",
+  "version": "0.4.2-rc.2",
   "description": "Local formula recognition, transcription and typesetting powered by MiniCPM",
   "repository": {
     "type": "git",

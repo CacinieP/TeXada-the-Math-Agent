@@ -4,4 +4,4 @@ from importlib.metadata import PackageNotFoundError, version
 try:
     __version__ = version("texada")
 except PackageNotFoundError:
-    __version__ = "0.4.2-rc.1"
+    __version__ = "0.4.2-rc.2"

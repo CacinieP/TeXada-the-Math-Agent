@@ -68,8 +68,10 @@ text commands are only for literal labels the user requested, such as
 ``otherwise`` in a cases expression.
 
 Preferred workflow:
-1. Build or identify a candidate LaTeX expression.
-2. Call parse_tex when mathematical structure matters.
+1. If ACTION_STATE has no revision, first translate the request into LaTeX
+   and call compile_tex with that candidate (or propose_candidate). Do not
+   call parse_tex on an empty state or pass natural language as LaTeX.
+2. Only after a revision exists, call parse_tex when structure matters.
 3. Call compile_tex to validate the candidate.
 4. If compile_tex reports invalid, call repair_tex with that exact candidate.
 5. Use semantic_diff when a formula changed.

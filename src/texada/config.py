@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -54,6 +55,16 @@ SAVED_CONFIG_FIELDS = frozenset({
 })
 
 
+def _default_nl_candidate_first(data: dict) -> bool:
+    """The built-in 1B profile needs a candidate before revision-bound tools."""
+    if data.get("backend") == "llama_server":
+        return True
+    name = (data.get("openai_model_name") if data.get("backend") == "openai_compatible"
+            else data.get("model_name"))
+    normalized = re.sub(r"[^a-z0-9]", "", str(name or "").casefold())
+    return "minicpmv47" in normalized and "1b" in normalized
+
+
 class TeXadaConfig(BaseSettings):
     """All TeXada settings, loaded from ~/.texada/config.json + env vars.
 
@@ -99,8 +110,9 @@ class TeXadaConfig(BaseSettings):
     # Compilation is not evidence that generated NL matches the user intent.
     nl_require_review: bool = True
     agent_max_steps: int = Field(default=3, ge=1, le=8)
-    # Opt in to NL candidate generation before the shared compile/Planner review.
-    nl_candidate_first: bool = False
+    # Default on for the built-in / named 4.7 1B profile; explicit experiments
+    # may still opt out. Other checkpoints keep their native Planner path.
+    nl_candidate_first: bool = Field(default_factory=_default_nl_candidate_first)
     failure_context_projection: bool = True
     # Full keeps the legacy parameter surface; both modes enforce runtime binding.
     planner_surface: Literal["full", "minimal"] = "full"
