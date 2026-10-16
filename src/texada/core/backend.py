@@ -5,6 +5,7 @@ import asyncio
 import ipaddress
 import os
 import shutil
+import time
 from urllib.parse import urlparse
 
 import httpx
@@ -17,8 +18,8 @@ async def probe_models_url(
 ) -> bool:
     """True if an OpenAI-compatible API base answers 200 on its /models route.
 
-    Shared by BackendManager (Ollama) and LlamaServerManager so both local
-    runtimes prove readiness identically. ``base_url`` is the API base
+    This proves service reachability only, not model loading or inference.
+    Shared by BackendManager (Ollama) and LlamaServerManager. ``base_url`` is the API base
     (usually ending in /v1), never the complete /models route.
     """
     try:
@@ -52,14 +53,16 @@ class BackendManager:
     """Manages the local Ollama daemon backing TeXada.
 
     Ollama exposes an OpenAI-compatible ``/v1`` endpoint; readiness is probed
-    via ``/v1/models`` (which also lists pulled models). No ``ollama`` Python
+    via ``/v1/models`` (reachability/registration only). Actual requests
+    separately verify text and OCR inference. No ``ollama`` Python
     package is required — checks go through httpx, and the daemon is launched
     via ``ollama serve`` subprocess when it isn't already running.
     """
 
     def __init__(self, config: TeXadaConfig):
         self.config = config
-        self._ready = False
+        # Per endpoint/model/modality; never persist across settings replacement.
+        self._inference_results: dict[tuple, tuple[float, str, str | None]] = {}
 
     @property
     def base_url(self) -> str:
@@ -76,9 +79,10 @@ class BackendManager:
         return {}
 
     async def ensure_ready(self) -> bool:
-        """Ensure the configured inference backend is reachable."""
-        if self._ready:
-            return True
+        """Check request prerequisites, not proof of inference compatibility.
+
+        Actual calls record compatibility without an extra warmup/load request.
+        """
 
         if self.config.uses_llama_server:
             if not await self._is_running():
@@ -86,14 +90,12 @@ class BackendManager:
             models = await self._list_models()
             if not self._model_installed(self.config.active_model_name, models):
                 raise RuntimeError(f"llama-server 模型不可用: {self.config.active_model_name}")
-            self._ready = True
             return True
 
         if self.config.uses_openai_compatible:
             self._validate_openai_config()
             if not await self._is_running():
                 raise RuntimeError("OpenAI-compatible endpoint 不可达，请检查 endpoint 和 key")
-            self._ready = True
             return True
 
         # Local Ollama: daemon running? auto-start once if this is a local endpoint.
@@ -107,7 +109,6 @@ class BackendManager:
                 f"ollama pull {self.config.model_name}"
             )
 
-        self._ready = True
         return True
 
     async def ensure_vision_ready(self) -> bool:
@@ -141,7 +142,6 @@ class BackendManager:
                 f"{self._pull_command(vision_model)}"
             )
 
-        self._ready = True
         return True
 
     @property
@@ -250,11 +250,48 @@ class BackendManager:
         """Sync status for the UI. Avoid inside a running event loop; prefer
         ``aget_status`` from async code (e.g. FastAPI handlers).
         """
-        try:
-            running = asyncio.get_event_loop().run_until_complete(self._is_running())
-        except RuntimeError:
-            running = False
-        return self._build_status(running)
+        return asyncio.run(self.aget_status())
+
+    def record_inference(self, model: str, *, vision: bool, error: Exception | None = None):
+        """Observe real requests; text success does not certify OCR/projector support."""
+        if self.config.backend != "ollama":
+            return None
+        message = None
+        projector_error = False
+        if error is not None:
+            detail = str(error).casefold()
+            projector_error = "unknown projector type" in detail and "minicpmv4_7" in detail
+            if projector_error:
+                message = (
+                    "Ollama 无法加载 MiniCPM-V 4.7 视觉投影（unknown projector type: "
+                    "minicpmv4_7）。模型已注册不代表引擎兼容；这是运行时加载错误，"
+                    "不是数学正确率问题。" + self._llama_switch_action()
+                )
+            else:
+                message = (
+                    "Ollama 实际推理失败，模型已注册不代表可推理。请检查 Ollama 日志；"
+                    "若包含 unknown projector type: minicpmv4_7，说明该引擎无法加载 "
+                    "MiniCPM-V 4.7 视觉投影。" + self._llama_switch_action()
+                )
+        self._inference_results[(self.base_url, model, vision)] = (
+            time.monotonic(), "failed" if error else "verified", message,
+        )
+        server_error = getattr(error, "status_code", 0) or 0
+        return message if projector_error or server_error >= 500 else None
+
+    @staticmethod
+    def _llama_switch_action() -> str:
+        return (
+            "打开设置 → 后端连接 → 模型后端选择「内置 llama-server」→ 保存；"
+            "在「本地推理服务」按需点击「下载模型」，然后点击「启动」。"
+        )
+
+    def _inference_result(self, model: str, *, vision: bool):
+        result = self._inference_results.get((self.base_url, model, vision))
+        # A short-lived observation, not a permanent guarantee. Polling never infers.
+        if result is None or time.monotonic() - result[0] >= 300:
+            return "unverified", None
+        return result[1], result[2]
 
     async def aget_status(self) -> dict:
         """Async status — safe to call from within a running event loop."""
@@ -332,6 +369,7 @@ class BackendManager:
 
         running = await self._is_running()
         if not running:
+            self._inference_results.clear()
             return self._build_status(False)
 
         models = await self._list_models()
@@ -339,19 +377,41 @@ class BackendManager:
         vision_installed = self._model_installed(self.config.vision_model_name, models)
         missing = self._missing_local_models(models, include_vision=True)
 
-        status = "ready"
-        ready = True
-        message: str | None = None
-        next_action: str | None = None
+        text_state, text_error = self._inference_result(self.config.model_name, vision=False)
+        vision_state, vision_error = self._inference_result(
+            self.config.vision_model_name, vision=True,
+        )
         if not text_installed:
+            self._inference_results.pop((self.base_url, self.config.model_name, False), None)
+            text_state, text_error = "unverified", None
+        if not vision_installed:
+            self._inference_results.pop((self.base_url, self.config.vision_model_name, True), None)
+            vision_state, vision_error = "unverified", None
+        ready = text_installed and text_state == "verified"
+        status = (
+            "ready" if ready and vision_installed and vision_state == "verified"
+            else "unverified"
+        )
+        message = (None if status == "ready" else
+                   "模型已注册，推理尚未验证；首次实际请求后更新状态。")
+        next_action = None
+        if "failed" in {text_state, vision_state}:
+            status = "inference_failed"
+            ready = False
+            message = text_error or vision_error
+            next_action = self._llama_switch_action()
+        elif not text_installed:
             status = "missing_model"
             ready = False
             message = "文本模型未安装"
             next_action = self._pull_command(self.config.model_name)
         elif not vision_installed:
-            status = "partial_ready"
-            message = "文本可用，OCR 视觉模型未安装"
+            status = "partial_ready" if ready else "unverified"
+            message = "文本模型已注册，OCR 视觉模型未安装"
             next_action = self._pull_command(self.config.vision_model_name)
+        elif ready and status != "ready":
+            status = "partial_ready"
+            message = "文本推理已验证，OCR 推理尚未验证"
 
         return {
             "status": status,
@@ -365,6 +425,9 @@ class BackendManager:
             "text_model_installed": text_installed,
             "vision_model_installed": vision_installed,
             "installed_model_count": len(models),
+            "service_reachable": True,
+            "text_inference_status": text_state,
+            "vision_inference_status": vision_state,
             "ollama_cli_available": bool(shutil.which("ollama")),
             "next_action": next_action,
         }
@@ -387,9 +450,12 @@ class BackendManager:
             return {
                 "status": "not_running",
                 "ready": False,
+                "model": self.config.active_model_name,
+                "service_reachable": False,
+                "text_inference_status": "unverified",
+                "vision_inference_status": "unverified",
                 "backend": self.config.backend,
                 "endpoint": self.base_url,
-                "model": self.config.active_model_name,
                 "vision": self.config.active_vision_model_name,
                 "message": (
                     "Ollama 未运行" if local_endpoint and cli_available

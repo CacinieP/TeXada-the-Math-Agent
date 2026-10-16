@@ -5,7 +5,6 @@ import re
 import time
 
 from texada.config import TeXadaConfig
-from texada.core.backend import BackendManager
 from texada.core.fixer import LaTeXFixer
 from texada.core.intent import IntentClassifier
 from texada.core.model import MiniCPMModel
@@ -63,7 +62,7 @@ class InputRouter:
         self.fixer = LaTeXFixer()
         self.render_engine = RenderEngine(config)
         self.shorthand_store = ShorthandStore(config)
-        self.backend = BackendManager(config)
+        self.backend = self.model.backend
         # Agent Memory — per-session conversation context
         self.memory = ConversationMemory(max_turns=6)
 

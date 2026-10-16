@@ -13,6 +13,7 @@ from openai import APITimeoutError, BadRequestError, OpenAI
 
 from texada.agent.protocol import MiniCPMToolCallParser, PlannerTurn
 from texada.config import TeXadaConfig
+from texada.core.backend import BackendManager
 from texada.core.completion import DeterministicCompletionEngine
 from texada.core.inference_fingerprint import current_inference_collector
 from texada.core.prompts import (
@@ -44,6 +45,7 @@ class MiniCPMModel:
 
     def __init__(self, config: TeXadaConfig):
         self.config = config
+        self.backend = BackendManager(config)
         self._client: OpenAI | None = None
         self._vision_client: OpenAI | None = None
         self.model = config.active_model_name
@@ -129,12 +131,20 @@ class MiniCPMModel:
         except Exception as exc:
             if collector is not None and attempt is not None:
                 capture("finish_call", attempt, error=exc)
+            message = self.backend.record_inference(
+                kwargs.get("model", ""), vision=_inference_purpose == "ocr", error=exc,
+            )
+            if message:
+                raise RuntimeError(message) from exc
             if isinstance(exc, (APITimeoutError, httpx.TimeoutException)):
                 raise RuntimeError(
                     f"模型请求超时（{self.config.inference_timeout_seconds:.0f}s），"
                     "请检查 Ollama/endpoint 是否响应，或在配置中调高 inference_timeout_seconds。"
                 ) from exc
             raise
+        self.backend.record_inference(
+            kwargs.get("model", ""), vision=_inference_purpose == "ocr",
+        )
         if collector is not None and attempt is not None:
             api_key = (self.config.active_vision_api_key if _inference_purpose == "ocr"
                        else self.config.active_api_key)
