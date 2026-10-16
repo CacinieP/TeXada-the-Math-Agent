@@ -744,7 +744,7 @@ ollama cp openbmb/minicpm-v4.7:1b minicpm-v4.7-1b
 ollama run minicpm-v4.7-1b "Reply only: OK"
 ```
 
-**运行时兼容性：**[官方 4.7 Ollama 指南](https://opensqz.github.io/MiniCPM-V-CookBook/site/en/v4.7/deployment/ollama.html)提醒，Ollama 内置推理引擎需要支持新的 4.7 GGUF 与视觉投影格式。下载成功不等于推理或 OCR 可用。如果出现 `unknown projector type: minicpmv4_7` 或 CLIP/视觉投影加载错误，请先使用 **Built-in llama-server**，等待兼容的 Ollama 版本。本次 README 更新不代表完成新的 TeXada/Ollama 文本或真实图片准确率验证。
+**运行时兼容性：**[官方 4.7 Ollama 指南](https://opensqz.github.io/MiniCPM-V-CookBook/site/en/v4.7/deployment/ollama.html)提醒，Ollama 内置推理引擎需要支持新的 4.7 GGUF 与视觉投影格式。下载成功不等于推理或 OCR 可用。如果出现 `unknown projector type: minicpmv4_7` 或 CLIP/视觉投影加载错误，请先使用 **Built-in llama-server**，等待兼容的 Ollama 版本。[2026-10-16 本机实测](docs/ollama-b11669-validation.md)已通过固定 b11669 的 Ollama 源码构建运行 100 条自然语言与 8 张合成 OCR 图片，并修复 Ollama 专用的关闭思考参数。该结果不代表旧版已安装 Ollama 同样可用，也不是数学正确率或真实图片准确率验证。
 
 4. 在 TeXada 的**设置 → 后端连接**中选择 **`Local Ollama`**，填写两个模型字段并点击**保存**：
 
