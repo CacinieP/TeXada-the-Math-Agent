@@ -1,0 +1,63 @@
+{
+  "dataset_sha256": "e7ffe9d8181fd57673f73dfa5a927923efe93244967bafc352642875d601c4e7",
+  "nl": {
+    "total": 24,
+    "http_200": 24,
+    "workflow_valid": 24,
+    "nonempty": 24,
+    "auto_committed": 0,
+    "pending_review": 24,
+    "strict_structure": {
+      "MATCH": 20,
+      "DIFFERENT": 3,
+      "UNSUPPORTED": 1
+    },
+    "stop_reasons": {
+      "human_review_required": 24
+    }
+  },
+  "ocr": {
+    "total": 8,
+    "http_200": 8,
+    "workflow_valid": 8,
+    "nonempty": 8,
+    "auto_committed": 0,
+    "pending_review": 8,
+    "strict_structure": {
+      "MATCH": 7,
+      "DIFFERENT": 1
+    },
+    "stop_reasons": {
+      "human_review_required": 8
+    }
+  },
+  "completion": {
+    "total": 6,
+    "http_200": 6,
+    "workflow_valid": 6,
+    "nonempty": 6,
+    "auto_committed": 6,
+    "pending_review": 0,
+    "strict_structure": {
+      "NOT_CHECKED": 6
+    },
+    "stop_reasons": {
+      "deterministic_candidate": 6
+    }
+  },
+  "outside_scope_422": 10,
+  "outside_scope_total": 10,
+  "limitations": "Synthetic OCR; strict structure is not accuracy. No independent human adjudication, native desktop manual or Windows/Intel model acceptance.",
+  "rc_engineering_gates": {
+    "nl_transport_and_no_auto_commit": true,
+    "nl_workflow_at_least_22": true,
+    "nl_strict_match_at_least_20": true,
+    "scope_rejected": true,
+    "ocr_no_auto_commit_and_integral_completed": true,
+    "completion_all_valid_and_no_answers": true,
+    "bound_decisions": true
+  },
+  "source_commit": "ff6af58bdf22bfa17068c394a0825f6e4b5d1688",
+  "release_tree_equivalent_commit": "08574ed16653b2fa841652517d01289dd3cf241a",
+  "scope": "Source default 1B profile; final installed RC.2 validation pending. Same frozen corpus and references."
+}
