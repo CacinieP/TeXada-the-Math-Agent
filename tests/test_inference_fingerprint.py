@@ -80,9 +80,13 @@ def test_stable_identity_excludes_secrets_and_tracks_all_critical_configuration(
     for private in ("test-secret-key", "url-password", "query-secret", "alice", "token="):
         assert private not in serialized
     for updates in (
-        {"temperature": 0.2}, {"max_tokens": 512}, {"nl_candidate_first": True},
-        {"ocr_preprocessing": "raw"}, {"openai_model_name": "other-checkpoint"},
-        {"inference_timeout_seconds": 30}, {"agent_max_steps": 4},
+        {"temperature": 0.2},
+        {"max_tokens": 512},
+        {"nl_candidate_first": not config.nl_candidate_first},
+        {"ocr_preprocessing": "raw"},
+        {"openai_model_name": "other-checkpoint"},
+        {"inference_timeout_seconds": 30},
+        {"agent_max_steps": 4},
     ):
         assert canonical_sha256(build_inference_identity(api_config(tmp_path, **updates))) != (
             canonical_sha256(identity)

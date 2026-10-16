@@ -1,6 +1,6 @@
 [package]
 name = "texada-shell"
-version = "0.4.2-rc.1"
+version = "0.4.2-rc.2"
 description = "TeXada — formula recognition, transcription and typesetting"
 authors = ["TeXada"]
 license = "AGPL-3.0-or-later"

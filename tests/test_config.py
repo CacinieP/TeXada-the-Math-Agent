@@ -62,7 +62,7 @@ def test_release_version_is_synchronized_across_python_node_and_tauri():
             __version__,
             _app_version(),
         }
-    } == {Version("0.4.2-rc.1")}
+    } == {Version("0.4.2-rc.2")}
     assert f"v{python_version}" in frontend
 
 
@@ -72,7 +72,7 @@ def test_app_version_fallback_matches_source_version(monkeypatch):
 
     monkeypatch.setattr(api_module, "version", missing_distribution)
 
-    assert _app_version() == "0.4.2-rc.1"
+    assert _app_version() == "0.4.2-rc.2"
 
 
 def test_license_is_synchronized_as_agpl_v3_or_later():
@@ -129,8 +129,10 @@ def test_saved_settings_do_not_expose_repair_model_configuration():
     assert "tex2tex_max_new_tokens" not in SAVED_CONFIG_FIELDS
 
 
-def test_nl_candidate_first_is_opt_in_and_can_be_saved(tmp_path, monkeypatch):
-    assert TeXadaConfig.model_fields["nl_candidate_first"].default is False
+def test_nl_candidate_first_profile_default_can_be_overridden_and_saved(tmp_path, monkeypatch):
+    assert TeXadaConfig().nl_candidate_first is True
+    assert TeXadaConfig(backend="ollama", model_name="MiniCPM5-2B").nl_candidate_first is False
+    assert TeXadaConfig(nl_candidate_first=False).nl_candidate_first is False
     assert "nl_candidate_first" in SAVED_CONFIG_FIELDS
     monkeypatch.setenv("TEXADA_NL_CANDIDATE_FIRST", "true")
     assert TeXadaConfig().nl_candidate_first is True
@@ -240,3 +242,19 @@ def test_llama_server_memory_control_fields_exist():
     assert fields["llama_models_max"].default == 1
     assert fields["llama_idle_sleep_seconds"].default == 300
     assert {"llama_models_max", "llama_idle_sleep_seconds"} <= SAVED_CONFIG_FIELDS
+
+
+@pytest.mark.parametrize('backend,name,expected', [
+    ('llama_server', '', True),
+    ('ollama', 'minicpm-v4.7-1b', True),
+    ('ollama', 'hf.co/openbmb/MiniCPM-V-4_7-1B-GGUF:Q4_K_M', True),
+    ('ollama', 'MiniCPM5-2B', False),
+    ('openai_compatible', 'MiniCPM-V-4.7-1B', True),
+    ('openai_compatible', 'other-checkpoint', False),
+])
+def test_candidate_first_default_follows_known_checkpoint_profile(backend, name, expected):
+    config = TeXadaConfig(backend=backend, model_name=name, openai_model_name=name)
+    assert config.nl_candidate_first is expected
+    assert TeXadaConfig(
+        backend=backend, model_name=name, openai_model_name=name, nl_candidate_first=False,
+    ).nl_candidate_first is False

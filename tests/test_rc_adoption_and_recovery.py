@@ -26,6 +26,7 @@ class Planner:
 
 
 def runtime(tmp_path, turns, **settings):
+    settings.setdefault("nl_candidate_first", False)
     planner = Planner(turns)
     engine = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path, **settings), model=planner)
     engine.backend.ensure_ready = AsyncMock(return_value=True)
@@ -56,7 +57,7 @@ async def test_default_nl_generation_requires_review_not_automatic_commit(tmp_pa
 
 @pytest.mark.asyncio
 async def test_deterministic_nl_shortcut_cannot_bypass_default_review(tmp_path):
-    engine = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path))
+    engine = TeXadaAgentRuntime(TeXadaConfig(nl_candidate_first=False, data_dir=tmp_path))
     result = await engine.run('二重积分')
     assert result.valid and not result.committed
     assert 'nl_semantics_requires_review' in result.review_reasons
@@ -118,3 +119,29 @@ async def test_previously_auto_committed_differences_cannot_commit_unreviewed(tm
     assert not result.committed
     if result.valid:
         assert 'nl_semantics_requires_review' in result.review_reasons
+
+
+@pytest.mark.asyncio
+async def test_default_planner_bootstraps_candidate_before_inspection(tmp_path):
+    turns = [PlannerTurn(tool_calls=[PlannerToolCall(
+        'seed', 'compile_tex', {'latex': '7+5'},
+    )]), finish()]
+    engine, planner = runtime(tmp_path, turns)
+    result = await engine.run('输入 7+5')
+    assert result.latex == '7+5' and result.valid
+    assert not result.committed and planner.calls == 2
+    assert 'nl_semantics_requires_review' in result.review_reasons
+
+
+@pytest.mark.asyncio
+async def test_builtin_default_generates_candidate_before_planning_and_requires_adoption(tmp_path):
+    planner = Planner([finish()])
+    planner.generate_latex = AsyncMock(return_value='7+5')
+    engine = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    engine.backend.ensure_ready = AsyncMock(return_value=True)
+    engine.candidate_engine.propose = lambda text: None
+    assert engine.config.nl_candidate_first is True
+    result = await engine.run('输入 7+5')
+    planner.generate_latex.assert_awaited_once()
+    assert result.latex == '7+5' and result.valid and not result.committed
+    assert result.stop_reason == 'human_review_required'

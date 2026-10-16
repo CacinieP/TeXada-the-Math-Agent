@@ -126,7 +126,7 @@ def planner_schemas(
         schema = deepcopy(raw)
         function = schema["function"]
         name = function["name"]
-        if surface == "minimal" and name not in snapshot.allowed:
+        if (surface == "minimal" or snapshot.revision is None) and name not in snapshot.allowed:
             continue
         parameters = function["parameters"]
         if surface == "minimal":

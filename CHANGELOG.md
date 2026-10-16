@@ -1,3 +1,19 @@
+## 0.4.2-rc.2 - 2026-10-16
+
+### 中文
+
+- 修复 RC.1 在内置 1B 默认直接规划模式下的基本文本失败：内置及配置名可识别的 MiniCPM-V 4.7 1B 默认先生成候选，再通过共享 Planner、编译、渲染和人工审阅。其他模型保留原有默认；显式实验开关仍被尊重。
+- 空状态只展示可执行的初始种子/候选动作，提示明确先建立 revision，再检查结构。执行端仍拒绝越权、过期和覆盖值，不把失败动作伪装为成功。
+- 保留 RC.1 实际包和默认模式失败记录，使用同一组预登记转写参考重新验证，不覆盖旧包或修改旧分数。
+- 延续公式识别、转写与排版的产品范围，不提供计算或解题；NL/OCR 默认人工采用。RC.2 仅为草稿预发布，不替换 v0.4.1 稳定 latest。独立人工及正式版验收仍见 #35。
+
+### English
+
+- Default the built-in and configured MiniCPM-V 4.7 1B profiles to candidate generation before shared Planner/tool review. RC.1 failed basic text requests in its old direct-planning default. Preserve explicit experimental overrides and other checkpoints' defaults.
+- Offer only applicable initial actions in an empty state, before revision-bound inspection. Preserve execution-time rejection and all adoption/budget guards.
+- Keep the rejected RC.1 package and failed default-mode evidence. Reuse the fixed transcription corpus and references without rescoring historical results.
+- Transcription/typesetting only; no calculation or solving. NL/OCR require human adoption. Draft RC only; stable latest remains v0.4.1, with independent and stable acceptance tracked in #35.
+
 ## 0.4.2-rc.1 - 2026-10-16
 
 ### 中文

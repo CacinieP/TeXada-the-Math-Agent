@@ -18,11 +18,10 @@ class FakePlanner:
 
     async def plan(self, messages, tools):
         self.seen_messages.append(messages)
-        assert {item["function"]["name"] for item in tools} >= {
-            "compile_tex",
-            "repair_tex",
-            "render_math",
-        }
+        names = {item["function"]["name"] for item in tools}
+        assert {"compile_tex", "propose_candidate"} <= names
+        if "repair_tex" in names:
+            assert "render_math" in names
         return self.turns.pop(0)
 
     async def generate_latex(
@@ -66,7 +65,7 @@ async def test_runtime_executes_multistep_tools_and_repairs_only_through_tool(tm
         ]
     )
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -112,7 +111,7 @@ async def test_runtime_accepts_direct_final_then_applies_guard_tools(tmp_path):
     planner = FakePlanner([PlannerTurn(content=r"\sqrt{x}")])
     planner.generate_latex = AsyncMock(side_effect=AssertionError("flag is off"))
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -132,7 +131,7 @@ async def test_runtime_accepts_direct_final_then_applies_guard_tools(tmp_path):
 async def test_runtime_returns_invalid_final_with_diagnostics_after_repair(tmp_path):
     planner = FakePlanner([PlannerTurn(content="...")])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     disable_deterministic_candidates(runtime)
@@ -163,7 +162,7 @@ async def test_runtime_returns_controlled_result_for_empty_formula_state(tmp_pat
     planner = FakePlanner([PlannerTurn(content="")])
     planner.generate_latex = AsyncMock(return_value="")
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     disable_deterministic_candidates(runtime)
@@ -185,7 +184,7 @@ async def test_runtime_returns_controlled_result_for_model_timeout(tmp_path):
     planner = FakePlanner([])
     planner.plan = AsyncMock(side_effect=RuntimeError("model request timed out"))
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     disable_deterministic_candidates(runtime)
@@ -204,7 +203,7 @@ async def test_runtime_returns_controlled_result_for_model_timeout(tmp_path):
 async def test_runtime_stops_before_starting_a_model_call_without_budget(tmp_path):
     planner = FakePlanner([PlannerTurn(content="must not run")])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     disable_deterministic_candidates(runtime)
@@ -226,7 +225,7 @@ async def test_runtime_does_not_commit_unresolved_request_anchors(tmp_path):
     )
     planner.generate_latex = AsyncMock(return_value="tan(nu)")
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     disable_deterministic_candidates(runtime)
@@ -257,7 +256,7 @@ async def test_runtime_recovers_request_anchors_before_commit(tmp_path):
         ]
     )
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     disable_deterministic_candidates(runtime)
@@ -315,7 +314,7 @@ async def test_runtime_uses_zero_model_range_sum_fast_path(tmp_path, candidate_f
 async def test_runtime_uses_zero_model_named_concept_fast_path(tmp_path):
     planner = FakePlanner([])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -346,7 +345,7 @@ async def test_runtime_uses_zero_model_structural_concepts(
 ):
     planner = FakePlanner([])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -365,7 +364,7 @@ async def test_runtime_uses_zero_model_structural_concepts(
 async def test_runtime_restores_inline_bare_sum_without_model(tmp_path):
     planner = FakePlanner([])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -433,7 +432,7 @@ async def test_runtime_uses_structured_math_fast_paths(
 ):
     planner = FakePlanner([])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -470,7 +469,7 @@ async def test_runtime_normalizes_render_mode_and_stops_after_render(tmp_path):
         ]
     )
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -580,7 +579,7 @@ async def test_completion_candidate_is_repaired_via_tool_not_planner_text(
 async def test_deterministic_completion_candidate_skips_planner(tmp_path):
     planner = FakePlanner([])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -616,7 +615,7 @@ async def test_runtime_breaks_repeated_identical_tool_call(tmp_path):
         ]
     )
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -646,7 +645,7 @@ async def test_runtime_rejects_unknown_actions_without_compatibility_fallback(tm
         ]
     )
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -666,7 +665,7 @@ async def test_runtime_compatibility_fallback_uses_detected_intent(tmp_path):
     )
     planner.generate_latex = AsyncMock(return_value=r"\det(A)")
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     disable_deterministic_candidates(runtime)
@@ -679,7 +678,9 @@ async def test_runtime_compatibility_fallback_uses_detected_intent(tmp_path):
 
 
 def test_runtime_sanitizes_prompt_labels_in_tool_arguments(tmp_path):
-    runtime = TeXadaAgentRuntime(TeXadaConfig(nl_require_review=False, data_dir=tmp_path))
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path)
+    )
     normalized = runtime._normalize_call(
         PlannerToolCall(
             id="compile_label_leak",
@@ -711,7 +712,8 @@ async def test_wrapped_planner_tool_arguments_compile_render_and_commit(tmp_path
         for name in ("compile_tex", "parse_tex", "render_math")
     ])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
+        model=planner,
     )
     disable_deterministic_candidates(runtime)
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -740,7 +742,8 @@ async def test_wrapped_sum_replay_commits_after_the_observed_repeated_compile(tm
         for index, name in enumerate(("compile_tex", "parse_tex", "compile_tex"))
     ])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
+        model=planner,
     )
     disable_deterministic_candidates(runtime)
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -778,12 +781,16 @@ async def test_wrapped_sum_replay_commits_after_the_observed_repeated_compile(tm
     (r"\(\)", r"\(\)"),
 ])
 def test_tool_argument_wrapper_boundaries_preserve_content(tmp_path, source, expected):
-    runtime = TeXadaAgentRuntime(TeXadaConfig(nl_require_review=False, data_dir=tmp_path))
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path)
+    )
     assert runtime._sanitize_latex_argument(source) == expected
 
 
 def test_non_candidate_tool_outputs_do_not_replace_latest_latex(tmp_path):
-    runtime = TeXadaAgentRuntime(TeXadaConfig(nl_require_review=False, data_dir=tmp_path))
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path)
+    )
     observation = ToolObservation(
         name="parse_tex",
         ok=True,
@@ -802,7 +809,7 @@ async def test_runtime_preserves_symbol_engine_operator_anchor(tmp_path):
         ]
     )
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     disable_deterministic_candidates(runtime)
@@ -830,7 +837,7 @@ async def test_runtime_uses_deterministic_integral_restore_before_model_retry(tm
         return_value=r"\iint_D f(x,y)\,dx\,dy"
     )
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     disable_deterministic_candidates(runtime)
@@ -852,7 +859,7 @@ async def test_runtime_keeps_constrained_retry_for_non_synthesizable_operators(t
         return_value=r"\frac{\partial u}{\partial x}"
     )
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -877,7 +884,7 @@ async def test_runtime_uses_deterministic_integral_fallback_after_empty_retry(tm
     )
     planner.generate_latex = AsyncMock(return_value="...")
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     disable_deterministic_candidates(runtime)
@@ -900,7 +907,7 @@ async def test_runtime_short_circuits_exact_user_echo_with_anchor_fallback(tmp_p
     )
     planner.generate_latex = AsyncMock(return_value="must not run")
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     disable_deterministic_candidates(runtime)
@@ -920,7 +927,7 @@ async def test_runtime_uses_anchor_fallback_after_empty_first_turn(tmp_path):
     planner = FakePlanner([PlannerTurn(content="")])
     planner.generate_latex = AsyncMock(return_value="must not run")
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     disable_deterministic_candidates(runtime)
@@ -952,7 +959,7 @@ async def test_runtime_restores_integral_domain_after_compile_observation(tmp_pa
         ]
     )
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
         model=planner,
     )
     disable_deterministic_candidates(runtime)
@@ -1183,7 +1190,8 @@ async def test_runtime_blocks_human_review_case_096_missing_intersection(tmp_pat
     planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
     planner.generate_latex = AsyncMock(return_value=candidate)
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
+        model=planner,
     )
     disable_deterministic_candidates(runtime)
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -1208,7 +1216,8 @@ async def test_runtime_blocks_reviewed_sequence_limit_downgrades(
     planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
     planner.generate_latex = AsyncMock(return_value=candidate)
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
+        model=planner,
     )
     disable_deterministic_candidates(runtime)
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -1230,7 +1239,8 @@ async def test_runtime_keeps_explicit_sequence_limit_notation(tmp_path, label, c
     planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
     planner.generate_latex = AsyncMock(return_value=candidate)
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
+        model=planner,
     )
     disable_deterministic_candidates(runtime)
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -1251,7 +1261,8 @@ async def test_runtime_preserves_unspecified_curve_closure(tmp_path, candidate, 
     planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
     planner.generate_latex = AsyncMock(return_value=candidate)
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
+        model=planner,
     )
     disable_deterministic_candidates(runtime)
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -1276,7 +1287,8 @@ async def test_runtime_keeps_explicit_closed_curve_integrals(tmp_path, descripti
     planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
     planner.generate_latex = AsyncMock(return_value=candidate)
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
+        model=planner,
     )
     disable_deterministic_candidates(runtime)
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -1298,7 +1310,8 @@ async def test_runtime_preserves_nth_derivative_description(tmp_path, candidate,
     planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
     planner.generate_latex = AsyncMock(return_value=candidate)
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
+        model=planner,
     )
     disable_deterministic_candidates(runtime)
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -1328,7 +1341,8 @@ async def test_runtime_preserves_second_ordinary_derivative(
     planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
     planner.generate_latex = AsyncMock(return_value=candidate)
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
+        model=planner,
     )
     disable_deterministic_candidates(runtime)
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -1353,7 +1367,8 @@ async def test_runtime_preserves_literal_matrix_description(tmp_path, candidate,
     planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
     planner.generate_latex = AsyncMock(return_value=candidate)
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
+        model=planner,
     )
     disable_deterministic_candidates(runtime)
     runtime.backend.ensure_ready = AsyncMock(return_value=True)

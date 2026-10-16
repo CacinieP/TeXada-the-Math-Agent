@@ -175,7 +175,8 @@ async def run_paired(output: Path | None = None) -> dict:
                 planner = ReplayPlanner(scenario, surface)
                 runtime = TeXadaAgentRuntime(
                     OfflineConfig(
-                        nl_require_review=False, data_dir=Path(directory), planner_surface=surface
+                        nl_require_review=False, nl_candidate_first=False,
+                        data_dir=Path(directory), planner_surface=surface
                     ),
                     model=planner,
                 )
