@@ -174,7 +174,9 @@ async def run_paired(output: Path | None = None) -> dict:
             for surface in order:
                 planner = ReplayPlanner(scenario, surface)
                 runtime = TeXadaAgentRuntime(
-                    OfflineConfig(data_dir=Path(directory), planner_surface=surface),
+                    OfflineConfig(
+                        nl_require_review=False, data_dir=Path(directory), planner_surface=surface
+                    ),
                     model=planner,
                 )
                 runtime.backend.ensure_ready = AsyncMock(return_value=True)

@@ -57,7 +57,7 @@ def register(store, state=None, *, text="original source", image=None):
         source_text=text,
         source_image=image,
         source_mime="image/png" if image else "",
-        render=RenderEngine(TeXadaConfig()).render(state.latex),
+        render=RenderEngine(TeXadaConfig(nl_require_review=False, )).render(state.latex),
         reasons=["ocr"],
     )
 
@@ -126,7 +126,7 @@ def test_registration_rejects_changed_original_source_bytes():
             state,
             input_hash=input_source_hash("original"),
             source_text="changed",
-            render=RenderEngine(TeXadaConfig()).render(state.latex),
+            render=RenderEngine(TeXadaConfig(nl_require_review=False, )).render(state.latex),
             reasons=["risk"],
         )
 
@@ -296,7 +296,8 @@ async def test_ocr_must_review_even_when_trusted_caller_requests_no_review(tmp_p
     from unittest.mock import AsyncMock
 
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(data_dir=tmp_path), model=Planner([PlannerTurn(content="x")])
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path),
+        model=Planner([PlannerTurn(content="x")]),
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
     result = await runtime.run_candidate(
@@ -315,7 +316,9 @@ async def test_ocr_must_review_even_when_trusted_caller_requests_no_review(tmp_p
 
 @pytest.mark.asyncio
 async def test_forced_review_also_covers_deterministic_candidate_shortcut(tmp_path):
-    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=Planner([]))
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=Planner([])
+    )
     result = await runtime.run("求k从1到n的k平方", requires_review=True)
     assert result.valid and not result.committed
     assert result.stop_reason == "human_review_required"
@@ -324,7 +327,9 @@ async def test_forced_review_also_covers_deterministic_candidate_shortcut(tmp_pa
 
 @pytest.mark.asyncio
 async def test_low_risk_nl_preserves_auto_commit_and_cannot_claim_intent_proof(tmp_path):
-    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=Planner([]))
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=Planner([])
+    )
     result = await runtime.run("求k从1到n的k平方")
     assert result.committed and not result.review_reasons
     assert result.formula_ledger["evidence"][0]["output"]["intent_status"] == "NOT_CHECKED"
@@ -343,7 +348,8 @@ async def test_nl_denominator_drift_needs_review_even_under_synthesis_grant(tmp_
     ])
     planner.generate_latex = AsyncMock(return_value=r"\frac{x}{2}")
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=True), model=planner
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path, nl_candidate_first=True),
+        model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
     runtime.candidate_engine.propose = lambda _text: None
@@ -367,7 +373,9 @@ def test_exact_cas_counterexample_requires_review_independently_of_scope():
 @pytest.mark.asyncio
 async def test_handoff_repair_parent_does_not_apply_model_alias_normalization(tmp_path):
     original = r"\int\int f(x)dx"
-    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=Planner([]))
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=Planner([])
+    )
     result = await runtime.run_candidate("repair", original, original, requires_review=True)
     assert result.valid and not result.committed
     assert result.latex == original and result.revision == 1
@@ -382,7 +390,9 @@ async def test_handoff_repair_has_constrained_parent_not_nl_synthesis(tmp_path):
     original = r"\frac{x}{2"
     planner = Planner([])
     planner.plan = AsyncMock(side_effect=AssertionError("host repair does not call the model"))
-    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+    )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
     identity = build_inference_identity(runtime.config, tool_schemas=runtime.tools.schemas)
     with collect_inference(identity) as collector:

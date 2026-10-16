@@ -22,7 +22,7 @@ def compiled_state(latex="x+1", *, valid=True):
 
 
 def test_surfaces_never_mutate_canonical_contracts(tmp_path):
-    router = ToolRouter(TeXToolset(TeXadaConfig(data_dir=tmp_path)))
+    router = ToolRouter(TeXToolset(TeXadaConfig(nl_require_review=False, data_dir=tmp_path)))
     original = deepcopy(router.schemas)
     snapshot = action_snapshot(FormulaState(), surface="minimal")
     minimal = planner_schemas(router.schemas, snapshot, surface="minimal")
@@ -183,7 +183,8 @@ async def test_minimal_explicit_candidate_compile_render_real_workflow(tmp_path)
         ]
     )
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(data_dir=tmp_path, planner_surface="minimal"), model=planner
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path, planner_surface="minimal"),
+        model=planner,
     )
     runtime.candidate_engine.propose = lambda _: None
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -210,7 +211,8 @@ async def test_minimal_explicit_candidate_compile_render_real_workflow(tmp_path)
 async def test_unknown_action_cannot_dispatch_or_trigger_compatibility_fallback(tmp_path, surface):
     planner = ScriptedPlanner([PlannerTurn(tool_calls=[call("execute_shell", None)])])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(data_dir=tmp_path, planner_surface=surface), model=planner
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path, planner_surface=surface),
+        model=planner,
     )
     runtime.candidate_engine.propose = lambda _: None
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -235,7 +237,8 @@ async def test_proposal_then_compile_in_same_batch_is_stale_not_silently_rebound
         ]
     )
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(data_dir=tmp_path, planner_surface="minimal"), model=planner
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path, planner_surface="minimal"),
+        model=planner,
     )
     runtime.candidate_engine.propose = lambda _: None
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -251,7 +254,8 @@ async def test_proposal_then_compile_in_same_batch_is_stale_not_silently_rebound
 async def test_minimal_bare_final_cannot_seed_formula(tmp_path):
     planner = ScriptedPlanner([PlannerTurn(content="x+1")])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(data_dir=tmp_path, planner_surface="minimal"), model=planner
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path, planner_surface="minimal"),
+        model=planner,
     )
     runtime.candidate_engine.propose = lambda _: None
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -269,7 +273,8 @@ async def test_bare_final_cannot_replace_already_compiled_and_rendered_state(
 
     planner = ScriptedPlanner([PlannerTurn(content="y+2")] * (2 if surface == "full" else 1))
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(data_dir=tmp_path, planner_surface=surface), model=planner,
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path, planner_surface=surface),
+        model=planner,
     )
     runtime.candidate_engine.propose = lambda _: None
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -300,7 +305,9 @@ async def test_bare_final_cannot_replace_already_compiled_and_rendered_state(
 @pytest.mark.asyncio
 async def test_full_empty_direct_final_seed_is_explicitly_recorded(tmp_path):
     planner = ScriptedPlanner([PlannerTurn(content="x+1")])
-    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+    )
     runtime.candidate_engine.propose = lambda _: None
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
     result = await runtime.run("opaque request")
@@ -324,7 +331,9 @@ async def test_full_compile_and_render_preserve_authoritative_literal_labels(tmp
         PlannerTurn(tool_calls=[call("compile_tex", 1, latex=latex)]),
         PlannerTurn(tool_calls=[call("render_math", 1, latex=latex, mode="katex")]),
     ])
-    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+    )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
     result = await runtime.run("public synthetic formula", _task="ocr", _initial_candidate=latex)
     assert result.valid and not result.committed
@@ -347,7 +356,7 @@ async def test_full_compile_and_render_preserve_authoritative_literal_labels(tmp
     (r"LaTeX: x+1", "x+1"),
 ])
 def test_prompt_label_normalization_only_removes_a_leading_label(tmp_path, source, expected):
-    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path))
+    runtime = TeXadaAgentRuntime(TeXadaConfig(nl_require_review=False, data_dir=tmp_path))
     assert runtime._sanitize_latex_argument(source) == expected
 
 
@@ -356,7 +365,7 @@ def test_exact_historical_diff_bindings_keep_literal_labels(tmp_path):
     state.revise(r"\text{Final LaTeX: x}+2", expected_revision=1, origin="proposal")
     snapshot = action_snapshot(state, surface="full")
     proposal = call("semantic_diff", 2, before=snapshot.before, after=snapshot.latex)
-    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path))
+    runtime = TeXadaAgentRuntime(TeXadaConfig(nl_require_review=False, data_dir=tmp_path))
     normalized = runtime._normalize_call(proposal, authority=snapshot)
     assert normalized.arguments == proposal.arguments
     bound = bind_action(normalized, snapshot, state, surface="full")
@@ -367,7 +376,7 @@ def test_even_a_leading_label_in_authority_is_not_rewritten_as_a_model_prompt(tm
     state = FormulaState("LaTeX: x+y")
     snapshot = action_snapshot(state, surface="full")
     proposal = call("compile_tex", 1, latex=state.latex)
-    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path))
+    runtime = TeXadaAgentRuntime(TeXadaConfig(nl_require_review=False, data_dir=tmp_path))
     normalized = runtime._normalize_call(proposal, authority=snapshot)
     assert normalized.arguments == proposal.arguments
     bound = bind_action(normalized, snapshot, state, surface="full")
@@ -414,7 +423,8 @@ async def test_export_latex_finishes_compiled_revision_without_rewriting(tmp_pat
         ]
     )
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(data_dir=tmp_path, planner_surface=surface), model=planner
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path, planner_surface=surface),
+        model=planner,
     )
     runtime.candidate_engine.propose = lambda _: None
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -455,7 +465,8 @@ async def test_finish_uses_existing_ocr_review_gate(tmp_path):
     surface = "full"
     planner = ScriptedPlanner([PlannerTurn(tool_calls=[call("finish_formula", 1)])])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(data_dir=tmp_path, planner_surface=surface), model=planner
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path, planner_surface=surface),
+        model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
     result = await runtime.run("source image", _task="ocr", _initial_candidate="x+1")
@@ -474,7 +485,9 @@ def test_minimal_keeps_existing_action_surface():
 @pytest.mark.asyncio
 async def test_finish_commits_exact_current_formula_without_second_planner_turn(tmp_path):
     planner = ScriptedPlanner([PlannerTurn(tool_calls=[call("finish_formula", 1)])])
-    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+    )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
     result = await runtime.run("x plus one", _initial_candidate="x+1")
     assert result.valid and result.committed
@@ -489,7 +502,9 @@ async def test_rejected_prose_recovers_only_through_bound_finish(tmp_path):
         PlannerTurn(content="The formula is valid: y+2"),
         PlannerTurn(tool_calls=[call("finish_formula", 1)]),
     ])
-    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(nl_require_review=False, data_dir=tmp_path), model=planner
+    )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
     result = await runtime.run("x plus one", _initial_candidate="x+1")
     assert result.valid and result.committed and result.latex == "x+1"

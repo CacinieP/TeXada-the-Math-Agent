@@ -522,7 +522,7 @@ jobs:
           git push origin "refs/tags/$release_tag"
 
           release_flags=(--latest)
-          if [[ "$version" == *-beta.* ]]; then
+          if [[ "$version" == *-* ]]; then
             release_flags=(--draft --prerelease --latest=false)
           fi
           gh release create "$release_tag" "${assets[@]}" \

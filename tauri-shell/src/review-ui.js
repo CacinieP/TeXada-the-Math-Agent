@@ -19,6 +19,7 @@
       edited: '原始输入已编辑。请重新生成候选；旧审阅不能用于当前输入。',
       disclaimer: '人工采用仅记录你的决定；编译、CAS 与意图检查各自独立，不代表语义或视觉准确性。',
       binding: '绑定版本',
+      nlReview: '请对照原始描述核对公式；编译通过不代表转写准确。',
     },
     en: {
       title: 'Human review', pending: 'Pending review · not adopted', accepted: 'Explicitly adopted', rejected: 'Rejected',
@@ -33,6 +34,7 @@
       edited: 'Original input was edited. Generate a new candidate; the old review cannot apply to the current input.',
       disclaimer: 'Adoption records your decision. Compile, CAS and intent checks are independent; none proves semantic or visual accuracy.',
       binding: 'Bound revision',
+      nlReview: 'Compare the formula with the original description; compilation does not establish transcription accuracy.',
     },
   };
 
@@ -152,7 +154,7 @@
       host.append(grid);
 
       const reasons = text('ul', '', 'review-reasons');
-      for (const reason of current.reasons || []) reasons.append(text('li', reason));
+      for (const reason of current.reasons || []) reasons.append(text('li', reason === 'nl_semantics_requires_review' ? w.nlReview : reason));
       host.append(text('h4', w.reasons), reasons, text('h4', w.diff));
       const entries = Array.isArray(current.role_diff) ? current.role_diff : [];
       if (!entries.length) host.append(text('p', w.noDiff));

@@ -226,3 +226,11 @@ test('source revision detects edits before a review panel exists, including edit
   assert.equal(panel.refs.accept.disabled, true);
   assert.equal(panel.refs.reject.disabled, true);
 });
+
+test('default NL review explains transcription fidelity in both languages', () => {
+  for (const [lang, expected] of [['zh', '请对照原始描述核对公式'], ['en', 'Compare the formula']]) {
+    const { host } = makePanel(dto({ reasons: ['nl_semantics_requires_review'] }), { language: () => lang });
+    assert.ok(host.textContent.includes(expected));
+    assert.ok(!host.textContent.includes('nl_semantics_requires_review'));
+  }
+});
