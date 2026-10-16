@@ -34,6 +34,13 @@ def requests_computation(text: str) -> bool:
     )
     if re.search(rf"(?:{verbs})(?!符号|记号|二字|这两个字|字样)", instruction):
         return True
+    if re.search(r"等于多少|结果是多少|答案是(?:多少|什么)|解(?:这个|一下)?方程", instruction):
+        return True
+    if re.search(
+        r"\b(?:what is|how much is)\s+(?:the\s+)?"
+        r"(?:derivative of|integral of|[0-9]+\s*[+*/-])", instruction, flags=re.I,
+    ):
+        return True
     if re.search(r"分解[^，。；\n]{0,20}因式|展开(?:括号|多项式)", instruction):
         return True
     if re.search(r"求[^，。；\n]{1,60}(?:的导数|的积分|的值|的解|的极限)", instruction):

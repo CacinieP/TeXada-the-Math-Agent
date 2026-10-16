@@ -185,7 +185,11 @@ class InputRouter:
         prompt = f"{context}\n{text}" if context else text
         ruled = self.model.rule_complete(text)
         if ruled:
-            return self.operator_guard.normalize_candidate(ruled), 0
+            normalized = self.operator_guard.normalize_candidate(ruled)
+            # Fill syntax holes and close environments before the deterministic
+            # intake. The shared runtime still checks the original prefix.
+            completed, _, _ = self._validate_and_fix(normalized)
+            return completed, 0
 
         normalized = self.operator_guard.normalize_candidate(text)
         deterministic, validation, _ = self._validate_and_fix(normalized)

@@ -20,8 +20,8 @@
 ![TeXada Local-First Math Agent · MiniCPM-V-4.7-1B for text and OCR](assets/texada-hero-en.png)
 
 <p align="center">
-  <strong>Your local AI copilot for LaTeX and structured mathematical writing.</strong><br>
-  Generate formulas, read handwritten math, repair broken TeX, and validate the result before it renders.
+  <strong>Recognize, transcribe and typeset math formulas locally.</strong><br>
+  Describe or capture a formula, inspect its LaTeX and preview, then explicitly adopt it.
 </p>
 
 ![TeXada 30-second local math agent demo](assets/demo/texada-demo.gif)
@@ -32,7 +32,7 @@
 
 ## TeXada
 
-TeXada is a local AI copilot for LaTeX and scientific writing. Write math in
+TeXada helps transcribe formulas into LaTeX. Describe notation in
 natural language, paste a screenshot or handwritten formula, or give it an
 incomplete TeX expression. TeXada turns the input into a structured formula,
 checks it with deterministic tools, and renders a result you can inspect and

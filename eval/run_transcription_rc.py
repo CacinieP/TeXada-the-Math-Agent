@@ -142,8 +142,9 @@ def main():
         'ocr_no_auto_commit_and_integral_completed': summary['ocr']['auto_committed'] == 0
         and integral.get('valid') is True
         and integral.get('stop_reason') == 'human_review_required',
-        'completion_no_answers': len(completion) == 6 and all(
-            r['http_status'] == 200 and '\\placeholder' in r['response'].get('latex', '')
+        'completion_all_valid_and_no_answers': len(completion) == 6 and all(
+            r['http_status'] == 200 and r['response'].get('valid') is True
+            and '\\placeholder' in r['response'].get('latex', '')
             for r in completion),
         'bound_decisions': len(decisions) == 2 and all(
             r['http_status'] == 200 and r['stale_status'] == 409 and r['opposite_status'] == 409

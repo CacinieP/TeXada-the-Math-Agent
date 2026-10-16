@@ -15,7 +15,9 @@ from texada.core.scope import ComputationOutsideScope, requests_computation
     '计算 7+5', '请化简 (x+1)^2', '帮我因式分解 x^2-1', '求解 x+2=0',
     '请对 x^2 求导', '求 x^2 的积分', '证明勾股定理',
     '排版 x^2，然后计算 x=2 时的值', '不用计算，但请证明这个等式',
-    'Calculate 7+5', 'Please solve x+2=0', 'Can you differentiate x^2?',
+    '7+5 等于多少', '帮我解这个方程 x+2=0', 'What is 7+5?',
+    'What is the derivative of x^2?', 'Calculate 7+5', 'Please solve x+2=0',
+    'Can you differentiate x^2?',
     'Typeset x+1 and evaluate it at x=2', 'Integrate x^2', 'Compute 7+5',
 ])
 def test_explicit_computation_is_outside_scope(text):
@@ -65,3 +67,17 @@ def test_matrix_completion_marks_unknown_cell_without_inventing_a_value():
     partial = r'\begin{pmatrix}1 & 2 \\ 3 &'
     result = DeterministicCompletionEngine().complete(partial)
     assert result.latex == partial + r'\placeholder{}'
+
+
+@pytest.mark.asyncio
+async def test_matrix_completion_api_closes_environment_and_preserves_unknown_cell(tmp_path):
+    app = create_app(TeXadaConfig(data_dir=tmp_path))
+    partial = r'\begin{pmatrix}1 & 2 \\ 3 &'
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url='http://test') as client:
+        response = await client.post('/api/complete', json={'text': partial})
+    result = response.json()
+    assert response.status_code == 200 and result['valid'] is True
+    assert result['latex'] == partial + r'\placeholder{}\end{pmatrix}'
+    assert result['tokens_used'] == 0
+    assert result['stop_reason'] == 'deterministic_candidate'
