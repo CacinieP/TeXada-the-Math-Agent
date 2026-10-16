@@ -197,3 +197,27 @@ def test_named_math_concepts_have_canonical_zero_model_candidates(text, required
     assert candidate is not None
     assert candidate.rule == "nl_canonical_concept"
     assert all(fragment in candidate.latex for fragment in required)
+
+
+@pytest.mark.parametrize('symbol', ['B', 'M', 'Q'])
+def test_transcription_wrappers_preserve_symbolic_inverse_without_matrix_entries(symbol):
+    assert DeterministicCandidateEngine().propose(
+        f'请帮我输入矩阵 {symbol} 的逆矩阵记号',
+    ).latex == rf'{symbol}^{{-1}}'
+
+
+@pytest.mark.parametrize('symbol', ['v', 'w', 'z'])
+def test_explicit_vector_two_norm_keeps_operand_and_order(symbol):
+    assert DeterministicCandidateEngine().propose(
+        f'排版向量 {symbol} 的二范数',
+    ).latex == rf'\lVert\mathbf{{{symbol}}}\rVert_2'
+
+
+def test_transcription_wrapped_partial_keeps_only_requested_derivative():
+    assert DeterministicCandidateEngine().propose(
+        '输入 u 关于 v 的偏导数记号',
+    ).latex == r'\frac{\partial u}{\partial v}'
+
+
+def test_inverse_notation_rule_does_not_discard_extra_content():
+    assert DeterministicCandidateEngine().propose('输入矩阵 B 的逆矩阵再加 C') is None

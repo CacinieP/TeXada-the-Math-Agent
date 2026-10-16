@@ -36,6 +36,7 @@ from texada.core.inference_fingerprint import (
 )
 from texada.core.llama_server import LlamaServerError, LlamaServerManager
 from texada.core.router import InputRouter
+from texada.core.scope import ComputationOutsideScope, require_transcription
 from texada.handoff import FormulaTransfer, HandoffError, TransferRegistry, produce_formula_transfer
 from texada.render.engine import RenderEngine
 from texada.semantic.katex import shared_katex_parser
@@ -318,7 +319,7 @@ def _app_version() -> str:
     try:
         return version("texada")
     except PackageNotFoundError:
-        return "0.4.2-beta.4"
+        return "0.4.2-rc.1"
 
 
 def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
@@ -850,6 +851,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.post("/api/convert", response_model=LaTeXResponse)
     async def convert_text(req: ConvertRequest):
+        try:
+            require_transcription(req.text)
+        except ComputationOutsideScope as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
         resources = _request_resources.get()
         config, router, history = (resources[name] for name in ("config", "router", "history"))
         run_id = uuid4().hex
@@ -917,6 +922,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     @app.post("/api/agent", response_model=AgentResponse)
     async def run_agent(req: ConvertRequest):
         """Primary NL path: MiniCPM5 planner → tools → observations."""
+        try:
+            require_transcription(req.text)
+        except ComputationOutsideScope as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
         resources = _request_resources.get()
         config, agent_runtime, history = (
             resources[name] for name in ("config", "agent_runtime", "history")
@@ -1116,6 +1125,10 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.post("/api/complete", response_model=AgentResponse)
     async def complete_latex(req: ConvertRequest):
+        try:
+            require_transcription(req.text)
+        except ComputationOutsideScope as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
         resources = _request_resources.get()
         config, router, agent_runtime, history = (
             resources[name] for name in ("config", "router", "agent_runtime", "history")

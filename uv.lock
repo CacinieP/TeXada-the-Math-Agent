@@ -955,7 +955,7 @@ wheels = [
 
 [[package]]
 name = "texada"
-version = "0.4.2b4"
+version = "0.4.2rc1"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },

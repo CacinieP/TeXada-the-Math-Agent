@@ -18,6 +18,7 @@ TEXADA_HOME = Path.home() / ".texada"
 CONFIG_FILE = TEXADA_HOME / "config.json"
 
 SAVED_CONFIG_FIELDS = frozenset({
+    "nl_require_review",
     "backend",
     "ollama_host",
     "llama_server_host",
@@ -95,6 +96,8 @@ class TeXadaConfig(BaseSettings):
     api_request_timeout_seconds: float = Field(default=240.0, gt=0.0, le=900.0)
 
     # ── Agent Runtime ──
+    # Compilation is not evidence that generated NL matches the user intent.
+    nl_require_review: bool = True
     agent_max_steps: int = Field(default=3, ge=1, le=8)
     # Opt in to NL candidate generation before the shared compile/Planner review.
     nl_candidate_first: bool = False

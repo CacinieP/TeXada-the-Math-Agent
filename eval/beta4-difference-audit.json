@@ -1,0 +1,704 @@
+{
+  "schema_version": 1,
+  "source_release": "v0.4.2-beta.4",
+  "source_file_sha256": "330437b8b82c859913040a9d9f5c92702daf731f14052af3586f4a890a2a2e04",
+  "reference_file_sha256": "dbad1dab2df614fe1d01d5ba5007d094fcd2fb076300b7f0cd4cdc5f7fd1b4b1",
+  "reviewer": "Codex mathematical review; not independent human verification",
+  "policy": "Preserve raw outputs and strict evaluator. These judgments are provisional, not an independent accuracy score. Default NL adoption now requires bound human review.",
+  "entries": [
+    {
+      "case_id": "006",
+      "input": "x 与 y 的乘积再加 z",
+      "candidate": "x \\times y + z",
+      "references": [
+        {
+          "reference_id": "full-v1-006-1",
+          "latex": "xy+z",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-006-2",
+          "latex": "yx+z",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-006-3",
+          "latex": "x\\cdot y+z",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "standard real scalar symbols; no arbitrary renaming of prescribed free variables",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "EQUIVALENT_NOTATION",
+      "basis": "Explicit scalar multiplication preserves xy+z.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "007",
+      "input": "x 的绝对值小于等于一",
+      "candidate": "|x| \\leq 1",
+      "references": [
+        {
+          "reference_id": "full-v1-007-1",
+          "latex": "\\lvert x\\rvert\\le 1",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-007-2",
+          "latex": "-1\\le x\\le1",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "x real",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "EQUIVALENT_NOTATION",
+      "basis": "Absolute-value delimiters and le/leq are notation aliases.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "008",
+      "input": "向量 x 的二范数",
+      "candidate": "\\lVert x \\rVert_2",
+      "references": [
+        {
+          "reference_id": "full-v1-008-1",
+          "latex": "\\lVert\\mathbf{x}\\rVert_2",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-008-2",
+          "latex": "\\lVert\\vec x\\rVert_2",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-008-3",
+          "latex": "\\sqrt{\\sum_{i=1}^n x_i^2}",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "x real finite-dimensional vector",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "EQUIVALENT_NOTATION",
+      "basis": "The input declares x a vector; plain x within a 2-norm preserves that role.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "010",
+      "input": "把 x 平方减一分解成两个因式",
+      "candidate": "x^2 - 1",
+      "references": [
+        {
+          "reference_id": "full-v1-010-1",
+          "latex": "x^2-1=(x-1)(x+1)",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-010-2",
+          "latex": "(x-1)(x+1)",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-010-3",
+          "latex": "(x+1)(x-1)",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "standard real scalar symbols; no arbitrary renaming of prescribed free variables",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "SEMANTIC_OR_TASK_ERROR",
+      "basis": "The requested factorization is not performed.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "039",
+      "input": "x 趋近于零时 sin x 除以 x 的极限",
+      "candidate": "\\lim_{x \\to 0} \\frac{\\sin(x)}{x}",
+      "references": [
+        {
+          "reference_id": "full-v1-039-1",
+          "latex": "\\lim_{x\\to0}\\frac{\\sin x}{x}",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-039-2",
+          "latex": "1",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "radians; punctured real neighborhood of 0",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "EQUIVALENT_NOTATION",
+      "basis": "Parentheses around the sine argument preserve the same limiting function.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "040",
+      "input": "x 趋近于无穷时一除以 x 的极限",
+      "candidate": "\\lim_{x \\to \\infty} \\frac{1}{x}",
+      "references": [
+        {
+          "reference_id": "full-v1-040-1",
+          "latex": "\\lim_{x\\to+\\infty}\\frac1x",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-040-2",
+          "latex": "0",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "standard real scalar symbols; no arbitrary renaming of prescribed free variables",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "EQUIVALENT_NOTATION",
+      "basis": "The positive direction at infinity is implicit in this real limit.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "048",
+      "input": "f 在 x 等于 a 处连续的定义",
+      "candidate": "f(x=a)",
+      "references": [
+        {
+          "reference_id": "full-v1-048-1",
+          "latex": "\\lim_{x\\to a}f(x)=f(a)",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "f defined at a and in a neighborhood",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "SEMANTIC_OR_TASK_ERROR",
+      "basis": "f(x=a) is not the continuity definition.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "055",
+      "input": "二阶连续可微的 f，先对 x 再对 y 的混合偏导",
+      "candidate": "\\frac{\\partial}{\\partial x}\\left(\\frac{\\partial f}{\\partial y}\\right)",
+      "references": [
+        {
+          "reference_id": "full-v1-055-1",
+          "latex": "\\frac{\\partial^2 f}{\\partial y\\partial x}",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-055-2",
+          "latex": "\\frac{\\partial^2f}{\\partial x\\partial y}",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-055-3",
+          "latex": "f_{xy}",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "f C^2 in a neighborhood",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "EQUIVALENT_NOTATION",
+      "basis": "The C2 assumption permits mixed derivative order interchange; nested derivatives agree.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "061",
+      "input": "复合函数 f(g(x)) 的链式法则",
+      "candidate": "f(g(x)) = f'(g(x)) \\cdot g'(x)",
+      "references": [
+        {
+          "reference_id": "full-v1-061-1",
+          "latex": "\\frac d{dx}f(g(x))=f'(g(x))g'(x)",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-061-2",
+          "latex": "f'(g(x))g'(x)",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "f,g differentiable",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "SEMANTIC_OR_TASK_ERROR",
+      "basis": "The LHS lacks the derivative, so the displayed equality is generally false.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "062",
+      "input": "u 除以 v 的求导法则",
+      "candidate": "(u \\div v)' = \\frac{v \\cdot (u)' - u \\cdot (v)'}{v^2}",
+      "references": [
+        {
+          "reference_id": "full-v1-062-1",
+          "latex": "\\left(\\frac uv\\right)'=\\frac{u'v-uv'}{v^2}",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-062-2",
+          "latex": "\\frac{u'v-uv'}{v^2}",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-062-3",
+          "latex": "\\frac{u'}v-\\frac{uv'}{v^2}",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "u,v differentiable; v !=0",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "EQUIVALENT_NOTATION",
+      "basis": "Quotient notation and parentheses preserve the correct quotient rule for v != 0.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "067",
+      "input": "沿闭曲线 C 的环路积分 F 点乘 dr",
+      "candidate": "\\oint_C F \\cdot dr",
+      "references": [
+        {
+          "reference_id": "full-v1-067-1",
+          "latex": "\\oint_C\\mathbf F\\cdot d\\mathbf r",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "closed oriented piecewise-smooth curve; continuous vector F",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "EQUIVALENT_NOTATION",
+      "basis": "The NL input supplies vector roles; the closed contour and dot product are retained.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "070",
+      "input": "从负无穷到正无穷的高斯积分",
+      "candidate": "\\int_{-\\infty}^{\\infty} f(x)\\,dx",
+      "references": [
+        {
+          "reference_id": "full-v1-070-1",
+          "latex": "\\int_{-\\infty}^{\\infty}e^{-x^2}\\,dx",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-070-2",
+          "latex": "\\sqrt\\pi",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "standard real scalar symbols; no arbitrary renaming of prescribed free variables",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "SEMANTIC_OR_TASK_ERROR",
+      "basis": "A generic f(x) is not the Gaussian integrand.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "072",
+      "input": "分部积分公式",
+      "candidate": "\\int f(x)dx = F(x) + C",
+      "references": [
+        {
+          "reference_id": "full-v1-072-1",
+          "latex": "\\int u\\,dv=uv-\\int v\\,du",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "standard real scalar symbols; no arbitrary renaming of prescribed free variables",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "SEMANTIC_OR_TASK_ERROR",
+      "basis": "The antiderivative template is not integration by parts.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "073",
+      "input": "微积分基本定理：从 a 到 x 的 f(t) 积分对 x 求导",
+      "candidate": "\\frac{d}{dx}\\int_a^x f(t)\\,dt",
+      "references": [
+        {
+          "reference_id": "full-v1-073-1",
+          "latex": "\\frac d{dx}\\int_a^x f(t)\\,dt=f(x)",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-073-2",
+          "latex": "f(x)",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "f continuous, a fixed",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "SEMANTIC_OR_TASK_ERROR",
+      "basis": "The requested fundamental-theorem relation is incomplete without f(x).",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "074",
+      "input": "令 u 等于 g(x) 的换元积分公式",
+      "candidate": "\\int f(g(x)) \\cdot g'(x)\\, dx",
+      "references": [
+        {
+          "reference_id": "full-v1-074-1",
+          "latex": "\\int f(g(x))g'(x)\\,dx=\\int f(u)\\,du,\\quad u=g(x)",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "smooth substitution; both indefinite integrals understood up to a constant",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "SEMANTIC_OR_TASK_ERROR",
+      "basis": "Only the original integral is given; no substitution relation or transformed integral.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "077",
+      "input": "从零到无穷 x 乘 e 的负 x 次方的积分",
+      "candidate": "\\int_0^\\infty \\frac{x^{-n}}{e} dx",
+      "references": [
+        {
+          "reference_id": "full-v1-077-1",
+          "latex": "\\int_0^{\\infty}xe^{-x}\\,dx",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-077-2",
+          "latex": "1",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "standard real scalar symbols; no arbitrary renaming of prescribed free variables",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "SEMANTIC_OR_TASK_ERROR",
+      "basis": "The integrand x^(-n)/e is not x*exp(-x).",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "078",
+      "input": "具有概率密度 f_X(x) 且期望存在的实连续随机变量 X 的期望积分",
+      "candidate": "\\mathbb{E}\\int f_X(x)\\,dx",
+      "references": [
+        {
+          "reference_id": "full-v1-078-1",
+          "latex": "\\mathbb E[X]=\\int_{-\\infty}^{\\infty}x f_X(x)\\,dx",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-078-2",
+          "latex": "\\mathbb E[X]=\\int_{-\\infty}^{\\infty}x\\,dF_X(x)",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "absolutely continuous real X with density f_X and E|X| finite",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "SEMANTIC_OR_TASK_ERROR",
+      "basis": "The first-moment factor x and a defined expectation relation are absent.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "080",
+      "input": "斯托克斯公式，闭曲线 C 的环路积分等于曲面 S 上旋度的积分",
+      "candidate": "\\oint_C \\mathbf{F} \\cdot d\\mathbf{r} = \\iint_S (\\nabla \\times \\mathbf{F}) \\cdot d\\mathbf{a}",
+      "references": [
+        {
+          "reference_id": "full-v1-080-1",
+          "latex": "\\oint_C\\mathbf F\\cdot d\\mathbf r=\\iint_S(\\nabla\\times\\mathbf F)\\cdot\\mathbf n\\,dS",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "oriented S with positive boundary C; F C^1",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "CONDITIONAL_EQUIVALENCE",
+      "basis": "Equivalent if d a denotes the oriented vector area element of S; this convention is not declared.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "081",
+      "input": "三维列向量 x 等于 a、b、c",
+      "candidate": "\\vec{x} = a\\mathbf{i} + b\\mathbf{j} + c\\mathbf{k}",
+      "references": [
+        {
+          "reference_id": "full-v1-081-1",
+          "latex": "\\mathbf x=\\begin{pmatrix}a\\\\b\\\\c\\end{pmatrix}",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-081-2",
+          "latex": "\\mathbf x=\\begin{bmatrix}a\\\\b\\\\c\\end{bmatrix}",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-081-3",
+          "latex": "\\mathbf x=(a,b,c)^{\\mathsf T}",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "standard real scalar symbols; no arbitrary renaming of prescribed free variables",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "SEMANTIC_OR_TASK_ERROR",
+      "basis": "A basis-vector expansion does not supply the requested column-vector representation.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "083",
+      "input": "二乘二矩阵 A 的行列式",
+      "candidate": "\\det(A) = \\begin{vmatrix} a & b \\\\ c & d \\end{vmatrix}",
+      "references": [
+        {
+          "reference_id": "full-v1-083-1",
+          "latex": "\\det(A)",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-083-2",
+          "latex": "|A|",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "real 2x2 A",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "NEEDS_INDEPENDENT_REVIEW",
+      "basis": "The new entries a,b,c,d are not bound to A explicitly; adjudicate whether the implicit generic-matrix convention is acceptable.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "085",
+      "input": "矩阵 A 的转置",
+      "candidate": "\\begin{pmatrix} A^{\\top} \\end{pmatrix}",
+      "references": [
+        {
+          "reference_id": "full-v1-085-1",
+          "latex": "A^{\\mathsf T}",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-085-2",
+          "latex": "A^T",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-085-3",
+          "latex": "A^\\top",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "real matrix A",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "NEEDS_INDEPENDENT_REVIEW",
+      "basis": "The 1x1 matrix wrapper may be a block convention, but it is not ordinary transpose notation; independent representation review needed.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "086",
+      "input": "向量 a 与向量 b 的点积",
+      "candidate": "(\\vec{a} \\cdot \\vec{b}) = |\\vec{a}| |\\vec{b}| \\cos \\theta",
+      "references": [
+        {
+          "reference_id": "full-v1-086-1",
+          "latex": "\\mathbf a\\cdot\\mathbf b",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-086-2",
+          "latex": "\\mathbf a^{\\mathsf T}\\mathbf b",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-086-3",
+          "latex": "\\sum_{i=1}^n a_i b_i",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "real vectors of same dimension, treated as columns",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "CONDITIONAL_EQUIVALENCE",
+      "basis": "Equivalent if theta is the angle between the two real vectors; no definition is given.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "087",
+      "input": "向量 a 与向量 b 的叉积",
+      "candidate": "\\vec a \\times \\vec b",
+      "references": [
+        {
+          "reference_id": "full-v1-087-1",
+          "latex": "\\mathbf a\\times\\mathbf b",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "real vectors in R^3",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "EQUIVALENT_NOTATION",
+      "basis": "Vector arrow versus boldface is contextual notation; order is preserved.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "088",
+      "input": "特征值方程 A v 等于 lambda v",
+      "candidate": "Av = \\lambda v",
+      "references": [
+        {
+          "reference_id": "full-v1-088-1",
+          "latex": "A\\mathbf v=\\lambda\\mathbf v",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-088-2",
+          "latex": "(A-\\lambda I)\\mathbf v=0",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "A square and v nonzero",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "EQUIVALENT_NOTATION",
+      "basis": "The input supplies the vector role of v; the eigenvalue relation is retained.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "089",
+      "input": "矩阵 A 的奇异值分解等于 U Sigma V 转置",
+      "candidate": "U \\Sigma V^{\\top}",
+      "references": [
+        {
+          "reference_id": "full-v1-089-1",
+          "latex": "A=U\\Sigma V^{\\mathsf T}",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "real matrix A; real SVD",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "SEMANTIC_OR_TASK_ERROR",
+      "basis": "The explicitly requested equation A=... is missing.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "091",
+      "input": "在 B 发生条件下 A 的条件概率",
+      "candidate": "\\mathbb{P}(A|B)",
+      "references": [
+        {
+          "reference_id": "full-v1-091-1",
+          "latex": "P(A\\mid B)",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        },
+        {
+          "reference_id": "full-v1-091-2",
+          "latex": "\\frac{P(A\\cap B)}{P(B)}",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "P(B)>0",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "EQUIVALENT_NOTATION",
+      "basis": "Probability font and conditional delimiters preserve the same conditional event.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "095",
+      "input": "均值 mu、方差 sigma 平方的正态分布密度",
+      "candidate": "f(x|\\mu,\\sigma^2) = \\frac{1}{\\sqrt{2\\pi\\sigma^2}} \\exp\\left(-\\frac{(x-\\mu)^2}{2\\sigma^2}\\right)",
+      "references": [
+        {
+          "reference_id": "full-v1-095-1",
+          "latex": "f_X(x)=\\frac1{\\sigma\\sqrt{2\\pi}}\\exp\\!\\left(-\\frac{(x-\\mu)^2}{2\\sigma^2}\\right)",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "x,mu real, sigma>0",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "EQUIVALENT_NOTATION",
+      "basis": "For sigma>0, sqrt(2*pi*sigma^2) equals sigma*sqrt(2*pi); the density is normalized.",
+      "independent_human_review": false
+    },
+    {
+      "case_id": "098",
+      "input": "对任意 x 属于实数，都存在 y 大于 x",
+      "candidate": "\\forall x \\in \\mathbb{R}, \\exists y > x",
+      "references": [
+        {
+          "reference_id": "full-v1-098-1",
+          "latex": "\\forall x\\in\\mathbb R,\\ \\exists y\\in\\mathbb R:\\ y>x",
+          "reference_source": "authored_from_original_prompt_with_explicit_scope_review",
+          "review_status": "agent-mathematical-reviewed"
+        }
+      ],
+      "domain_assumptions": "x,y real",
+      "original_committed": true,
+      "original_strict_status": "DIFFERENT",
+      "agent_verdict": "CONDITIONAL_EQUIVALENCE",
+      "basis": "Acceptable with y implicitly ranging over real numbers; the quantifier domain is not explicit.",
+      "independent_human_review": false
+    }
+  ]
+}

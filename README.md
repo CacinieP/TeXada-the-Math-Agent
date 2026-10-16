@@ -20,8 +20,8 @@
 ![TeXada Local-First Math Agent · MiniCPM-V-4.7-1B for text and OCR](assets/texada-hero-en.png)
 
 <p align="center">
-  <strong>Your local AI copilot for LaTeX and structured mathematical writing.</strong><br>
-  Generate formulas, read handwritten math, repair broken TeX, and validate the result before it renders.
+  <strong>Recognize, transcribe and typeset math formulas locally.</strong><br>
+  Describe or capture a formula, inspect its LaTeX and preview, then explicitly adopt it.
 </p>
 
 ![TeXada 30-second local math agent demo](assets/demo/texada-demo.gif)
@@ -32,21 +32,25 @@
 
 ## TeXada
 
-TeXada is a local AI copilot for LaTeX and scientific writing. Write math in
+TeXada helps transcribe formulas into LaTeX. Describe notation in
 natural language, paste a screenshot or handwritten formula, or give it an
 incomplete TeX expression. TeXada turns the input into a structured formula,
 checks it with deterministic tools, and renders a result you can inspect and
 copy.
 
-It is not a chat wrapper. TeXada is an on-device, agent-driven structured math
-editor whose planner can call narrow, independently testable TeX tools.
+TeXada is a local tool for formula recognition, transcription and typesetting.
+It preserves expressions rather than evaluating or solving them. Calculation,
+simplification, factorization, equation solving, differentiation, integration
+and proofs are outside the supported product scope. Derivative and integral
+notation can still be transcribed. Generated NL and OCR candidates require
+explicit review before adoption by default.
 It has two model roles: planning/text generation and image understanding/OCR.
 The MiniCPM-V 4.7 profile uses one `MiniCPM-V-4.7-1B` checkpoint for both roles;
 the existing Ollama defaults use MiniCPM5-2B and MiniCPM-V 4.6.
 Independently testable TeX tools own parsing, validation, deterministic
 repair, semantic diffing, rendering and export.
 
-**Not a chatbot. A tool-using math agent.**
+**Recognize, transcribe, review and typeset formulas.**
 
 ```text
 Planner → TeX Tool → Observation → Planner
@@ -64,6 +68,18 @@ The original `SymbolEngine` and Operator-Drift Guard remain Level 0: they pin
 critical operators with near-zero overhead. A pinned KaTeX AST bridge and
 role-aware weighted Semantic Diff form Level 1 when an explicit before/after
 formula exists. Raw natural language is never treated as a reference AST.
+
+### Supported scope
+
+`7+5` stays `7+5`; TeXada does not return `12`. It can transcribe an integral
+or derivative symbol without evaluating it. OCR copies visible formulas and
+answers without solving the image. Completion fills syntax holes, not answers.
+Explicit computation requests receive HTTP 422 before inference; this conservative
+intent check is not a complete classifier. Syntax checks and structural comparisons
+do not establish transcription accuracy. Compare the source and candidate before
+adopting. `/api/convert` remains a preview-only compatibility endpoint.
+
+See [release-candidate scope and validation](docs/rc1-validation.md).
 
 ### Highlights
 
@@ -554,9 +570,11 @@ releases retain the license recorded in their immutable tag. See [LICENSE](LICEN
 
 ## TeXada
 
-TeXada 是一个面向 LaTeX 与科研写作的本地 AI Copilot。你可以输入自然语言、
+TeXada 是一个用于数学公式识别、转写与排版的本地工具。你可以输入自然语言、
 粘贴截图或手写公式，也可以交给它一段不完整的 TeX；TeXada 会把输入转换为
 结构化公式，用确定性工具检查，再渲染为可核对、可复制的结果。
+
+**支持范围：**只识别、转写、编辑和排版公式；不提供求值、化简、因式分解、解方程、求导、积分计算或证明。导数与积分的记号仍支持输入。`7+5` 保留为表达式，不补成 `12`。默认自然语言和 OCR 候选均需核对原文后明确采用；编译通过不代表转写准确。详见 [RC 范围与验证](docs/rc1-validation.md)。
 
 它不是聊天界面套壳，而是基于端侧 Agent 的结构化数学编辑器。产品明确只有两个
 模型保留规划/文本与视觉/OCR 两个职责。MiniCPM-V 4.7 profile 用同一个
@@ -565,7 +583,7 @@ MiniCPM5-2B 负责规划、工具选择和文本生成，MiniCPM-V 4.6 负责图
 理解与公式 OCR；解析、校验、确定性修复、语义 Diff、渲染与导出由可独立测试的
 TeX 工具负责。
 
-**不是聊天机器人，而是会调用工具的数学 Agent。**
+**识别、转写、核对，再排版。**
 
 ```text
 Planner → TeX Tool → Observation → Planner

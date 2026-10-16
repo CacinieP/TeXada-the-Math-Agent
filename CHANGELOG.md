@@ -1,3 +1,24 @@
+## 0.4.2-rc.1 - 2026-10-16
+
+### 中文
+
+- 支持范围收敛到公式识别、转写、编辑和排版。保留表达式，不提供求值、化简、因式分解、解方程、求导、积分计算或证明；积分与导数记号仍支持输入。
+- 明确的计算请求在推理前返回 HTTP 422，附中英文范围说明；提示词要求保留算式，OCR 不执行图片指令，补全不补计算答案。意图检查是保守规则，不声称覆盖所有措辞。
+- 自然语言候选默认进入绑定原文与版本的人工审阅，确定性捷径也不能绕过；通过编译不再默认自动采用。保留显式实验配置供历史对照，不在界面提供自动采用开关。
+- 修复 Planner 将纯 LaTeX 内容误作 export(format="bare") 的提示冲突；首次绑定正确的单个非法格式动作可在原预算内获得一次合法重试。重复错误、过期 revision、值覆盖仍拒绝；OCR 仍需人工采用。
+- 修复带“输入/记号”措辞的偏导转写、指定对象的二范数和符号逆矩阵；矩阵补全的空单元格明确保留占位符，不编造数值。
+- 保留 Beta.4 的 28 条严格结构差异与逐条初步审计，不修改历史输出或放宽比较器。独立人工复核、真实 OCR 与跨平台模型验收继续在 #35 跟踪。
+- 所有预发布版本（包括 RC）均只创建 draft prerelease，不替换稳定版 latest。此版为候选版，不是正式发布。
+
+### English
+
+- Limit the supported product to recognition, transcription, editing and typesetting. Preserve expressions; no evaluation, simplification, factorization, solving, differentiation, integration or proofs. Mathematical notation remains supported.
+- Reject explicit computation requests before inference with HTTP 422. Keep conservative intent checks, transcription-only prompts and syntax-only completion; passing checks does not establish fidelity.
+- Require bound human review for NL candidates by default, including deterministic shortcuts. Preserve the explicit legacy experiment setting, without a UI switch.
+- Correct the bare-content/export-format prompt conflict. Allow one fresh, revision-bound retry for a single invalid export format within the existing budget; stale revisions, value overrides and repeated errors still fail closed. OCR remains pending review.
+- Preserve all 28 Beta.4 strict differences and provisional agent adjudications. Independent human, real-image and target-platform acceptance remain tracked in #35.
+- All prereleases, including RC, create draft prereleases and never replace stable latest. This is a release candidate, not a stable release.
+
 ## 0.4.2-beta.4 - 2026-10-16
 
 ### 中文

@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "scope": "transcription and typesetting only; authored before live RC outputs; not independently human reviewed",
+  "reference_policy": "complete source-authored expressions; strict comparator unchanged; report differences and unsupported cases without rescoring history",
+  "nl": [
+    {
+      "id": "T01",
+      "input": "输入 9+4",
+      "reference": "9+4"
+    },
+    {
+      "id": "T02",
+      "input": "输入 8 乘以 3",
+      "reference": "8\\times 3"
+    },
+    {
+      "id": "T03",
+      "input": "输入 a 的平方加 b 的平方",
+      "reference": "a^2+b^2"
+    },
+    {
+      "id": "T04",
+      "input": "输入 x 下标 k 加一",
+      "reference": "x_k+1"
+    },
+    {
+      "id": "T05",
+      "input": "输入分数，分子 p 加 q，分母 r",
+      "reference": "\\frac{p+q}{r}"
+    },
+    {
+      "id": "T06",
+      "input": "输入 t 的三次方",
+      "reference": "t^3"
+    },
+    {
+      "id": "T07",
+      "input": "输入根号下 u 加 v",
+      "reference": "\\sqrt{u+v}"
+    },
+    {
+      "id": "T08",
+      "input": "输入 alpha 加 beta",
+      "reference": "\\alpha+\\beta"
+    },
+    {
+      "id": "T09",
+      "input": "输入 x 大于等于零",
+      "reference": "x\\geq 0"
+    },
+    {
+      "id": "T10",
+      "input": "输入 y 不等于二",
+      "reference": "y\\ne 2"
+    },
+    {
+      "id": "T11",
+      "input": "输入从 k=1 到 m 的 a_k 求和记号",
+      "reference": "\\sum_{k=1}^{m} a_k"
+    },
+    {
+      "id": "T12",
+      "input": "输入从 j=1 到 n 的 b_j 连乘记号",
+      "reference": "\\prod_{j=1}^{n} b_j"
+    },
+    {
+      "id": "T13",
+      "input": "输入 f(t) 从 c 到 d 的定积分记号",
+      "reference": "\\int_c^d f(t)\\,dt"
+    },
+    {
+      "id": "T14",
+      "input": "输入 u 关于 v 的偏导数记号",
+      "reference": "\\frac{\\partial u}{\\partial v}"
+    },
+    {
+      "id": "T15",
+      "input": "输入 f(x) 关于 x 的一阶导数记号",
+      "reference": "\\frac{df}{dx}"
+    },
+    {
+      "id": "T16",
+      "input": "输入 n 趋于无穷时 a_n 的极限记号",
+      "reference": "\\lim_{n\\to\\infty} a_n"
+    },
+    {
+      "id": "T17",
+      "input": "输入矩阵 A 的转置记号",
+      "reference": "A^T"
+    },
+    {
+      "id": "T18",
+      "input": "输入矩阵 B 的逆矩阵记号",
+      "reference": "B^{-1}"
+    },
+    {
+      "id": "T19",
+      "input": "输入集合 C 与 D 的交集",
+      "reference": "C\\cap D"
+    },
+    {
+      "id": "T20",
+      "input": "输入集合 C 与 D 的并集",
+      "reference": "C\\cup D"
+    },
+    {
+      "id": "T21",
+      "input": "输入 z 的绝对值",
+      "reference": "|z|"
+    },
+    {
+      "id": "T22",
+      "input": "输入向量 v 的二范数",
+      "reference": "\\lVert\\mathbf{v}\\rVert_2"
+    },
+    {
+      "id": "T23",
+      "input": "输入 g(x) 等于 x 加一",
+      "reference": "g(x)=x+1"
+    },
+    {
+      "id": "T24",
+      "input": "输入闭区间，从负二到三",
+      "reference": "[-2,3]"
+    }
+  ],
+  "outside_scope": [
+    "计算 7+5",
+    "化简 (x+1)^2",
+    "把 x 平方减一分解成两个因式",
+    "求解 x+2=0",
+    "请对 x^2 求导",
+    "求 x^2 的积分",
+    "证明勾股定理",
+    "Calculate 7+5",
+    "Solve x+2=0",
+    "Typeset x+1 and evaluate it at x=2"
+  ],
+  "completion": [
+    "x^2 +",
+    "\\frac{a+b}{",
+    "\\int_0^1 x^2 \\,dx =",
+    "\\begin{pmatrix}1 & 2 \\\\ 3 &",
+    "\\sqrt{",
+    "\\sum_{i=1}^{n} i ="
+  ]
+}

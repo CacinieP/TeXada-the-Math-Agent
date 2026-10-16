@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 
+from texada.core.scope import transcription_description
+
 
 class OperatorDriftGuard:
     """Detect loss or downgrade of deterministic and request-level anchors."""
@@ -130,7 +132,7 @@ class OperatorDriftGuard:
         forced.extend(
             operator for operator in self.STANDALONE_OPS if operator in preprocessed
         )
-        request = user_input.strip()
+        request = transcription_description(user_input)
         for pattern, operator in self.REQUEST_OPERATOR_PATTERNS:
             if pattern.search(request):
                 forced.append(operator)

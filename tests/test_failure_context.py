@@ -117,7 +117,7 @@ async def test_runtime_failed_history_projection_recovers_with_raw_audit_retaine
             return value
 
     planner = Planner()
-    runtime = TeXadaAgentRuntime(TeXadaConfig(
+    runtime = TeXadaAgentRuntime(TeXadaConfig(nl_require_review=False,
         data_dir=tmp_path, failure_context_projection=enabled,
     ), model=planner)
     runtime.candidate_engine.propose = lambda _: None
@@ -139,7 +139,7 @@ async def test_runtime_failed_history_projection_recovers_with_raw_audit_retaine
 
 
 def test_planner_controls_change_identity_without_invalidating_legacy_schema_one(tmp_path):
-    config = TeXadaConfig(data_dir=tmp_path)
+    config = TeXadaConfig(nl_require_review=False, data_dir=tmp_path)
     identity = build_inference_identity(config)
     raw = build_inference_identity(config.model_copy(update={"failure_context_projection": False}))
     minimal = build_inference_identity(config.model_copy(update={"planner_surface": "minimal"}))

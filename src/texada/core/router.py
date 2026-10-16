@@ -9,6 +9,7 @@ from texada.core.fixer import LaTeXFixer
 from texada.core.intent import IntentClassifier
 from texada.core.model import MiniCPMModel
 from texada.core.operator_guard import OperatorDriftGuard
+from texada.core.scope import require_transcription
 from texada.core.symbols import SymbolEngine
 from texada.core.validator import LaTeXValidator
 from texada.render.engine import RenderEngine
@@ -107,6 +108,7 @@ class InputRouter:
             context: Extra context string (e.g. prior conversation) for the model.
             render_mode: Per-request render mode override.
         """
+        require_transcription(text)
         start = time.monotonic()
 
         route = route_override or self.route(Tab.NL, text)
@@ -179,10 +181,15 @@ class InputRouter:
         context: str = "",
     ) -> tuple[str, int]:
         """Propose a completion before the shared Agent Runtime reviews it."""
+        require_transcription(text)
         prompt = f"{context}\n{text}" if context else text
         ruled = self.model.rule_complete(text)
         if ruled:
-            return self.operator_guard.normalize_candidate(ruled), 0
+            normalized = self.operator_guard.normalize_candidate(ruled)
+            # Fill syntax holes and close environments before the deterministic
+            # intake. The shared runtime still checks the original prefix.
+            completed, _, _ = self._validate_and_fix(normalized)
+            return completed, 0
 
         normalized = self.operator_guard.normalize_candidate(text)
         deterministic, validation, _ = self._validate_and_fix(normalized)
