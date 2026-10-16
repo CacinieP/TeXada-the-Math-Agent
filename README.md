@@ -126,10 +126,10 @@ The Ollama port is configurable. The default is `http://localhost:11434`, but Se
 ### Download
 
 For the built-in llama-server setup below, install
-[v0.4.2-beta.3 (prerelease)](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.2-beta.3).
-Choose [TeXada_0.4.2-beta.3_aarch64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.3/TeXada_0.4.2-beta.3_aarch64.dmg) for Apple Silicon,
-[TeXada_0.4.2-beta.3_x64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.3/TeXada_0.4.2-beta.3_x64.dmg) for Intel Macs, or
-[TeXada_0.4.2-beta.3_x64-setup.exe](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.3/TeXada_0.4.2-beta.3_x64-setup.exe) for Windows. macOS requires 13.3 or later.
+[v0.4.2-beta.4 (prerelease)](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.2-beta.4).
+Choose [TeXada_0.4.2-beta.4_aarch64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.4/TeXada_0.4.2-beta.4_aarch64.dmg) for Apple Silicon,
+[TeXada_0.4.2-beta.4_x64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.4/TeXada_0.4.2-beta.4_x64.dmg) for Intel Macs, or
+[TeXada_0.4.2-beta.4_x64-setup.exe](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.4/TeXada_0.4.2-beta.4_x64-setup.exe) for Windows. macOS requires 13.3 or later.
 This is a prerelease. Historical beta evaluation still includes 24 mathematically incorrect committed formulas, with Codex judgments and no independent human review. This release provides no new mathematical accuracy validation; compilation, rendering, or submission success does not establish mathematical correctness.
 
 Model weights download separately after installation. The older stable release
@@ -139,7 +139,7 @@ The `v0.4.1` desktop release is licensed
 `AGPL-3.0-or-later`. Tagged releases retain the license recorded in their
 immutable tag: earlier `v0.3.6` artifacts are `GPL-3.0-or-later`, while
 `v0.3.7` and later are `AGPL-3.0-or-later`. Current `main` development is
-version `0.4.2-beta.3`.
+version `0.4.2-beta.4`.
 
 | Platform | Package |
 |----------|---------|
@@ -202,7 +202,7 @@ Save after changing the backend or its runtime paths before using service contro
 
 ### Quick Start With Built-in llama-server
 
-1. Install and open **v0.4.2-beta.3** from the release link above.
+1. Install and open **v0.4.2-beta.4** from the release link above.
 2. Open **Settings → Backend**, select **`Built-in llama-server`**, and click **Save**.
    Keep the default address `http://127.0.0.1:8080`. Leave **llama-server executable** and **Model directory** blank to use the packaged runtime and `~/.texada/models`.
 3. In **Local inference service (llama-server)**, click **Download model**. Wait until downloading finishes for both the model weights and the vision projector. They are not included in the installer.
@@ -640,10 +640,10 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 ### 下载
 
 使用下方内置 llama-server 路线，请安装
-[v0.4.2-beta.3 预发布版](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.2-beta.3)。
-Apple Silicon Mac 选择 [TeXada_0.4.2-beta.3_aarch64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.3/TeXada_0.4.2-beta.3_aarch64.dmg)，
-Intel Mac 选择 [TeXada_0.4.2-beta.3_x64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.3/TeXada_0.4.2-beta.3_x64.dmg)，
-Windows 选择 [TeXada_0.4.2-beta.3_x64-setup.exe](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.3/TeXada_0.4.2-beta.3_x64-setup.exe)。macOS 需要 13.3 或更新版本。
+[v0.4.2-beta.4 预发布版](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.2-beta.4)。
+Apple Silicon Mac 选择 [TeXada_0.4.2-beta.4_aarch64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.4/TeXada_0.4.2-beta.4_aarch64.dmg)，
+Intel Mac 选择 [TeXada_0.4.2-beta.4_x64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.4/TeXada_0.4.2-beta.4_x64.dmg)，
+Windows 选择 [TeXada_0.4.2-beta.4_x64-setup.exe](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2-beta.4/TeXada_0.4.2-beta.4_x64-setup.exe)。macOS 需要 13.3 或更新版本。
 这是预发布版。历史 beta 评测仍有 24 条数学错误公式成功提交，判定来自 Codex，尚无独立人工复核。本版未新增数学准确率验证；编译、渲染或提交成功均不保证数学语义正确。
 
 模型权重在安装后单独下载。下表保留旧稳定版下载信息；旧稳定版不包含 beta 的内置运行时。
@@ -651,7 +651,7 @@ Windows 选择 [TeXada_0.4.2-beta.3_x64-setup.exe](https://github.com/CacinieP/T
 `v0.4.1` 桌面版本适用 `AGPL-3.0-or-later`。每个标签及其
 安装包继续适用标签内记录的许可证：`v0.3.6` 及更早产物为
 `GPL-3.0-or-later`，`v0.3.7` 起为 `AGPL-3.0-or-later`。当前 `main` 开发
-版本为 `0.4.2-beta.3`。
+版本为 `0.4.2-beta.4`。
 
 | 平台 | 安装包 |
 |------|--------|
@@ -713,7 +713,7 @@ beta.3 设置页只展示所选后端。文本与 OCR 保留独立角色；内�
 
 ### 内置 llama-server 快速启动
 
-1. 从上方 Release 链接安装并打开 **v0.4.2-beta.3**。
+1. 从上方 Release 链接安装并打开 **v0.4.2-beta.4**。
 2. 打开**设置 → 后端连接**，选择 **`Built-in llama-server`**，点击**保存**。
    地址保留 `http://127.0.0.1:8080`；**llama-server 路径**和**模型目录**留空，使用应用内置运行时及 `~/.texada/models`。
 3. 在**本地推理服务（llama-server）**中点击**下载模型**，等待模型权重和视觉投影文件全部下载完成。安装包不包含这些文件。

@@ -17,17 +17,17 @@ import pytest
         (
             "aarch64-apple-darwin",
             "llama-server",
-            "d03f28b5a5baa9cdfbb01db5ed22c695126c11c193326f14cdc51d001be10f4e",
+            "dbed55493d72bc1ba2babc8770d669c2289b5bc4ee9fb2a4dfc158d45b7d13fd",
         ),
         (
             "x86_64-apple-darwin",
             "llama-server",
-            "f95aa88329eb017213114c5f09841e9ee02477dacca2652f2451d322464b4acb",
+            "cab28238d78158109b48deb27b05d50e0dcef56275d2e76da9ca8281526c7532",
         ),
         (
             "x86_64-pc-windows-msvc",
             "llama-server.exe",
-            "8708a7b81842333927f6377ac3f17ff8bba4dbe1ee0cf28dfd5e7a32e3a46b38",
+            "37b3efcf962847ca869745fd4ccf7f5e7e8dacfeff9fa3523b4ca8cdc66d632b",
         ),
     ],
 )
@@ -40,7 +40,7 @@ def test_native_bash_archive_layouts(tmp_path, target, binary, digest):
     fixture = tmp_path / "fixture"
     fixture.mkdir()
     executable = fixture / binary
-    executable.write_text("#!/bin/sh\necho 'build 11609'\n")
+    executable.write_text("#!/bin/sh\necho 'build 11669'\n")
     executable.chmod(0o755)
     library = fixture / "runtime-library"
     library.write_text("fixture dependency")
@@ -51,7 +51,7 @@ def test_native_bash_archive_layouts(tmp_path, target, binary, digest):
             z.write(library, library.name)
     else:
         with tarfile.open(archive, "w:gz") as t:
-            t.add(fixture, arcname="llama-b11609")
+            t.add(fixture, arcname="llama-b11669")
     fixture_digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     script.write_text(script.read_text().replace(digest, fixture_digest))
     commands = tmp_path / "commands"

@@ -4,14 +4,14 @@
 # Places llama-server-<target-triple> (plus .exe on Windows) into
 # tauri-shell/src-tauri/binaries/ so Tauri externalBin can bundle it.
 # SHA256 is pinned per asset; the extracted binary is version-checked
-# (build >= 11609, required for MiniCPM-V 4.7).
+# (build >= 11669, required for MiniCPM-V 4.7).
 #
 # Usage: scripts/fetch-llama-server.sh [target-triple]
 #   (default: rustc host triple)
 set -euo pipefail
 
-BUILD="b11609"
-MIN_BUILD=11609
+BUILD="b11669"
+MIN_BUILD=11669
 
 # asset per rust target triple
 BASE_URL="https://github.com/ggml-org/llama.cpp/releases/download/${BUILD}"
@@ -22,9 +22,9 @@ if [ -z "$TARGET" ]; then
 fi
 
 case "$TARGET" in
-  aarch64-apple-darwin) ENTRY="llama-${BUILD}-bin-macos-arm64.tar.gz|d03f28b5a5baa9cdfbb01db5ed22c695126c11c193326f14cdc51d001be10f4e" ;;
-  x86_64-apple-darwin) ENTRY="llama-${BUILD}-bin-macos-x64.tar.gz|f95aa88329eb017213114c5f09841e9ee02477dacca2652f2451d322464b4acb" ;;
-  x86_64-pc-windows-msvc) ENTRY="llama-${BUILD}-bin-win-cpu-x64.zip|8708a7b81842333927f6377ac3f17ff8bba4dbe1ee0cf28dfd5e7a32e3a46b38" ;;
+  aarch64-apple-darwin) ENTRY="llama-${BUILD}-bin-macos-arm64.tar.gz|dbed55493d72bc1ba2babc8770d669c2289b5bc4ee9fb2a4dfc158d45b7d13fd" ;;
+  x86_64-apple-darwin) ENTRY="llama-${BUILD}-bin-macos-x64.tar.gz|cab28238d78158109b48deb27b05d50e0dcef56275d2e76da9ca8281526c7532" ;;
+  x86_64-pc-windows-msvc) ENTRY="llama-${BUILD}-bin-win-cpu-x64.zip|37b3efcf962847ca869745fd4ccf7f5e7e8dacfeff9fa3523b4ca8cdc66d632b" ;;
   *) echo "error: no pinned llama-server asset for target '$TARGET'" >&2; exit 1 ;;
 esac
 ASSET="${ENTRY%%|*}"
