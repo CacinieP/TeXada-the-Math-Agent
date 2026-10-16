@@ -88,7 +88,7 @@ def main() -> None:
         version = subprocess.run(
             [str(runtime), "--version"], check=True, text=True, capture_output=True, timeout=30
         )
-        assert "build 11609" in version.stdout + version.stderr
+        assert "build 11669" in version.stdout + version.stderr
         port = free_port()
         base = f"http://127.0.0.1:{port}"
         env = dict(
@@ -138,7 +138,7 @@ def main() -> None:
                             "installation_mode": installation_mode,
                             "installed_desktop_started": True,
                             "bundled_backend_started": True,
-                            "bundled_runtime_build": 11609,
+                            "bundled_runtime_build": 11669,
                             "status": status,
                             "deterministic_compile_and_render_valid": True,
                             "model_inference_tested": False,

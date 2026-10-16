@@ -170,7 +170,7 @@ class TeXadaAgentRuntime:
             TeXToolset(config),
             timeout_seconds=config.tool_timeout_seconds,
         )
-        self.backend = backend or BackendManager(config)
+        self.backend = backend or getattr(self.model, "backend", None) or BackendManager(config)
         self.symbol_engine = SymbolEngine()
         self.operator_guard = OperatorDriftGuard()
         self.intent_classifier = IntentClassifier()

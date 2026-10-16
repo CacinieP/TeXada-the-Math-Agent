@@ -135,6 +135,99 @@ class OperatorDriftGuard:
             if pattern.search(request):
                 forced.append(operator)
 
+        vector_norm = re.fullmatch(r"向量\s*([A-Za-z])\s*的二范数\s*[。.]?", request)
+        if vector_norm:
+            forced.append(f"vector two-norm of {vector_norm[1]}")
+
+        paired_scripts = re.fullmatch(
+            r"([A-Za-z])\s*的上标\s*([A-Za-z])\s*加下标\s*([A-Za-z])\s*[。.]?",
+            request,
+        )
+        if paired_scripts:
+            base, upper, lower = paired_scripts.groups()
+            forced.append(f"paired scripts: base {base}, upper {upper}, lower {lower}")
+
+        sequence_limit = re.fullmatch(
+            r"(?P<index>[A-Za-z])\s*趋近于\s*(?:正)?无穷\s*时\s*[，,]?\s*"
+            r"数列\s*(?P<base>[A-Za-z])\s*下标\s*(?P=index)\s*等于\s*"
+            r"(?P<value>[A-Za-z])\s*[。.]?",
+            request,
+        )
+        if sequence_limit:
+            forced.append(
+                f"sequence limit: {sequence_limit['base']}_{sequence_limit['index']} "
+                f"equals {sequence_limit['value']} at positive infinity"
+            )
+
+        factorial = re.fullmatch(r"([A-Za-z])\s*的\s*阶乘\s*[。.]?", request)
+        if factorial:
+            forced.append(f"unevaluated factorial of {factorial[1]}")
+
+        symbolic_product = re.fullmatch(
+            r"两个未给具体元素的二乘二矩阵\s*(?P<left>[A-Za-z])\s*与\s*"
+            r"(?P<right>[A-Za-z])\s*[，,]\s*写出\s*(?P=left)\s*乘\s*"
+            r"(?P=right)\s*的符号乘积\s*[。.]?",
+            request,
+        )
+        if symbolic_product:
+            forced.append(
+                f"unexpanded matrix product: {symbolic_product['left']} "
+                f"then {symbolic_product['right']}"
+            )
+
+        literal_matrix = re.fullmatch(
+            r"二乘二矩阵\s*[，,]\s*第一行\s*([A-Za-z])\s+([A-Za-z])"
+            r"\s*[，,]\s*第二行\s*([A-Za-z])\s+([A-Za-z])\s*[。.]?",
+            request,
+        )
+        if literal_matrix:
+            a, b, c, d = literal_matrix.groups()
+            forced.append(f"literal 2x2 matrix rows: {a},{b};{c},{d}")
+
+        ordinary_derivative = re.fullmatch(
+            r"(?P<function>[A-Za-z])\s*对\s*(?P<variable>[A-Za-z])"
+            r"\s*的\s*(?P<order>n|二)\s*阶导数\s*[。.]?",
+            request,
+        )
+        if ordinary_derivative:
+            # The pretranslator's generic derivative fraction is not mandatory:
+            # superscript order and double primes are supported alternatives.
+            forced = [operator for operator in forced if operator != r"\frac"]
+            order = "n-th" if ordinary_derivative["order"] == "n" else "second"
+            forced.append(
+                f"{order} ordinary derivative of {ordinary_derivative['function']} "
+                f"with respect to {ordinary_derivative['variable']}"
+            )
+
+        # Do not infer that a curve is closed from the term "line integral".
+        # Limit this prohibition to an explicit description-only template.
+        if re.fullmatch(
+            r"\s*沿曲线\s*[A-Za-z]\s*的线积分\s*[A-Za-z]\s+ds\s*[。.]?\s*",
+            request,
+        ):
+            forced.append("line-integral-without-assumed-closure")
+
+        for match in re.finditer(
+            r"数列[^，,。；;！!？?\n]*?的\s*(?P<side>[上下])极限"
+            r"(?=\s*(?:[，,。；;！!？?\n]|$))",
+            request,
+        ):
+            prefix = re.split(r"[，,。；;！!？?\n]", request[:match.start("side")])[-1]
+            if not re.search(r"不要|不用|无需|不必|不能|禁止|勿|别|不", prefix):
+                forced.append(r"\limsup" if match["side"] == "上" else r"\liminf")
+
+        # A narrowly phrased request for both set operations must retain both
+        # notation anchors. This is completeness evidence, not equivalence proof.
+        for match in re.finditer(
+            r"(?:并集\s*[和与及、]\s*交集|交集\s*[和与及、]\s*并集)"
+            r"(?=\s*(?:[，,。；;！!？?\n]|$))",
+            request,
+        ):
+            prefix = re.split(r"[，,。；;！!？?\n]", request[:match.start()])[-1]
+            if not re.search(r"不要|不用|无需|不必|不能|禁止|勿|别|不", prefix):
+                forced.extend((r"\cup", r"\cap"))
+                break
+
         for match in re.finditer(r"(?:写成|写为|表示为|使用)\s*(?:分式|分数)", request):
             # Keep this request anchor narrow. A negation earlier in the same
             # clause (including "不要把结果写成分式") makes it non-mandatory.
@@ -304,6 +397,118 @@ class OperatorDriftGuard:
         user_input: str = "",
     ) -> bool:
         """Check exact commands plus the few structural request anchors."""
+        vector_norm = re.fullmatch(r"vector two-norm of ([A-Za-z])", anchor)
+        if vector_norm:
+            symbol = re.escape(vector_norm[1])
+            operand = (
+                rf"(?:{symbol}|\{{{symbol}\}}|\\vec(?:{symbol}|\{{{symbol}\}})"
+                rf"|\\(?:mathbf|boldsymbol)\{{{symbol}\}})"
+            )
+            forms = []
+            for opening, closing in (
+                (r"\lVert", r"\rVert"), (r"\Vert", r"\Vert"),
+                (r"\|", r"\|"), ("||", "||"),
+            ):
+                left, right = re.escape(opening), re.escape(closing)
+                forms.append(rf"{left}{operand}{right}")
+                forms.append(rf"\\left{left}{operand}\\right{right}")
+            return bool(re.fullmatch(
+                rf"(?:{'|'.join(forms)})_(?:2|\{{2\}})",
+                re.sub(r"\s+|\\[,!;:]", "", candidate),
+            ))
+        paired_scripts = re.fullmatch(
+            r"paired scripts: base ([A-Za-z]), upper ([A-Za-z]), lower ([A-Za-z])",
+            anchor,
+        )
+        if paired_scripts:
+            base, upper, lower = map(re.escape, paired_scripts.groups())
+            superscript = rf"\^(?:{upper}|\{{{upper}\}})"
+            subscript = rf"_(?:{lower}|\{{{lower}\}})"
+            # Both scripts belong to this base; either LaTeX order is valid.
+            return bool(re.fullmatch(
+                rf"(?:{base}|\{{{base}\}})"
+                rf"(?:{superscript}{subscript}|{subscript}{superscript})",
+                re.sub(r"\s+|\\[,!;:]", "", candidate),
+            ))
+        sequence_limit = re.fullmatch(
+            r"sequence limit: ([A-Za-z])_([A-Za-z]) equals ([A-Za-z]) at positive infinity",
+            anchor,
+        )
+        if sequence_limit:
+            base, index, value = map(re.escape, sequence_limit.groups())
+            term = rf"{base}_(?:{index}|\{{{index}\}})"
+            approach = rf"{index}\\(?:to|rightarrow)\+?\\infty"
+            body = rf"(?:{term}|\({term}\)|\\left\({term}\\right\))"
+            # Equality belongs to the statement, never inside the subscript.
+            return bool(re.fullmatch(
+                rf"\\lim(?:\\limits)?_\{{{approach}\}}{body}={value}"
+                rf"|{term}\\xrightarrow\{{{approach}\}}{value}"
+                rf"|{term}\\(?:to|rightarrow){value}",
+                re.sub(r"\s+|\\[,!;:]", "", candidate),
+            ))
+        factorial = re.fullmatch(r"unevaluated factorial of ([A-Za-z])", anchor)
+        if factorial:
+            symbol = re.escape(factorial[1])
+            compact = re.sub(r"\s+|\\[,!;:]", "", candidate)
+            return bool(re.fullmatch(
+                rf"(?:{symbol}|\{{{symbol}\}}|\({symbol}\)|"
+                rf"\\left\({symbol}\\right\))!|\{{{symbol}!\}}",
+                compact,
+            ))
+        symbolic_product = re.fullmatch(
+            r"unexpanded matrix product: ([A-Za-z]) then ([A-Za-z])", anchor,
+        )
+        if symbolic_product:
+            factors = [
+                rf"(?:{name}|\{{{name}\}}|\\(?:mathbf|boldsymbol|mathrm)\{{{name}\}})"
+                for name in map(re.escape, symbolic_product.groups())
+            ]
+            product = rf"{factors[0]}(?:\\(?:cdot|times))?{factors[1]}"
+            compact = re.sub(r"\s+|\\[,!;:]", "", candidate)
+            # Match the whole ordered product, not names inside an expansion.
+            return bool(re.fullmatch(
+                rf"{product}|\({product}\)|\\left\({product}\\right\)", compact,
+            ))
+        literal_matrix = re.fullmatch(
+            r"literal 2x2 matrix rows: ([A-Za-z]),([A-Za-z]);([A-Za-z]),([A-Za-z])",
+            anchor,
+        )
+        if literal_matrix:
+            a, b, c, d = map(re.escape, literal_matrix.groups())
+            # Only the requested array: no determinant, evaluation or extras.
+            return bool(re.fullmatch(
+                rf"\\begin\{{(?P<env>pmatrix|bmatrix|matrix|smallmatrix)\}}"
+                rf"{a}&{b}\\\\{c}&{d}\\end\{{(?P=env)\}}",
+                re.sub(r"\s+", "", candidate),
+            ))
+        ordinary_derivative = re.fullmatch(
+            r"(n-th|second) ordinary derivative of ([A-Za-z]) with respect to ([A-Za-z])",
+            anchor,
+        )
+        if ordinary_derivative:
+            label, function, variable = ordinary_derivative.groups()
+            function, variable = map(re.escape, (function, variable))
+            power = "n" if label == "n-th" else "2"
+            compact = re.sub(r"\s+|\\[,!;:]", "", candidate)
+            compact = compact.replace(r"\mathrm{d}", "d")
+            order = rf"\^(?:{power}|\{{{power}\}})"
+            alternatives = rf"{function}\^\{{\({power}\)\}}\({variable}\)"
+            if power == "2":
+                alternatives += (
+                    rf"|{function}(?:''|\^\{{\\prime\\prime\}})"
+                    rf"(?:\({variable}\))?"
+                )
+            # Match the whole supported notation, not two unrelated exponents.
+            return bool(re.fullmatch(
+                rf"\\(?:frac|dfrac|tfrac)\{{d{order}{function}"
+                rf"(?:\({variable}\))?\}}\{{d{variable}{order}\}}"
+                rf"|{alternatives}",
+                compact,
+            ))
+        if anchor == "line-integral-without-assumed-closure":
+            return bool(re.search(r"\\int(?![A-Za-z])", candidate)) and not bool(
+                re.search(r"\\oint(?![A-Za-z])", candidate)
+            )
         if anchor in self.INTEGRAL_LADDER:
             rank_preserved = self.integral_rank(candidate) >= (
                 self.INTEGRAL_LADDER.index(anchor) + 1
@@ -408,6 +613,14 @@ class OperatorDriftGuard:
         if re.fullmatch(r"\\[A-Za-z]+", anchor):
             aliases = {
                 r"\lim": r"\\lim(?:inf|sup)?(?![A-Za-z])",
+                r"\limsup": (
+                    r"\\(?:limsup|varlimsup)(?![A-Za-z])"
+                    r"|\\overline\s*\{\s*\\lim\s*\}"
+                ),
+                r"\liminf": (
+                    r"\\(?:liminf|varliminf)(?![A-Za-z])"
+                    r"|\\underline\s*\{\s*\\lim\s*\}"
+                ),
                 r"\ge": r"\\ge(?:q)?(?![A-Za-z])",
                 r"\le": r"\\le(?:q)?(?![A-Za-z])",
                 r"\ne": r"\\ne(?:q)?(?![A-Za-z])",

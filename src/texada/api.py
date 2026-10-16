@@ -24,7 +24,6 @@ from texada.config import (
     save_config_updates,
     validate_config_updates,
 )
-from texada.core.backend import BackendManager
 from texada.core.download import download_all
 from texada.core.inference_fingerprint import (
     build_inference_identity,
@@ -153,6 +152,9 @@ class ShorthandResponse(BaseModel):
 class StatusResponse(BaseModel):
     status: str
     ready: bool = False
+    service_reachable: bool | None = None
+    text_inference_status: str | None = None
+    vision_inference_status: str | None = None
     backend: str
     endpoint: str | None = None
     vision_endpoint: str | None = None
@@ -316,7 +318,7 @@ def _app_version() -> str:
     try:
         return version("texada")
     except PackageNotFoundError:
-        return "0.4.2-beta.3"
+        return "0.4.2-beta.4"
 
 
 def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
@@ -521,7 +523,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     history = HistoryStore(config)
     run_logs = RunLogStore(config)
     render_engine = RenderEngine(config)
-    backend_mgr = BackendManager(config)
+    backend_mgr = router.backend
     review_store = PendingReviewStore(max_source_bytes=max(32 * 1024 * 1024, config.max_ocr_bytes))
     llama_mgr = LlamaServerManager(config)
     runtime_lock = asyncio.Lock()
@@ -543,7 +545,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         history = HistoryStore(config)
         run_logs = RunLogStore(config)
         render_engine = RenderEngine(config)
-        backend_mgr = BackendManager(config)
+        backend_mgr = router.backend
         llama_mgr = LlamaServerManager(config)
 
     @asynccontextmanager
@@ -743,6 +745,9 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         else:
             info = await backend_mgr.aget_status()
         return StatusResponse(
+            service_reachable=info.get("service_reachable"),
+            text_inference_status=info.get("text_inference_status"),
+            vision_inference_status=info.get("vision_inference_status"),
             status=info["status"],
             ready=info.get("ready", info["status"] in {"ready", "ok"}),
             backend=info.get("backend", config.backend),

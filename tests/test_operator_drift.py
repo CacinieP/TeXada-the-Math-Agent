@@ -315,3 +315,332 @@ def test_guard_keeps_integral_that_already_has_the_required_domain():
         )
         == candidate
     )
+
+
+def test_explicit_chinese_paired_set_operations_require_both_operators():
+    guard = OperatorDriftGuard()
+    for request in (
+        "集合 A 与集合 B 的并集和交集",
+        "写出 A、B 的交集与并集。",
+        "不要计算，请描述 A 和 B 的并集及交集。",
+    ):
+        assert set(guard.forced_operators("", request)) == {r"\cup", r"\cap"}
+        assert guard.missing_requirements("", r"A \cup B", user_input=request) == [r"\cap"]
+        assert guard.missing_requirements("", r"A \cap B", user_input=request) == [r"\cup"]
+        assert not guard.check("", r"A \cup B,\quad A \cap B", user_input=request)
+        assert guard.check("", r"A \cup B\caption{x}", user_input=request)
+
+
+def test_paired_set_anchor_does_not_expand_single_negated_or_filename_requests():
+    guard = OperatorDriftGuard()
+    for request in (
+        "集合 A 与集合 B 的并集",
+        "集合 A 与集合 B 的交集",
+        "不要写并集和交集。",
+        "只写并集，不要写交集。",
+        "并集和交集.png",
+    ):
+        assert not guard.forced_operators("", request), request
+
+
+def test_sequence_upper_and_lower_limits_preserve_distinct_notation():
+    guard = OperatorDriftGuard()
+    for label, command, alternate, decorated in (
+        ("上", r"\limsup", r"\varlimsup", r"\overline{\lim}"),
+        ("下", r"\liminf", r"\varliminf", r"\underline{\lim}"),
+    ):
+        request = f"数列 a 下标 n 的{label}极限"
+        assert guard.forced_operators("", request) == [command]
+        assert guard.check("", r"\lim_{n\to\infty}a_n", user_input=request)
+        for notation in (command, alternate, decorated):
+            assert not guard.check("", notation + r"_{n\to\infty}a_n", user_input=request)
+        assert guard.check("", command + "extra", user_input=request)
+        assert not guard.forced_operators("", "不要写" + request)
+        assert not guard.forced_operators("", request.replace("的", "不要求的"))
+        opposite = r"\liminf" if label == "上" else r"\limsup"
+        assert guard.check("", opposite + r"_{n\to\infty}a_n", user_input=request)
+    for request in ("数列 a 下标 n 的极限", "上极限.png", "积分的上极限"):
+        assert not guard.forced_operators("", request)
+
+
+def test_line_integral_does_not_assume_an_unspecified_closed_curve():
+    guard = OperatorDriftGuard()
+    request = "沿曲线 C 的线积分 f ds"
+    assert guard.check("", r"\oint_C f\,ds", user_input=request)
+    assert guard.check("", r"\int_C f\,ds + \oint_C f\,ds", user_input=request)
+    assert not guard.check("", r"\int_C f\,ds", user_input=request)
+    assert not guard.check("", r"\int\limits_C f\,ds", user_input=request)
+    for other in (
+        "沿闭合曲线 C 的线积分 f ds",
+        "沿曲线 C 的闭合线积分 f ds",
+        "不要写沿曲线 C 的线积分 f ds",
+        "沿曲线 C 的线积分 f ds.png",
+    ):
+        assert not guard.forced_operators("", other)
+
+
+def test_line_integral_pretranslation_does_not_add_closure():
+    from texada.core.symbols import SymbolEngine
+
+    engine = SymbolEngine()
+    assert r"\int" in engine.pre_translate("沿曲线 C 的线积分 f ds")
+    assert r"\oint" not in engine.pre_translate("沿曲线 C 的线积分 f ds")
+    assert r"\oint" in engine.pre_translate("闭合线积分")
+
+
+def test_explicit_nth_ordinary_derivative_preserves_denominator_order():
+    guard = OperatorDriftGuard()
+    request = "f 对 x 的 n 阶导数"
+    for candidate in (
+        r"\frac{d^n f}{dx}",
+        r"\frac{d^n f}{dx^2}",
+        r"\frac{d^n f}{dy^n}",
+        r"\frac{d^n g}{dx^n}",
+        r"\frac{\partial^n f}{\partial x^n}",
+        r"\frac{d^n f}{dx} + x^n",
+        r"\text{\frac{d^n f}{dx^n}}",
+        r"f^{(n)}(y)",
+    ):
+        assert guard.check("", candidate, user_input=request), candidate
+    for candidate in (
+        r"\frac{d^n f}{dx^n}",
+        r"\frac{d^{n}f}{d x^{n}}",
+        r"\dfrac{\mathrm{d}^{n} f}{\mathrm{d} x^{n}}",
+        r"f^{(n)}(x)",
+        r"\tfrac{d^n f(x)}{dx^n}",
+    ):
+        # Pretranslation normally introduces a fraction; alternative notation
+        # must not be rejected solely for omitting that implicit fraction.
+        assert not guard.check(r"\frac{d}{dx}", candidate, user_input=request), candidate
+    for request in ("不要写 f 对 x 的 n 阶导数", "f 对 x 的 n 阶偏导数", "f 对 x 的一阶导数"):
+        assert not guard.forced_operators("", request)
+
+
+def test_nth_derivative_template_binds_other_function_and_variable_names():
+    guard = OperatorDriftGuard()
+    request = "g 对 t 的 n 阶导数。"
+    assert not guard.check("", r"\frac{d^n g}{dt^n}", user_input=request)
+    assert not guard.check("", r"g^{(n)}(t)", user_input=request)
+    assert guard.check("", r"\frac{d^n g}{dx^n}", user_input=request)
+    assert guard.check("", r"f^{(n)}(t)", user_input=request)
+
+
+def test_explicit_second_ordinary_derivative_preserves_order_and_kind():
+    guard = OperatorDriftGuard()
+    description = "y 对 x 的二阶导数"
+    for candidate in (
+        r"\frac{\partial y}{\partial x}",
+        r"\frac{\partial^2 y}{\partial x^2}",
+        r"\frac{dy}{dx}",
+        r"\frac{d^2y}{dx}",
+        r"\frac{d^2y}{dt^2}",
+        r"\frac{d^2f}{dx^2}",
+        r"\frac{dy}{dx}+x^2+y^2",
+        r"y'(x)",
+        r"\text{y''}",
+    ):
+        assert guard.check("", candidate, user_input=description), candidate
+    for candidate in (
+        r"\frac{d^2y}{dx^2}",
+        r"\dfrac{\mathrm{d}^{2}y}{\mathrm{d}x^{2}}",
+        r"\tfrac{d^2y(x)}{dx^2}",
+        "y''", "y''(x)", r"y^{\prime\prime}",
+        r"y^{\prime\prime}(x)", r"y^{(2)}(x)",
+    ):
+        assert not guard.check(r"\frac{d}{dx}", candidate, user_input=description), candidate
+    for description in (
+        "不要写 y 对 x 的二阶导数", "y 对 x 的二阶偏导数",
+        "y 对 x 的一阶导数", "y 对 x 的二阶导数.png",
+    ):
+        assert not guard.forced_operators("", description)
+
+
+def test_second_derivative_template_binds_other_names():
+    guard = OperatorDriftGuard()
+    description = "g 对 t 的二阶导数。"
+    assert not guard.check("", r"\frac{d^2g}{dt^2}", user_input=description)
+    assert not guard.check("", "g''(t)", user_input=description)
+    assert guard.check("", "g''(x)", user_input=description)
+    assert guard.check("", "f''(t)", user_input=description)
+
+
+def test_explicit_matrix_description_does_not_become_determinant_calculation():
+    guard = OperatorDriftGuard()
+    description = "二乘二矩阵，第一行 a b，第二行 c d"
+    matrix = r"\begin{pmatrix} a & b \\ c & d \end{pmatrix}"
+    for candidate in (
+        r"\det" + matrix + " = ad - bc",
+        r"\det" + matrix,
+        matrix + " = ad-bc",
+        r"\begin{vmatrix}a&b\\c&d\end{vmatrix}",
+        r"\begin{pmatrix}a&c\\b&d\end{pmatrix}",
+        r"\begin{pmatrix}a&b\\c&x\end{pmatrix}",
+        r"\begin{pmatrix}a&b&c&d\end{pmatrix}",
+    ):
+        assert guard.check("", candidate, user_input=description), candidate
+    for environment in ("pmatrix", "bmatrix", "matrix", "smallmatrix"):
+        candidate = matrix.replace("pmatrix", environment)
+        assert not guard.check("", candidate, user_input=description), candidate
+    for description in (
+        "二乘二矩阵 A 的行列式",
+        "不要写二乘二矩阵，第一行 a b，第二行 c d",
+        "计算二乘二矩阵，第一行 a b，第二行 c d 的行列式",
+        "二乘二矩阵，第一行 a b，第二行 c d.png",
+    ):
+        assert not guard.forced_operators("", description)
+
+
+def test_explicit_matrix_template_binds_different_entries_and_punctuation():
+    guard = OperatorDriftGuard()
+    description = "二乘二矩阵, 第一行 p q, 第二行 r s。"
+    assert not guard.check("", r"\begin{bmatrix}p&q\\r&s\end{bmatrix}", user_input=description)
+    assert guard.check("", r"\begin{bmatrix}a&b\\c&d\end{bmatrix}", user_input=description)
+
+
+def test_unspecified_matrix_entries_require_only_the_ordered_symbolic_product():
+    guard = OperatorDriftGuard()
+    description = "两个未给具体元素的二乘二矩阵 A 与 B，写出 A 乘 B 的符号乘积"
+    for candidate in (
+        "BA", "AC", "A+B", "AB=BA", "AB=0",
+        r"\begin{pmatrix}a&b\\c&d\end{pmatrix}\begin{pmatrix}e&f\\g&h\end{pmatrix}",
+        r"AB=\begin{pmatrix}ae+bg&af+bh\\ce+dg&cg+dh\end{pmatrix}",
+        r"\text{AB}",
+    ):
+        assert guard.check("", candidate, user_input=description), candidate
+    for candidate in (
+        "AB", "A B", r"A\,B", r"A\cdot B", r"A\times B",
+        r"\mathbf{A}\mathbf{B}", r"\boldsymbol{A}\cdot\boldsymbol{B}",
+        "(AB)", r"\left(AB\right)",
+    ):
+        assert not guard.check("", candidate, user_input=description), candidate
+    for description in (
+        "计算矩阵 A 与 B 的乘积",
+        "不要写两个未给具体元素的二乘二矩阵 A 与 B，写出 A 乘 B 的符号乘积",
+        "两个未给具体元素的二乘二矩阵 A 与 B，写出 B 乘 A 的符号乘积",
+        "两个未给具体元素的二乘二矩阵 A 与 B，写出 A 乘 B 的符号乘积.png",
+    ):
+        assert not guard.forced_operators("", description)
+
+
+def test_symbolic_matrix_product_binds_other_names_without_commuting_them():
+    guard = OperatorDriftGuard()
+    description = "两个未给具体元素的二乘二矩阵 P 与 Q, 写出 P 乘 Q 的符号乘积。"
+    assert not guard.check("", "PQ", user_input=description)
+    assert guard.check("", "QP", user_input=description)
+    assert guard.check("", "AB", user_input=description)
+
+
+def test_explicit_factorial_description_preserves_unevaluated_notation():
+    guard = OperatorDriftGuard()
+    description = "n 的阶乘"
+    for candidate in (
+        r"n^{\text{阶}}", "n", "m!", "n!!", "n! = 120",
+        r"\text{n!}", r"n\!", "n!+1",
+    ):
+        assert guard.check("", candidate, user_input=description), candidate
+    for candidate in ("n!", "n !", "{n}!", "(n)!", r"\left(n\right)!", "{n!}"):
+        assert not guard.check("", candidate, user_input=description), candidate
+    for description in (
+        "计算 n 的阶乘", "不要写 n 的阶乘", "n 的双阶乘", "n 的阶乘.png",
+    ):
+        assert not guard.forced_operators("", description)
+
+
+def test_factorial_description_binds_other_symbol_and_punctuation():
+    guard = OperatorDriftGuard()
+    assert not guard.check("", "k!", user_input="k 的阶乘。")
+    assert guard.check("", "n!", user_input="k 的阶乘。")
+
+
+def test_sequence_limit_statement_keeps_equality_outside_the_subscript():
+    guard = OperatorDriftGuard()
+    description = "n 趋近于无穷时数列 a 下标 n 等于 L"
+    for candidate in (
+        r"\lim_{n \to \infty} a_{n=L}",
+        r"\lim_{n\to\infty}a_n", "a_n=L",
+        r"\lim_{n\to\infty}a_m=L", r"\lim_{m\to\infty}a_n=L",
+        r"\lim_{n\to\infty}b_n=L", r"\lim_{n\to\infty}a_n=M",
+        r"\limsup_{n\to\infty}a_n=L",
+        r"\text{\lim_{n\to\infty}a_n=L}",
+    ):
+        assert guard.check("", candidate, user_input=description), candidate
+    for candidate in (
+        r"\lim_{n\to\infty}a_n=L",
+        r"\lim\limits_{n\rightarrow+\infty}a_{n}=L",
+        r"\lim_{n\to\infty}\left(a_n\right)=L",
+        r"a_n\xrightarrow{n\to\infty}L",
+        r"a_n\to L",
+    ):
+        assert not guard.check("", candidate, user_input=description), candidate
+    for description in (
+        "不要写 n 趋近于无穷时数列 a 下标 n 等于 L",
+        "计算 n 趋近于无穷时数列 a 下标 n 等于 L",
+        "n 趋近于无穷时数列 a 下标 m 等于 L",
+        "n 趋近于无穷时数列 a 下标 n 等于 L.png",
+    ):
+        assert not guard.forced_operators("", description)
+
+
+def test_sequence_limit_template_binds_other_symbols():
+    guard = OperatorDriftGuard()
+    description = "k 趋近于无穷时，数列 b 下标 k 等于 M。"
+    assert not guard.check("", r"\lim_{k\to\infty}b_k=M", user_input=description)
+    assert guard.check("", r"\lim_{n\to\infty}a_n=L", user_input=description)
+
+
+def test_explicit_paired_scripts_keep_symbols_and_roles_on_the_same_base():
+    guard = OperatorDriftGuard()
+    description = "x 的上标 n 加下标 k"
+    for candidate in (
+        r"x^{\text{上标 n}}_{\text{下标 k}}",
+        r"x_n^k", r"y_k^n", r"x^{n_k}", r"x_{k^n}",
+        r"x^n+x_k", r"x^n", r"x_k", r"\text{x_k^n}",
+    ):
+        assert guard.check("", candidate, user_input=description), candidate
+    for candidate in ("x_k^n", "x^n_k", r"x^{n}_{k}", r"x_{k}^{n}", r"{x}_{k}^{n}"):
+        assert not guard.check("", candidate, user_input=description), candidate
+    for description in (
+        "不要写 x 的上标 n 加下标 k",
+        "计算 x 的上标 n 加下标 k",
+        "x 的上标 n 加下标 k.png",
+        "x 的上标 n", "x 的下标 k",
+    ):
+        assert not guard.forced_operators("", description)
+
+
+def test_paired_script_template_binds_other_symbols_and_punctuation():
+    guard = OperatorDriftGuard()
+    description = "a 的上标 p 加下标 q。"
+    assert not guard.check("", "a_q^p", user_input=description)
+    assert guard.check("", "a_p^q", user_input=description)
+    assert guard.check("", "x_k^n", user_input=description)
+
+
+def test_vector_two_norm_requires_operand_inside_norm_and_order_two():
+    guard = OperatorDriftGuard()
+    description = "向量 x 的二范数"
+    for candidate in (
+        r"\vec x \cdot \|\cdot\|", r"\lVert\cdot\rVert_2",
+        r"\vec{x}", r"\vec{x}\cdot\vec{x}",
+        r"\lVert y\rVert_2", r"\lVert x\rVert_1",
+        r"\lVert x\rVert", r"|x|_2", r"\lVert x\rVert_2=5",
+        r"\text{\lVert x\rVert_2}",
+    ):
+        assert guard.check("", candidate, user_input=description), candidate
+    for candidate in (
+        r"\lVert x\rVert_2", r"\Vert x\Vert_{2}", r"\|x\|_2", "||x||_2",
+        r"\left\|\vec{x}\right\|_2", r"\lVert\vec x\rVert_2",
+        r"\left\lVert\mathbf{x}\right\rVert_{2}", r"\lVert\boldsymbol{x}\rVert_2",
+    ):
+        assert not guard.check("", candidate, user_input=description), candidate
+    for description in (
+        "计算向量 x 的二范数", "不要写向量 x 的二范数",
+        "向量 x 的一范数", "向量 x 的二范数.png",
+    ):
+        assert not guard.forced_operators("", description)
+
+
+def test_vector_two_norm_template_binds_other_operand():
+    guard = OperatorDriftGuard()
+    assert not guard.check("", r"\lVert v\rVert_2", user_input="向量 v 的二范数。")
+    assert guard.check("", r"\lVert x\rVert_2", user_input="向量 v 的二范数。")

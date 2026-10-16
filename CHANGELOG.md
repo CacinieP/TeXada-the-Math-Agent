@@ -1,3 +1,21 @@
+## 0.4.2-beta.4 - 2026-10-16
+
+### 中文
+
+- 修复 MiniCPM-V 4.7 1B 通过 Ollama 连接时关闭思考参数无效的问题：文本、规划、模型补全和 OCR 使用 `reasoning_effort=none`。其他兼容服务保留原有适配。
+- 内置 llama.cpp 更新到 b11669，固定 macOS arm64/x64 与 Windows CPU 安装资源的 SHA256。Ollama 模型已注册与实际推理可用分开展示，不再将模型列表成功误报为推理就绪。
+- 整合文本语义保护：显式集合运算组合、上下标关系、数列极限、普通高阶导数、曲线闭合性、矩阵乘积与行列式、阶乘、绑定操作数的向量二范数；不以任意占位符替代缺失对象。
+- M4 / 16GB 上 TeXada + Ollama b11669 修复后实测：100 条自然语言请求均返回 HTTP 200，92 条语法有效，53 条严格结构匹配；8 张合成 OCR 图片均成功，7 张结构匹配。空公式模型失败由 4 次降为 0。6 条补全全部走确定性规则，不证明模型补全能力。结果详见 `docs/ollama-b11669-validation.md`。
+- **仍需人工核对：** 结构匹配不是数学正确率；26 条已提交公式与严格参考不一致，尚无独立人工评审，也未验证手写或真实页面。保留人工审查机制。本版继续作为 Beta，不替代 v0.4.1 稳定版。
+
+### English
+
+- Use Ollama's `reasoning_effort=none` for MiniCPM-V 4.7 1B text, planning, model completion and OCR, instead of ignored template kwargs; preserve other provider profiles.
+- Pin bundled llama.cpp to b11669 with verified platform asset hashes. Distinguish Ollama registration from observed inference readiness.
+- Integrate text guards for explicit paired set operators, script roles, sequence limits, ordinary derivative order, curve closure, symbolic matrices, factorial notation and operand-bound vector norms.
+- Local M4/16GB validation: NL HTTP 200 100/100, syntax-valid 92/100, strict structure MATCH 53/100; synthetic OCR 8/8 successful and 7/8 MATCH. Empty candidate failures fell from four to zero. Six completion cases were deterministic, not model-quality evidence.
+- Structural match is not mathematical correctness; 26 committed formulas differ from strict references. No independent human adjudication or handwriting/real-page acceptance. Keep this release as a Beta; stable v0.4.1 remains latest.
+
 ## 0.4.2-beta.3 - 2026-10-15
 
 ### 中文

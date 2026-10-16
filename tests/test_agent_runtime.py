@@ -1164,3 +1164,376 @@ async def test_nl_candidate_first_and_planner_share_original_request_budget(tmp_
         planner.generate_latex.assert_not_awaited()
         assert result.tokens_used == 0
         assert result.revision is None
+
+
+@pytest.mark.asyncio
+async def test_runtime_blocks_human_review_case_096_missing_intersection(tmp_path):
+    # Replay the reviewed candidate without calling or changing a model.
+    candidate = r"A \cup B = \{x | x \in A \text{ 或 } x \in B\}"
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("集合 A 与集合 B 的并集和交集")
+
+    assert not result.committed
+    assert result.stop_reason == "semantic_anchor_unresolved"
+    guard = result.trace[-1]["observations"][0]
+    assert guard["output"]["missing_requirements"] == [r"\cap"]
+    assert r"\cap" not in result.latex  # The guard must not invent the missing formula.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case_id,label,candidate,required", [
+    ("046", "上", r"\lim_{n \to \infty} a_{n}", r"\limsup"),
+    ("047", "下", r"\lim_{n \to \infty} a_n", r"\liminf"),
+])
+async def test_runtime_blocks_reviewed_sequence_limit_downgrades(
+    tmp_path, case_id, label, candidate, required,
+):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run(f"数列 a 下标 n 的{label}极限")
+
+    assert not result.committed, case_id
+    assert result.stop_reason == "semantic_anchor_unresolved"
+    assert required in result.trace[-1]["observations"][0]["output"]["missing_requirements"]
+    assert required not in result.latex  # No fabricated replacement formula.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("label,candidate", [
+    ("上", r"\limsup_{n\to\infty} a_n"),
+    ("下", r"\liminf_{n\to\infty} a_n"),
+])
+async def test_runtime_keeps_explicit_sequence_limit_notation(tmp_path, label, candidate):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run(f"数列 a 下标 n 的{label}极限")
+
+    assert result.valid
+    assert result.committed
+    assert result.latex == candidate
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate,should_commit", [
+    (r"\oint_C f\,ds", False),
+    (r"\int_C f\,ds", True),
+])
+async def test_runtime_preserves_unspecified_curve_closure(tmp_path, candidate, should_commit):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("沿曲线 C 的线积分 f ds")
+
+    assert result.committed is should_commit
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
+        assert result.latex == candidate  # No silent change of curve assumptions.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("description", [
+    "沿闭合曲线 C 的线积分 f ds",
+    "沿曲线 C 的闭合线积分 f ds",
+])
+async def test_runtime_keeps_explicit_closed_curve_integrals(tmp_path, description):
+    candidate = r"\oint_C f\,ds"
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run(description)
+
+    assert result.valid
+    assert result.committed
+    assert result.latex == candidate
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate,should_commit", [
+    (r"\frac{d^n f}{dx}", False),
+    (r"\frac{d^n f}{dx^n}", True),
+    (r"f^{(n)}(x)", True),
+])
+async def test_runtime_preserves_nth_derivative_description(tmp_path, candidate, should_commit):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("f 对 x 的 n 阶导数")
+
+    assert result.committed is should_commit
+    assert result.latex == candidate
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate,should_commit", [
+    (r"\frac{\partial y}{\partial x}", False),
+    (r"\frac{\partial^2 y}{\partial x^2}", False),
+    (r"\frac{dy}{dx}", False),
+    (r"\frac{d^2y}{dx^2}", True),
+    ("y''(x)", True),
+    (r"y^{(2)}(x)", True),
+])
+async def test_runtime_preserves_second_ordinary_derivative(
+    tmp_path, candidate, should_commit,
+):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("y 对 x 的二阶导数")
+
+    assert result.committed is should_commit
+    assert result.latex == candidate  # Reject rather than compute or rewrite.
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate,should_commit", [
+    (r"\det\begin{pmatrix} a & b \\ c & d \end{pmatrix} = ad - bc", False),
+    (r"\begin{pmatrix}a&b\\c&d\end{pmatrix}", True),
+    (r"\begin{bmatrix}a&b\\c&d\end{bmatrix}", True),
+])
+async def test_runtime_preserves_literal_matrix_description(tmp_path, candidate, should_commit):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("二乘二矩阵，第一行 a b，第二行 c d")
+
+    assert result.committed is should_commit
+    assert result.latex == candidate
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
+        assert result.formula_ledger["commits"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate_first", [False, True])
+@pytest.mark.parametrize("candidate,should_commit", [
+    (
+        r"\begin{pmatrix} a & b \\ c & d \end{pmatrix} \times "
+        r"\begin{pmatrix} e & f \\ g & h \end{pmatrix} = "
+        r"\begin{pmatrix} ae+bg & af+bh \\ ce+dg & cg+dh \end{pmatrix}",
+        False,
+    ),
+    ("AB", True),
+    (r"A\times B", True),
+    (r"\mathbf{A}\cdot\mathbf{B}", True),
+])
+async def test_runtime_preserves_symbolic_matrix_product(
+    tmp_path, candidate_first, candidate, should_commit,
+):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first), model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run(
+        "两个未给具体元素的二乘二矩阵 A 与 B，写出 A 乘 B 的符号乘积"
+    )
+
+    assert result.committed is should_commit
+    assert result.latex == candidate
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
+        assert result.formula_ledger["commits"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate_first", [False, True])
+@pytest.mark.parametrize("candidate,should_commit", [
+    (r"n^{\text{阶}}", False),
+    ("n!", True),
+    (r"\left(n\right)!", True),
+])
+async def test_runtime_preserves_unevaluated_factorial(
+    tmp_path, candidate_first, candidate, should_commit,
+):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first), model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("n 的阶乘")
+
+    assert result.committed is should_commit
+    assert result.latex == candidate
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
+        assert result.formula_ledger["commits"] == []
+
+
+@pytest.mark.asyncio
+async def test_runtime_passes_intact_factorial_pretranslation_to_planner(tmp_path):
+    candidate = "n!"
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=False), model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("n 的阶乘")
+
+    assert result.valid
+    assert result.committed
+    prompt = planner.seen_messages[0][1]["content"]
+    assert "n 的阶乘" in prompt  # The original request remains available.
+    assert "n 的!" in prompt
+    assert r"阶\times" not in prompt
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate_first", [False, True])
+@pytest.mark.parametrize("candidate,should_commit", [
+    (r"\lim_{n \to \infty} a_{n=L}", False),
+    (r"\lim_{n\to\infty}a_n=L", True),
+    (r"a_n\xrightarrow{n\to\infty}L", True),
+    (r"a_n\to L", True),
+])
+async def test_runtime_preserves_sequence_limit_statement(
+    tmp_path, candidate_first, candidate, should_commit,
+):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first), model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("n 趋近于无穷时数列 a 下标 n 等于 L")
+
+    assert result.committed is should_commit
+    assert result.latex == candidate
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
+        assert result.formula_ledger["commits"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate_first", [False, True])
+@pytest.mark.parametrize("candidate,should_commit", [
+    (r"x^{\text{上标 n}}_{\text{下标 k}}", False),
+    (r"x_k^n", True),
+    (r"x^{n}_{k}", True),
+])
+async def test_runtime_preserves_paired_script_roles(
+    tmp_path, candidate_first, candidate, should_commit,
+):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first), model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("x 的上标 n 加下标 k")
+
+    assert result.committed is should_commit
+    assert result.latex == candidate
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
+        assert result.formula_ledger["commits"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("candidate_first", [False, True])
+@pytest.mark.parametrize("candidate,should_commit", [
+    (r"\vec x \cdot \|\cdot\|", False),
+    (r"\lVert x\rVert_2", True),
+    (r"\left\|\vec{x}\right\|_2", True),
+])
+async def test_runtime_preserves_vector_two_norm(
+    tmp_path, candidate_first, candidate, should_commit,
+):
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first), model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("向量 x 的二范数")
+
+    assert result.committed is should_commit
+    assert result.latex == candidate
+    if should_commit:
+        assert result.valid
+    else:
+        assert result.stop_reason == "semantic_anchor_unresolved"
+        assert result.formula_ledger["commits"] == []
+
+
+@pytest.mark.asyncio
+async def test_runtime_passes_bound_vector_norm_to_planner(tmp_path):
+    candidate = r"\lVert x\rVert_2"
+    planner = FakePlanner([PlannerTurn(content=candidate)] * 8)
+    planner.generate_latex = AsyncMock(return_value=candidate)
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=False), model=planner,
+    )
+    disable_deterministic_candidates(runtime)
+    runtime.backend.ensure_ready = AsyncMock(return_value=True)
+
+    result = await runtime.run("向量 x 的二范数")
+
+    assert result.valid
+    assert result.committed
+    prompt = planner.seen_messages[0][1]["content"]
+    assert "向量 x 的二范数" in prompt
+    assert r"\lVert x\rVert_2" in prompt
+    assert r"\|\cdot\|" not in prompt
