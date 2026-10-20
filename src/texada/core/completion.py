@@ -13,6 +13,68 @@ class DeterministicCompletion:
     rule: str
 
 
+@dataclass(frozen=True)
+class InlineSuggestion:
+    """An insert-only ghost-text candidate for the cursor position.
+
+    ``text`` is meant to be inserted exactly at the cursor; the suggestion
+    never rewrites what the user already typed on either side of it.
+    """
+
+    text: str
+    rule: str
+
+
+_EMPTY_GROUP_AT_CURSOR = re.compile(r"\{\s*$")
+_ESCAPED_BRACE = re.compile(r"\\\{\s*$")
+_TRAILING_SCRIPT = re.compile(r"[_^]\s*$")
+_TRAILING_BINARY = re.compile(r"[=+\-*/]\s*$")
+
+
+def suggest_inline(
+    before_cursor: str, after_cursor: str
+) -> InlineSuggestion | None:
+    """Return a conservative insert-only suggestion, or ``None``.
+
+    Only local, zero-model insertions are offered: placeholders for empty
+    groups, missing script/binary operands, and known command prefixes.
+    The text after the cursor is never consumed or rewritten, so mid-group
+    and non-ASCII (UTF-16 offset) inputs stay intact.
+    """
+    before = before_cursor or ""
+    after = after_cursor or ""
+    if not before:
+        return None
+
+    # An empty group at the cursor only gets a placeholder; nothing already
+    # typed inside the group (or to the right of it) is touched.
+    if (
+        after.startswith("}")
+        and _EMPTY_GROUP_AT_CURSOR.search(before)
+        and not _ESCAPED_BRACE.search(before)
+    ):
+        return InlineSuggestion(r"\placeholder{}", "empty_group")
+
+    if not after.strip():
+        for pattern, suffix, rule in DeterministicCompletionEngine._TAIL_RULES:
+            # The generic argument-brace rule assumes the cursor opened the
+            # only group of its command; a later group (``\frac{a}{``) would
+            # end up unbalanced, so it falls through to the open-group rule.
+            if pattern.pattern == r"\{$":
+                continue
+            if pattern.search(before):
+                return InlineSuggestion(suffix, rule)
+        if _TRAILING_SCRIPT.search(before):
+            return InlineSuggestion(r"{\placeholder{}}", "script_brace")
+        if _TRAILING_BINARY.search(before):
+            return InlineSuggestion(r"\placeholder{}", "binary_operand")
+        if _EMPTY_GROUP_AT_CURSOR.search(before) and not _ESCAPED_BRACE.search(
+            before
+        ):
+            return InlineSuggestion(r"\placeholder{}}", "empty_group_open")
+    return None
+
+
 class DeterministicCompletionEngine:
     """Fill unambiguous syntax holes before considering model inference.
 
