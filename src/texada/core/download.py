@@ -8,7 +8,6 @@ Yields progress events for the API/UI layer.
 
 from __future__ import annotations
 
-import hashlib
 import re
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
@@ -17,15 +16,16 @@ from typing import Any, NamedTuple
 import httpx
 
 from texada.core.llama_server import (
+    PINNED_SHA256,
     TEXT_MODEL_FILE,
     VISION_MMPROJ_FILE,
+    sha256_file,
 )
 
 HF_BASE = "https://huggingface.co"
 HF_MIRROR_BASE = "https://hf-mirror.com"
 CHUNK_SIZE = 1024 * 1024
 HTTP_TIMEOUT = httpx.Timeout(30.0, read=300.0)
-HASH_CHUNK = 1024 * 1024
 _CONTENT_RANGE = re.compile(r"bytes (\d+)-(\d+)/(\d+)$")
 
 
@@ -40,12 +40,10 @@ class ModelFile(NamedTuple):
 # role -> (repo id, [ModelFile])
 MODEL_REVISION = "59cd286146b6ce70f818508ccf512e11438d8957"
 WEIGHTS = ModelFile(
-    TEXT_MODEL_FILE, TEXT_MODEL_FILE,
-    "588c6c94c82f756b86dba35c42ed9ba9ec187d65824eb52f039c347df563e63d",
+    TEXT_MODEL_FILE, TEXT_MODEL_FILE, PINNED_SHA256[TEXT_MODEL_FILE],
 )
 PROJECTOR = ModelFile(
-    VISION_MMPROJ_FILE, VISION_MMPROJ_FILE,
-    "fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900",
+    VISION_MMPROJ_FILE, VISION_MMPROJ_FILE, PINNED_SHA256[VISION_MMPROJ_FILE],
 )
 MODEL_CATALOG: dict[str, tuple[str, list[ModelFile]]] = {
     "text": ("openbmb/MiniCPM-V-4.7-1B-gguf", [WEIGHTS]),
@@ -57,15 +55,6 @@ ClientFactory = Callable[[], httpx.AsyncClient]
 
 class DownloadError(RuntimeError):
     """Raised when a model download cannot complete."""
-
-
-def sha256_file(path: Path) -> str:
-    """Streaming SHA-256 so multi-GB weights never land in memory."""
-    digest = hashlib.sha256()
-    with path.open("rb") as fh:
-        for block in iter(lambda: fh.read(HASH_CHUNK), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _default_client_factory() -> httpx.AsyncClient:

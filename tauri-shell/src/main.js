@@ -297,7 +297,7 @@
       'ocr.unsupportedType': 'Unsupported image type',
       'ocr.tooLarge': 'Image is too large. Use an image under {limit} MB',
       'complete.placeholder': 'Enter partial LaTeX… e.g. \\\\sum_{i=1}^{',
-      'complete.hint': 'Enter to complete · Esc close',
+      'complete.hint': 'Enter to complete · Tab accept · Esc dismiss',
       'shorthand.keyPlaceholder': 'Preset key…',
       'shorthand.valuePlaceholder': 'LaTeX preset…',
       'shorthand.add': 'Add preset',
@@ -512,6 +512,7 @@
     ocrResult: document.getElementById('ocr-result'),
     completeInput: document.getElementById('complete-input'),
     completeProcessing: document.getElementById('complete-processing'),
+    completeGhost: document.getElementById('complete-ghost'),
     completeResult: document.getElementById('complete-result'),
     backendSelect: document.getElementById('backend-select'),
     ollamaHostInput: document.getElementById('ollama-host-input'),
@@ -1491,6 +1492,7 @@
   bindWindowDrag();
   const nlSourceRevision = window.TeXadaReview.bindInputInvalidation(els.nlInput, () => resultReviews.get(els.nlResult));
   const completeSourceRevision = window.TeXadaReview.bindInputInvalidation(els.completeInput, () => resultReviews.get(els.completeResult));
+  bindInlineCompletion();
 
   if ($('#btn-save-backend')) {
     $('#btn-save-backend').addEventListener('click', saveBackendSettings);
@@ -2250,11 +2252,148 @@
     bindFormulaInsertHandlers(els.ocrResult);
   }
 
+  // ── Inline completion (experimental L0 ghost text, #40) ──
+  // Insert-only, zero-model ghost suggestions at the cursor. Never writes
+  // FormulaState, never enters the agent loop and never commits: it only
+  // edits the textarea, so MutationScope and every review/adoption guard on
+  // the agent path stay untouched.
+  const INLINE_DEBOUNCE_MS = 150;
+  const INLINE_MAX_GHOST = 200;
+  let inlineSeq = 0;
+  let inlineEditVersion = 0;
+  let inlineTimer = null;
+  let inlineSuggestion = null;
+  let inlineCursor = -1;
+
+  function inlineSourceHash(text) {
+    // FNV-1a over UTF-16 code units: a stable client-side binding used only to
+    // discard stale candidates. Not a security hash.
+    let hash = 0x811c9dc5;
+    for (let index = 0; index < text.length; index++) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return ('00000000' + hash.toString(16)).slice(-8);
+  }
+
+  function hideInlineGhost() {
+    inlineSuggestion = null;
+    inlineCursor = -1;
+    if (els.completeGhost) els.completeGhost.hidden = true;
+  }
+
+  function renderInlineGhost(suggestion) {
+    const typed = els.completeGhost && els.completeGhost.querySelector('.ghost-typed');
+    const ghost = els.completeGhost && els.completeGhost.querySelector('.ghost-text');
+    if (!typed || !ghost) return;
+    const value = els.completeInput.value;
+    const cursor = els.completeInput.selectionStart ?? value.length;
+    typed.textContent = value.slice(0, cursor);
+    ghost.textContent = String(suggestion.text || '').slice(0, INLINE_MAX_GHOST);
+    els.completeGhost.scrollTop = els.completeInput.scrollTop || 0;
+    els.completeGhost.scrollLeft = els.completeInput.scrollLeft || 0;
+    els.completeGhost.hidden = false;
+  }
+
+  async function requestInlineSuggestion() {
+    const value = els.completeInput.value;
+    const cursor = els.completeInput.selectionStart ?? value.length;
+    const payload = {
+      before_cursor: value.slice(0, cursor),
+      after_cursor: value.slice(cursor),
+      source_hash: inlineSourceHash(value),
+      edit_version: inlineEditVersion,
+    };
+    const requestSeq = ++inlineSeq;
+    let body = null;
+    try {
+      const response = await fetch(API_BASE + '/api/complete/inline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) body = await response.json();
+    } catch (error) {
+      return;
+    }
+    // Discard anything stale: a newer keystroke won the race, or the response
+    // is bound to an older edit version or source text.
+    if (requestSeq !== inlineSeq || !body) return;
+    if (body.edit_version !== inlineEditVersion) return;
+    if (body.source_hash !== payload.source_hash) return;
+    if (!body.text) {
+      hideInlineGhost();
+      return;
+    }
+    inlineSuggestion = body;
+    inlineCursor = cursor;
+    renderInlineGhost(body);
+  }
+
+  function scheduleInlineSuggestion() {
+    inlineEditVersion += 1;
+    if (inlineTimer) clearTimeout(inlineTimer);
+    inlineTimer = setTimeout(() => {
+      inlineTimer = null;
+      requestInlineSuggestion();
+    }, INLINE_DEBOUNCE_MS);
+  }
+
+  function acceptInlineSuggestion() {
+    if (!inlineSuggestion) return false;
+    const text = String(inlineSuggestion.text || '');
+    if (!text) return false;
+    const input = els.completeInput;
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? start;
+    input.focus();
+    input.setSelectionRange(start, end);
+    let inserted = false;
+    try {
+      // execCommand routes through the native input stack, so the insertion
+      // is undoable (Cmd+Z); setRangeText is the fallback when unavailable.
+      inserted = document.execCommand('insertText', false, text);
+    } catch (error) {
+      inserted = false;
+    }
+    if (!inserted) input.setRangeText(text, start, end, 'end');
+    inlineEditVersion += 1;
+    hideInlineGhost();
+    return true;
+  }
+
+  function dismissInlineGhostOnCursorMove() {
+    if (!inlineSuggestion) return;
+    if (els.completeInput.selectionStart !== inlineCursor) hideInlineGhost();
+  }
+
+  function bindInlineCompletion() {
+    if (!els.completeInput || !els.completeGhost) return;
+    els.completeInput.addEventListener('input', scheduleInlineSuggestion);
+    els.completeInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Tab' && inlineSuggestion) {
+        event.preventDefault();
+        acceptInlineSuggestion();
+      } else if (event.key === 'Escape' && inlineSuggestion) {
+        event.preventDefault();
+        hideInlineGhost();
+      }
+    });
+    els.completeInput.addEventListener('keyup', dismissInlineGhostOnCursorMove);
+    els.completeInput.addEventListener('mouseup', dismissInlineGhostOnCursorMove);
+    els.completeInput.addEventListener('blur', hideInlineGhost);
+    els.completeInput.addEventListener('scroll', () => {
+      els.completeGhost.scrollTop = els.completeInput.scrollTop || 0;
+      els.completeGhost.scrollLeft = els.completeInput.scrollLeft || 0;
+    });
+  }
+
   // ── Completion ──
   async function doComplete() {
     const text = els.completeInput.value.trim();
     if (!text || isProcessing) return;
     isProcessing = true;
+    hideInlineGhost();
     clearReview(els.completeResult);
     els.completeProcessing.classList.add('active');
     els.completeResult.style.display = 'none';

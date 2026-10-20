@@ -24,6 +24,7 @@ from texada.config import (
     save_config_updates,
     validate_config_updates,
 )
+from texada.core.completion import suggest_inline
 from texada.core.download import download_all
 from texada.core.inference_fingerprint import (
     build_inference_identity,
@@ -134,6 +135,34 @@ class ReviewDecisionRequest(BaseModel):
         flattened = {key: value for key, value in data.items() if key != "binding"}
         flattened.update(binding)
         return flattened
+
+class InlineCompleteRequest(BaseModel):
+    """Cursor context for an experimental insert-only ghost-text suggestion.
+
+    ``source_hash``/``edit_version`` are opaque to the server: they are echoed
+    back so the client can discard candidates whose input or cursor moved on.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    before_cursor: str = Field(default="", max_length=4000)
+    after_cursor: str = Field(default="", max_length=4000)
+    source_hash: str = Field(default="", max_length=128)
+    edit_version: int = Field(default=0, ge=0)
+
+class InlineCompletionResponse(BaseModel):
+    """Insert-only candidate bound to the source it was computed from.
+
+    ``insert_at`` is deliberately semantic ("cursor"): the first version never
+    expresses a replacement range as a numeric offset, because JS UTF-16 and
+    Python Unicode offsets diverge on astral characters.
+    """
+
+    text: str | None = None
+    rule: str | None = None
+    insert_at: str = "cursor"
+    source_hash: str = ""
+    edit_version: int = 0
 
 class ValidateRequest(BaseModel):
     latex: str = Field(min_length=1, max_length=4000)
@@ -1200,6 +1229,24 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             stop_reason=result.stop_reason,
             revision=result.revision,
             committed=result.committed,
+        )
+
+    @app.post("/api/complete/inline", response_model=InlineCompletionResponse)
+    async def complete_inline(req: InlineCompleteRequest):
+        """Experimental L0 cursor-aware inline completion (zero model calls).
+
+        Read-only ghost text at the cursor: it never writes FormulaState,
+        never enters the agent loop, never records a run (this fires on
+        keystrokes), and leaves /api/complete untouched. Context length is
+        bounded and the suggestion is pure regex work, so no extra
+        execution-time guard is needed.
+        """
+        suggestion = suggest_inline(req.before_cursor, req.after_cursor)
+        return InlineCompletionResponse(
+            text=suggestion.text if suggestion else None,
+            rule=suggestion.rule if suggestion else None,
+            source_hash=req.source_hash,
+            edit_version=req.edit_version,
         )
 
     @app.post("/api/validate", response_model=ValidateResponse)

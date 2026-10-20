@@ -94,26 +94,6 @@ def main():
         completion.append(row)
         save('completion.json', completion)
 
-    # Synthetic test-data decisions: adopt only an exact reference match.
-    decisions = []
-    eligible = [r for r in rows if r['strict_structure']['status'] == 'MATCH'
-                and r.get('response', {}).get('valid') and r['response'].get('review')]
-    for row, decision in zip(eligible[:2], ['accept', 'reject'], strict=False):
-        review = row['response']['review']
-        path = '/api/reviews/' + review['id'] + '/decision'
-        binding = {key: review[key] for key in (
-            'input_hash', 'parent_revision', 'candidate_hash', 'current_revision',
-        )}
-        stale = client.post(path, json=dict(binding, current_revision=999, decision=decision))
-        applied = client.post(path, json=dict(binding, decision=decision))
-        opposite = client.post(path, json=dict(
-            binding, decision='reject' if decision == 'accept' else 'accept',
-        ))
-        decisions.append(dict(case_id=row['id'], decision=decision,
-                              stale_status=stale.status_code, http_status=applied.status_code,
-                              response=applied.json(), opposite_status=opposite.status_code))
-    save('decisions.json', decisions)
-
     def summarize(items):
         results = [r.get('response', {}) for r in items]
         return dict(total=len(items), http_200=sum(r['http_status'] == 200 for r in items),
@@ -131,25 +111,26 @@ def main():
                    outside_scope_422=sum(r['http_status'] == 422 for r in excluded),
                    outside_scope_total=len(excluded),
                    limitations='Synthetic OCR; strict structure is not accuracy. No independent '
-                   'human adjudication, native desktop manual or Windows/Intel model acceptance.')
+                   'human adjudication, native desktop manual or Windows/Intel model acceptance. '
+                   'NL/OCR candidates commit directly; bound review decisions are covered by the '
+                   'Studio handoff tests (tests/test_review_api.py).')
     integral = next(r.get('response', {}) for r in ocr if r['case_id'] == 'integral')
     summary['rc_engineering_gates'] = {
-        'nl_transport_and_no_auto_commit': summary['nl']['http_200'] == 24
-        and summary['nl']['auto_committed'] == 0,
+        'nl_transport_and_direct_commit': summary['nl']['http_200'] == 24
+        and summary['nl']['auto_committed'] == 24,
         'nl_workflow_at_least_22': summary['nl']['workflow_valid'] >= 22,
         'nl_strict_match_at_least_20': summary['nl']['strict_structure'].get('MATCH', 0) >= 20,
         'scope_rejected': summary['outside_scope_422'] == 10,
-        'ocr_no_auto_commit_and_integral_completed': summary['ocr']['auto_committed'] == 0
-        and integral.get('valid') is True
-        and integral.get('stop_reason') == 'human_review_required',
+        'ocr_direct_commit_and_integral_completed': (
+            summary['ocr']['auto_committed'] == summary['ocr']['total']
+            and integral.get('valid') is True
+            and integral.get('committed') is True
+            and integral.get('stop_reason') == 'deterministic_candidate'
+        ),
         'completion_all_valid_and_no_answers': len(completion) == 6 and all(
             r['http_status'] == 200 and r['response'].get('valid') is True
             and '\\placeholder' in r['response'].get('latex', '')
             for r in completion),
-        'bound_decisions': len(decisions) == 2 and all(
-            r['http_status'] == 200 and r['stale_status'] == 409 and r['opposite_status'] == 409
-            and r['response'].get('status') == r['decision'] + 'ed'
-            for r in decisions),
     }
     save('summary.json', summary)
     print(json.dumps(summary, ensure_ascii=False), flush=True)

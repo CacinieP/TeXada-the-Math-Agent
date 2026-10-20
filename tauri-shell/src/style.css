@@ -257,6 +257,7 @@ body {
   color: var(--text-primary);
   font-size: 13px;
   font-family: var(--font-mono);
+  line-height: 1.5;
   resize: none;
   outline: none;
   min-height: 42px;
@@ -1203,6 +1204,30 @@ body {
 
 /* Completion */
 .completion-input .typed { color: var(--accent-cyan); }
+
+/* Inline completion ghost text (#40): overlays the textarea exactly, so the
+   typed span is transparent (the textarea's own text shows through) and the
+   suggestion renders muted right after the cursor. */
+.completion-wrap { position: relative; }
+.ghost-layer {
+  position: absolute;
+  inset: 0;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  color: var(--text-muted);
+  pointer-events: none;
+  overflow: hidden;
+}
+.ghost-typed { color: transparent; }
+.ghost-text { color: var(--text-muted); }
+.ghost-layer[hidden] { display: none; }
 
 /* Error */
 .error-box {

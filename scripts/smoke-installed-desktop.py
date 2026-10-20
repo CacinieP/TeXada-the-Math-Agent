@@ -128,10 +128,9 @@ def main() -> None:
                 assert status["backend"] == "llama_server", status
                 result = request(base, "/api/agent", {"text": "二重积分", "render_mode": "katex"})
                 assert result["valid"] and result["tokens_used"] == 0, result
-                assert result["stop_reason"] == "human_review_required", result
-                assert result["committed"] is False, result
-                assert result["review"]["status"] == "pending", result
-                assert "nl_semantics_requires_review" in result["review"]["reasons"], result
+                assert result["stop_reason"] == "deterministic_candidate", result
+                assert result["committed"] is True, result
+                assert result["review"] is None, result
                 assert result["semantic_document"]["parser_backend"] == "katex-0.17.0-v8", result
                 args.output.parent.mkdir(parents=True, exist_ok=True)
                 args.output.write_text(
@@ -145,7 +144,7 @@ def main() -> None:
                             "bundled_runtime_build": 11669,
                             "status": status,
                             "deterministic_compile_and_render_valid": True,
-                            "default_human_review_enforced": True,
+                            "candidate_commits_directly": True,
                             "model_inference_tested": False,
                             "scope": (
                                 "Native clean installation and launch; "

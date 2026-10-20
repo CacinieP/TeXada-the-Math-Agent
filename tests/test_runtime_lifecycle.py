@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import ctypes
+import hashlib
 import json
 import os
 import socket
@@ -47,12 +48,18 @@ def free_port():
 
 
 @pytest.fixture(autouse=True)
-def fake_model_files(tmp_path):
+def fake_model_files(tmp_path, monkeypatch):
     # Lifecycle tests use a fake executable, with explicit placeholder artifacts.
     models = tmp_path / "models"
     models.mkdir(exist_ok=True)
     (models / llama_server.TEXT_MODEL_FILE).write_bytes(b"fake test model")
     (models / llama_server.VISION_MMPROJ_FILE).write_bytes(b"fake test projector")
+    # Point the pinned digests at this placeholder content so the start-time
+    # integrity check accepts it.
+    monkeypatch.setattr(llama_server, "PINNED_SHA256", {
+        llama_server.TEXT_MODEL_FILE: hashlib.sha256(b"fake test model").hexdigest(),
+        llama_server.VISION_MMPROJ_FILE: hashlib.sha256(b"fake test projector").hexdigest(),
+    })
 
 
 @pytest.fixture

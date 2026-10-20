@@ -14,6 +14,24 @@ from texada.api import create_app
 from texada.config import TeXadaConfig
 
 
+def test_installed_smoke_script_asserts_direct_commit():
+    """The per-platform installed-package smoke must match the current contract.
+
+    The release run failed on all three platforms because this script still
+    asserted the removed human-review gate; pin the contract statically so a
+    stale assertion cannot ship again.
+    """
+    script = (
+        Path(__file__).parents[1] / "scripts" / "smoke-installed-desktop.py"
+    ).read_text(encoding="utf-8")
+
+    assert 'assert result["stop_reason"] == "deterministic_candidate", result' in script
+    assert 'assert result["committed"] is True, result' in script
+    assert 'assert result["review"] is None, result' in script
+    assert "human_review_required" not in script
+    assert "default_human_review_enforced" not in script
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize('invalid_field', [None, 'committed', 'review', 'parser_backend'])
 async def test_signed_sidecar_smoke_accepts_automatic_commit_and_rejects_tampering(

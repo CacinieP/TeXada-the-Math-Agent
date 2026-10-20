@@ -118,8 +118,11 @@
   <!-- Completion Tab -->
   <div class="tab-content" id="tab-complete" role="tabpanel" aria-labelledby="tab-button-complete" aria-hidden="true">
     <div class="input-area">
-      <textarea class="input-box completion-input" id="complete-input" data-i18n-placeholder="complete.placeholder" placeholder="输入部分 LaTeX… 如: \\sum_{i=1}^{" rows="1"></textarea>
-      <div class="input-hint"><span data-i18n="complete.hint">Enter 补全 · Esc 关闭</span></div>
+      <div class="completion-wrap">
+        <textarea class="input-box completion-input" id="complete-input" data-i18n-placeholder="complete.placeholder" placeholder="输入部分 LaTeX… 如: \\sum_{i=1}^{" rows="1"></textarea>
+        <div class="ghost-layer" id="complete-ghost" aria-hidden="true" hidden><span class="ghost-typed"></span><span class="ghost-text"></span></div>
+      </div>
+      <div class="input-hint"><span data-i18n="complete.hint">Enter 补全 · Tab 接受建议 · Esc 忽略</span></div>
     </div>
     <div class="processing-bar" id="complete-processing"></div>
     <div id="complete-result" style="display:none"></div>
