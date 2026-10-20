@@ -15,8 +15,8 @@ from texada.config import TeXadaConfig
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('invalid_field', [None, 'committed', 'review_status'])
-async def test_signed_sidecar_smoke_accepts_pending_review_and_rejects_automatic_adoption(
+@pytest.mark.parametrize('invalid_field', [None, 'committed', 'review', 'parser_backend'])
+async def test_signed_sidecar_smoke_accepts_automatic_commit_and_rejects_tampering(
     tmp_path, invalid_field,
 ):
     app = create_app(TeXadaConfig(data_dir=tmp_path))
@@ -27,9 +27,11 @@ async def test_signed_sidecar_smoke_accepts_pending_review_and_rejects_automatic
     assert response.status_code == 200
     payload = response.json()
     if invalid_field == 'committed':
-        payload['committed'] = True
-    elif invalid_field == 'review_status':
-        payload['review']['status'] = 'accepted'
+        payload['committed'] = False
+    elif invalid_field == 'review':
+        payload['review'] = {'status': 'pending', 'reasons': ['nl_semantics_requires_review']}
+    elif invalid_field == 'parser_backend':
+        payload['semantic_document']['parser_backend'] = 'tampered'
     path = tmp_path / 'response.json'
     path.write_text(json.dumps(payload))
     workflow = (Path(__file__).parents[1] / '.github/workflows/release-desktop.yml').read_text()

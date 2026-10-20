@@ -24,7 +24,7 @@ def compiled_state(latex="x+1", *, valid=True):
 def test_surfaces_never_mutate_canonical_contracts(tmp_path):
     router = ToolRouter(
         TeXToolset(
-            TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path)
+            TeXadaConfig(nl_candidate_first=False, data_dir=tmp_path)
         )
     )
     original = deepcopy(router.schemas)
@@ -192,7 +192,6 @@ async def test_minimal_explicit_candidate_compile_render_real_workflow(tmp_path)
     runtime = TeXadaAgentRuntime(
         TeXadaConfig(
             nl_candidate_first=False,
-            nl_require_review=False,
             data_dir=tmp_path,
             planner_surface="minimal",
         ),
@@ -225,7 +224,6 @@ async def test_unknown_action_cannot_dispatch_or_trigger_compatibility_fallback(
     runtime = TeXadaAgentRuntime(
         TeXadaConfig(
             nl_candidate_first=False,
-            nl_require_review=False,
             data_dir=tmp_path,
             planner_surface=surface,
         ),
@@ -256,7 +254,6 @@ async def test_proposal_then_compile_in_same_batch_is_stale_not_silently_rebound
     runtime = TeXadaAgentRuntime(
         TeXadaConfig(
             nl_candidate_first=False,
-            nl_require_review=False,
             data_dir=tmp_path,
             planner_surface="minimal",
         ),
@@ -278,7 +275,6 @@ async def test_minimal_bare_final_cannot_seed_formula(tmp_path):
     runtime = TeXadaAgentRuntime(
         TeXadaConfig(
             nl_candidate_first=False,
-            nl_require_review=False,
             data_dir=tmp_path,
             planner_surface="minimal",
         ),
@@ -302,7 +298,6 @@ async def test_bare_final_cannot_replace_already_compiled_and_rendered_state(
     runtime = TeXadaAgentRuntime(
         TeXadaConfig(
             nl_candidate_first=False,
-            nl_require_review=False,
             data_dir=tmp_path,
             planner_surface=surface,
         ),
@@ -338,7 +333,7 @@ async def test_bare_final_cannot_replace_already_compiled_and_rendered_state(
 async def test_full_empty_direct_final_seed_is_explicitly_recorded(tmp_path):
     planner = ScriptedPlanner([PlannerTurn(content="x+1")])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.candidate_engine.propose = lambda _: None
@@ -365,13 +360,13 @@ async def test_full_compile_and_render_preserve_authoritative_literal_labels(tmp
         PlannerTurn(tool_calls=[call("render_math", 1, latex=latex, mode="katex")]),
     ])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
     result = await runtime.run("public synthetic formula", _task="ocr", _initial_candidate=latex)
-    assert result.valid and not result.committed
-    assert result.review_reasons == ["ocr_source_requires_review"]
+    assert result.valid and result.committed
+    assert result.review_reasons == []
     assert result.latex == latex and result.revision == 1
     assert len(result.formula_ledger["revisions"]) == 1
     assert '<span class="katex">' in result.render.katex_html
@@ -391,7 +386,7 @@ async def test_full_compile_and_render_preserve_authoritative_literal_labels(tmp
 ])
 def test_prompt_label_normalization_only_removes_a_leading_label(tmp_path, source, expected):
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path)
+        TeXadaConfig(nl_candidate_first=False, data_dir=tmp_path)
     )
     assert runtime._sanitize_latex_argument(source) == expected
 
@@ -402,7 +397,7 @@ def test_exact_historical_diff_bindings_keep_literal_labels(tmp_path):
     snapshot = action_snapshot(state, surface="full")
     proposal = call("semantic_diff", 2, before=snapshot.before, after=snapshot.latex)
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path)
+        TeXadaConfig(nl_candidate_first=False, data_dir=tmp_path)
     )
     normalized = runtime._normalize_call(proposal, authority=snapshot)
     assert normalized.arguments == proposal.arguments
@@ -415,7 +410,7 @@ def test_even_a_leading_label_in_authority_is_not_rewritten_as_a_model_prompt(tm
     snapshot = action_snapshot(state, surface="full")
     proposal = call("compile_tex", 1, latex=state.latex)
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path)
+        TeXadaConfig(nl_candidate_first=False, data_dir=tmp_path)
     )
     normalized = runtime._normalize_call(proposal, authority=snapshot)
     assert normalized.arguments == proposal.arguments
@@ -465,7 +460,6 @@ async def test_export_latex_finishes_compiled_revision_without_rewriting(tmp_pat
     runtime = TeXadaAgentRuntime(
         TeXadaConfig(
             nl_candidate_first=False,
-            nl_require_review=False,
             data_dir=tmp_path,
             planner_surface=surface,
         ),
@@ -506,13 +500,12 @@ def test_finish_cannot_seed_rewrite_or_bypass_compile():
 
 
 @pytest.mark.asyncio
-async def test_finish_uses_existing_ocr_review_gate(tmp_path):
+async def test_finish_commits_ocr_source_without_review_gate(tmp_path):
     surface = "full"
     planner = ScriptedPlanner([PlannerTurn(tool_calls=[call("finish_formula", 1)])])
     runtime = TeXadaAgentRuntime(
         TeXadaConfig(
             nl_candidate_first=False,
-            nl_require_review=False,
             data_dir=tmp_path,
             planner_surface=surface,
         ),
@@ -520,8 +513,9 @@ async def test_finish_uses_existing_ocr_review_gate(tmp_path):
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
     result = await runtime.run("source image", _task="ocr", _initial_candidate="x+1")
-    assert result.valid and not result.committed
-    assert result.review_reasons == ["ocr_source_requires_review"]
+    assert result.valid and result.committed
+    assert result.review_reasons == []
+    assert result.stop_reason == "finish_confirmed"
     assert result.latex == "x+1" and result.revision == 1
 
 
@@ -536,7 +530,7 @@ def test_minimal_keeps_existing_action_surface():
 async def test_finish_commits_exact_current_formula_without_second_planner_turn(tmp_path):
     planner = ScriptedPlanner([PlannerTurn(tool_calls=[call("finish_formula", 1)])])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
@@ -554,7 +548,7 @@ async def test_rejected_prose_recovers_only_through_bound_finish(tmp_path):
         PlannerTurn(tool_calls=[call("finish_formula", 1)]),
     ])
     runtime = TeXadaAgentRuntime(
-        TeXadaConfig(nl_candidate_first=False, nl_require_review=False, data_dir=tmp_path),
+        TeXadaConfig(nl_candidate_first=False, data_dir=tmp_path),
         model=planner,
     )
     runtime.backend.ensure_ready = AsyncMock(return_value=True)

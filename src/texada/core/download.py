@@ -9,6 +9,7 @@ Yields progress events for the API/UI layer.
 from __future__ import annotations
 
 import hashlib
+import re
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -25,6 +26,7 @@ HF_MIRROR_BASE = "https://hf-mirror.com"
 CHUNK_SIZE = 1024 * 1024
 HTTP_TIMEOUT = httpx.Timeout(30.0, read=300.0)
 HASH_CHUNK = 1024 * 1024
+_CONTENT_RANGE = re.compile(r"bytes (\d+)-(\d+)/(\d+)$")
 
 
 class ModelFile(NamedTuple):
@@ -79,7 +81,10 @@ async def download_model(
 ) -> AsyncIterator[dict[str, Any]]:
     """Download every file for ``role`` into ``dest_dir``.
 
-    Yields events: {"file", "received", "total", "done", "skipped", "error"}.
+    Yields events: {"file", "received", "total", "done", "skipped",
+    "resumed", "error"}. An existing ``.part`` file is resumed with an HTTP
+    Range request; a server that ignores or rejects the range restarts the
+    file from scratch instead of appending misaligned bytes.
     """
     if role not in MODEL_CATALOG:
         raise DownloadError(f"未知模型角色: {role}")
@@ -101,6 +106,7 @@ async def download_model(
                     "total": size,
                     "done": True,
                     "skipped": True,
+                    "resumed": False,
                     "error": None,
                 }
                 continue
@@ -109,25 +115,54 @@ async def download_model(
             url = f"{base}/{repo}/resolve/{MODEL_REVISION}/{spec.remote_name}"
             received = 0
             total: int | None = None
+            resumed = False
             try:
-                async with client.stream("GET", url) as resp:
-                    if resp.status_code != 200:
-                        raise DownloadError(f"下载失败 HTTP {resp.status_code}: {url}")
-                    length = resp.headers.get("Content-Length")
-                    if length and length.isdigit():
-                        total = int(length)
-                    with part_path.open("wb") as fh:
-                        async for chunk in resp.aiter_bytes(CHUNK_SIZE):
-                            fh.write(chunk)
-                            received += len(chunk)
-                            yield {
-                                "file": spec.local_name,
-                                "received": received,
-                                "total": total,
-                                "done": False,
-                                "skipped": False,
-                                "error": None,
-                            }
+                for attempt in (0, 1):
+                    existing = part_path.stat().st_size if part_path.is_file() else 0
+                    use_range = attempt == 0 and existing > 0
+                    headers = {"Range": f"bytes={existing}-"} if use_range else {}
+                    async with client.stream("GET", url, headers=headers) as resp:
+                        content_range = (resp.headers.get("Content-Range") or "").strip()
+                        range_match = _CONTENT_RANGE.match(content_range)
+                        range_total: int | None = None
+                        if use_range and resp.status_code == 206 and range_match:
+                            if int(range_match.group(1)) == existing:
+                                range_total = int(range_match.group(3))
+                        if resp.status_code == 416 or (
+                            use_range and resp.status_code == 206 and range_total is None
+                        ):
+                            # A partial that cannot be resumed is worse than
+                            # none: drop it and retry with a plain request.
+                            part_path.unlink(missing_ok=True)
+                            if attempt == 0:
+                                continue
+                            raise DownloadError(f"下载失败 HTTP {resp.status_code}: {url}")
+                        if resp.status_code not in (200, 206):
+                            raise DownloadError(f"下载失败 HTTP {resp.status_code}: {url}")
+                        if range_total is not None:
+                            total = range_total
+                            received = existing
+                            resumed = True
+                            mode = "ab"
+                        else:
+                            length = resp.headers.get("Content-Length")
+                            total = int(length) if length and length.isdigit() else None
+                            received = 0
+                            mode = "wb"
+                        with part_path.open(mode) as fh:
+                            async for chunk in resp.aiter_bytes(CHUNK_SIZE):
+                                fh.write(chunk)
+                                received += len(chunk)
+                                yield {
+                                    "file": spec.local_name,
+                                    "received": received,
+                                    "total": total,
+                                    "done": False,
+                                    "skipped": False,
+                                    "resumed": resumed,
+                                    "error": None,
+                                }
+                    break
             except Exception as exc:
                 part_path.unlink(missing_ok=True)
                 yield {
@@ -136,6 +171,7 @@ async def download_model(
                     "total": total,
                     "done": False,
                     "skipped": False,
+                    "resumed": resumed,
                     "error": f"{type(exc).__name__}: {exc}",
                 }
                 return
@@ -148,6 +184,7 @@ async def download_model(
                     "total": total,
                     "done": False,
                     "skipped": False,
+                    "resumed": resumed,
                     "error": f"下载不完整: {received}/{total} 字节",
                 }
                 return
@@ -162,6 +199,7 @@ async def download_model(
                     "total": total,
                     "done": False,
                     "skipped": False,
+                    "resumed": resumed,
                     "error": "校验和不匹配，模型文件已损坏，请重试下载",
                 }
                 return
@@ -173,6 +211,7 @@ async def download_model(
                 "total": total,
                 "done": True,
                 "skipped": False,
+                "resumed": resumed,
                 "error": None,
             }
 

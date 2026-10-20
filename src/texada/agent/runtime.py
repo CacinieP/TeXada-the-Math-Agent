@@ -196,9 +196,9 @@ class TeXadaAgentRuntime:
         _initial_candidate: str = "",
         _initial_tokens_used: int = 0,
         _uncertain_role_paths: tuple[str, ...] = (),
-        requires_review: bool = False,
         input_source_hash: str | None = None,
         _source_image: bytes | None = None,
+        _requires_review: bool = False,
     ) -> AgentRunResult:
         if _task != "ocr":
             require_transcription(user_input)
@@ -218,7 +218,7 @@ class TeXadaAgentRuntime:
             task=_task,
             prefix=user_input if _task == "completion" else "",
             uncertain_roles=_uncertain_role_paths,
-            requires_review=requires_review,
+            requires_review=_requires_review,
             input_hash=source_identity,
         )
         if _task == "nl":
@@ -237,7 +237,7 @@ class TeXadaAgentRuntime:
                     render_mode=render_mode,
                     start=start,
                     task="nl",
-                    requires_review=requires_review,
+                    requires_review=_requires_review,
                     input_hash=source_identity,
                 )
                 if deterministic:
@@ -1040,9 +1040,9 @@ class TeXadaAgentRuntime:
         render_mode: RenderMode = RenderMode.KATEX,
         initial_tokens_used: int = 0,
         uncertain_role_paths: tuple[str, ...] = (),
-        requires_review: bool = False,
         input_source_hash: str | None = None,
         _source_image: bytes | None = None,
+        requires_review: bool = False,
     ) -> AgentRunResult:
         """Run OCR/completion candidates through the shared planner."""
         if task not in {"ocr", "completion", "repair"}:
@@ -1091,8 +1091,8 @@ class TeXadaAgentRuntime:
                 render_mode=render_mode,
                 start=time.monotonic(),
                 task="completion",
-                source_prefix=user_input,
                 requires_review=requires_review,
+                source_prefix=user_input,
                 input_hash=input_source_hash or hash_review_source(user_input, _source_image),
             )
             if deterministic:
@@ -1105,9 +1105,9 @@ class TeXadaAgentRuntime:
             _initial_candidate=candidate_latex,
             _initial_tokens_used=initial_tokens_used,
             _uncertain_role_paths=uncertain_role_paths,
-            requires_review=requires_review,
             input_source_hash=input_source_hash,
             _source_image=_source_image,
+            _requires_review=requires_review,
         )
 
     async def _run_deterministic_candidate(
@@ -1119,8 +1119,8 @@ class TeXadaAgentRuntime:
         start: float,
         task: str,
         source_prefix: str = "",
-        requires_review: bool = False,
         input_hash: str = "",
+        requires_review: bool = False,
     ) -> AgentRunResult | None:
         """Validate and render a high-confidence candidate without model inference."""
         compile_call = PlannerToolCall(
@@ -1176,7 +1176,8 @@ class TeXadaAgentRuntime:
             return None
         await self._record_cas_shadow(formula_state, start=start)
         review_reasons = self._review_reasons(formula_state)
-        if not review_reasons:
+        blockers = MutationScopeGuard.commit_blockers(formula_state)
+        if not blockers and not formula_state.review_required:
             formula_state.commit(expected_revision=formula_state.revision)
 
         trace = [
@@ -1211,9 +1212,9 @@ class TeXadaAgentRuntime:
             tokens_used=0,
             latency_ms=(time.monotonic() - start) * 1000,
             stop_reason=(
-                ("mutation_scope_review_required"
-                 if MutationScopeGuard.commit_blockers(formula_state)
-                 else "human_review_required") if review_reasons else "deterministic_candidate"
+                "mutation_scope_review_required" if blockers
+                else "deterministic_candidate" if formula_state.committed
+                else "human_review_required"
             ),
             revision=formula_state.revision,
             committed=formula_state.committed,
@@ -1384,13 +1385,16 @@ class TeXadaAgentRuntime:
             if blockers:
                 stop_reason = "mutation_scope_review_required"
                 raise CommitBarrierError("mutation scope requires human review")
-            if self._review_reasons(formula_state):
+            if formula_state.review_required:
+                # Only the Studio handoff surface reaches this branch.
                 stop_reason = "human_review_required"
                 raise CommitBarrierError("candidate requires revision-bound human review")
             formula_state.commit(expected_revision=formula_state.revision)
         except CommitBarrierError as exc:
             commit_error = str(exc)
-            if stop_reason not in {"mutation_scope_review_required", "human_review_required"}:
+            if stop_reason not in {
+                "mutation_scope_review_required", "human_review_required"
+            }:
                 stop_reason = "commit_barrier_failed"
             observations.append(
                 {
@@ -1551,25 +1555,23 @@ class TeXadaAgentRuntime:
         state.mutation_scope_guard = MutationScopeGuard(
             task=task, prefix=prefix, uncertain_roles=uncertain_roles,
         )
-        state.review_required = bool(
-            requires_review or task == "ocr"
-            or (task == "nl" and self.config.nl_require_review)
-        )
-        state.nl_policy_review = bool(task == "nl" and self.config.nl_require_review)
-        state.review_task = task
+        # NL, OCR and completion candidates commit directly; only the
+        # mutation-scope guard can still block a commit. The Studio handoff
+        # surface is the single caller that passes requires_review=True: its
+        # transfer contract forbids an automatic commit.
+        state.review_required = bool(requires_review)
         state.review_input_hash = input_hash
         self._adopt_formula(state, latex, origin=origin)
         return state
 
     @staticmethod
     def _review_reasons(state: FormulaState) -> list[str]:
+        # High-risk role changes are reported for evidence. Only the Studio
+        # handoff surface sets review_required, so the label below never fires
+        # for NL/OCR/completion runs (those commit directly).
         reasons = []
         if getattr(state, "review_required", False):
-            reasons.append(
-                "ocr_source_requires_review" if getattr(state, "review_task", "") == "ocr"
-                else "nl_semantics_requires_review" if getattr(state, "nl_policy_review", False)
-                else "trusted_review_required"
-            )
+            reasons.append("trusted_review_required")
         critical = {"numerator", "denominator", "radicand", "index", "lower_bound", "upper_bound",
                     "subscript", "superscript", "base"}
         for item in state.ledger.evidence:

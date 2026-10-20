@@ -319,7 +319,7 @@ def _app_version() -> str:
     try:
         return version("texada")
     except PackageNotFoundError:
-        return "0.4.2-rc.2"
+        return "0.4.2-rc.3"
 
 
 def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
@@ -971,10 +971,6 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 latency_ms=result.latency_ms,
                 tokens_used=result.tokens_used,
             )
-        review = register_review_result(
-            result, source_text=req.text,
-            metadata={"history_entry": asdict(history_entry)},
-        )
         if result.committed:
             try:
                 await history.add(history_entry)
@@ -1010,7 +1006,6 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             stop_reason=result.stop_reason,
             revision=result.revision,
             committed=result.committed,
-            review=review,
         )
 
     @app.post("/api/ocr", response_model=AgentResponse)
@@ -1047,7 +1042,6 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 candidate,
                 render_mode=ocr_mode,
                 initial_tokens_used=vision_tokens,
-                requires_review=True,
                 _source_image=data,
             )
         except RuntimeError as e:
@@ -1078,11 +1072,6 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 render_mode=ocr_mode.value, valid=result.valid,
                 latency_ms=result.latency_ms, tokens_used=result.tokens_used,
             )
-        review = register_review_result(
-            result, source_text=image.filename or "[image]", source_image=data,
-            source_mime=image.content_type or "",
-            metadata={"history_entry": asdict(history_entry)},
-        )
         if result.committed:
             try:
                 await history.add(history_entry)
@@ -1120,7 +1109,6 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             stop_reason=result.stop_reason,
             revision=result.revision,
             committed=result.committed,
-            review=review,
         )
 
     @app.post("/api/complete", response_model=AgentResponse)
@@ -1176,10 +1164,6 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 render_mode=comp_mode.value, valid=result.valid,
                 latency_ms=result.latency_ms, tokens_used=result.tokens_used,
             )
-        review = register_review_result(
-            result, source_text=req.text,
-            metadata={"history_entry": asdict(history_entry)},
-        )
         if result.committed:
             try:
                 await history.add(history_entry)
@@ -1216,7 +1200,6 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             stop_reason=result.stop_reason,
             revision=result.revision,
             committed=result.committed,
-            review=review,
         )
 
     @app.post("/api/validate", response_model=ValidateResponse)

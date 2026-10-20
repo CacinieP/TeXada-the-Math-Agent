@@ -314,6 +314,26 @@ body {
   transition: background .3s;
 }
 
+/* Determinate progress bar (model download) */
+.progress-track {
+  margin-top: 6px;
+  height: 6px;
+  background: var(--bg-input);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width .25s ease-out;
+}
+.progress-track.done .progress-fill {
+  background: var(--accent-green);
+}
+.progress-track[hidden] { display: none; }
+
 /* Mode banner */
 .mode-banner {
   display: flex;

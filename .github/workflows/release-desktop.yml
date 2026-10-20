@@ -250,10 +250,9 @@ jobs:
           result = json.loads(Path(os.environ["RESPONSE_PATH"]).read_text())
           assert result["valid"] is True, result
           assert result["tokens_used"] == 0, result
-          assert result["stop_reason"] == "human_review_required", result
-          assert result["committed"] is False, result
-          assert result["review"]["status"] == "pending", result
-          assert "nl_semantics_requires_review" in result["review"]["reasons"], result
+          assert result["stop_reason"] == "deterministic_candidate", result
+          assert result["committed"] is True, result
+          assert result["review"] is None, result
           assert result["semantic_document"]["parser_backend"] == "katex-0.17.0-v8", result
           '
 

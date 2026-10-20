@@ -1,4 +1,10 @@
-"""Release-blocker regressions: safe default adoption and bounded invalid-export recovery."""
+"""Release-blocker regressions: direct candidate adoption and bounded invalid-export recovery.
+
+NL / OCR / completion candidates now commit directly: the human-review gate was
+removed for those surfaces, so a committed run carries no pending review and the
+``MutationScopeGuard`` stays the only commit barrier. The Studio handoff surface
+still opts into review explicitly and is covered by its own tests.
+"""
 import json
 from pathlib import Path
 from unittest.mock import AsyncMock
@@ -47,35 +53,44 @@ def bad_export(revision=1, latex='x+1'):
 
 
 @pytest.mark.asyncio
-async def test_default_nl_generation_requires_review_not_automatic_commit(tmp_path):
+async def test_default_nl_generation_commits_directly(tmp_path):
     engine, _ = runtime(tmp_path, [PlannerTurn(content='x+1')])
     result = await engine.run('a user-described formula')
-    assert result.valid and not result.committed
-    assert result.stop_reason == 'human_review_required'
-    assert 'nl_semantics_requires_review' in result.review_reasons
+    assert result.valid and result.committed
+    assert result.stop_reason == 'planner_final'
+    assert result.review_reasons == []
+    assert result.formula_ledger['commits']
 
 
 @pytest.mark.asyncio
-async def test_deterministic_nl_shortcut_cannot_bypass_default_review(tmp_path):
+async def test_deterministic_nl_shortcut_commits_directly(tmp_path):
     engine = TeXadaAgentRuntime(TeXadaConfig(nl_candidate_first=False, data_dir=tmp_path))
     result = await engine.run('二重积分')
-    assert result.valid and not result.committed
-    assert 'nl_semantics_requires_review' in result.review_reasons
-
-
-@pytest.mark.asyncio
-async def test_legacy_automatic_mode_is_explicit_opt_in(tmp_path):
-    engine, _ = runtime(tmp_path, [PlannerTurn(content='x+1')], nl_require_review=False)
-    result = await engine.run('a user-described formula')
     assert result.valid and result.committed
+    assert result.stop_reason == 'deterministic_candidate'
+    assert result.review_reasons == []
 
 
 @pytest.mark.asyncio
-async def test_export_failure_has_one_fresh_bound_recovery_without_ocr_commit(tmp_path):
-    engine, planner = runtime(tmp_path, [bad_export(), finish()], nl_require_review=False)
-    result = await engine.run_candidate('ocr', 'synthetic source', 'x+1')
+async def test_handoff_requires_review_still_blocks_automatic_commit(tmp_path):
+    engine, _ = runtime(tmp_path, [
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            'seed', 'compile_tex', {'latex': '7+5'},
+        )]),
+        finish(),
+    ])
+    result = await engine.run('输入 7+5', _requires_review=True)
     assert result.valid and not result.committed
     assert result.stop_reason == 'human_review_required'
+    assert 'trusted_review_required' in result.review_reasons
+
+
+@pytest.mark.asyncio
+async def test_export_failure_has_one_fresh_bound_recovery_with_ocr_commit(tmp_path):
+    engine, planner = runtime(tmp_path, [bad_export(), finish()])
+    result = await engine.run_candidate('ocr', 'synthetic source', 'x+1')
+    assert result.valid and result.committed
+    assert result.stop_reason == 'finish_confirmed'
     assert planner.calls == 2
     errors = [o for t in result.trace for o in t.get('observations', [])
               if o.get('error') == 'Invalid export format']
@@ -109,16 +124,17 @@ AUDIT = json.loads((Path(__file__).parents[1] / 'eval/beta4-difference-audit.jso
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('row', AUDIT['entries'], ids=lambda r: r['case_id'])
-async def test_previously_auto_committed_differences_cannot_commit_unreviewed(tmp_path, row):
+async def test_previously_auto_committed_differences_commit_directly(tmp_path, row):
     engine, _ = runtime(tmp_path, [finish(), finish(), finish()])
     if requests_computation(row['input']):
         with pytest.raises(ComputationOutsideScope):
             await engine.run(row['input'], _initial_candidate=row['candidate'])
         return
     result = await engine.run(row['input'], _initial_candidate=row['candidate'])
-    assert not result.committed
-    if result.valid:
-        assert 'nl_semantics_requires_review' in result.review_reasons
+    assert result.valid and result.committed
+    assert result.stop_reason == 'finish_confirmed'
+    assert result.review_reasons == []
+    assert result.formula_ledger['commits']
 
 
 @pytest.mark.asyncio
@@ -129,12 +145,13 @@ async def test_default_planner_bootstraps_candidate_before_inspection(tmp_path):
     engine, planner = runtime(tmp_path, turns)
     result = await engine.run('输入 7+5')
     assert result.latex == '7+5' and result.valid
-    assert not result.committed and planner.calls == 2
-    assert 'nl_semantics_requires_review' in result.review_reasons
+    assert result.committed and planner.calls == 2
+    assert result.stop_reason == 'finish_confirmed'
+    assert result.review_reasons == []
 
 
 @pytest.mark.asyncio
-async def test_builtin_default_generates_candidate_before_planning_and_requires_adoption(tmp_path):
+async def test_builtin_default_generates_candidate_before_planning_and_commits_directly(tmp_path):
     planner = Planner([finish()])
     planner.generate_latex = AsyncMock(return_value='7+5')
     engine = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path), model=planner)
@@ -143,5 +160,46 @@ async def test_builtin_default_generates_candidate_before_planning_and_requires_
     assert engine.config.nl_candidate_first is True
     result = await engine.run('输入 7+5')
     planner.generate_latex.assert_awaited_once()
-    assert result.latex == '7+5' and result.valid and not result.committed
-    assert result.stop_reason == 'human_review_required'
+    assert result.latex == '7+5' and result.valid and result.committed
+    assert result.stop_reason == 'finish_confirmed'
+    assert result.review_reasons == []
+
+
+@pytest.mark.asyncio
+async def test_agent_endpoint_committed_run_writes_history_without_review(tmp_path, monkeypatch):
+    """A committed NL run returns no review payload and lands in history."""
+    from fastapi.testclient import TestClient
+
+    from texada.agent.runtime import AgentRunResult
+    from texada.api import create_app
+    from texada.render.engine import RenderEngine
+
+    config = TeXadaConfig(data_dir=tmp_path)
+
+    async def fake_run(self, user_input, *, context="", render_mode=None):
+        return AgentRunResult(
+            latex=r"\frac{a}{b}",
+            valid=True,
+            render=RenderEngine(config).render(r"\frac{a}{b}"),
+            semantic_document={"latex": r"\frac{a}{b}", "root": {"kind": "sequence"}},
+            trace=[{"step": 1, "origin": "planner"}],
+            stop_reason="planner_final",
+            revision=2,
+            committed=True,
+        )
+
+    monkeypatch.setattr(TeXadaAgentRuntime, "run", fake_run)
+
+    client = TestClient(create_app(config))
+    response = client.post(
+        "/api/agent",
+        json={"text": "a divided by b", "render_mode": "katex"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["committed"] is True
+    assert body["review"] is None
+
+    history = client.get("/api/history").json()
+    assert [entry["latex"] for entry in history] == [r"\frac{a}{b}"]

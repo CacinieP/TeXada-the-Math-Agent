@@ -21,7 +21,7 @@
 
 <p align="center">
   <strong>Recognize, transcribe and typeset math formulas locally.</strong><br>
-  Describe or capture a formula, inspect its LaTeX and preview, then explicitly adopt it.
+  Describe or capture a formula, inspect its LaTeX and preview, then copy or insert the result.
 </p>
 
 ![TeXada 30-second local math agent demo](assets/demo/texada-demo.gif)
@@ -32,9 +32,12 @@
 
 ## TeXada
 
-**Version status:** this README describes `main` / `0.4.2-rc.2`. The RC is a draft;
-public Beta.4 installers do not contain the new default NL adoption policy or
-export recovery fix. Stable latest remains v0.4.1. See the [RC report](docs/rc2-validation.md).
+**Version status:** this README describes `main` / `0.4.2-rc.3`. The RC is a draft;
+public Beta.4 installers do not contain the export recovery fix. rc.3 commits
+NL/OCR/completion candidates directly instead of requiring explicit adoption,
+adds a model-download progress bar (percentage, size, speed, ETA) in Settings,
+and adds internal completion groundwork. Stable latest remains v0.4.1. See the
+[RC report](docs/rc2-validation.md).
 
 TeXada helps transcribe formulas into LaTeX. Describe notation in
 natural language, paste a screenshot or handwritten formula, or give it an
@@ -46,8 +49,9 @@ TeXada is a local tool for formula recognition, transcription and typesetting.
 It preserves expressions rather than evaluating or solving them. Calculation,
 simplification, factorization, equation solving, differentiation, integration
 and proofs are outside the supported product scope. Derivative and integral
-notation can still be transcribed. Generated NL and OCR candidates require
-explicit review before adoption by default.
+notation can still be transcribed. Generated NL and OCR candidates commit
+directly; compare the source and the candidate, because compilation does not
+establish transcription accuracy.
 It has two model roles: planning/text generation and image understanding/OCR.
 The MiniCPM-V 4.7 profile uses one `MiniCPM-V-4.7-1B` checkpoint for both roles;
 the existing Ollama defaults use MiniCPM5-2B and MiniCPM-V 4.6.
@@ -80,8 +84,8 @@ or derivative symbol without evaluating it. OCR copies visible formulas and
 answers without solving the image. Completion fills syntax holes, not answers.
 Explicit computation requests receive HTTP 422 before inference; this conservative
 intent check is not a complete classifier. Syntax checks and structural comparisons
-do not establish transcription accuracy. Compare the source and candidate before
-adopting. `/api/convert` remains a preview-only compatibility endpoint.
+do not establish transcription accuracy. Compare the source and candidate;
+`/api/convert` remains a preview-only compatibility endpoint.
 
 The built-in and named MiniCPM-V 4.7 1B profiles default to candidate generation
 before tool review. Other checkpoints keep direct planning; explicit experimental
@@ -199,7 +203,7 @@ TeXada release packages are built for end users. You do not need Python, Node.js
 5. Try OCR after the vision model is ready.
    - Paste or drop a screenshot into the OCR tab.
    - With llama-server, wait for both the model weights and vision projector to finish downloading. With Ollama, configure the shared 4.7 model in both role fields and verify image inference support.
-   - OCR candidates require review before adoption; compilation and rendering do not establish mathematical correctness.
+   - OCR candidates commit directly; compilation and rendering do not establish mathematical correctness.
 
 6. Reuse previous work from History.
    - Open the `History` tab to search saved natural-language, completion, OCR, and LaTeX results.
@@ -229,7 +233,7 @@ Save after changing the backend or its runtime paths before using service contro
    Keep the default address `http://127.0.0.1:8080`. Leave **llama-server executable** and **Model directory** blank to use the packaged runtime and `~/.texada/models`.
 3. In **Local inference service (llama-server)**, click **Download model**. Wait until downloading finishes for both the model weights and the vision projector. They are not included in the installer.
 4. Click **Start** in the same section. Wait for the service to be ready, then return to **NL** and try `x plus y`.
-5. To try OCR, open **OCR** and paste or drop a formula image. The same 4.7 model handles text and OCR; review the candidate before adopting it.
+5. To try OCR, open **OCR** and paste or drop a formula image. The same 4.7 model handles text and OCR; compare the candidate with the source before copying or inserting it.
 
 You do not need terminal commands, an Ollama model name, or an API key for this
 route. If model files are missing, complete **Download model** first. If the
@@ -576,13 +580,13 @@ releases retain the license recorded in their immutable tag. See [LICENSE](LICEN
 
 ## TeXada
 
-**版本状态：**本文描述 `main` / `0.4.2-rc.2`。RC 保持草稿；当前公开的 Beta.4 安装包不包含本次默认 NL 人工采用和导出恢复修复，稳定版 latest 仍是 v0.4.1。详见 [RC 报告](docs/rc2-validation.md)。
+**版本状态：**本文描述 `main` / `0.4.2-rc.3`。RC 保持草稿；当前公开的 Beta.4 安装包不包含导出恢复修复；rc.3 将自然语言/OCR/补全候选改为直接提交（不再要求明确采用），在设置页新增模型下载进度条（百分比、大小、速度、剩余时间）并增加内部补全基础。稳定版 latest 仍是 v0.4.1。详见 [RC 报告](docs/rc2-validation.md)。
 
 TeXada 是一个用于数学公式识别、转写与排版的本地工具。你可以输入自然语言、
 粘贴截图或手写公式，也可以交给它一段不完整的 TeX；TeXada 会把输入转换为
 结构化公式，用确定性工具检查，再渲染为可核对、可复制的结果。
 
-**支持范围：**只识别、转写、编辑和排版公式；不提供求值、化简、因式分解、解方程、求导、积分计算或证明。导数与积分的记号仍支持输入。`7+5` 保留为表达式，不补成 `12`。默认自然语言和 OCR 候选均需核对原文后明确采用；编译通过不代表转写准确。详见 [RC 范围与验证](docs/rc2-validation.md)。
+**支持范围：**只识别、转写、编辑和排版公式；不提供求值、化简、因式分解、解方程、求导、积分计算或证明。导数与积分的记号仍支持输入。`7+5` 保留为表达式，不补成 `12`。自然语言和 OCR 候选现在直接提交，请对照原文与候选结果；编译通过不代表转写准确。详见 [RC 范围与验证](docs/rc2-validation.md)。
 
 它不是聊天界面套壳，而是基于端侧 Agent 的结构化数学编辑器。产品明确只有两个
 模型保留规划/文本与视觉/OCR 两个职责。MiniCPM-V 4.7 profile 用同一个
@@ -641,7 +645,7 @@ Level 1，但只在明确存在 before/after 公式时启用，不会把自然�
 
 两个工具均提供 `MiniCPM-V-4.7-1B` profile。Math Agent 用同一个 checkpoint
 承担文本与视觉；Studio 生成公式文本修复候选，继续交给确定性检查器回判。
-当前交接方式是复制已审阅的 LaTeX 到 Studio。
+当前交接方式是复制转写好的 LaTeX 到 Studio。
 见[系列工作流与海报](docs/texada-series.md)和[4.7 配置与验收](docs/minicpm-v47.md)。
 API profile 处于实验阶段，本机 Q4 需单独验收。封面为工作流示意，不是真实桌面截图。
 
@@ -715,7 +719,7 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 5. 视觉模型准备好后再试 OCR。
    - 在 OCR 页签粘贴或拖入公式截图。
    - llama-server 需要模型权重与视觉投影文件均下载完成；Ollama 路线请在两个角色字段填写同一个 4.7 模型，并确认引擎支持图片推理。
-   - OCR 候选需要人工审阅后采用；编译和渲染成功不代表数学含义正确。
+   - OCR 候选直接提交；编译和渲染成功不代表数学含义正确。
 
 6. 从历史页复用旧记录。
    - 打开 `历史` 页签，搜索保存过的自然语言、补全、OCR 和 LaTeX 结果。
@@ -744,7 +748,7 @@ beta.3 设置页只展示所选后端。文本与 OCR 保留独立角色；内�
    地址保留 `http://127.0.0.1:8080`；**llama-server 路径**和**模型目录**留空，使用应用内置运行时及 `~/.texada/models`。
 3. 在**本地推理服务（llama-server）**中点击**下载模型**，等待模型权重和视觉投影文件全部下载完成。安装包不包含这些文件。
 4. 在同一区域点击**启动**，等待服务就绪，回到 **NL** 页签输入 `x 加上 y` 试用。
-5. 需要识图时，进入 **OCR** 页签粘贴或拖入公式图片。文本和 OCR 使用同一个 4.7 模型；采用前请审阅候选结果。
+5. 需要识图时，进入 **OCR** 页签粘贴或拖入公式图片。文本和 OCR 使用同一个 4.7 模型；复制或插入前请对照候选结果。
 
 这条路线无需终端命令、Ollama 模型名或 API key。
 提示缺模型时，先完成**下载模型**；启动失败时查看服务状态信息，确认 `8080` 端口是否被占用。

@@ -106,15 +106,6 @@ class DatasetIdentity(_Contract):
 
 
 class PlannerControls(_Contract):
-    nl_require_review: bool | None = None
-
-    @model_serializer(mode="wrap")
-    def preserve_legacy_review_policy(self, handler):
-        data = handler(self)
-        if self.nl_require_review is None:
-            data.pop("nl_require_review", None)
-        return data
-
     failure_context_projection: bool
     surface: Literal["full", "minimal"]
 
@@ -352,7 +343,6 @@ def build_inference_identity(
             "sha256": _configured(dataset_sha256, "dataset content hash was not supplied"),
         },
         planner_controls={
-            "nl_require_review": config.nl_require_review,
             "failure_context_projection": config.failure_context_projection,
             "surface": getattr(config, "planner_surface", "full"),
         },

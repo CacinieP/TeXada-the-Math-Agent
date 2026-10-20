@@ -187,7 +187,10 @@
       'llama.startFailed': '启动失败',
       'llama.pullFailed': '下载失败',
       'llama.pullDone': '模型下载完成',
-      'llama.pullProgress': '{file}：{percent}%',
+      'llama.pullProgress': '{file}：{percent}% · {received}/{total} MB{speed}',
+      'llama.pullSpeed': '{rate} MB/s',
+      'llama.pullEta': '剩余约 {minutes} 分钟',
+      'llama.pullEtaSoon': '即将完成',
       'settings.ollamaHostPlaceholder': '例如 http://localhost:11435',
       'settings.localTextModel': '本地文本模型',
       'settings.localVisionModel': '本地视觉模型',
@@ -389,7 +392,10 @@
       'llama.startFailed': 'Startup failed',
       'llama.pullFailed': 'Download failed',
       'llama.pullDone': 'Model download complete',
-      'llama.pullProgress': '{file}: {percent}%',
+      'llama.pullProgress': '{file}: {percent}% · {received}/{total} MB{speed}',
+      'llama.pullSpeed': '{rate} MB/s',
+      'llama.pullEta': 'ETA {minutes} min',
+      'llama.pullEtaSoon': 'almost done',
       'settings.ollamaHost': 'Ollama address',
       'settings.ollamaHostDesc': 'Default http://localhost:11434; any port is allowed',
       'settings.ollamaHostPlaceholder': 'e.g. http://localhost:11435',
@@ -529,6 +535,8 @@
     btnLlamaStop: document.getElementById('btn-llama-stop'),
     btnLlamaPull: document.getElementById('btn-llama-pull'),
     llamaPullProgress: document.getElementById('llama-pull-progress'),
+    llamaPullTrack: document.getElementById('llama-pull-track'),
+    llamaPullFill: document.getElementById('llama-pull-fill'),
     uiLanguageSelect: document.getElementById('ui-language-select'),
     uiZoomInput: document.getElementById('ui-zoom-input'),
     uiZoomValue: document.getElementById('ui-zoom-value'),
@@ -1934,6 +1942,9 @@
   async function llamaPull() {
     if (!els.llamaPullProgress) return;
     els.llamaPullProgress.textContent = t('status.downloading');
+    resetPullProgressBar();
+    const pullStartedAt = Date.now();
+    let pullStartedBytes = 0;
     try {
       const res = await fetch(API_BASE + '/api/llama/pull', {
         method: 'POST',
@@ -1961,21 +1972,74 @@
             lastError = event.error;
           } else if (event.done && !event.skipped) {
             els.llamaPullProgress.textContent = t('llama.pullDone') + ': ' + event.file;
+            setPullProgressBar(100, true);
           } else if (event.total && event.received != null) {
             const percent = Math.floor((event.received / event.total) * 100);
+            const elapsedSeconds = (Date.now() - pullStartedAt) / 1000;
+            if (pullStartedBytes === 0) pullStartedBytes = event.received;
+            const bytesPerSecond = elapsedSeconds > 0
+              ? (event.received - pullStartedBytes) / elapsedSeconds
+              : 0;
+            const speed = bytesPerSecond > 0
+              ? ' · ' + t('llama.pullSpeed').replace('{rate}', (bytesPerSecond / 1024 / 1024).toFixed(1))
+                + formatPullEta(event.total - event.received, bytesPerSecond)
+              : '';
             els.llamaPullProgress.textContent = t('llama.pullProgress')
-              .replace('{file}', event.file).replace('{percent}', String(percent));
+              .replace('{file}', event.file)
+              .replace('{percent}', String(percent))
+              .replace('{received}', formatPullSize(event.received))
+              .replace('{total}', formatPullSize(event.total))
+              .replace('{speed}', speed.trim());
+            setPullProgressBar(percent, false);
           }
         }
       }
       if (lastError) {
         els.llamaPullProgress.textContent = t('llama.pullFailed') + ': ' + lastError;
+        hidePullProgressBar();
       }
       await refreshLlamaStatus();
     } catch (e) {
       els.llamaPullProgress.textContent = t('llama.pullFailed') + ': ' + String(e).replace(/^Error:\s*/, '');
+      hidePullProgressBar();
     }
   }
+
+  function resetPullProgressBar() {
+    if (!els.llamaPullTrack) return;
+    els.llamaPullTrack.hidden = false;
+    els.llamaPullTrack.classList.remove('done');
+    els.llamaPullTrack.setAttribute('aria-valuenow', '0');
+    if (els.llamaPullFill) els.llamaPullFill.style.width = '0%';
+  }
+
+  function setPullProgressBar(percent, done) {
+    if (!els.llamaPullTrack) return;
+    const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+    els.llamaPullTrack.hidden = false;
+    els.llamaPullTrack.setAttribute('aria-valuenow', String(clamped));
+    if (els.llamaPullFill) els.llamaPullFill.style.width = clamped + '%';
+    if (done) els.llamaPullTrack.classList.add('done');
+  }
+
+  function hidePullProgressBar() {
+    if (!els.llamaPullTrack) return;
+    els.llamaPullTrack.hidden = true;
+    els.llamaPullTrack.classList.remove('done');
+  }
+
+  function formatPullSize(bytes) {
+    if (bytes == null) return '?';
+    return (bytes / 1024 / 1024).toFixed(bytes > 1024 * 1024 * 1024 ? 0 : 1);
+  }
+
+  function formatPullEta(remainingBytes, bytesPerSecond) {
+    if (!bytesPerSecond || bytesPerSecond <= 0 || remainingBytes <= 0) return '';
+    const minutes = Math.ceil(remainingBytes / bytesPerSecond / 60);
+    if (minutes <= 1) return ' · ' + t('llama.pullEtaSoon');
+    return ' · ' + t('llama.pullEta').replace('{minutes}', String(minutes));
+  }
+
 
   // ── OCR ──
   function firstImageFile(files) {

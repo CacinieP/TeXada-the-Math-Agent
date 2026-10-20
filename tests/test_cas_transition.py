@@ -238,8 +238,8 @@ async def test_real_runtime_syntax_repair_records_unsupported_parent_without_fak
     result = await runtime.run_candidate(
         "ocr", "synthetic.png", r"\frac{x}{2", initial_tokens_used=1
     )
-    assert result.valid and not result.committed
-    assert "ocr_source_requires_review" in result.review_reasons
+    assert result.valid and result.committed
+    assert result.review_reasons == []
     evidence = [
         item for item in result.formula_ledger["evidence"] if item["kind"] == "cas_transition"
     ]
