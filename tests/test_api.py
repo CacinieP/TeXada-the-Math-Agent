@@ -31,6 +31,7 @@ async def test_create_app_builds_all_routes():
         "/api/agent",
         "/api/convert",
         "/api/complete",
+        "/api/complete/inline",
         "/api/ocr",  # the route that needs python-multipart
         "/api/validate",
         "/api/render-mode",
@@ -203,6 +204,93 @@ async def test_completion_endpoint_runs_candidate_through_agent(
     assert run["model_role"] == "planner"
     assert run["tool_names"] == ["compile_tex"]
     assert run["trace"]
+
+
+async def test_inline_completion_suggests_placeholder_inside_empty_group(tmp_path):
+    from texada.api import create_app
+
+    client = TestClient(create_app(TeXadaConfig(data_dir=tmp_path)))
+
+    response = client.post(
+        "/api/complete/inline",
+        json={
+            "before_cursor": r"\frac{a}{",
+            "after_cursor": "}",
+            "source_hash": "a" * 64,
+            "edit_version": 3,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["text"] == r"\placeholder{}"
+    assert body["rule"] == "empty_group"
+    assert body["insert_at"] == "cursor"
+    assert body["source_hash"] == "a" * 64
+    assert body["edit_version"] == 3
+
+
+async def test_inline_completion_never_rewrites_existing_content(tmp_path):
+    from texada.api import create_app
+
+    client = TestClient(create_app(TeXadaConfig(data_dir=tmp_path)))
+
+    response = client.post(
+        "/api/complete/inline",
+        json={"before_cursor": r"x^", "after_cursor": "{2}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["text"] is None
+    assert body["rule"] is None
+
+
+async def test_inline_completion_handles_non_ascii_context(tmp_path):
+    """CJK text around the cursor must not shift the insertion point."""
+    from texada.api import create_app
+
+    client = TestClient(create_app(TeXadaConfig(data_dir=tmp_path)))
+
+    response = client.post(
+        "/api/complete/inline",
+        json={"before_cursor": r"公式 \frac{甲}{", "after_cursor": "}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["text"] == r"\placeholder{}"
+
+
+async def test_inline_completion_rejects_oversized_context(tmp_path):
+    from texada.api import create_app
+
+    client = TestClient(create_app(TeXadaConfig(data_dir=tmp_path)))
+
+    response = client.post(
+        "/api/complete/inline",
+        json={"before_cursor": "x" * 5000},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_inline_completion_needs_no_model_backend(tmp_path):
+    """Ghost text is a pure function: it answers with no runtime at all."""
+    from texada.api import create_app
+
+    config = TeXadaConfig(data_dir=tmp_path, backend="llama_server")
+    client = TestClient(create_app(config))
+    assert client.get("/api/llama/status").json()["status"] != "ready"
+
+    response = client.post(
+        "/api/complete/inline",
+        json={"before_cursor": "x+", "after_cursor": ""},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["text"] == r"\placeholder{}"
+    assert body["rule"] == "binary_operand"
 
 
 async def test_agent_endpoint_returns_invalid_candidate_with_trace(
