@@ -55,6 +55,7 @@ class FakeClient:
         self._headers = headers
         self._error = error
         self.requested_urls: list[str] = []
+        self.requested_headers: list[dict | None] = []
 
     async def __aenter__(self):
         return self
@@ -62,8 +63,9 @@ class FakeClient:
     async def __aexit__(self, *exc):
         return False
 
-    def stream(self, method, url):
+    def stream(self, method, url, headers=None):
         self.requested_urls.append(url)
+        self.requested_headers.append(headers)
         if self._error:
             raise self._error
         return FakeStreamCM(FakeStreamResponse(self._chunks, self._status_code, self._headers))
@@ -192,4 +194,104 @@ async def test_network_exception_is_reported(tmp_path, monkeypatch):
         e async for e in download_model("text", tmp_path, client_factory=_client_factory(client))
     ]
     assert events[-1]["error"] is not None
+    assert not list(tmp_path.glob("*.part"))
+
+
+class FakeSequentialClient:
+    """Serves one scripted response per stream() call."""
+
+    def __init__(self, responses):
+        self._responses = list(responses)
+        self.requested_urls: list[str] = []
+        self.requested_headers: list[dict | None] = []
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    def stream(self, method, url, headers=None):
+        self.requested_urls.append(url)
+        self.requested_headers.append(headers)
+        status_code, response_headers, chunks = self._responses.pop(0)
+        return FakeStreamCM(FakeStreamResponse(chunks, status_code, response_headers))
+
+
+def _part_path(tmp_path):
+    return tmp_path / "MiniCPM-V-4_7-1B-Q4_K_M.gguf.part"
+
+
+async def test_existing_part_is_resumed_with_a_range_request(tmp_path, monkeypatch):
+    payload = b"x" * 10 + b"y" * 10
+    _trust_catalog(monkeypatch, payload)
+    _part_path(tmp_path).write_bytes(b"x" * 10)
+    client = FakeClient([b"y" * 10], status_code=206, headers={"Content-Range": "bytes 10-19/20"})
+    events = [
+        e async for e in download_model("text", tmp_path, client_factory=_client_factory(client))
+    ]
+    assert client.requested_headers[0] == {"Range": "bytes=10-"}
+    assert events[0]["resumed"] is True
+    assert events[0]["received"] == 20
+    assert events[0]["total"] == 20
+    assert events[-1]["done"] is True
+    assert events[-1]["error"] is None
+    assert (tmp_path / "MiniCPM-V-4_7-1B-Q4_K_M.gguf").read_bytes() == payload
+    assert not list(tmp_path.glob("*.part"))
+
+
+async def test_server_ignoring_the_range_restarts_from_zero(tmp_path, monkeypatch):
+    payload = b"good weights"
+    _trust_catalog(monkeypatch, payload)
+    _part_path(tmp_path).write_bytes(b"stale bytes!!")
+    client = FakeClient([payload], headers={"Content-Length": str(len(payload))})
+    events = [
+        e async for e in download_model("text", tmp_path, client_factory=_client_factory(client))
+    ]
+    assert client.requested_headers[0] == {"Range": "bytes=13-"}
+    assert all(event["resumed"] is False for event in events)
+    assert events[0]["received"] == len(payload)
+    assert events[-1]["done"] is True
+    assert events[-1]["error"] is None
+    assert (tmp_path / "MiniCPM-V-4_7-1B-Q4_K_M.gguf").read_bytes() == payload
+    assert not list(tmp_path.glob("*.part"))
+
+
+async def test_unusable_range_restarts_the_download(tmp_path, monkeypatch):
+    """A 416 on the ranged attempt must fall back to a plain full request."""
+    payload = b"good weights"
+    _trust_catalog(monkeypatch, payload)
+    _part_path(tmp_path).write_bytes(b"partial")
+    client = FakeSequentialClient([
+        (416, {}, []),
+        (200, {"Content-Length": str(len(payload))}, [payload]),
+    ])
+    events = [
+        e async for e in download_model("text", tmp_path, client_factory=lambda: client)
+    ]
+    assert len(client.requested_headers) == 2
+    assert client.requested_headers[0] == {"Range": "bytes=7-"}
+    assert client.requested_headers[1] == {}
+    assert all(event["resumed"] is False for event in events)
+    assert events[-1]["done"] is True
+    assert events[-1]["error"] is None
+    assert (tmp_path / "MiniCPM-V-4_7-1B-Q4_K_M.gguf").read_bytes() == payload
+
+
+async def test_mismatched_content_range_restarts_the_download(tmp_path, monkeypatch):
+    payload = b"good weights"
+    _trust_catalog(monkeypatch, payload)
+    _part_path(tmp_path).write_bytes(b"partial")
+    client = FakeSequentialClient([
+        (206, {"Content-Range": "bytes 99-111/112"}, [b"tail"]),
+        (200, {"Content-Length": str(len(payload))}, [payload]),
+    ])
+    events = [
+        e async for e in download_model("text", tmp_path, client_factory=lambda: client)
+    ]
+    assert len(client.requested_headers) == 2
+    assert all(event["resumed"] is False for event in events)
+    assert events[-1]["done"] is True
+    assert events[-1]["error"] is None
+    assert (tmp_path / "MiniCPM-V-4_7-1B-Q4_K_M.gguf").read_bytes() == payload
     assert not list(tmp_path.glob("*.part"))
