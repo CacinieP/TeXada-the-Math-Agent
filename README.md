@@ -32,9 +32,11 @@
 
 ## TeXada
 
-**Version status:** this README describes `main` / `0.4.2-rc.2`. The RC is a draft;
+**Version status:** this README describes `main` / `0.4.2-rc.3`. The RC is a draft;
 public Beta.4 installers do not contain the new default NL adoption policy or
-export recovery fix. Stable latest remains v0.4.1. See the [RC report](docs/rc2-validation.md).
+export recovery fix. rc.3 only adds internal completion groundwork with no
+user-visible change. Stable latest remains v0.4.1. See the
+[RC report](docs/rc2-validation.md).
 
 TeXada helps transcribe formulas into LaTeX. Describe notation in
 natural language, paste a screenshot or handwritten formula, or give it an
@@ -576,7 +578,7 @@ releases retain the license recorded in their immutable tag. See [LICENSE](LICEN
 
 ## TeXada
 
-**版本状态：**本文描述 `main` / `0.4.2-rc.2`。RC 保持草稿；当前公开的 Beta.4 安装包不包含本次默认 NL 人工采用和导出恢复修复，稳定版 latest 仍是 v0.4.1。详见 [RC 报告](docs/rc2-validation.md)。
+**版本状态：**本文描述 `main` / `0.4.2-rc.3`。RC 保持草稿；当前公开的 Beta.4 安装包不包含本次默认 NL 人工采用和导出恢复修复；rc.3 只增加内部补全基础，没有用户可见变化。稳定版 latest 仍是 v0.4.1。详见 [RC 报告](docs/rc2-validation.md)。
 
 TeXada 是一个用于数学公式识别、转写与排版的本地工具。你可以输入自然语言、
 粘贴截图或手写公式，也可以交给它一段不完整的 TeX；TeXada 会把输入转换为
