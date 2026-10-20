@@ -93,6 +93,17 @@ def test_slow_operations_show_progress_and_recoverable_load_errors():
     assert "if (!ready && isDesktop) waitForBackendStartup()" in JAVASCRIPT
 
 
+def test_model_download_shows_a_determinate_progress_bar():
+    assert 'id="llama-pull-track" role="progressbar"' in HTML
+    assert 'id="llama-pull-fill"' in HTML
+    assert "llamaPullTrack: document.getElementById('llama-pull-track')" in JAVASCRIPT
+    assert "llamaPullFill: document.getElementById('llama-pull-fill')" in JAVASCRIPT
+    assert "els.llamaPullTrack.setAttribute('aria-valuenow', String(clamped))" in JAVASCRIPT
+    assert "els.llamaPullFill.style.width = clamped + '%'" in JAVASCRIPT
+    assert "'llama.pullSpeed'" in JAVASCRIPT
+    assert "'llama.pullEta'" in JAVASCRIPT
+
+
 def test_bundled_backend_startup_wait_covers_slow_frozen_imports():
     assert "let backendStartupPromise = null" in JAVASCRIPT
     assert "if (backendStartupPromise) return backendStartupPromise" in JAVASCRIPT

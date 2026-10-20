@@ -2,12 +2,14 @@
 
 ### 中文
 
+- 设置页模型下载新增确定性进度条：实时百分比、已下载/总大小（MB）、下载速度与剩余时间预估，完成变绿、失败自动收起；下载事件流与零改动契约不变。
 - 新增实验性 L0 光标感知行内补全的纯函数切片 `suggest_inline(before_cursor, after_cursor)`：仅在光标处做 insert-only 建议（空组占位符、缺失脚本/二元操作数、已知命令前缀），复用既有 `DeterministicCompletionEngine` 规则，绝不重写光标两侧已输入内容；本切片不含 API 与桌面 UI 改动（#40）。
 - 光标位于 `\frac{a}{}` 分母、`x^{}`、`a_{}` 等空组内时只建议 `\placeholder{}`；`\frac{a}{b}`、`x^{2}` 等已有内容与转义字面括号 `\{` 不给建议；含中文/emoji 的上下文不发生坐标错位（零模型、纯字符串插入）。
 - 新增 26 个行内补全回归用例；全量 Python 测试 1181 通过、13 跳过，ruff 与前端静态契约检查通过。正式版验收门槛仍见 #35，本预发布不替换 v0.4.1 稳定 latest。
 
 ### English
 
+- Add a determinate model-download progress bar in Settings: live percentage, received/total size in MB, transfer rate and ETA, turning green on completion and collapsing on failure. The download event stream and its zero-change contract are untouched.
 - Add the first slice of the experimental L0 cursor-aware inline completion: the pure function `suggest_inline(before_cursor, after_cursor)` returns insert-only ghost-text candidates (empty-group placeholders, missing script/binary operands, known command prefixes) by reusing the existing `DeterministicCompletionEngine` rules. It never rewrites text on either side of the cursor; no API or desktop UI change in this slice (#40).
 - An empty group at the cursor (`\frac{a}{}` denominator, `x^{}`, `a_{}`) only suggests `\placeholder{}`; filled groups (`\frac{a}{b}`, `x^{2}`) and escaped literal braces (`\{`) return no suggestion. Non-ASCII (CJK/emoji) context cannot shift offsets because suggestions are pure string insertions with zero model calls.
 - Add 26 inline-completion regression cases; full Python suite 1181 passed / 13 skipped, plus ruff and the static frontend contract checks. Stable-release acceptance remains tracked in #35; this prerelease does not replace the v0.4.1 stable latest.
