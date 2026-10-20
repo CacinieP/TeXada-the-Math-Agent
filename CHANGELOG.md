@@ -2,6 +2,7 @@
 
 ### 中文
 
+- **行为变更：自然语言、OCR 与补全候选不再要求人工审阅，直接提交**。审阅面板不再出现，复制/插入立即可用，结果直接进入历史；compile/render/intent/CAS 证据仍分别报告，编译通过不代表转写准确，confidence 不是语义保证。公式改动范围守卫（MutationScopeGuard）保留：越界仍阻止提交并返回 `mutation_scope_review_required`。Studio 移交端点（`/api/handoff/formula`，`requires_review`）保留为唯一仍产生待审阅候选的路径。移除 `nl_require_review` 配置项。
 - 设置页模型下载新增确定性进度条：实时百分比、已下载/总大小（MB）、下载速度与剩余时间预估，完成变绿、失败自动收起；下载事件流与零改动契约不变。
 - 新增实验性 L0 光标感知行内补全的纯函数切片 `suggest_inline(before_cursor, after_cursor)`：仅在光标处做 insert-only 建议（空组占位符、缺失脚本/二元操作数、已知命令前缀），复用既有 `DeterministicCompletionEngine` 规则，绝不重写光标两侧已输入内容；本切片不含 API 与桌面 UI 改动（#40）。
 - 光标位于 `\frac{a}{}` 分母、`x^{}`、`a_{}` 等空组内时只建议 `\placeholder{}`；`\frac{a}{b}`、`x^{2}` 等已有内容与转义字面括号 `\{` 不给建议；含中文/emoji 的上下文不发生坐标错位（零模型、纯字符串插入）。
@@ -9,6 +10,7 @@
 
 ### English
 
+- **Behavior change: NL, OCR and completion candidates no longer require human review — they commit directly.** The review panel no longer appears, copy/insert work immediately, and results land in history. compile/render/intent/CAS evidence is still reported separately; compilation does not establish transcription accuracy and confidence is not a semantic guarantee. The mutation-scope guard (MutationScopeGuard) stays: out-of-scope changes still block the commit with `mutation_scope_review_required`. The Studio handoff endpoint (`/api/handoff/formula`, `requires_review`) remains the only surface that still produces pending-review candidates. The `nl_require_review` setting is removed.
 - Add a determinate model-download progress bar in Settings: live percentage, received/total size in MB, transfer rate and ETA, turning green on completion and collapsing on failure. The download event stream and its zero-change contract are untouched.
 - Add the first slice of the experimental L0 cursor-aware inline completion: the pure function `suggest_inline(before_cursor, after_cursor)` returns insert-only ghost-text candidates (empty-group placeholders, missing script/binary operands, known command prefixes) by reusing the existing `DeterministicCompletionEngine` rules. It never rewrites text on either side of the cursor; no API or desktop UI change in this slice (#40).
 - An empty group at the cursor (`\frac{a}{}` denominator, `x^{}`, `a_{}`) only suggests `\placeholder{}`; filled groups (`\frac{a}{b}`, `x^{2}`) and escaped literal braces (`\{`) return no suggestion. Non-ASCII (CJK/emoji) context cannot shift offsets because suggestions are pure string insertions with zero model calls.

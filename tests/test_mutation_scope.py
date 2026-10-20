@@ -205,8 +205,13 @@ async def test_runtime_blocks_ungranted_ocr_commit_but_records_role_footprint(
         uncertain_role_paths=trusted_roles,
     )
     assert result.valid
-    assert not result.committed  # Every OCR result needs explicit human adoption.
-    assert "ocr_source_requires_review" in result.review_reasons
+    # The mutation-scope guard is the only commit barrier left for OCR: an
+    # ungranted critical-role change is blocked, a granted one commits directly
+    # (NL/OCR/completion no longer require a separate human adoption step).
+    assert result.committed is scope_allowed
+    assert "ocr_source_requires_review" not in result.review_reasons
+    if not scope_allowed:
+        assert "mutation_scope_denied_or_uncertain" in result.review_reasons
     changes = [
         item for item in result.formula_ledger["evidence"] if item["kind"] == "mutation_scope"
     ]
@@ -218,6 +223,8 @@ async def test_runtime_blocks_ungranted_ocr_commit_but_records_role_footprint(
     if not scope_allowed:
         assert result.stop_reason == "mutation_scope_review_required"
         assert result.formula_ledger["commits"] == []
+    else:
+        assert result.formula_ledger["commits"]
 
 
 @pytest.mark.asyncio
