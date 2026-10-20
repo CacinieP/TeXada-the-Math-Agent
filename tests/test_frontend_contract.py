@@ -104,6 +104,19 @@ def test_model_download_shows_a_determinate_progress_bar():
     assert "'llama.pullEta'" in JAVASCRIPT
 
 
+def test_completion_page_has_inline_ghost_text():
+    assert 'class="completion-wrap"' in HTML
+    assert 'id="complete-ghost"' in HTML
+    assert 'class="ghost-typed"' in HTML
+    assert 'class="ghost-text"' in HTML
+    assert "completeGhost: document.getElementById('complete-ghost')" in JAVASCRIPT
+    assert "'/api/complete/inline'" in JAVASCRIPT
+    assert "event.key === 'Tab'" in JAVASCRIPT
+    assert "event.key === 'Escape'" in JAVASCRIPT
+    assert "bindInlineCompletion()" in JAVASCRIPT
+    assert "execCommand('insertText'" in JAVASCRIPT
+
+
 def test_bundled_backend_startup_wait_covers_slow_frozen_imports():
     assert "let backendStartupPromise = null" in JAVASCRIPT
     assert "if (backendStartupPromise) return backendStartupPromise" in JAVASCRIPT
