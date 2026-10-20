@@ -1,6 +1,6 @@
 [project]
 name = "texada"
-version = "0.4.2-rc.2"
+version = "0.4.2-rc.3"
 description = "Local formula recognition, transcription and typesetting powered by MiniCPM"
 license = "AGPL-3.0-or-later"
 requires-python = ">=3.12"
