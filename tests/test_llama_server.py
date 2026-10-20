@@ -5,6 +5,7 @@ other invocation, serves a minimal OpenAI-compatible /v1/models endpoint.
 """
 from __future__ import annotations
 
+import hashlib
 import socket
 import stat
 import textwrap
@@ -12,6 +13,7 @@ import textwrap
 import pytest
 
 from texada.config import TeXadaConfig
+from texada.core import llama_server
 from texada.core.llama_server import (
     MIN_BUILD,
     TEXT_MODEL_FILE,
@@ -80,11 +82,16 @@ def config(tmp_path, fake_binary):
 
 
 @pytest.fixture
-def models(tmp_path):
+def models(tmp_path, monkeypatch):
     d = tmp_path / "models"
     d.mkdir()
+    pins = {}
     for name in (TEXT_MODEL_FILE, VISION_MODEL_FILE, VISION_MMPROJ_FILE):
         (d / name).write_text("fake", encoding="utf-8")
+        pins[name] = hashlib.sha256(b"fake").hexdigest()
+    # The start-time integrity check verifies the pinned digests; point the
+    # pins at this fake content so the fixtures model correctly pinned files.
+    monkeypatch.setattr(llama_server, "PINNED_SHA256", pins)
     return d
 
 
@@ -213,3 +220,67 @@ async def test_minicpm_model_keeps_ollama_behavior(tmp_path):
         data_dir=tmp_path, backend="ollama", model_name="some-other-model"
     )
     assert MiniCPMModel(config)._text_request_options() == {}
+
+
+def _stale_models(tmp_path, monkeypatch):
+    """Model files present at the expected paths but not matching the pins."""
+    models = tmp_path / "models"
+    models.mkdir()
+    (models / TEXT_MODEL_FILE).write_bytes(b"stale weights")
+    (models / VISION_MMPROJ_FILE).write_bytes(b"stale projector")
+    monkeypatch.setattr(llama_server, "PINNED_SHA256", {
+        TEXT_MODEL_FILE: hashlib.sha256(b"fresh weights").hexdigest(),
+        VISION_MMPROJ_FILE: hashlib.sha256(b"fresh projector").hexdigest(),
+    })
+    return models
+
+
+async def test_start_refuses_a_mismatched_pinned_model(tmp_path, monkeypatch, config):
+    _stale_models(tmp_path, monkeypatch)
+    manager = LlamaServerManager(config)
+    with pytest.raises(LlamaServerError, match="校验和不匹配"):
+        manager._build_command()
+
+
+async def test_missing_models_are_reported_before_hash_mismatch(
+    tmp_path, monkeypatch, config
+):
+    models = _stale_models(tmp_path, monkeypatch)
+    (models / VISION_MMPROJ_FILE).unlink()
+    manager = LlamaServerManager(config)
+    with pytest.raises(LlamaServerError, match="模型文件缺失"):
+        manager._build_command()
+
+
+async def test_status_reports_pinned_hash_mismatch(tmp_path, monkeypatch, config):
+    _stale_models(tmp_path, monkeypatch)
+    manager = LlamaServerManager(config)
+    status = await manager.aget_status()
+    assert status["status"] == "model_hash_mismatch"
+    assert status["ready"] is False
+    assert status["pinned_hash_mismatch"] == [TEXT_MODEL_FILE, VISION_MMPROJ_FILE]
+    assert "重新下载" in status["next_action"]
+
+
+def test_digest_verification_is_cached_per_file(tmp_path, monkeypatch):
+    models = tmp_path / "models"
+    models.mkdir()
+    (models / TEXT_MODEL_FILE).write_bytes(b"weights")
+    (models / VISION_MMPROJ_FILE).write_bytes(b"projector")
+    monkeypatch.setattr(llama_server, "PINNED_SHA256", {
+        TEXT_MODEL_FILE: hashlib.sha256(b"other weights").hexdigest(),
+        VISION_MMPROJ_FILE: hashlib.sha256(b"other projector").hexdigest(),
+    })
+    hashed: list[str] = []
+    real = llama_server.sha256_file
+
+    def counting(path):
+        hashed.append(path.name)
+        return real(path)
+
+    monkeypatch.setattr(llama_server, "sha256_file", counting)
+    manager = LlamaServerManager(TeXadaConfig(data_dir=tmp_path))
+    expected = [TEXT_MODEL_FILE, VISION_MMPROJ_FILE]
+    assert manager._mismatched_pinned_models() == expected
+    assert manager._mismatched_pinned_models() == expected
+    assert sorted(hashed) == sorted(expected)

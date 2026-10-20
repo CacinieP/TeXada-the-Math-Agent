@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import ctypes
+import hashlib
 import os
 import re
 import shutil
@@ -24,6 +25,15 @@ VISION_MODEL_FILE = TEXT_MODEL_FILE
 VISION_MMPROJ_FILE = "mmproj-model-f16.gguf"
 VISION_MODEL_FILES = (VISION_MODEL_FILE, VISION_MMPROJ_FILE)
 
+# Checksum-pinned weights and projector, downloaded separately from the
+# runtime. Single source of truth: the downloader and the start-time
+# integrity check both read these digests.
+PINNED_SHA256 = {
+    TEXT_MODEL_FILE: "588c6c94c82f756b86dba35c42ed9ba9ec187d65824eb52f039c347df563e63d",
+    VISION_MMPROJ_FILE: "fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900",
+}
+HASH_CHUNK = 1024 * 1024
+
 MIN_BUILD = 11609  # Pinned and locally verified MiniCPM-V 4.7 runtime
 STARTUP_TIMEOUT_SECONDS = 60.0
 VERSION_TIMEOUT_SECONDS = 15.0
@@ -33,6 +43,15 @@ KILL_TIMEOUT_SECONDS = 5.0
 _BUILD_RE = re.compile(r"build\s+(\d+)")
 _IS_WINDOWS = sys.platform == "win32"
 _CREATE_SUSPENDED = 0x00000004
+
+
+def sha256_file(path: Path) -> str:
+    """Streaming SHA-256 so multi-GB weights never land in memory."""
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for block in iter(lambda: fh.read(HASH_CHUNK), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 class _JobBasicLimitInformation(ctypes.Structure):
@@ -210,6 +229,8 @@ class LlamaServerManager:
         self._windows_job: _WindowsJob | None = None
         self._lifecycle_lock = asyncio.Lock()
         self._last_error: str | None = None
+        self._digest_cache: dict[tuple[str, int, int], bool] = {}
+        self._digest_mismatch: list[str] = []
 
     # ── paths and binary resolution ──
 
@@ -343,6 +364,13 @@ class LlamaServerManager:
         missing = [path.name for path in (model, mmproj) if not path.is_file()]
         if missing:
             raise LlamaServerError("模型文件缺失: " + ", ".join(missing))
+        mismatched = self._mismatched_pinned_models()
+        if mismatched:
+            raise LlamaServerError(
+                "模型文件校验和不匹配（文件损坏或来自其他版本）: "
+                + ", ".join(mismatched)
+                + "。请重新下载后再启动。"
+            )
         command = [
             str(binary),
             "-m",
@@ -537,12 +565,52 @@ class LlamaServerManager:
         vision, mmproj = self.vision_model_paths
         return self.text_model_path.is_file(), vision.is_file(), mmproj.is_file()
 
-    def _build_status(self, running: bool, installed: list[str] | None = None) -> dict:
+    # ── pinned model integrity ──
+
+    def _pinned_model_paths(self) -> list[Path]:
+        vision, mmproj = self.vision_model_paths
+        return [self.text_model_path, vision, mmproj]
+
+    def _mismatched_pinned_models(self) -> list[str]:
+        """Names of pinned model files whose SHA-256 does not match.
+
+        A stale or truncated file at the expected path must never reach
+        llama-server: it would load silently and corrupt every result.
+        Results are cached per (path, size, mtime) so repeated status polls
+        do not re-hash gigabytes; a replaced file re-verifies on its own.
+        """
+        mismatched: list[str] = []
+        seen: set[str] = set()
+        for path in self._pinned_model_paths():
+            expected = PINNED_SHA256.get(path.name)
+            if expected is None or path.name in seen or not path.is_file():
+                continue
+            seen.add(path.name)
+            stat = path.stat()
+            key = (str(path), stat.st_size, stat.st_mtime_ns)
+            verified = self._digest_cache.get(key)
+            if verified is None:
+                verified = sha256_file(path) == expected
+                self._digest_cache[key] = verified
+            if not verified:
+                mismatched.append(path.name)
+        self._digest_mismatch = mismatched
+        return mismatched
+
+    def _cached_mismatch(self) -> list[str]:
+        """Last computed mismatch verdict, without hashing anything."""
+        return list(self._digest_mismatch)
+
+    def _build_status(
+        self, running: bool, installed: list[str] | None = None,
+        mismatched: list[str] | None = None,
+    ) -> dict:
         text_present, vision_present, mmproj_present = self._model_presence()
         text_installed = text_present
         vision_installed = vision_present and mmproj_present
         installed = installed or []
         running = running or self.is_running()
+        mismatched = mismatched or []
         try:
             binary = str(self.resolve_binary())
         except LlamaServerError:
@@ -556,6 +624,10 @@ class LlamaServerManager:
             status, ready = "missing_binary", False
             message = "未找到 llama-server 二进制"
             next_action = "在设置中指定 llama-server 路径"
+        elif mismatched:
+            status, ready = "model_hash_mismatch", False
+            message = "模型文件校验和不匹配: " + ", ".join(mismatched)
+            next_action = "重新下载模型以替换损坏或版本不符的文件"
         elif not running:
             status, ready = "stopped", False
             message = "llama-server 未运行"
@@ -593,6 +665,7 @@ class LlamaServerManager:
             ],
             "text_model_installed": text_installed,
             "vision_model_installed": vision_installed,
+            "pinned_hash_mismatch": mismatched,
             "binary": binary,
             "models_dir": str(self.models_dir),
             "installed_model_count": len(installed),
@@ -602,11 +675,16 @@ class LlamaServerManager:
         }
 
     def get_status(self) -> dict:
-        """Sync status for the UI (no probe)."""
-        return self._build_status(self.is_running())
+        """Sync status for the UI (no probe, no hashing).
+
+        Digest verification runs in ``aget_status``; this path reports the
+        last computed verdict so a multi-GB model never blocks the caller.
+        """
+        return self._build_status(self.is_running(), mismatched=self._cached_mismatch())
 
     async def aget_status(self) -> dict:
         """Async status with a live endpoint probe and model listing."""
         running = await probe_models_url(self.config.active_base_url)
         installed = await list_models_url(self.config.active_base_url) if running else []
-        return self._build_status(running, installed)
+        mismatched = await asyncio.to_thread(self._mismatched_pinned_models)
+        return self._build_status(running, installed, mismatched=mismatched)
