@@ -1,7 +1,7 @@
 # TeXada Source Audit
 
-Scope: the `TeXada-the-Math-Agent` repository checkout (performed on the local
-copy at `/Users/caciniep/Developer/TeXada-the-Math-Agent`).
+Scope: the `TeXada-the-Math-Agent` repository checkout (performed on a local
+working copy of the repository).
 
 ## Source Map
 
