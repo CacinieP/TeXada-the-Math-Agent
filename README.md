@@ -37,7 +37,9 @@ public Beta.4 installers do not contain the export recovery fix. rc.3 commits
 NL/OCR/completion candidates directly instead of requiring explicit adoption,
 adds a model-download progress bar (percentage, size, speed, ETA) in Settings,
 and adds internal completion groundwork. Stable latest remains v0.4.1. See the
-[RC report](docs/rc2-validation.md).
+[rc.3 changelog](CHANGELOG.md#042-rc3---2026-10-20); the latest recorded RC
+validation is the [rc.2 report](docs/rc2-validation.md), which predates the rc.3
+direct-commit change.
 
 TeXada helps transcribe formulas into LaTeX. Describe notation in
 natural language, paste a screenshot or handwritten formula, or give it an
@@ -89,7 +91,7 @@ do not establish transcription accuracy. Compare the source and candidate;
 
 The built-in and named MiniCPM-V 4.7 1B profiles default to candidate generation
 before tool review. Other checkpoints keep direct planning; explicit experimental
-settings remain respected. See [release-candidate scope and validation](docs/rc2-validation.md).
+settings remain respected. See [rc.2 scope and validation](docs/rc2-validation.md).
 
 ### Highlights
 
@@ -580,13 +582,13 @@ releases retain the license recorded in their immutable tag. See [LICENSE](LICEN
 
 ## TeXada
 
-**版本状态：**本文描述 `main` / `0.4.2-rc.3`。RC 保持草稿；当前公开的 Beta.4 安装包不包含导出恢复修复；rc.3 将自然语言/OCR/补全候选改为直接提交（不再要求明确采用），在设置页新增模型下载进度条（百分比、大小、速度、剩余时间）并增加内部补全基础。稳定版 latest 仍是 v0.4.1。详见 [RC 报告](docs/rc2-validation.md)。
+**版本状态：**本文描述 `main` / `0.4.2-rc.3`。RC 保持草稿；当前公开的 Beta.4 安装包不包含导出恢复修复；rc.3 将自然语言/OCR/补全候选改为直接提交（不再要求明确采用），在设置页新增模型下载进度条（百分比、大小、速度、剩余时间）并增加内部补全基础。稳定版 latest 仍是 v0.4.1。详见 [rc.3 更新日志](CHANGELOG.md#042-rc3---2026-10-20)；最近一份 RC 验证记录是 [rc.2 报告](docs/rc2-validation.md)，早于 rc.3 的直接提交改动。
 
 TeXada 是一个用于数学公式识别、转写与排版的本地工具。你可以输入自然语言、
 粘贴截图或手写公式，也可以交给它一段不完整的 TeX；TeXada 会把输入转换为
 结构化公式，用确定性工具检查，再渲染为可核对、可复制的结果。
 
-**支持范围：**只识别、转写、编辑和排版公式；不提供求值、化简、因式分解、解方程、求导、积分计算或证明。导数与积分的记号仍支持输入。`7+5` 保留为表达式，不补成 `12`。自然语言和 OCR 候选现在直接提交，请对照原文与候选结果；编译通过不代表转写准确。详见 [RC 范围与验证](docs/rc2-validation.md)。
+**支持范围：**只识别、转写、编辑和排版公式；不提供求值、化简、因式分解、解方程、求导、积分计算或证明。导数与积分的记号仍支持输入。`7+5` 保留为表达式，不补成 `12`。自然语言和 OCR 候选现在直接提交，请对照原文与候选结果；编译通过不代表转写准确。详见 [rc.2 范围与验证](docs/rc2-validation.md)。
 
 它不是聊天界面套壳，而是基于端侧 Agent 的结构化数学编辑器。产品明确只有两个
 模型保留规划/文本与视觉/OCR 两个职责。MiniCPM-V 4.7 profile 用同一个
