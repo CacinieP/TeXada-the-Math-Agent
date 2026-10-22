@@ -122,7 +122,7 @@ class InputRouter:
         start = time.monotonic()
         self._per_request_mode = render_mode
 
-        await self.backend.ensure_ready()
+        await self.backend.ensure_vision_ready()
 
         from texada.core.ocr import OCRPipeline
         ocr = OCRPipeline(self.model, self.config)

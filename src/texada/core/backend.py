@@ -46,6 +46,23 @@ class BackendManager:
         self._ready = True
         return True
 
+    async def ensure_vision_ready(self) -> bool:
+        """Ensure Ollama is running and the vision (OCR) model is available.
+
+        The OCR path needs the vision model, which is independent of the text
+        model checked by ``ensure_ready``. Without this check, a missing vision
+        model surfaces as an uncaught ``openai.NotFoundError`` (HTTP 500) deep
+        inside inference instead of a clean 503.
+        """
+        await self.ensure_ready()  # daemon up + text model present (cached → cheap)
+        models = await self._list_models()
+        if not any(self.config.vision_model_name in m for m in models):
+            raise RuntimeError(
+                f"视觉模型 {self.config.vision_model_name} 未安装。请运行: "
+                f"ollama pull {self.config.vision_model_name}"
+            )
+        return True
+
     async def _is_running(self) -> bool:
         """True if the daemon answers on /v1/models."""
         try:

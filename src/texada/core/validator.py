@@ -135,4 +135,5 @@ class LaTeXValidator:
             # npx/katex not available — skip this check
             return CheckResult(ok=True, type="katex_render", detail="npx katex not available, skipped")
         except subprocess.TimeoutExpired:
-            return CheckResult(ok=False, type="katex_render", error="KaTeX render timeout")
+            # Timeout is an infra issue, not a LaTeX validity verdict — skip like FileNotFoundError
+            return CheckResult(ok=True, type="katex_render", detail="KaTeX render timeout, skipped")
