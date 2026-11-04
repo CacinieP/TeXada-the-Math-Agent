@@ -203,7 +203,7 @@ def canonical_structure(latex: str, *, parser: Any = None) -> tuple[list[dict], 
     result = (parser or shared_katex_parser()).parse(latex)
     if not result.ok:
         raise UnsupportedStructure("katex_parse_failed")
-    if result.version != "0.17.0":
+    if result.version != "0.18.2":
         raise UnsupportedStructure("unvalidated_katex_version")
     return _sequence(result.ast), f"katex-{result.version}-raw-ast"
 

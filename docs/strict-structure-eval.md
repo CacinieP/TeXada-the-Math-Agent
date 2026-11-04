@@ -25,10 +25,13 @@ scope, and can therefore pass containment while being structurally `DIFFERENT`.
 
 ## Supported normalization and coverage
 
-`eval/structural_match.py` uses the pinned KaTeX 0.17.0 raw AST. It does not use
+`eval/structural_match.py` uses the pinned KaTeX 0.18.2 raw AST. It does not use
 the tolerant fallback or the product's lossy `SemanticDiffer.equivalent` as an
 oracle. A node-type and field allowlist rejects unsupported or newly introduced
 AST representations instead of silently flattening them.
+
+The pin was upgraded from 0.17.0 on 2026-11-04 for dependency security. Tracked
+historical reports retain their original parser version and scores.
 
 The canonical tree retains ordered expression children; fraction numerator and
 denominator; root index and radicand; script base, subscript and superscript;

@@ -34,6 +34,11 @@ objc2-quartz-core = { version = "0.3", default-features = false, features = [
     "objc2-core-foundation",
 ] }
 
+# GTK3 requires glib 0.18. Keep its API while backporting the upstream
+# VariantStrIter soundness fix; provenance and verification are in vendor/README.md.
+[patch.crates-io]
+glib = { path = "vendor/glib-0.18.5" }
+
 [profile.release]
 strip = true
 opt-level = "s"

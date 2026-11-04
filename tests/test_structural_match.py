@@ -129,7 +129,7 @@ def test_comparison_and_hash_resource_errors_are_unsupported(monkeypatch, stage,
 
 def test_parser_error_or_unknown_raw_fields_cannot_make_identical_trees_pass(monkeypatch):
     parser = SimpleNamespace(parse=lambda _: SimpleNamespace(
-        ok=True, version="0.17.0",
+        ok=True, version="0.18.2",
         ast=[{"type": "mathord", "mode": "math", "text": "x", "newSemanticField": 1}],
     ))
     monkeypatch.setattr(matcher, "shared_katex_parser", lambda: parser)

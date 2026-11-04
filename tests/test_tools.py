@@ -29,7 +29,7 @@ async def test_parse_and_compile_are_independent(tool_router):
 
     assert parsed.ok
     assert parsed.output["semantic_document"]["root"]["children"][0]["kind"] == "fraction"
-    assert parsed.output["semantic_document"]["parser_backend"] == "katex-0.17.0-v8"
+    assert parsed.output["semantic_document"]["parser_backend"] == "katex-0.18.2-v8"
     assert compiled.ok
     assert compiled.output["valid"] is False
     assert compiled.output["diagnostics"][0]["type"] == "brace_unbalanced"

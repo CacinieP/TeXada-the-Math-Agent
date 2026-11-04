@@ -17,17 +17,18 @@ Thanks for improving TeXada. This repository ships a desktop math formula agent,
 Run the focused checks before opening a pull request:
 
 ```bash
-uv run --extra dev ruff check .
-uv run --extra dev pytest
-npm audit --audit-level=moderate
+uv run --locked --extra dev ruff check .
+uv run --locked --extra dev pytest
+npm audit --audit-level=low
 node --check tauri-shell/src/main.js
-cd tauri-shell/src-tauri && cargo check
+cd tauri-shell/src-tauri && cargo check --locked
 ```
 
 For security-sensitive work, also run:
 
 ```bash
-uvx pip-audit --strict
+uv export --locked --extra dev --extra cas-eval --extra eval --format requirements-txt --no-hashes --no-emit-project > /tmp/texada-requirements.txt
+uvx --from pip-audit pip-audit -r /tmp/texada-requirements.txt --strict
 ```
 
 ### Pull Requests
@@ -55,17 +56,18 @@ uvx pip-audit --strict
 提交 PR 前建议运行：
 
 ```bash
-uv run --extra dev ruff check .
-uv run --extra dev pytest
-npm audit --audit-level=moderate
+uv run --locked --extra dev ruff check .
+uv run --locked --extra dev pytest
+npm audit --audit-level=low
 node --check tauri-shell/src/main.js
-cd tauri-shell/src-tauri && cargo check
+cd tauri-shell/src-tauri && cargo check --locked
 ```
 
 安全相关变更建议额外运行：
 
 ```bash
-uvx pip-audit --strict
+uv export --locked --extra dev --extra cas-eval --extra eval --format requirements-txt --no-hashes --no-emit-project > /tmp/texada-requirements.txt
+uvx --from pip-audit pip-audit -r /tmp/texada-requirements.txt --strict
 ```
 
 ### Pull Request

@@ -18,7 +18,7 @@ def test_parser_recognizes_core_math_units():
     assert integral.value == "int"
     assert [child.role for child in integral.children] == ["lower_bound", "upper_bound"]
     assert document.diagnostics == []
-    assert document.parser_backend == "katex-0.17.0-v8"
+    assert document.parser_backend == "katex-0.18.2-v8"
 
 
 def test_parser_maps_katex_matrix_ast_to_semantic_rows_and_cells():
