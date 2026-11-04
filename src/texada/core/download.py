@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import AsyncIterator, Callable
+from contextlib import aclosing
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -24,7 +25,6 @@ from texada.core.llama_server import (
 
 HF_BASE = "https://huggingface.co"
 HF_MIRROR_BASE = "https://hf-mirror.com"
-CHUNK_SIZE = 1024 * 1024
 HTTP_TIMEOUT = httpx.Timeout(30.0, read=300.0)
 _CONTENT_RANGE = re.compile(r"bytes (\d+)-(\d+)/(\d+)$")
 
@@ -114,11 +114,17 @@ async def download_model(
                         content_range = (resp.headers.get("Content-Range") or "").strip()
                         range_match = _CONTENT_RANGE.match(content_range)
                         range_total: int | None = None
-                        if use_range and resp.status_code == 206 and range_match:
-                            if int(range_match.group(1)) == existing:
-                                range_total = int(range_match.group(3))
+                        body_length: int | None = None
+                        if resp.status_code == 206 and range_match:
+                            start, end, size = map(int, range_match.groups())
+                            length = resp.headers.get("Content-Length")
+                            if (start == (existing if use_range else 0)
+                                    and start <= end < size
+                                    and (length is None or length == str(end - start + 1))):
+                                range_total = size
+                                body_length = end - start + 1
                         if resp.status_code == 416 or (
-                            use_range and resp.status_code == 206 and range_total is None
+                            resp.status_code == 206 and range_total is None
                         ):
                             # A partial that cannot be resumed is worse than
                             # none: drop it and retry with a plain request.
@@ -131,16 +137,28 @@ async def download_model(
                         if range_total is not None:
                             total = range_total
                             received = existing
-                            resumed = True
-                            mode = "ab"
+                            resumed = use_range
+                            mode = "ab" if use_range else "wb"
                         else:
                             length = resp.headers.get("Content-Length")
                             total = int(length) if length and length.isdigit() else None
                             received = 0
                             mode = "wb"
+                            body_length = total
+                        body_received = 0
                         with part_path.open(mode) as fh:
-                            async for chunk in resp.aiter_bytes(CHUNK_SIZE):
+                            # Do not aggregate small transport chunks: a read
+                            # failure must not lose an already received prefix.
+                            async for chunk in resp.aiter_bytes(None):
+                                if (body_length is not None
+                                        and body_received + len(chunk) > body_length):
+                                    # Never retain bytes outside the validated
+                                    # response range, even on cancellation.
+                                    fh.close()
+                                    part_path.unlink(missing_ok=True)
+                                    raise DownloadError("下载内容超过声明长度，已丢弃无效分片")
                                 fh.write(chunk)
+                                body_received += len(chunk)
                                 received += len(chunk)
                                 yield {
                                     "file": spec.local_name,
@@ -153,7 +171,9 @@ async def download_model(
                                 }
                     break
             except Exception as exc:
-                part_path.unlink(missing_ok=True)
+                # A transport interruption leaves a contiguous prefix of the
+                # pinned resource. Keep it for a later Range request; only a
+                # complete file passing the pinned hash may be published.
                 yield {
                     "file": spec.local_name,
                     "received": received,
@@ -166,7 +186,8 @@ async def download_model(
                 return
 
             if total is not None and received != total:
-                part_path.unlink(missing_ok=True)
+                if received > total:
+                    part_path.unlink(missing_ok=True)
                 yield {
                     "file": spec.local_name,
                     "received": received,
@@ -206,7 +227,20 @@ async def download_model(
 
 
 async def download_all(dest_dir: Path, *, mirror: bool = False) -> AsyncIterator[dict[str, Any]]:
-    """Download text and vision roles in sequence."""
-    for role in ("text", "vision"):
-        async for event in download_model(role, dest_dir, mirror=mirror):
-            yield {**event, "role": role}
+    """Download both roles and emit one explicit terminal result.
+
+    An error short-circuits the sequence. Cancellation/disconnect propagates
+    without inventing a terminal event, leaving the current prefix resumable.
+    """
+    try:
+        for role in ("text", "vision"):
+            async with aclosing(download_model(role, dest_dir, mirror=mirror)) as events:
+                async for event in events:
+                    yield {**event, "role": role}
+                    if event.get("error"):
+                        yield {"all_done": True, "success": False, "error": event["error"]}
+                        return
+    except Exception as exc:
+        yield {"all_done": True, "success": False, "error": f"{type(exc).__name__}: {exc}"}
+        return
+    yield {"all_done": True, "success": True}

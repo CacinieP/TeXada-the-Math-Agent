@@ -31,6 +31,7 @@
   let savedBackend = null;
   let savedLlamaSettings = null;
   let backendSettingsSaving = false;
+  let llamaPullActive = false;
   let runtimeConfig = {
     maxOcrBytes: null,
     allowedImageTypes: new Set(),
@@ -187,6 +188,7 @@
       'llama.startFailed': '启动失败',
       'llama.pullFailed': '下载失败',
       'llama.pullDone': '模型下载完成',
+      'llama.pullInterrupted': '下载中断，可再次点击“下载模型”重试或继续',
       'llama.pullProgress': '{file}：{percent}% · {received}/{total} MB{speed}',
       'llama.pullSpeed': '{rate} MB/s',
       'llama.pullEta': '剩余约 {minutes} 分钟',
@@ -392,6 +394,7 @@
       'llama.startFailed': 'Startup failed',
       'llama.pullFailed': 'Download failed',
       'llama.pullDone': 'Model download complete',
+      'llama.pullInterrupted': 'Download interrupted. Click Download model to retry or resume.',
       'llama.pullProgress': '{file}: {percent}% · {received}/{total} MB{speed}',
       'llama.pullSpeed': '{rate} MB/s',
       'llama.pullEta': 'ETA {minutes} min',
@@ -1890,7 +1893,8 @@
     const note = document.getElementById('backend-save-note');
     if (note) note.hidden = !pending;
     for (const button of [els.btnLlamaStart, els.btnLlamaStop, els.btnLlamaPull]) {
-      if (button) button.disabled = pending || backendSettingsSaving;
+      if (button) button.disabled = pending || backendSettingsSaving
+        || (button === els.btnLlamaPull && button.getAttribute?.('aria-busy') === 'true');
     }
   }
 
@@ -1943,11 +1947,18 @@
   }
 
   async function llamaPull() {
-    if (!els.llamaPullProgress) return;
+    if (!els.llamaPullProgress || llamaPullActive) return;
+    llamaPullActive = true;
+    if (els.btnLlamaPull) {
+      els.btnLlamaPull.disabled = true;
+      els.btnLlamaPull.setAttribute('aria-busy', 'true');
+    }
     els.llamaPullProgress.textContent = t('status.downloading');
     resetPullProgressBar();
-    const pullStartedAt = Date.now();
-    let pullStartedBytes = 0;
+    let reader = null;
+    let streamClosed = false;
+    let lastError = null;
+    let interrupted = false;
     try {
       const res = await fetch(API_BASE + '/api/llama/pull', {
         method: 'POST',
@@ -1955,56 +1966,105 @@
         body: JSON.stringify({ mirror: false }),
       });
       if (!res.ok || !res.body) {
+        if (res.body) await res.body.cancel().catch(() => {});
         throw new Error('HTTP ' + res.status);
       }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
+      reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8', { fatal: true });
       let buffer = '';
-      let lastError = null;
+      let terminal = null;
+      let progressFile = null;
+      let fileStartedAt = 0;
+      let fileStartedBytes = 0;
+      const rejectStream = () => {
+        interrupted = true;
+        throw new Error(t('llama.pullInterrupted'));
+      };
+      const consumeLine = line => {
+        if (!line.trim()) return;
+        let event;
+        try { event = JSON.parse(line); } catch (error) { rejectStream(); }
+        if (!event || typeof event !== 'object' || Array.isArray(event) || terminal !== null) rejectStream();
+        if (event.error != null && typeof event.error !== 'string') rejectStream();
+        if (event.all_done === true) {
+          if (typeof event.success !== 'boolean') rejectStream();
+          terminal = event.success;
+          if (event.error) lastError = lastError || event.error;
+          return;
+        }
+        if ('all_done' in event || typeof event.file !== 'string' || !event.file) rejectStream();
+        if (event.error) {
+          lastError = lastError || event.error;
+          return;
+        }
+        if (!Number.isFinite(event.received) || event.received < 0
+          || (event.total != null && (!Number.isFinite(event.total) || event.total <= 0))) rejectStream();
+        if (event.file !== progressFile) {
+          progressFile = event.file;
+          fileStartedAt = Date.now();
+          fileStartedBytes = event.received;
+        }
+        const percent = event.total ? Math.floor((event.received / event.total) * 100) : '?';
+        const elapsedSeconds = (Date.now() - fileStartedAt) / 1000;
+        const bytesPerSecond = elapsedSeconds > 0
+          ? (event.received - fileStartedBytes) / elapsedSeconds
+          : 0;
+        const speed = bytesPerSecond > 0
+          ? ' · ' + t('llama.pullSpeed', { rate: (bytesPerSecond / 1024 / 1024).toFixed(1) })
+            + formatPullEta(event.total - event.received, bytesPerSecond)
+          : '';
+        els.llamaPullProgress.textContent = t('llama.pullProgress', {
+          file: event.file, percent,
+          received: formatPullSize(event.received), total: formatPullSize(event.total), speed,
+        });
+        setPullProgressBar(event.total ? percent : 0, false);
+      };
       for (;;) {
         const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+        if (done) {
+          streamClosed = true;
+          try { buffer += decoder.decode(); }
+          catch (error) { rejectStream(); }
+          if (buffer.trim()) consumeLine(buffer);
+          break;
+        }
+        try { buffer += decoder.decode(value, { stream: true }); }
+        catch (error) { rejectStream(); }
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          let event;
-          try { event = JSON.parse(line); } catch (err) { continue; }
-          if (event.error) {
-            lastError = event.error;
-          } else if (event.done && !event.skipped) {
-            els.llamaPullProgress.textContent = t('llama.pullDone') + ': ' + event.file;
-            setPullProgressBar(100, true);
-          } else if (event.total && event.received != null) {
-            const percent = Math.floor((event.received / event.total) * 100);
-            const elapsedSeconds = (Date.now() - pullStartedAt) / 1000;
-            if (pullStartedBytes === 0) pullStartedBytes = event.received;
-            const bytesPerSecond = elapsedSeconds > 0
-              ? (event.received - pullStartedBytes) / elapsedSeconds
-              : 0;
-            const speed = bytesPerSecond > 0
-              ? ' · ' + t('llama.pullSpeed').replace('{rate}', (bytesPerSecond / 1024 / 1024).toFixed(1))
-                + formatPullEta(event.total - event.received, bytesPerSecond)
-              : '';
-            els.llamaPullProgress.textContent = t('llama.pullProgress')
-              .replace('{file}', event.file)
-              .replace('{percent}', String(percent))
-              .replace('{received}', formatPullSize(event.received))
-              .replace('{total}', formatPullSize(event.total))
-              .replace('{speed}', speed.trim());
-            setPullProgressBar(percent, false);
-          }
-        }
+        for (const line of lines) consumeLine(line);
       }
       if (lastError) {
         els.llamaPullProgress.textContent = t('llama.pullFailed') + ': ' + lastError;
         hidePullProgressBar();
+      } else if (terminal === null) {
+        rejectStream();
+      } else if (!terminal) {
+        els.llamaPullProgress.textContent = t('llama.pullFailed');
+        hidePullProgressBar();
+      } else {
+        els.llamaPullProgress.textContent = t('llama.pullDone');
+        setPullProgressBar(100, true);
       }
-      await refreshLlamaStatus();
     } catch (e) {
-      els.llamaPullProgress.textContent = t('llama.pullFailed') + ': ' + String(e).replace(/^Error:\s*/, '');
+      els.llamaPullProgress.textContent = lastError
+        ? t('llama.pullFailed') + ': ' + lastError
+        : interrupted ? t('llama.pullInterrupted')
+          : t('llama.pullFailed') + ': ' + String(e).replace(/^Error:\s*/, '');
       hidePullProgressBar();
+    } finally {
+      if (reader) {
+        try { if (!streamClosed) await reader.cancel(); }
+        catch (error) { /* Preserve the original download error. */ }
+        finally {
+          try { reader.releaseLock(); }
+          catch (error) { /* Restore controls even if reader cleanup fails. */ }
+        }
+      }
+      llamaPullActive = false;
+      if (els.btnLlamaPull) els.btnLlamaPull.removeAttribute('aria-busy');
+      updateLlamaSectionVisibility();
+      await refreshLlamaStatus();
     }
   }
 
@@ -2023,6 +2083,7 @@
     els.llamaPullTrack.setAttribute('aria-valuenow', String(clamped));
     if (els.llamaPullFill) els.llamaPullFill.style.width = clamped + '%';
     if (done) els.llamaPullTrack.classList.add('done');
+    else els.llamaPullTrack.classList.remove('done');
   }
 
   function hidePullProgressBar() {
@@ -2040,7 +2101,7 @@
     if (!bytesPerSecond || bytesPerSecond <= 0 || remainingBytes <= 0) return '';
     const minutes = Math.ceil(remainingBytes / bytesPerSecond / 60);
     if (minutes <= 1) return ' · ' + t('llama.pullEtaSoon');
-    return ' · ' + t('llama.pullEta').replace('{minutes}', String(minutes));
+    return ' · ' + t('llama.pullEta', { minutes });
   }
 
 
