@@ -58,6 +58,9 @@ async def compare():
                 # Explicit public fixture: no desktop JSON/env settings or secrets are read.
                 config = TeXadaConfig.model_construct(
                     data_dir=Path(directory), failure_context_projection=projected,
+                    # This replay supplies planner turns, not a text generator.
+                    # Pin the offline arm independently of the 1B product default.
+                    nl_candidate_first=False,
                     backend="openai_compatible", openai_base_url="https://api.modelbest.cn/v1",
                     openai_api_key="", openai_model_name="MiniCPM-V-4.7-1B",
                     openai_vision_model_name="MiniCPM-V-4.7-1B",

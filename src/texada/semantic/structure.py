@@ -38,11 +38,61 @@ _FIELDS = {
     "accent": {"label", "base", "isStretchy", "isShifty"},
     "accentUnder": {"label", "base", "isStretchy", "isShifty"},
     "overline": {"body"}, "underline": {"body"},
+    "htmlmathml": {"html", "mathml"},
+}
+
+# KaTeX 0.18.2 expands \ne/\neq into an HTML negation overlay and a MathML
+# not-equal relation. Recognize that entire pinned expansion, never discard
+# an arbitrary htmlmathml branch or trust one rendering's meaning alone.
+_NOT_OVERLAY = {
+    "type": "htmlmathml", "mode": "math",
+    "html": [{"type": "mclass", "mode": "math", "mclass": "mrel", "body": [
+        {"type": "lap", "mode": "math", "alignment": "rlap", "body": {
+            "type": "ordgroup", "mode": "math", "body": [
+                {"type": "atom", "mode": "math", "family": "rel", "text": r"\@not"},
+            ],
+        }},
+    ], "isCharacterBox": False}, {"type": "spacing", "mode": "math", "text": r"\nobreak"}],
+    "mathml": [{"type": "textord", "mode": "math", "text": "\u0338"}],
+}
+_NOT_EQUAL = {
+    "type": "htmlmathml", "mode": "math",
+    "html": [{"type": "mclass", "mode": "math", "mclass": "mrel", "body": [
+        _NOT_OVERLAY, {"type": "atom", "mode": "math", "family": "rel", "text": "="},
+    ], "isCharacterBox": False}],
+    "mathml": [{"type": "mclass", "mode": "math", "mclass": "mrel", "body": [
+        {"type": "textord", "mode": "math", "text": "≠"},
+    ], "isCharacterBox": True}],
 }
 
 
 class UnsupportedStructure(ValueError):
     pass
+
+
+def _without_locations(value: Any, depth: int = 0) -> Any:
+    if depth > MAX_NESTING_DEPTH:
+        raise UnsupportedStructure("canonical_depth_limit")
+    if isinstance(value, dict):
+        return {key: _without_locations(item, depth + 1)
+                for key, item in value.items() if key != "loc"}
+    if isinstance(value, list):
+        return [_without_locations(item, depth + 1) for item in value]
+    return value
+
+
+def _matches_known_tree(value: Any, expected: Any) -> bool:
+    if type(value) is not type(expected):
+        return False
+    if isinstance(expected, dict):
+        return value.keys() == expected.keys() and all(
+            _matches_known_tree(value[key], item) for key, item in expected.items()
+        )
+    if isinstance(expected, list):
+        return len(value) == len(expected) and all(
+            _matches_known_tree(left, right) for left, right in zip(value, expected, strict=True)
+        )
+    return value == expected
 
 
 def _check_node(node: dict) -> None:
@@ -128,6 +178,10 @@ def _sequence(nodes: Any, depth: int = 0) -> list[dict]:
 
 def _node(node: dict, depth: int) -> list[dict]:
     kind = node.get("type")
+    if kind == "htmlmathml":
+        if not _matches_known_tree(_without_locations(node, depth), _NOT_EQUAL):
+            raise UnsupportedStructure("unrecognized_htmlmathml_expansion")
+        return [{"kind": "symbol", "value": r"\ne"}]
     if kind in {"ordgroup", "styling", "sizing", "color"}:
         return _sequence(node.get("body"), depth)
     if kind in {"kern", "spacing"}:

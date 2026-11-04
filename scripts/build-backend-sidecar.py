@@ -22,6 +22,12 @@ MACHO_MAGICS = {
     b"\xcf\xfa\xed\xfe",
     b"\xca\xfe\xba\xbe",
     b"\xbe\xba\xfe\xca",
+    b"\xca\xfe\xba\xbf",
+    b"\xbf\xba\xfe\xca",
+}
+RELEASE_TARGETS = {
+    "aarch64-apple-darwin", "x86_64-apple-darwin",
+    "x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu",
 }
 
 
@@ -119,6 +125,10 @@ def build_stub(target: str) -> Path:
 
 
 def build_pyinstaller(target: str) -> Path:
+    # PyInstaller freezes the running interpreter; naming its output after a
+    # different Rust target does not cross-compile Python or native V8 wheels.
+    if target not in RELEASE_TARGETS or target != host_triple():
+        raise ValueError("Real backend sidecars must be built on the requested native target")
     BIN_DIR.mkdir(parents=True, exist_ok=True)
     output = sidecar_path(target)
     if output.exists():
@@ -135,6 +145,8 @@ def build_pyinstaller(target: str) -> Path:
         "run",
         "--locked",
         "--managed-python",
+        "--python",
+        "3.12",
         "--extra",
         "dev",
         "pyinstaller",

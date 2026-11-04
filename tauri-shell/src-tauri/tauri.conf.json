@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "TeXada",
-  "version": "0.4.2-rc.3",
+  "version": "0.4.2",
   "identifier": "com.texada.desktop",
   "build": {
     "frontendDist": "../src",
@@ -74,6 +74,14 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "linux": {
+      "deb": {
+        "depends": [
+          "libgomp1",
+          "libssl3t64 | libssl3"
+        ]
+      }
+    },
     "macOS": {
       "minimumSystemVersion": "13.3",
       "hardenedRuntime": true

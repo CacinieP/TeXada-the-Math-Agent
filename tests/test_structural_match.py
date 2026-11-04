@@ -1,6 +1,7 @@
 """Full-expression evaluation contracts; no inference service is required."""
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from contextlib import contextmanager
@@ -19,6 +20,8 @@ from texada.core.inference_fingerprint import (
     collect_inference,
     current_inference_collector,
 )
+from texada.semantic.katex import shared_katex_parser
+from texada.semantic.structure import UnsupportedStructure, canonical_structure
 
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS = yaml.safe_load((ROOT / "eval/structural_adversarial_cases.yaml").read_text())
@@ -55,6 +58,44 @@ def test_containment_and_whole_expression_match_measure_different_contracts():
 def test_transparent_argument_braces_and_known_symbol_aliases_match():
     assert matcher.compare_structure(r"\frac{{a}}{{b}}", r"\frac{a}{b}").status == "MATCH"
     assert matcher.compare_structure(r"x\leq1", r"x\le1").status == "MATCH"
+
+
+@pytest.mark.parametrize("candidate", [r"y\ne2", r"y\neq2", "y≠2"])
+def test_not_equal_pinned_expansion_has_full_expression_coverage(candidate):
+    result = matcher.compare_structure(candidate, r"y\ne2")
+    assert result.status == "MATCH", result.to_dict()
+    assert result.candidate_tree_sha256 == result.reference_tree_sha256
+    for different in ("y=2", "y<2", r"x\ne2", r"y\ne3", r"y\ne2+1"):
+        result = matcher.compare_structure(different, candidate)
+        assert result.status == "DIFFERENT", result.to_dict()
+
+
+@pytest.mark.parametrize("mutation", [
+    "html_relation", "mathml_relation", "new_nested_field", "missing_overlay", "wrong_type",
+])
+def test_not_equal_adapter_requires_both_exact_rendering_branches(mutation):
+    original = shared_katex_parser().parse(r"\ne")
+    ast = copy.deepcopy(original.ast)
+    node = ast[0]
+    if mutation == "html_relation":
+        node["html"][0]["body"][-1]["text"] = "<"
+    elif mutation == "mathml_relation":
+        node["mathml"][0]["body"][0]["text"] = "="
+    elif mutation == "new_nested_field":
+        node["mathml"][0]["body"][0]["newSemanticField"] = "must not disappear"
+    elif mutation == "wrong_type":
+        node["mathml"][0]["isCharacterBox"] = 1  # True and 1 must not compare as the same schema.
+    else:
+        node["html"][0]["body"].pop(0)
+    parser = SimpleNamespace(parse=lambda _: SimpleNamespace(ok=True, version="0.18.2", ast=ast))
+    with pytest.raises(UnsupportedStructure, match="unrecognized_htmlmathml_expansion"):
+        canonical_structure(r"\ne", parser=parser)
+
+
+def test_general_htmlmathml_or_negation_is_not_silently_equated():
+    result = matcher.compare_structure(r"y\not=2", r"y\ne2")
+    assert result.status == "UNSUPPORTED"
+    assert "unrecognized_htmlmathml_expansion" in result.reason
 
 
 @pytest.mark.parametrize("candidate", [

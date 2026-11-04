@@ -1,4 +1,4 @@
-"""Execute the workflow's actual flag selection: RC must never become latest."""
+"""All release assets stage as a draft before the final publication review."""
 import subprocess
 from pathlib import Path
 
@@ -10,7 +10,7 @@ WORKFLOW = Path(__file__).parents[1] / '.github/workflows/release-desktop.yml'
 @pytest.mark.parametrize('version,expected', [
     ('0.4.2-rc.1', ['--draft', '--prerelease', '--latest=false']),
     ('0.4.2-beta.4', ['--draft', '--prerelease', '--latest=false']),
-    ('0.4.2', ['--latest']),
+    ('0.4.2', ['--draft', '--latest=false']),
 ])
 def test_workflow_release_flags(version, expected):
     source = WORKFLOW.read_text()

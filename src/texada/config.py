@@ -297,10 +297,19 @@ class TeXadaConfig(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         _ = (dotenv_settings, file_secret_settings)
+        # An isolated desktop/data directory must not inherit credentials or
+        # provider choices from the user's normal ~/.texada/config.json.
+        initial = init_settings()
+        environment = env_settings()
+        selected_dir = initial.get("data_dir", environment.get("data_dir"))
+        json_settings = (
+            JsonConfigSettingsSource(settings_cls, json_file=Path(selected_dir) / "config.json")
+            if selected_dir is not None else JsonConfigSettingsSource(settings_cls)
+        )
         return (
             init_settings,
             env_settings,
-            JsonConfigSettingsSource(settings_cls),
+            json_settings,
         )
 
 
@@ -315,7 +324,7 @@ def _prepare_config_updates(
     updates: dict,
     data_dir: Path | None = None,
 ) -> tuple[Path, dict, TeXadaConfig]:
-    target_dir = data_dir or TEXADA_HOME
+    target_dir = data_dir or Path(os.environ.get("TEXADA_DATA_DIR", TEXADA_HOME))
     config_file = target_dir / "config.json"
     existing: dict = {}
     if config_file.exists():
