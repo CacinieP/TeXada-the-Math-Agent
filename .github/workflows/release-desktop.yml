@@ -70,8 +70,6 @@ jobs:
     name: GTK3 glib iterator backport (release)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      CARGO_TARGET_DIR: ${{ runner.temp }}/texada-glib-target
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -82,6 +80,8 @@ jobs:
       # The advisory reproduces with optimized iterators. This isolated crate
       # test exercises the backported source even on non-GTK desktop hosts.
       - name: Optimized iterator regression
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/texada-glib-target
         run: cargo test --release --manifest-path tauri-shell/src-tauri/vendor/glib-0.18.5/Cargo.toml --lib variant_iter
 
   build:
