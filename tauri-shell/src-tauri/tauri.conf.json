@@ -74,6 +74,14 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "linux": {
+      "deb": {
+        "depends": [
+          "libgomp1",
+          "libssl3t64 | libssl3"
+        ]
+      }
+    },
     "macOS": {
       "minimumSystemVersion": "13.3",
       "hardenedRuntime": true

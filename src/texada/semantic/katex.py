@@ -6,10 +6,12 @@ import atexit
 import json
 import sys
 import threading
-from concurrent.futures import ThreadPoolExecutor
+import traceback
+from concurrent.futures import Future
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
+from queue import Queue
 from typing import Any
 
 from py_mini_racer import MiniRacer
@@ -123,14 +125,110 @@ def max_nesting_depth(latex: str) -> int:
 
 
 class KaTeXASTParser:
-    """Load the vendored KaTeX build once and expose its internal parse tree."""
+    """Keep the complete native context lifecycle on one plain owner thread.
+
+    MiniRacer 0.14 captures a running asyncio loop at construction, and its
+    close() exits the context manager that owns that loop and native isolate.
+    A temporary constructor thread is therefore not a lifecycle boundary:
+    synchronous callers, ASGI tasks and lifespan shutdown can all run elsewhere.
+    No MiniRacer object or JS value crosses our owner queue; callers receive
+    only JSON strings. See https://bpcreech.com/PyMiniRacer/ and its close API.
+    """
 
     def __init__(self, javascript_path: Path | None = None):
         self.javascript_path = javascript_path or self._find_javascript()
         self._context: MiniRacer | None = None
         self._lock = threading.RLock()
+        self._owner: threading.Thread | None = None
+        self._tasks: Queue | None = None
         self._rebuild_count = 0
         self._permanently_failed = False
+
+    @staticmethod
+    def _serve(tasks: Queue) -> None:
+        # Do not retain a bound parser method while idle: a non-shared parser
+        # must be collectable, so its __del__ can close the native resources.
+        while (item := tasks.get()) is not None:
+            operation, future = item
+            try:
+                value, failure = operation(), None
+            except BaseException as exc:
+                # Constructor failures can leave a partially initialized
+                # MiniRacer alive in an exception frame. Passing that exception
+                # through Future would make caller-side GC release native V8.
+                # Retain only plain error data, and discard all original frames
+                # on this owner before waking the caller.
+                value, failure = None, KaTeXASTParser._owner_failure(exc)
+            finally:
+                del item, operation
+            future.set_result((value, failure))
+            del future, value, failure
+
+    @staticmethod
+    def _owner_failure(exc: BaseException) -> tuple[str, str, int | str | None]:
+        try:
+            message = str(exc)
+        except BaseException:
+            message = "KaTeX owner operation failed"
+        kind, code = "error", None
+        if isinstance(exc, KeyboardInterrupt):
+            kind = "interrupt"
+        elif isinstance(exc, SystemExit):
+            kind = "exit"
+            code = exc.code if type(exc.code) in (int, str, type(None)) else message
+        elif isinstance(exc, GeneratorExit):
+            kind = "generator_exit"
+        # Chained failures may retain the same partial constructor in another
+        # traceback. Break every chain and clear its frames while still here.
+        pending, seen = [exc], set()
+        while pending:
+            error = pending.pop()
+            if id(error) in seen:
+                continue
+            seen.add(id(error))
+            pending.extend(link for link in (error.__cause__, error.__context__)
+                           if link is not None)
+            frames = error.__traceback__
+            error.__traceback__ = error.__cause__ = error.__context__ = None
+            if frames is not None:
+                traceback.clear_frames(frames)
+        return kind, message, code
+
+    def _on_owner(self, operation):
+        """Run a synchronous operation while the caller holds ``_lock``."""
+        if self._owner is None:
+            self._tasks = Queue()
+            self._owner = threading.Thread(
+                target=self._serve, args=(self._tasks,),
+                name="texada-katex-owner", daemon=True,
+            )
+            self._owner.start()
+        if threading.current_thread() is self._owner:
+            return operation()
+        future = Future()
+        self._tasks.put((operation, future))
+        value, failure = future.result()
+        if failure is None:
+            return value
+        kind, message, code = failure
+        if kind == "interrupt":
+            raise KeyboardInterrupt(message)
+        if kind == "exit":
+            raise SystemExit(code)
+        if kind == "generator_exit":
+            raise GeneratorExit(message)
+        raise RuntimeError(message)
+
+    def _call(self, function: str, latex: str) -> str | None:
+        """Create, call, and recover a context exclusively on its owner."""
+        self._ensure_context()
+        if self._context is None:
+            return None
+        try:
+            return str(self._context.call(function, latex))
+        except BaseException:
+            self._note_context_failure()
+            raise
 
     def parse(self, latex: str) -> KaTeXParseResult:
         if max_nesting_depth(latex) > MAX_NESTING_DEPTH:
@@ -142,17 +240,15 @@ class KaTeXASTParser:
                 ),
             )
         with self._lock:
-            self._ensure_context()
-            if self._context is None:
-                return KaTeXParseResult(ok=False, error="KaTeX V8 context is unavailable")
             try:
-                raw = self._context.call("texadaParseKaTeX", latex)
+                raw = self._on_owner(lambda: self._call("texadaParseKaTeX", latex))
             except Exception as exc:
-                self._note_context_failure(exc)
                 return KaTeXParseResult(
                     ok=False,
                     error=f"KaTeX V8 context failed: {exc}",
                 )
+        if raw is None:
+            return KaTeXParseResult(ok=False, error="KaTeX V8 context is unavailable")
         data = json.loads(str(raw))
         return KaTeXParseResult(
             ok=bool(data.get("ok")),
@@ -172,20 +268,15 @@ class KaTeXASTParser:
                 ),
             )
         with self._lock:
-            self._ensure_context()
-            if self._context is None:
-                return KaTeXRenderResult(
-                    ok=False,
-                    error="KaTeX V8 context is unavailable",
-                )
             try:
-                raw = self._context.call("texadaRenderKaTeX", latex)
+                raw = self._on_owner(lambda: self._call("texadaRenderKaTeX", latex))
             except Exception as exc:
-                self._note_context_failure(exc)
                 return KaTeXRenderResult(
                     ok=False,
                     error=f"KaTeX V8 context failed: {exc}",
                 )
+        if raw is None:
+            return KaTeXRenderResult(ok=False, error="KaTeX V8 context is unavailable")
         data = json.loads(str(raw))
         return KaTeXRenderResult(
             ok=bool(data.get("ok")),
@@ -195,17 +286,34 @@ class KaTeXASTParser:
         )
 
     def close(self) -> None:
-        """Release V8 and its worker loop so the backend can exit cleanly."""
+        """Close and join the owner before another caller may reopen V8."""
         with self._lock:
-            context = self._context
-            self._context = None
+            owner, tasks = self._owner, self._tasks
+            if owner is None:
+                return
+            try:
+                self._on_owner(self._close_context)
+            finally:
+                tasks.put(None)
+                if threading.current_thread() is not owner:
+                    owner.join()
+                self._owner = self._tasks = None
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    def _close_context(self) -> None:
+        context, self._context = self._context, None
         if context is not None:
             try:
                 context.close()
             except Exception:
                 pass
 
-    def _note_context_failure(self, exc: Exception) -> None:
+    def _note_context_failure(self) -> None:
         """Drop a failed V8 context so the next call rebuilds it.
 
         mini-racer destroys the isolate when the hard memory limit is hit;
@@ -213,33 +321,25 @@ class KaTeXASTParser:
         MAX_CONTEXT_REBUILDS times, then stay unavailable instead of
         rebuilding in a tight loop.
         """
-        with self._lock:
-            context = self._context
-            self._context = None
-            self._rebuild_count += 1
-            if self._rebuild_count >= MAX_CONTEXT_REBUILDS:
-                self._permanently_failed = True
-        if context is not None:
-            try:
-                context.close()
-            except Exception:
-                pass
+        self._close_context()
+        self._rebuild_count += 1
+        if self._rebuild_count >= MAX_CONTEXT_REBUILDS:
+            self._permanently_failed = True
 
     def _ensure_context(self) -> None:
         if self._context is not None or self._permanently_failed:
             return
         source = self.javascript_path.read_text(encoding="utf-8")
-        # mini-racer binds a new context to the currently running asyncio loop.
-        # SemanticParser is synchronous and is also called from FastAPI/pytest
-        # async tasks, whose loops may later close. Constructing V8 on a short
-        # plain worker thread makes mini-racer create its own durable loop.
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            context = executor.submit(MiniRacer).result()
-        context.set_soft_memory_limit(64 * 1024 * 1024)
-        context.set_hard_memory_limit(128 * 1024 * 1024)
-        context.eval("var window = this; var self = this;")
-        context.eval(source)
-        context.eval(_WRAPPER)
+        context = MiniRacer()
+        try:
+            context.set_soft_memory_limit(64 * 1024 * 1024)
+            context.set_hard_memory_limit(128 * 1024 * 1024)
+            context.eval("var window = this; var self = this;")
+            context.eval(source)
+            context.eval(_WRAPPER)
+        except BaseException:
+            context.close()
+            raise
         self._context = context
 
     @staticmethod
@@ -274,9 +374,9 @@ def shared_katex_parser() -> KaTeXASTParser:
 def _close_shared_parser() -> None:
     """Release V8 at interpreter exit so CLI/script/test processes exit cleanly.
 
-    mini-racer keeps a non-daemon worker thread alive; without close() the
-    process hangs until SIGTERM. The FastAPI lifespan also calls close(), and
-    close() is idempotent, so double shutdown is harmless.
+    The parser owns its queue thread independently of caller event loops and
+    executor shutdown hooks. The FastAPI lifespan also calls close(); repeated
+    shutdown is harmless, and a later lifespan can create a new owner.
     """
     try:
         shared_katex_parser().close()
