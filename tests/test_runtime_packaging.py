@@ -1,6 +1,7 @@
 """Packaging boundaries without signing, installing or contacting a real service."""
 
 import importlib.util
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -83,12 +84,17 @@ def test_macos_smoke_mounts_the_installer_and_enforces_inner_signature(
     assert any(command[:2] == ["hdiutil", "detach"] for command in commands)
 
 
-@pytest.mark.parametrize("field", [None, "version", "committed", "parser_backend"])
-def test_installed_contract_rejects_wrong_version_or_backend_result(field):
+@pytest.mark.parametrize("field", [
+    None, "version", "committed", "parser_backend",
+    "runtime_alias", "runtime_wrong", "windows_device",
+])
+def test_installed_contract_rejects_wrong_version_or_backend_result(tmp_path, field):
     smoke = script_module("smoke-installed-desktop.py")
+    bundled = tmp_path / "llama-server"
+    bundled.write_bytes(b"bundled runtime fixture")
     status = {"backend": "llama_server"}
     runtime = {"version": "0.4.2"}
-    settings = {"llama_server_binary": "/synthetic/llama-server"}
+    settings = {"llama_server_binary": str(bundled)}
     result = {"valid": True, "tokens_used": 0, "stop_reason": "deterministic_candidate",
               "committed": True, "review": None,
               "semantic_document": {"parser_backend": "katex-0.18.2-v8"},
@@ -99,13 +105,23 @@ def test_installed_contract_rejects_wrong_version_or_backend_result(field):
         result["committed"] = False
     elif field == "parser_backend":
         result["semantic_document"]["parser_backend"] = "wrong"
-    if field:
+    elif field == "runtime_alias":
+        alias = tmp_path / "same-runtime"
+        alias.hardlink_to(bundled)
+        settings["llama_server_binary"] = str(alias)
+    elif field == "runtime_wrong":
+        other = tmp_path / "other-runtime"
+        other.write_bytes(b"different runtime fixture")
+        settings["llama_server_binary"] = str(other)
+    elif field == "windows_device":
+        if os.name != "nt":
+            pytest.skip("Win32 extended-length paths require a native Windows filesystem")
+        settings["llama_server_binary"] = "\\\\?\\" + str(bundled.resolve())
+    if field in {"version", "committed", "parser_backend", "runtime_wrong"}:
         with pytest.raises(AssertionError):
-            smoke.validate_contract(status, runtime, settings, result, "0.4.2",
-                                    Path("/synthetic/llama-server"))
+            smoke.validate_contract(status, runtime, settings, result, "0.4.2", bundled)
     else:
-        smoke.validate_contract(status, runtime, settings, result, "0.4.2",
-                                Path("/synthetic/llama-server"))
+        smoke.validate_contract(status, runtime, settings, result, "0.4.2", bundled)
 
 
 @pytest.mark.asyncio
@@ -117,6 +133,7 @@ async def test_installed_smoke_uses_actual_runtime_version_and_settings_contract
 
     smoke = script_module("smoke-installed-desktop.py")
     bundled = tmp_path / "llama-server"
+    bundled.write_bytes(b"bundled runtime fixture")
     app = create_app(TeXadaConfig(data_dir=tmp_path, backend="llama_server",
                                  llama_server_binary=str(bundled)))
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://test") as api:
