@@ -65,7 +65,9 @@ def windows_desktop(install_dir: Path) -> Path:
 def validate_contract(status, runtime, settings, result, version, bundled_runtime):
     assert status["backend"] == "llama_server", status
     assert runtime["version"] == version, runtime
-    assert Path(settings["llama_server_binary"]).resolve() == bundled_runtime.resolve(), settings
+    # Windows resource resolution can return the same file with a \\?\ prefix.
+    # Compare filesystem identity rather than the spelling of its absolute path.
+    assert Path(settings["llama_server_binary"]).samefile(bundled_runtime), settings
     assert result["valid"] and result["tokens_used"] == 0, result
     assert result["stop_reason"] == "deterministic_candidate", result
     assert result["committed"] is True, result

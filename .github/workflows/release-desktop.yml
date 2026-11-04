@@ -364,7 +364,7 @@ jobs:
           grep -F "Developer ID Application:" /tmp/texada-dmg-codesign.txt
 
           mount_dir="$(mktemp -d)"
-          printf 'Y\n' | hdiutil attach "$dmg" -mountpoint "$mount_dir" -nobrowse -readonly -quiet
+          printf 'Y\n' | hdiutil attach "$dmg" -mountpoint "$mount_dir" -nobrowse -readonly
           trap 'hdiutil detach "$mount_dir" -quiet || true; rmdir "$mount_dir" 2>/dev/null || true' EXIT
           app="$(find "$mount_dir" -maxdepth 1 -name '*.app' -print -quit)"
           test -n "$app" || { echo "::error::DMG has no installable app."; exit 1; }
