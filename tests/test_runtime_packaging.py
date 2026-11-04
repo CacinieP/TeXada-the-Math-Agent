@@ -128,6 +128,7 @@ def test_installed_contract_rejects_wrong_version_or_backend_result(tmp_path, fi
 async def test_installed_smoke_uses_actual_runtime_version_and_settings_contract(tmp_path):
     import httpx
 
+    from texada import __version__
     from texada.api import create_app
     from texada.config import TeXadaConfig
 
@@ -141,4 +142,4 @@ async def test_installed_smoke_uses_actual_runtime_version_and_settings_contract
         runtime = (await api.get("/api/runtime")).json()
         settings = (await api.get("/api/settings/backend")).json()
         result = (await api.post("/api/agent", json={"text": "二重积分"})).json()
-    smoke.validate_contract(status, runtime, settings, result, "0.4.2", bundled)
+    smoke.validate_contract(status, runtime, settings, result, __version__, bundled)

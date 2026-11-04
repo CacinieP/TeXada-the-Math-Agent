@@ -8,6 +8,7 @@ from unittest.mock import Mock
 import httpx
 import pytest
 
+from texada import __version__
 from texada.api import create_app
 from texada.config import TeXadaConfig
 
@@ -81,9 +82,9 @@ async def test_packaged_contract_accepts_actual_api_and_rejects_tampering(tmp_pa
         result["tokens_used"] = True
     if tamper:
         with pytest.raises(RuntimeError):
-            smoke.verify_result(status, runtime_response, settings, result, "0.4.2", runtime)
+            smoke.verify_result(status, runtime_response, settings, result, __version__, runtime)
     else:
-        smoke.verify_result(status, runtime_response, settings, result, "0.4.2", runtime)
+        smoke.verify_result(status, runtime_response, settings, result, __version__, runtime)
 
 
 def test_deb_rejects_wrong_release_before_any_install(monkeypatch, tmp_path):

@@ -32,12 +32,13 @@
 
 ## TeXada
 
-**Version status:** this README describes **v0.4.2**. It consolidates the
-0.4.2 beta/RC runtime, editor and export fixes, plus the dependency security
-updates. NL, OCR and completion candidates commit directly; the mutation-scope
-guard remains, and Studio handoffs still require review. See the
-[release scope, installer checks and known limits](docs/release-v0.4.2.md)
-and [changelog](CHANGELOG.md#042---2026-11-04). Engineering checks do not establish
+**Version status:** this README describes **v0.4.3**. This patch fixes main-window
+close behavior and model-download recovery, completion status and progress text.
+It retains the runtime, editor, export and security work from v0.4.2. NL, OCR and
+completion candidates commit directly; the mutation-scope guard remains, and
+Studio handoffs still require review. See the
+[release scope, installer checks and known limits](docs/release-v0.4.3.md)
+and [changelog](CHANGELOG.md#043---2026-11-04). Engineering checks do not establish
 mathematical correctness or independent OCR accuracy.
 
 TeXada helps transcribe formulas into LaTeX. Describe notation in
@@ -91,7 +92,7 @@ do not establish transcription accuracy. Compare the source and candidate;
 
 The built-in and named MiniCPM-V 4.7 1B profiles default to candidate generation
 before tool review. Other checkpoints keep direct planning; explicit experimental
-settings remain respected. See [release scope and validation](docs/release-v0.4.2.md).
+settings remain respected. See [release scope and validation](docs/release-v0.4.3.md).
 
 ### Highlights
 
@@ -111,7 +112,7 @@ settings remain respected. See [release scope and validation](docs/release-v0.4.
 | Workflow | Demo | What is verified |
 |----------|------|------------------|
 | Natural language | [Probability density function](examples/01-natural-language/README.md) | Structured LaTeX is compiled and rendered |
-| Formula OCR | [Historical handwritten integral example](examples/02-image-ocr/README.md) | Recorded example, not v0.4.2 handwriting acceptance |
+| Formula OCR | [Historical handwritten integral example](examples/02-image-ocr/README.md) | Recorded example, not v0.4.3 handwriting acceptance |
 | LaTeX repair | [Incomplete Gaussian PDF](examples/03-latex-repair/README.md) | Missing closing groups are repaired, recompiled, and rendered |
 
 See [all recorded examples](examples/README.md), [Why TeXada?](docs/comparison.md),
@@ -153,16 +154,16 @@ The Ollama port is configurable. The default is `http://localhost:11434`, but Se
 
 ### Download
 
-Use the [v0.4.2 release](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.2)
+Use the [v0.4.3 release](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.3)
 and choose the package for your machine:
 
 | Platform | Installer |
 |----------|-----------|
-| macOS Apple Silicon | [TeXada_0.4.2_aarch64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2/TeXada_0.4.2_aarch64.dmg) |
-| macOS Intel | [TeXada_0.4.2_x64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2/TeXada_0.4.2_x64.dmg) |
-| Windows x64 | [TeXada_0.4.2_x64-setup.exe](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2/TeXada_0.4.2_x64-setup.exe) |
-| Linux x64, Debian/Ubuntu | [TeXada_0.4.2_amd64.deb](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2/TeXada_0.4.2_amd64.deb) |
-| Linux x64, AppImage | [TeXada_0.4.2_amd64.AppImage](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2/TeXada_0.4.2_amd64.AppImage) |
+| macOS Apple Silicon | [TeXada_0.4.3_aarch64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.3/TeXada_0.4.3_aarch64.dmg) |
+| macOS Intel | [TeXada_0.4.3_x64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.3/TeXada_0.4.3_x64.dmg) |
+| Windows x64 | [TeXada_0.4.3_x64-setup.exe](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.3/TeXada_0.4.3_x64-setup.exe) |
+| Linux x64, Debian/Ubuntu | [TeXada_0.4.3_amd64.deb](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.3/TeXada_0.4.3_amd64.deb) |
+| Linux x64, AppImage | [TeXada_0.4.3_amd64.AppImage](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.3/TeXada_0.4.3_amd64.AppImage) |
 
 macOS requires 13.3 or later. Model weights download separately in Settings.
 Windows installers are not code-signed. Linux compatibility is scoped to the
@@ -173,12 +174,18 @@ records for the final package results; older beta/RC checks are historical.
 Generated formulas still need comparison with the source. Historical beta runs
 include mathematically incorrect committed results and have no independent
 human adjudication; this release does not convert those records into accuracy
-claims. See the [release limitations](docs/release-v0.4.2.md#known-limits).
+claims. See the [release limitations](docs/release-v0.4.3.md#known-limits).
 
-v0.4.2 uses `AGPL-3.0-or-later`. Immutable older tags retain their own licenses:
+v0.4.3 uses `AGPL-3.0-or-later`. Immutable older tags retain their own licenses:
 `v0.3.6` and earlier artifacts use `GPL-3.0-or-later`; `v0.3.7` and later use
 `AGPL-3.0-or-later`. Historical installers remain on the
 [release list](https://github.com/CacinieP/TeXada-the-Math-Agent/releases).
+
+Closing the main window hides TeXada; restore it from the tray or the existing
+shortcut. To stop the app, choose **Quit** in its menu. If a model download is
+interrupted, retry in Settings: received data can resume, and completion appears
+only after the whole batch succeeds. Native close/restore/Quit acceptance for
+this patch remains tracked in [#50](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/50).
 
 ### From A Fresh Machine To First Formula
 
@@ -193,7 +200,7 @@ TeXada release packages are built for end users. You do not need Python, Node.js
 2. Install and open TeXada.
    - macOS: open the DMG and drag TeXada into Applications.
    - Windows: run the setup EXE and start TeXada from the Start menu.
-   - Linux: install the `.deb` with your package manager, or make the AppImage executable and run it. See the [Linux notes](docs/release-v0.4.2.md#linux-installation).
+   - Linux: install the `.deb` with your package manager, or make the AppImage executable and run it. See the [Linux notes](docs/release-v0.4.3.md#linux-installation).
 
 3. Choose one local backend in **Settings → Backend** and click **Save**:
    - **New to TeXada? Choose `Built-in llama-server`** (new-install default). Follow [the built-in setup](#quick-start-with-built-in-llama-server): download the model in the app, then click Start. No Ollama installation or API key is needed.
@@ -235,7 +242,7 @@ Save after changing the backend or its runtime paths before using service contro
 
 ### Quick Start With Built-in llama-server
 
-1. Install and open **v0.4.2** from the release link above.
+1. Install and open **v0.4.3** from the release link above.
 2. Open **Settings → Backend**, select **`Built-in llama-server`**, and click **Save**.
    Keep the default address `http://127.0.0.1:8080`. Leave **llama-server executable** and **Model directory** blank to use the packaged runtime and `~/.texada/models`.
 3. In **Local inference service (llama-server)**, click **Download model**. Wait until downloading finishes for both the model weights and the vision projector. They are not included in the installer.
@@ -384,7 +391,7 @@ The StepFun Step Plan OpenAI-compatible Chat Completions base URL is `https://ap
 ### Configuration
 
 Persistent config lives at `~/.texada/config.json`. Most users can use Settings instead.
-The following is an **Ollama example**, not the default backend for a fresh v0.4.2 install.
+The following is an **Ollama example**, not the default backend for a fresh v0.4.3 install.
 
 ```json
 {
@@ -589,13 +596,13 @@ releases retain the license recorded in their immutable tag. See [LICENSE](LICEN
 
 ## TeXada
 
-**版本状态：**本文对应 **v0.4.2 正式版**，整合 0.4.2 Beta/RC 的内置运行时、编辑与导出修复，以及依赖安全更新。自然语言、OCR 和补全候选直接提交；修改范围守卫保留，Studio 移交仍需审阅。安装包验证、发布范围和已知限制见[正式版说明](docs/release-v0.4.2.md)，变更见[更新日志](CHANGELOG.md#042---2026-11-04)。工程检查不证明数学正确性或独立 OCR 准确率。
+**版本状态：**本文对应 **v0.4.3 正式版**，修复主窗口关闭行为，以及模型下载的中断恢复、完成状态和进度文案，保留 v0.4.2 的运行时、编辑、导出和安全更新。自然语言、OCR 和补全候选直接提交；修改范围守卫保留，Studio 移交仍需审阅。安装包验证、发布范围和已知限制见[正式版说明](docs/release-v0.4.3.md)，变更见[更新日志](CHANGELOG.md#043---2026-11-04)。工程检查不证明数学正确性或独立 OCR 准确率。
 
 TeXada 是一个用于数学公式识别、转写与排版的本地工具。你可以输入自然语言、
 粘贴清晰的排版公式截图，也可以交给它一段不完整的 TeX；TeXada 会把输入转换为
 结构化公式，用确定性工具检查，再渲染为可核对、可复制的结果。手写与真实扫描页面尚未完成独立验收，转写仍需逐项对照原件。
 
-**支持范围：**只识别、转写、编辑和排版公式；不提供求值、化简、因式分解、解方程、求导、积分计算或证明。导数与积分的记号仍支持输入。`7+5` 保留为表达式，不补成 `12`。自然语言和 OCR 候选现在直接提交，请对照原文与候选结果；编译通过不代表转写准确。详见 [正式版范围与验证](docs/release-v0.4.2.md)。
+**支持范围：**只识别、转写、编辑和排版公式；不提供求值、化简、因式分解、解方程、求导、积分计算或证明。导数与积分的记号仍支持输入。`7+5` 保留为表达式，不补成 `12`。自然语言和 OCR 候选现在直接提交，请对照原文与候选结果；编译通过不代表转写准确。详见 [正式版范围与验证](docs/release-v0.4.3.md)。
 
 它不是聊天界面套壳，而是基于端侧 Agent 的结构化数学编辑器。产品明确只有两个
 模型保留规划/文本与视觉/OCR 两个职责。MiniCPM-V 4.7 profile 用同一个
@@ -639,7 +646,7 @@ Level 1，但只在明确存在 before/after 公式时启用，不会把自然�
 | 工作流 | 演示 | 实际验证 |
 |--------|------|----------|
 | 自然语言 | [概率密度函数](examples/01-natural-language/README.md) | 结构化 LaTeX 经过编译与渲染 |
-| 公式 OCR | [历史手写定积分示例](examples/02-image-ocr/README.md) | 历史记录，不作为 v0.4.2 手写验收 |
+| 公式 OCR | [历史手写定积分示例](examples/02-image-ocr/README.md) | 历史记录，不作为 v0.4.3 手写验收 |
 | LaTeX 修复 | [未闭合的 Gaussian PDF](examples/03-latex-repair/README.md) | 补全缺失分组后重新编译并渲染 |
 
 更多内容见[全部实录示例](examples/README.md)、[为什么选择 TeXada](docs/comparison.md)
@@ -678,21 +685,23 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 
 ### 下载
 
-前往 [v0.4.2 正式版](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.2)，选择适合自己机器的安装包：
+前往 [v0.4.3 正式版](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.3)，选择适合自己机器的安装包：
 
 | 平台 | 安装包 |
 |------|--------|
-| macOS Apple Silicon | [TeXada_0.4.2_aarch64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2/TeXada_0.4.2_aarch64.dmg) |
-| macOS Intel | [TeXada_0.4.2_x64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2/TeXada_0.4.2_x64.dmg) |
-| Windows x64 | [TeXada_0.4.2_x64-setup.exe](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2/TeXada_0.4.2_x64-setup.exe) |
-| Linux x64，Debian/Ubuntu | [TeXada_0.4.2_amd64.deb](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2/TeXada_0.4.2_amd64.deb) |
-| Linux x64，AppImage | [TeXada_0.4.2_amd64.AppImage](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.2/TeXada_0.4.2_amd64.AppImage) |
+| macOS Apple Silicon | [TeXada_0.4.3_aarch64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.3/TeXada_0.4.3_aarch64.dmg) |
+| macOS Intel | [TeXada_0.4.3_x64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.3/TeXada_0.4.3_x64.dmg) |
+| Windows x64 | [TeXada_0.4.3_x64-setup.exe](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.3/TeXada_0.4.3_x64-setup.exe) |
+| Linux x64，Debian/Ubuntu | [TeXada_0.4.3_amd64.deb](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.3/TeXada_0.4.3_amd64.deb) |
+| Linux x64，AppImage | [TeXada_0.4.3_amd64.AppImage](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.3/TeXada_0.4.3_amd64.AppImage) |
 
 macOS 需要 13.3 或更新版本；模型权重安装后单独下载。Windows 安装包未做代码签名。Linux 兼容范围以最终 Ubuntu 原生构建和安装包检查记录为准，不代表所有发行版已经通过验收。最终产物及检查结果以 Release 资产和附带记录为准，旧 Beta/RC 的实测仅属于历史版本。
 
-生成结果仍需对照原文。历史 Beta 记录中存在数学错误公式成功提交，且没有独立人工复核；本次正式发布不把这些记录改写为准确率结论。详见[已知限制](docs/release-v0.4.2.md#known-limits)。
+生成结果仍需对照原文。历史 Beta 记录中存在数学错误公式成功提交，且没有独立人工复核；本次正式发布不把这些记录改写为准确率结论。详见[已知限制](docs/release-v0.4.3.md#known-limits)。
 
-v0.4.2 使用 `AGPL-3.0-or-later`。旧标签及安装包继续适用其标签内许可证：`v0.3.6` 及更早产物为 `GPL-3.0-or-later`，`v0.3.7` 起为 `AGPL-3.0-or-later`。历史安装包仍保留在 [Release 列表](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)。
+v0.4.3 使用 `AGPL-3.0-or-later`。旧标签及安装包继续适用其标签内许可证：`v0.3.6` 及更早产物为 `GPL-3.0-or-later`，`v0.3.7` 起为 `AGPL-3.0-or-later`。历史安装包仍保留在 [Release 列表](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)。
+
+关闭主窗口会隐藏 TeXada，可通过托盘或现有快捷键恢复；需要停止应用时，请在菜单中选择 **Quit / 退出**。模型下载中断后可在设置中重试，已接收的数据支持续传，整批文件成功后才显示完成。本修版的原生关闭、恢复及退出复验继续在 [#50](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/50) 跟踪。
 
 ### 从裸机到第一次使用
 
@@ -707,7 +716,7 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 2. 安装并打开 TeXada。
    - macOS：打开 DMG，把 TeXada 拖到 Applications。
    - Windows：运行安装器，然后从开始菜单启动 TeXada。
-   - Linux：用包管理器安装 `.deb`，或给 AppImage 执行权限后运行，见[Linux 安装说明](docs/release-v0.4.2.md#linux-installation)。
+   - Linux：用包管理器安装 `.deb`，或给 AppImage 执行权限后运行，见[Linux 安装说明](docs/release-v0.4.3.md#linux-installation)。
 
 3. 在**设置 → 后端连接**中选择一种本地后端，然后点击**保存**。
    - **第一次使用，建议选 `Built-in llama-server`**（全新安装的默认值）：按[内置启动步骤](#内置-llama-server-快速启动)，在应用内下载模型并点击启动，无需安装 Ollama 或填写 API key。
@@ -748,7 +757,7 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 
 ### 内置 llama-server 快速启动
 
-1. 从上方 Release 链接安装并打开 **v0.4.2**。
+1. 从上方 Release 链接安装并打开 **v0.4.3**。
 2. 打开**设置 → 后端连接**，选择 **`Built-in llama-server`**，点击**保存**。
    地址保留 `http://127.0.0.1:8080`；**llama-server 路径**和**模型目录**留空，使用应用内置运行时及 `~/.texada/models`。
 3. 在**本地推理服务（llama-server）**中点击**下载模型**，等待模型权重和视觉投影文件全部下载完成。安装包不包含这些文件。
@@ -892,7 +901,7 @@ StepFun Step Plan 示例：
 ### 配置文件
 
 持久配置文件位于 `~/.texada/config.json`，普通用户直接在设置中操作即可。
-下面是 **Ollama 配置示例**，不是 v0.4.2 全新安装时的默认后端。
+下面是 **Ollama 配置示例**，不是 v0.4.3 全新安装时的默认后端。
 
 ```json
 {
@@ -1081,8 +1090,8 @@ Linux 尚未实现系统光标自动键入；点击公式后需手动粘贴。Wa
 
 </details>
 
-## v0.4.2 release scope
+## v0.4.3 release scope
 
 The built-in backend uses one MiniCPM-V-4.7-1B Q4_K_M checkpoint for text and OCR. Download the model in Settings and start llama-server. Existing Ollama and OpenAI-compatible settings remain selectable. Model files are not included in installers.
 
-Generated formulas require mathematical review: syntax validation and successful submission do not prove correctness. See [the v0.4.2 release notes](docs/release-v0.4.2.md) for current behavior and package verification; [beta validation](docs/beta-release-validation.md) remains historical evidence.
+Generated formulas require mathematical review: syntax validation and successful submission do not prove correctness. See [the v0.4.3 release notes](docs/release-v0.4.3.md) for current behavior and package verification; [beta validation](docs/beta-release-validation.md) remains historical evidence.
