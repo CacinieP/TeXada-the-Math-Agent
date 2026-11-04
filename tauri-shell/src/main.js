@@ -865,6 +865,7 @@
 
   // ── Tabs ──
   function switchTab(tab) {
+    hideInlineGhost();
     currentTab = tab;
     $$('.tab-item').forEach(item => {
       const selected = item.dataset.tab === tab;
@@ -1393,7 +1394,7 @@
   }, true);
 
   document.addEventListener('keydown', e => {
-    if (isImeComposing(e)) return;
+    if (e.defaultPrevented || isImeComposing(e)) return;
 
     // Esc → hide
     if (e.key === 'Escape') {
@@ -2263,7 +2264,7 @@
   let inlineEditVersion = 0;
   let inlineTimer = null;
   let inlineSuggestion = null;
-  let inlineCursor = -1;
+  let inlineBinding = null;
 
   function inlineSourceHash(text) {
     // FNV-1a over UTF-16 code units: a stable client-side binding used only to
@@ -2277,9 +2278,19 @@
   }
 
   function hideInlineGhost() {
+    inlineSeq += 1;
+    if (inlineTimer) clearTimeout(inlineTimer);
+    inlineTimer = null;
     inlineSuggestion = null;
-    inlineCursor = -1;
+    inlineBinding = null;
     if (els.completeGhost) els.completeGhost.hidden = true;
+  }
+
+  function inlineContextMatches(binding) {
+    const input = els.completeInput;
+    return binding && currentTab === 'complete' && document.activeElement === input
+      && input.value === binding.source && inlineEditVersion === binding.editVersion
+      && input.selectionStart === binding.cursor && input.selectionEnd === binding.cursor;
   }
 
   function renderInlineGhost(suggestion) {
@@ -2298,6 +2309,12 @@
   async function requestInlineSuggestion() {
     const value = els.completeInput.value;
     const cursor = els.completeInput.selectionStart ?? value.length;
+    const binding = { source: value, cursor, editVersion: inlineEditVersion };
+    if (!inlineContextMatches(binding)) {
+      hideInlineGhost();
+      return;
+    }
+    inlineBinding = binding;
     const payload = {
       before_cursor: value.slice(0, cursor),
       after_cursor: value.slice(cursor),
@@ -2321,18 +2338,26 @@
     if (requestSeq !== inlineSeq || !body) return;
     if (body.edit_version !== inlineEditVersion) return;
     if (body.source_hash !== payload.source_hash) return;
+    if (!inlineContextMatches(binding)) {
+      hideInlineGhost();
+      return;
+    }
     if (!body.text) {
       hideInlineGhost();
       return;
     }
     inlineSuggestion = body;
-    inlineCursor = cursor;
     renderInlineGhost(body);
   }
 
   function scheduleInlineSuggestion() {
+    hideInlineGhost();
     inlineEditVersion += 1;
-    if (inlineTimer) clearTimeout(inlineTimer);
+    inlineBinding = {
+      source: els.completeInput.value,
+      cursor: els.completeInput.selectionStart,
+      editVersion: inlineEditVersion,
+    };
     inlineTimer = setTimeout(() => {
       inlineTimer = null;
       requestInlineSuggestion();
@@ -2341,6 +2366,10 @@
 
   function acceptInlineSuggestion() {
     if (!inlineSuggestion) return false;
+    if (!inlineContextMatches(inlineBinding)) {
+      hideInlineGhost();
+      return false;
+    }
     const text = String(inlineSuggestion.text || '');
     if (!text) return false;
     const input = els.completeInput;
@@ -2362,26 +2391,38 @@
     return true;
   }
 
-  function dismissInlineGhostOnCursorMove() {
-    if (!inlineSuggestion) return;
-    if (els.completeInput.selectionStart !== inlineCursor) hideInlineGhost();
+  function dismissInlineGhostOnCursorMove(event) {
+    if (inlineBinding && inlineContextMatches(inlineBinding)) return;
+    const input = els.completeInput;
+    const cursorKey = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End',
+      'PageUp', 'PageDown'].includes(event?.key);
+    if ((cursorKey || event?.type === 'mouseup') && currentTab === 'complete'
+      && document.activeElement === input && input.selectionStart === input.selectionEnd) {
+      scheduleInlineSuggestion();
+    } else {
+      hideInlineGhost();
+    }
   }
 
   function bindInlineCompletion() {
     if (!els.completeInput || !els.completeGhost) return;
     els.completeInput.addEventListener('input', scheduleInlineSuggestion);
     els.completeInput.addEventListener('keydown', (event) => {
+      if (isImeComposing(event)) return;
       if (event.key === 'Tab' && inlineSuggestion) {
-        event.preventDefault();
-        acceptInlineSuggestion();
-      } else if (event.key === 'Escape' && inlineSuggestion) {
-        event.preventDefault();
+        if (acceptInlineSuggestion()) event.preventDefault();
+      } else if (event.key === 'Escape') {
+        if (inlineSuggestion) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
         hideInlineGhost();
       }
     });
     els.completeInput.addEventListener('keyup', dismissInlineGhostOnCursorMove);
     els.completeInput.addEventListener('mouseup', dismissInlineGhostOnCursorMove);
     els.completeInput.addEventListener('blur', hideInlineGhost);
+    window.addEventListener('blur', hideInlineGhost);
     els.completeInput.addEventListener('scroll', () => {
       els.completeGhost.scrollTop = els.completeInput.scrollTop || 0;
       els.completeGhost.scrollLeft = els.completeInput.scrollLeft || 0;
