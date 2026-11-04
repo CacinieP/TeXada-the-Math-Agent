@@ -3913,7 +3913,7 @@ dependencies = [
 
 [[package]]
 name = "texada-shell"
-version = "0.4.2-rc.3"
+version = "0.4.2"
 dependencies = [
  "objc2-app-kit",
  "objc2-quartz-core",

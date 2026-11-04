@@ -7,13 +7,27 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: desktop-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    name: Bind release version and source commit
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - id: release
+        run: python scripts/prepare-desktop-release.py preflight --expected-commit "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT"
+
   audit:
     name: Pre-release audit
     runs-on: ubuntu-latest
@@ -86,8 +100,9 @@ jobs:
 
   build:
     name: Build ${{ matrix.name }}
-    needs: [audit, glib-backport]
+    needs: [audit, glib-backport, preflight]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 360
 
     strategy:
       fail-fast: false
@@ -105,6 +120,10 @@ jobs:
             os: windows-2025
             rust-targets: x86_64-pc-windows-msvc
             tauri-args: --target x86_64-pc-windows-msvc --bundles nsis
+          - name: Linux x64 deb and AppImage
+            os: ubuntu-24.04
+            rust-targets: x86_64-unknown-linux-gnu
+            tauri-args: --target x86_64-unknown-linux-gnu --bundles deb,appimage
 
     steps:
       - name: Checkout
@@ -122,6 +141,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.rust-targets }}
+
+      - name: Install Linux native build and installation dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libglib2.0-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2t64 xvfb xauth
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -282,10 +307,37 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPIMAGE_EXTRACT_AND_RUN: "1"
         with:
           projectPath: tauri-shell/src-tauri
           tauriScript: cargo tauri
           args: ${{ matrix.tauri-args }}
+
+      - name: Normalize installer filenames for stable download links
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+          RELEASE_TARGET: ${{ matrix.rust-targets }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          version, target = os.environ["RELEASE_VERSION"], os.environ["RELEASE_TARGET"]
+          layouts = {
+              "aarch64-apple-darwin": [("dmg", "*.dmg", f"TeXada_{version}_aarch64.dmg")],
+              "x86_64-apple-darwin": [("dmg", "*.dmg", f"TeXada_{version}_x64.dmg")],
+              "x86_64-pc-windows-msvc": [("nsis", "*.exe", f"TeXada_{version}_x64-setup.exe")],
+              "x86_64-unknown-linux-gnu": [("deb", "*.deb", f"TeXada_{version}_amd64.deb"),
+                                           ("appimage", "*.AppImage", f"TeXada_{version}_amd64.AppImage")],
+          }
+          for bundle, pattern, name in layouts[target]:
+              candidates = list(Path("tauri-shell/src-tauri/target").glob(f"**/bundle/{bundle}/{pattern}"))
+              if len(candidates) != 1:
+                  raise SystemExit(f"Expected one {bundle} installer, found {len(candidates)}")
+              original = candidates[0]
+              original.replace(original.with_name(name))
+          PY
 
       - name: Verify macOS package signature
         if: runner.os == 'macOS'
@@ -312,21 +364,14 @@ jobs:
           grep -F "Developer ID Application:" /tmp/texada-dmg-codesign.txt
 
           mount_dir="$(mktemp -d)"
-          if printf 'Y\n' | hdiutil attach "$dmg" -mountpoint "$mount_dir" -nobrowse -readonly -quiet; then
-            trap 'hdiutil detach "$mount_dir" -quiet || true; /usr/bin/trash "$mount_dir" 2>/dev/null || true' EXIT
-            app="$(find "$mount_dir" -maxdepth 1 -name '*.app' -print -quit)"
-            if [ -n "$app" ]; then
-              codesign --verify --deep --strict --verbose=2 "$app"
-              codesign -dv --verbose=4 "$app" 2> /tmp/texada-app-codesign.txt
-              grep -F "$EXPECTED_SIGNER" /tmp/texada-app-codesign.txt
-              grep -F "Developer ID Application:" /tmp/texada-app-codesign.txt
-            else
-              echo "::warning::Signed DMG verified, but no .app was found after mounting."
-            fi
-          else
-            /usr/bin/trash "$mount_dir" 2>/dev/null || true
-            echo "::warning::Signed DMG verified, but CI could not mount it for inner app verification."
-          fi
+          printf 'Y\n' | hdiutil attach "$dmg" -mountpoint "$mount_dir" -nobrowse -readonly -quiet
+          trap 'hdiutil detach "$mount_dir" -quiet || true; rmdir "$mount_dir" 2>/dev/null || true' EXIT
+          app="$(find "$mount_dir" -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app" || { echo "::error::DMG has no installable app."; exit 1; }
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign -dv --verbose=4 "$app" 2> /tmp/texada-app-codesign.txt
+          grep -F "$EXPECTED_SIGNER" /tmp/texada-app-codesign.txt
+          grep -F "Developer ID Application:" /tmp/texada-app-codesign.txt
 
       - name: Notarize and staple macOS DMG
         if: runner.os == 'macOS'
@@ -439,15 +484,27 @@ jobs:
             sleep $((validate_attempt * 30))
           done
           spctl -a -t open --context context:primary-signature -v "$dmg"
+          NOTARY_ID="$submission_id" INSTALLER="$dmg" TARGET="${{ matrix.rust-targets }}" python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          installer = Path(os.environ["INSTALLER"])
+          record = {"target": os.environ["TARGET"], "source_commit": os.environ["GITHUB_SHA"],
+                    "installer": installer.name, "installer_sha256": hashlib.sha256(installer.read_bytes()).hexdigest(),
+                    "status": "Accepted", "submission_id": os.environ["NOTARY_ID"],
+                    "stapler_validated": True, "gatekeeper_assessed": True}
+          Path("notarization-" + os.environ["TARGET"] + ".json").write_text(json.dumps(record, indent=2) + "\n")
+          PY
 
       - name: Smoke installed macOS package
         if: runner.os == 'macOS'
         shell: bash
         run: |
+          set -euo pipefail
           installer="$(find tauri-shell/src-tauri/target -path '*/bundle/dmg/*.dmg' -print -quit)"
-          app="$(find tauri-shell/src-tauri/target -path '*/bundle/macos/*.app' -type d -print -quit)"
-          test -n "$app" || { echo "::error::Standalone signed app missing."; exit 1; }
-          python scripts/smoke-installed-desktop.py "$installer" --app-bundle "$app" --output "native-smoke-${{ matrix.rust-targets }}.json"
+          python scripts/smoke-installed-desktop.py "$installer" --version "${{ needs.preflight.outputs.version }}" --expected-commit "$GITHUB_SHA" --output "native-smoke-${{ matrix.rust-targets }}.json"
 
       - name: Smoke installed Windows package
         if: runner.os == 'Windows'
@@ -455,8 +512,20 @@ jobs:
         run: |
           $installer = Get-ChildItem tauri-shell/src-tauri/target -Recurse -File -Filter *.exe | Where-Object { $_.Directory.Name -eq 'nsis' } | Select-Object -First 1
           if (-not $installer) { throw "NSIS installer missing" }
-          python scripts/smoke-installed-desktop.py $installer.FullName --output "native-smoke-${{ matrix.rust-targets }}.json"
+          python scripts/smoke-installed-desktop.py $installer.FullName --version "${{ needs.preflight.outputs.version }}" --expected-commit "$env:GITHUB_SHA" --output "native-smoke-${{ matrix.rust-targets }}.json"
           if ($LASTEXITCODE -ne 0) { throw "Installed Windows smoke failed" }
+
+      - name: Smoke both installed Linux packages under Xvfb
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for format in deb AppImage; do
+            if [ "$format" = deb ]; then pattern='*/bundle/deb/*.deb'; else pattern='*/bundle/appimage/*.AppImage'; fi
+            installer="$(find tauri-shell/src-tauri/target -path "$pattern" -type f -print -quit)"
+            test -n "$installer" || { echo "::error::Linux $format installer missing."; exit 1; }
+            xvfb-run -a python scripts/smoke-installed-linux.py --installer "$installer" --format "$format" --version "${{ needs.preflight.outputs.version }}" --expected-commit "$GITHUB_SHA" --out "native-smoke-${{ matrix.rust-targets }}-$format.json"
+          done
 
       - name: Upload installer artifact
         if: always()
@@ -467,12 +536,17 @@ jobs:
           path: |
             tauri-shell/src-tauri/target/**/bundle/dmg/*.dmg
             tauri-shell/src-tauri/target/**/bundle/nsis/*.exe
+            tauri-shell/src-tauri/target/**/bundle/deb/*.deb
+            tauri-shell/src-tauri/target/**/bundle/appimage/*.AppImage
             native-smoke-*.json
+            notarization-*.json
 
   publish:
-    name: Publish desktop release
-    needs: build
+    name: Stage verified desktop release draft
+    needs: [build, preflight]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -486,6 +560,9 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Validate all installers and prepare manifest and checksums
+        run: python scripts/prepare-desktop-release.py collect --input release-assets --output staged-release --expected-commit "$GITHUB_SHA" --version "${{ needs.preflight.outputs.version }}"
+
       - name: Publish release
         shell: bash
         env:
@@ -493,20 +570,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' pyproject.toml | head -1)"
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            release_tag="${GITHUB_REF_NAME}"
-            version="${release_tag#v}"
-          else
-            release_tag="v${version}"
-          fi
+          version="${{ needs.preflight.outputs.version }}"
+          release_tag="${{ needs.preflight.outputs.tag }}"
 
-          mapfile -t assets < <(find release-assets -type f \( -name '*.dmg' -o -name '*.exe' \) | sort)
-          if [ "${#assets[@]}" -ne 3 ]; then
-            echo "::error::Expected 3 installer assets, found ${#assets[@]}."
-            find release-assets -type f -print
-            exit 1
-          fi
+          mapfile -t assets < <(find staged-release -maxdepth 1 -type f | sort)
 
           release_notes="$(
             awk -v version="$version" '
@@ -523,7 +590,8 @@ jobs:
           {
             printf 'TeXada Desktop %s\n\n' "$version"
             printf '%s\n\n' "$release_notes"
-            printf '%s\n' 'Installers: signed and notarized macOS arm64/x64 DMGs and Windows x64 NSIS.'
+            printf '%s\n' 'Installers: signed and notarized macOS arm64/x64 DMGs, Windows x64 NSIS, Linux x64 deb and AppImage.'
+            printf '%s\n' 'Checksums, a common-commit build manifest and per-package installed validation records accompany the installers.'
             printf '%s\n' 'Author: CacinieP'
           } > /tmp/texada-release-notes.md
 
@@ -531,17 +599,18 @@ jobs:
             echo "::error::Release $release_tag already exists; refusing to overwrite it."
             exit 1
           fi
-          if git ls-remote --exit-code --tags origin "refs/tags/$release_tag" >/dev/null 2>&1; then
-            echo "::error::Tag $release_tag already exists; refusing to overwrite it."
-            exit 1
-          fi
-
           git config user.name "CacinieP"
           git config user.email "129482851+CacinieP@users.noreply.github.com"
-          git tag "$release_tag" "$GITHUB_SHA"
-          git push origin "refs/tags/$release_tag"
+          if git ls-remote --exit-code --tags origin "refs/tags/$release_tag" >/dev/null 2>&1; then
+            git fetch origin "refs/tags/$release_tag:refs/tags/$release_tag"
+            test "$(git rev-parse "$release_tag^{commit}")" = "$GITHUB_SHA" || { echo "::error::Release tag points at another commit."; exit 1; }
+          else
+            git tag "$release_tag" "$GITHUB_SHA"
+            git push origin "refs/tags/$release_tag"
+          fi
 
-          release_flags=(--latest)
+          # Final publication is a separate review of the exact attached bytes.
+          release_flags=(--draft --latest=false)
           if [[ "$version" == *-* ]]; then
             release_flags=(--draft --prerelease --latest=false)
           fi

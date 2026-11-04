@@ -1,7 +1,26 @@
-## Unreleased
+# Changelog / 变更记录
 
-- 同步 Python 安全依赖锁定，升级 Pillow、certifi、setuptools、rustls 与离线 KaTeX 0.18.2；严格结构解析和安装包检查使用同一版本。为 GTK3 所需的 glib 0.18 回移上游迭代器修复，保留来源及验证记录。Python、Rust 检查与后端构建要求锁定文件一致；npm 审计覆盖低危告警。详见[依赖安全维护记录](docs/dependency-security-2026-11-04.md)。未替换历史安装包。
-- Synchronize vulnerable Python locks, update rustls and offline KaTeX, backport the glib iterator fix for GTK3, and require locked dependency checks/builds. Existing installers are unchanged; see the [security maintenance record](docs/dependency-security-2026-11-04.md).
+## 0.4.2 - 2026-11-04
+
+### 中文
+
+- 正式整合 v0.4.1 以来已合并的 Beta/RC 与安全修复，发布 macOS Apple Silicon/Intel DMG、Windows x64 NSIS、Linux x64 deb/AppImage。版本元数据统一为 0.4.2；模型权重仍在安装后单独下载。发布范围与安装记录见[正式版说明](docs/release-v0.4.2.md)，最终安装包以标签构建的资产和验证记录为准。
+- 保留 rc.3 的直接提交行为：自然语言、OCR、补全候选经过共享工具检查后直接进入结果与历史，复制/插入无需逐条采用。修改范围守卫仍会阻止越界提交；Studio 单公式移交继续走绑定的 pending review。产品用于公式识别、转写、编辑与排版，不求值、不解题。
+- 内置 llama-server b11669，MiniCPM-V-4.7-1B Q4_K_M 与 F16 projector 按固定来源下载并在启动前校验 SHA256；修复打包运行时路径、模型/投影文件缺失及下载并发，加入断点续传、进度百分比、大小、速度和剩余时间。仅停止本应用持有的进程；模型注册与实际推理就绪分别显示。
+- 设置页按内置、Ollama、OpenAI-compatible 后端显示对应字段；文本/OCR 连接和凭据分别保存，不向独立 OCR 地址自动转发文本密钥。保留未保存草稿、已有模型选择与用户设置；Ollama 4.7 思考控制修复和 1B 候选优先默认一并整合。
+- 整合显式算符与操作数保护、版本绑定、过期结果丢弃、导出格式错误的一次有界恢复，以及设置标签布局与历史/运行日志。实验性行内补全提供光标绑定的零模型 insert-only Ghost Text，Tab 接受、Esc 忽略，旧响应不会重写光标两侧内容。
+- 包含 [PR #45](https://github.com/CacinieP/TeXada-the-Math-Agent/pull/45) 安全修复：Pillow 13.0.0、certifi 2026.10.23、setuptools 84.2.1、rustls 0.23.46 / webpki 0.103.16、离线 KaTeX 0.18.2；前后端使用同一 KaTeX。GTK3 所需的 glib 0.18.5 使用有来源的上游两行安全回移，不伪造为官方修复版、不忽略告警。Python/Rust 构建使用锁文件，npm 审计覆盖低危；发布前运行 Linux glib 优化迭代器回归。
+- 正式发布依据工程验收与用户确认的范围；不会把旧 RC 的人工采用策略带回当前版本。历史失败、结构差异及评测保持原样，独立人工转写复核、真实扫描/手写、Windows/Intel 模型质量仍是后续工作。编译、渲染、提交成功和安装启动不等于数学准确率；Linux 兼容性以最终 Ubuntu 原生安装检查为准。
+
+### English
+
+- Consolidate the merged beta/RC work since v0.4.1 and the security maintenance into v0.4.2. Ship macOS Apple Silicon/Intel DMGs, Windows x64 NSIS, and Linux x64 deb/AppImage packages with synchronized version metadata. Model weights download separately. See the [release scope and package records](docs/release-v0.4.2.md); final results belong to the tagged artifacts.
+- Retain rc.3 direct commit for NL, OCR and completion: checked candidates appear in results/history and can be copied or inserted without an adoption click. Mutation-scope violations still block commits; Studio formula handoffs retain bound pending review. Product scope is formula recognition, transcription, editing and typesetting, not evaluation or solving.
+- Bundle llama-server b11669 and verify pinned Q4_K_M/model-projector SHA256 before startup. Include runtime-path and download-concurrency fixes, resumable downloads, size/speed/ETA progress, owned-process cleanup and separate model-registration/inference-readiness states.
+- Keep provider-specific settings, isolated text/OCR endpoints and credentials, preserved drafts and saved model choices, Ollama 4.7 thinking controls, and the usable 1B candidate-first default. Include source/revision guards, bounded recovery from invalid export formats, settings-tab fixes and observable history/run logs.
+- Add experimental cursor-bound insert-only inline completion with zero model calls: ghost text, undoable Tab acceptance, Esc dismissal and stale-response rejection. Source text on either side of the cursor is retained.
+- Include [PR #45](https://github.com/CacinieP/TeXada-the-Math-Agent/pull/45): patched Python locks, rustls/webpki and offline KaTeX 0.18.2, plus the documented upstream two-line glib 0.18.5 source backport required by GTK3. Lock checks and the optimized Linux iterator regression gate releases; do not describe the backport as an official fixed crate or a dismissed alert.
+- This formal release is scoped to engineering acceptance. Historical failures and metrics remain unchanged; independent human transcription review, real scanned/handwritten material and Windows/Intel model quality remain follow-up work. Compilation, rendering, commits and installer startup do not establish mathematical accuracy. Linux compatibility follows final native Ubuntu package checks.
 
 ## 0.4.2-rc.3 - 2026-10-20
 
@@ -116,11 +135,7 @@
 - Keep Data, Shortcuts and About within Settings when switching tabs.
 - Preserve the existing floating-window behavior. Includes the beta.1 changes and documented evaluation limitations.
 
-# Changelog / 变更记录
-
-All notable changes to TeXada-the-Math-Agent are recorded here.
-
-## Unreleased / 未发布
+## 0.4.2 development baseline - 2026-09-19
 
 ### English
 

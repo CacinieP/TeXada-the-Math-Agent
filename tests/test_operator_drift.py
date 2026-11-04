@@ -7,6 +7,8 @@ integral few-shot example and returned ``\\int \\sin(x)dx`` — losing the
 ``\\iint`` the user actually asked for. Drift detection flags this so the
 router can trigger one constrained retry.
 """
+import pytest
+
 from texada.config import TeXadaConfig
 from texada.core.operator_guard import OperatorDriftGuard
 from texada.core.router import InputRouter
@@ -412,7 +414,12 @@ def test_explicit_nth_ordinary_derivative_preserves_denominator_order():
         # Pretranslation normally introduces a fraction; alternative notation
         # must not be rejected solely for omitting that implicit fraction.
         assert not guard.check(r"\frac{d}{dx}", candidate, user_input=request), candidate
-    for request in ("不要写 f 对 x 的 n 阶导数", "f 对 x 的 n 阶偏导数", "f 对 x 的一阶导数"):
+    first_order = "f 对 x 的一阶导数"
+    assert "n-th ordinary derivative of f with respect to x" not in guard.forced_operators(
+        "", first_order,
+    )
+    assert guard.check("", r"\frac{d^n f}{dx^n}", user_input=first_order)
+    for request in ("不要写 f 对 x 的 n 阶导数", "f 对 x 的 n 阶偏导数"):
         assert not guard.forced_operators("", request)
 
 
@@ -450,9 +457,14 @@ def test_explicit_second_ordinary_derivative_preserves_order_and_kind():
         assert not guard.check(r"\frac{d}{dx}", candidate, user_input=description), candidate
     for description in (
         "不要写 y 对 x 的二阶导数", "y 对 x 的二阶偏导数",
-        "y 对 x 的一阶导数", "y 对 x 的二阶导数.png",
+        "y 对 x 的二阶导数.png",
     ):
         assert not guard.forced_operators("", description)
+    first_order = "y 对 x 的一阶导数"
+    assert "second ordinary derivative of y with respect to x" not in guard.forced_operators(
+        "", first_order,
+    )
+    assert guard.check("", r"\frac{d^2y}{dx^2}", user_input=first_order)
 
 
 def test_second_derivative_template_binds_other_names():
@@ -644,3 +656,76 @@ def test_vector_two_norm_template_binds_other_operand():
     guard = OperatorDriftGuard()
     assert not guard.check("", r"\lVert v\rVert_2", user_input="向量 v 的二范数。")
     assert guard.check("", r"\lVert x\rVert_2", user_input="向量 v 的二范数。")
+
+
+@pytest.mark.parametrize('function,variable', [('f', 'x'), ('g', 't'), ('h', 'u')])
+def test_first_ordinary_derivative_preserves_roles_without_forcing_fraction(function, variable):
+    from texada.core.symbols import SymbolEngine
+
+    description = f'输入 {function}({variable}) 关于 {variable} 的一阶导数记号'
+    preprocessed = SymbolEngine().pre_translate(description)
+    guard = OperatorDriftGuard()
+    anchors = guard.forced_operators(preprocessed, description)
+    assert r'\frac' not in anchors
+    assert f'first ordinary derivative of {function} with respect to {variable}' in anchors
+    for candidate in (
+        rf"{function}'({variable})", rf'{function}^{{\prime}}({variable})',
+        rf'\frac{{d{function}}}{{d{variable}}}',
+        rf'\frac{{d{function}({variable})}}{{d{variable}}}',
+        rf'\frac d{{d{variable}}}{function}({variable})',
+        rf'\frac{{d}}{{d{variable}}}{function}({variable})',
+    ):
+        assert not guard.check(preprocessed, candidate, user_input=description), candidate
+    for candidate in (
+        rf"z'({variable})", rf"{function}'(z)", rf"{function}''({variable})",
+        rf'\frac{{\partial {function}}}{{\partial {variable}}}',
+        rf'\frac{{d{function}}}{{d{variable}}}+1',
+        rf'\fracd{{d{variable}}}{function}({variable})',
+    ):
+        assert guard.check(preprocessed, candidate, user_input=description), candidate
+
+
+def test_first_derivative_template_does_not_infer_scope_from_extra_or_negated_text():
+    guard = OperatorDriftGuard()
+    for description in (
+        '不要输入 f(x) 关于 x 的一阶导数', '计算 f(x) 关于 x 的一阶导数',
+        'f(x) 关于 x 的一阶导数再加一', 'f(x) 关于 y 的一阶导数',
+        'f(x,y) 关于 x 的一阶导数', 'f(x) 关于 x 的一阶导数.png',
+    ):
+        assert not guard.forced_operators('', description), description
+
+
+@pytest.mark.parametrize('base,index', [('x', 'k'), ('a', 'j'), ('b', 'n')])
+def test_subscript_plus_one_retains_both_complete_scope_readings_without_losing_terms(base, index):
+    from texada.core.symbols import SymbolEngine
+
+    description = f'输入 {base} 下标 {index} 加一'
+    preprocessed = SymbolEngine().pre_translate(description)
+    guard = OperatorDriftGuard()
+    for candidate in (f'{base}_{index}+1', f'{base}_{{{index}}}+1', f'{base}_{{{index}+1}}'):
+        assert not guard.check(preprocessed, candidate, user_input=description), candidate
+    for candidate in (f'{base}_{index}', f'{base}_{{{index}+2}}', f'{base}_{index}+2',
+                      f'{base}_z+1', f'z_{index}+1', f'{base}_{index}+1+2'):
+        assert guard.check(preprocessed, candidate, user_input=description), candidate
+
+
+def test_subscript_plus_one_scope_ambiguity_does_not_rewrite_registered_rc_reference():
+    import json
+    from pathlib import Path
+
+    import structural_match
+
+    source = Path(__file__).resolve().parents[1] / 'eval/transcription_rc1.json'
+    case = next(item for item in json.loads(source.read_text())['nl'] if item['id'] == 'T04')
+    assert case['reference'] == 'x_k+1'
+    # The runtime permits both full readings but the frozen scoring reference
+    # stays exactly as authored. No user-confirmed scope is inferred here.
+    assert structural_match.compare_structure('x_k+1', case['reference']).status == 'MATCH'
+    assert structural_match.compare_structure('x_{k+1}', case['reference']).status == 'DIFFERENT'
+
+
+def test_subscript_addition_guard_does_not_capture_negation_or_extra_source():
+    guard = OperatorDriftGuard()
+    for description in ('不要写 x 下标 k 加一', '计算 x 下标 k 加一', 'x 下标 k 加一再乘二',
+                        'x 下标 k 加一.png', 'x 下标 k 加二'):
+        assert not guard.forced_operators('', description), description

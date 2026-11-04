@@ -153,3 +153,22 @@ def test_planner_controls_change_identity_without_invalidating_legacy_schema_one
     imported = validate_inference_fingerprint(legacy)
     assert "planner_controls" not in imported["identity"]
     assert imported["identity_sha256"] == legacy["identity_sha256"]
+
+
+@pytest.mark.asyncio
+async def test_registered_offline_replay_pins_scripted_planner_profile_and_never_infers():
+    from compare_failure_context import compare
+
+    report = await compare()
+    assert report['model_requests'] == 0
+    assert len(report['rows']) == 6
+    assert {(row['case_id'], row['mode']) for row in report['rows']} == {
+        (case, mode) for case in ('unknown-small', 'unknown-large', 'syntax-repair')
+        for mode in ('raw', 'projected')
+    }
+    for row in report['rows']:
+        assert row['inference_fingerprint']['calls'] == []
+        assert row['input_tokens']['status'] == 'NOT_CHECKED'
+    repaired = [row for row in report['rows'] if row['case_id'] == 'syntax-repair']
+    assert all(row['recovered'] for row in repaired)
+    assert all(row['strict_structure']['status'] == 'MATCH' for row in repaired)

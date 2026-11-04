@@ -141,6 +141,19 @@ class OperatorDriftGuard:
         if vector_norm:
             forced.append(f"vector two-norm of {vector_norm[1]}")
 
+        subscript_addition = re.fullmatch(
+            r"(?P<base>[A-Za-z])\s*(?:的)?下标\s*(?P<index>[A-Za-z])"
+            r"\s*加(?:上)?\s*(?:一|1)\s*[。.]?",
+            request,
+        )
+        if subscript_addition:
+            # The phrase does not settle whether +1 is inside the subscript.
+            # Preserve both complete readings, but never allow the +1 to vanish.
+            forced.append(
+                f"subscript plus one: base {subscript_addition['base']}, "
+                f"index {subscript_addition['index']}"
+            )
+
         paired_scripts = re.fullmatch(
             r"([A-Za-z])\s*的上标\s*([A-Za-z])\s*加下标\s*([A-Za-z])\s*[。.]?",
             request,
@@ -187,15 +200,19 @@ class OperatorDriftGuard:
             forced.append(f"literal 2x2 matrix rows: {a},{b};{c},{d}")
 
         ordinary_derivative = re.fullmatch(
-            r"(?P<function>[A-Za-z])\s*对\s*(?P<variable>[A-Za-z])"
-            r"\s*的\s*(?P<order>n|二)\s*阶导数\s*[。.]?",
+            r"(?P<function>[A-Za-z])(?:\s*\(\s*(?P<argument>[A-Za-z])\s*\))?"
+            r"\s*(?:对|关于)\s*(?P<variable>[A-Za-z])"
+            r"\s*的\s*(?P<order>n|一|二|1|2)\s*阶导数\s*[。.]?",
             request,
         )
-        if ordinary_derivative:
+        if (ordinary_derivative
+                and ordinary_derivative["argument"] in {None, ordinary_derivative["variable"]}):
             # The pretranslator's generic derivative fraction is not mandatory:
             # superscript order and double primes are supported alternatives.
             forced = [operator for operator in forced if operator != r"\frac"]
-            order = "n-th" if ordinary_derivative["order"] == "n" else "second"
+            order = {"n": "n-th", "一": "first", "1": "first", "二": "second", "2": "second"}[
+                ordinary_derivative["order"]
+            ]
             forced.append(
                 f"{order} ordinary derivative of {ordinary_derivative['function']} "
                 f"with respect to {ordinary_derivative['variable']}"
@@ -399,6 +416,15 @@ class OperatorDriftGuard:
         user_input: str = "",
     ) -> bool:
         """Check exact commands plus the few structural request anchors."""
+        subscript_addition = re.fullmatch(
+            r"subscript plus one: base ([A-Za-z]), index ([A-Za-z])", anchor,
+        )
+        if subscript_addition:
+            base, index = map(re.escape, subscript_addition.groups())
+            compact = re.sub(r"\s+", "", candidate)
+            return bool(re.fullmatch(
+                rf"{base}_(?:{index}|\{{{index}\}})\+1|{base}_\{{{index}\+1\}}", compact,
+            ))
         vector_norm = re.fullmatch(r"vector two-norm of ([A-Za-z])", anchor)
         if vector_norm:
             symbol = re.escape(vector_norm[1])
@@ -484,17 +510,29 @@ class OperatorDriftGuard:
                 re.sub(r"\s+", "", candidate),
             ))
         ordinary_derivative = re.fullmatch(
-            r"(n-th|second) ordinary derivative of ([A-Za-z]) with respect to ([A-Za-z])",
+            r"(n-th|first|second) ordinary derivative of ([A-Za-z]) with respect to ([A-Za-z])",
             anchor,
         )
         if ordinary_derivative:
             label, function, variable = ordinary_derivative.groups()
             function, variable = map(re.escape, (function, variable))
-            power = "n" if label == "n-th" else "2"
+            power = {"n-th": "n", "first": "1", "second": "2"}[label]
+            # Keep the TeX control-word boundary before removing ordinary spaces.
+            candidate = re.sub(r"\\(frac|dfrac|tfrac)\s+d(?=\s*\{)",
+                               lambda match: "\\" + match[1] + "{d}", candidate)
             compact = re.sub(r"\s+|\\[,!;:]", "", candidate)
             compact = compact.replace(r"\mathrm{d}", "d")
             order = rf"\^(?:{power}|\{{{power}\}})"
             alternatives = rf"{function}\^\{{\({power}\)\}}\({variable}\)"
+            if power == "1":
+                # Whole-expression variants already represented in the complete
+                # reference registry: df/dx, (d/dx)f(x), and f'(x).
+                prime = rf"{function}(?:'|\^\{{\\prime\}})\({variable}\)"
+                fraction = (rf"\\(?:frac|dfrac|tfrac)\{{d{function}"
+                            rf"(?:\({variable}\))?\}}\{{d{variable}\}}")
+                operator = (rf"\\(?:frac|dfrac|tfrac)\{{d\}}\{{d{variable}\}}"
+                            rf"{function}\({variable}\)")
+                return bool(re.fullmatch(rf"{fraction}|{operator}|{prime}|{alternatives}", compact))
             if power == "2":
                 alternatives += (
                     rf"|{function}(?:''|\^\{{\\prime\\prime\}})"
