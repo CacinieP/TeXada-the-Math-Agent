@@ -145,3 +145,7 @@ jobs:
       - name: Cargo check
         working-directory: tauri-shell/src-tauri
         run: cargo check --locked
+
+      - name: Main window close policy regressions
+        working-directory: tauri-shell/src-tauri
+        run: cargo test --locked lifecycle::tests

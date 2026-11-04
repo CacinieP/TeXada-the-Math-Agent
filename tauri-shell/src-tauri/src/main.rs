@@ -1,6 +1,8 @@
 // TeXada Tauri Shell — Floating input method style UI
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod lifecycle;
+
 use std::env;
 use std::net::IpAddr;
 use std::path::PathBuf;
@@ -12,7 +14,7 @@ use tauri::{
     menu::{Menu, MenuItem},
     path::BaseDirectory,
     tray::{MouseButton, MouseButtonState, TrayIconBuilder},
-    Manager, RunEvent,
+    Manager, RunEvent, WindowEvent,
 };
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::ShortcutState;
@@ -510,7 +512,7 @@ fn start_bundled_backend(app: &tauri::AppHandle) {
                         eprintln!("texada-backend error: {}", error);
                     }
                     CommandEvent::Terminated(payload) => {
-                        eprintln!("texada-backend exited: {:?}", payload);
+                        eprintln!("lifecycle backend_terminated pid={} {:?}", pid, payload);
                         break;
                     }
                     _ => {}
@@ -527,7 +529,12 @@ fn stop_bundled_backend(app: &tauri::AppHandle) {
         slot.take()
     };
     if let Some(child) = child {
-        let _ = child.kill();
+        let pid = child.pid();
+        eprintln!("lifecycle backend_stop_requested pid={} method=kill", pid);
+        match child.kill() {
+            Ok(()) => eprintln!("lifecycle backend_kill_sent pid={}", pid),
+            Err(error) => eprintln!("lifecycle backend_kill_failed pid={} error={}", pid, error),
+        }
     }
 }
 
@@ -591,6 +598,7 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "quit" => {
+                eprintln!("lifecycle quit_requested source=tray");
                 app.exit(0);
             }
             "toggle" => {
@@ -654,11 +662,32 @@ fn configure_rounded_macos_window(
 }
 
 fn main() {
+    eprintln!("lifecycle app_start pid={}", std::process::id());
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_os::init())
         .manage(BackendSidecarState::default())
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                match lifecycle::handle_window_close(
+                    window.label(),
+                    || api.prevent_close(),
+                    || window.hide(),
+                ) {
+                    lifecycle::WindowCloseResult::Unhandled => {}
+                    lifecycle::WindowCloseResult::Hidden => {
+                        eprintln!("lifecycle window_close label=main action=hide");
+                    }
+                    lifecycle::WindowCloseResult::HideFailed(error) => {
+                        eprintln!(
+                            "lifecycle window_close label=main action=prevent_close hide_failed={}",
+                            error
+                        );
+                    }
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             get_api_base,
             api_json,
@@ -693,10 +722,15 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    app.run(|app_handle, event| {
-        if let RunEvent::Exit = event {
+    app.run(|app_handle, event| match event {
+        RunEvent::ExitRequested { code, .. } => {
+            eprintln!("lifecycle exit_requested code={:?}", code);
+        }
+        RunEvent::Exit => {
+            eprintln!("lifecycle exit");
             stop_bundled_backend(app_handle);
         }
+        _ => {}
     });
 }
 

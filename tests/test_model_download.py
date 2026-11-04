@@ -155,7 +155,8 @@ async def test_incomplete_download_is_rejected(tmp_path, monkeypatch):
     ]
     assert events[-1]["error"] is not None
     assert "不完整" in events[-1]["error"]
-    assert not list(tmp_path.glob("*.part"))
+    assert (tmp_path / "MiniCPM-V-4_7-1B-Q4_K_M.gguf.part").read_bytes() == b"x" * 5
+    assert not list(tmp_path.glob("*.gguf"))
 
 
 async def test_vision_role_downloads_two_files(tmp_path, monkeypatch):
