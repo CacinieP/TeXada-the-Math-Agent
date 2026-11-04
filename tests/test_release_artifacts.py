@@ -132,6 +132,8 @@ def metadata_checkout(tmp_path):
 
 
 def test_preflight_checks_consistent_versions_and_writes_action_outputs(tmp_path, monkeypatch):
+    # This synthetic checkout must not inherit the outer release job's tag.
+    monkeypatch.delenv("GITHUB_REF", raising=False)
     commit = metadata_checkout(tmp_path)
     monkeypatch.setattr(release, "ROOT", tmp_path)
     output = tmp_path / "action-output"
