@@ -66,9 +66,27 @@ jobs:
       - name: Frontend regressions
         run: node --test tests/*.test.cjs
 
+  glib-backport:
+    name: GTK3 glib iterator backport (release)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CARGO_TARGET_DIR: ${{ runner.temp }}/texada-glib-target
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install GLib development dependencies
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libglib2.0-dev
+      # The advisory reproduces with optimized iterators. This isolated crate
+      # test exercises the backported source even on non-GTK desktop hosts.
+      - name: Optimized iterator regression
+        run: cargo test --release --manifest-path tauri-shell/src-tauri/vendor/glib-0.18.5/Cargo.toml --lib variant_iter
+
   build:
     name: Build ${{ matrix.name }}
-    needs: audit
+    needs: [audit, glib-backport]
     runs-on: ${{ matrix.os }}
 
     strategy:
