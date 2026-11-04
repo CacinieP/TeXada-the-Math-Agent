@@ -1,5 +1,23 @@
 # Changelog / 变更记录
 
+## 0.4.3 - 2026-11-04
+
+### 中文
+
+- 修复主窗口关闭行为：阻止窗口销毁并改为隐藏，可通过托盘或现有快捷键恢复；显式 Quit 仍退出应用。增加关闭、退出码及本应用持有后端的生命周期日志，不记录公式或凭据。见 [PR #51](https://github.com/CacinieP/TeXada-the-Math-Agent/pull/51)。
+- 模型下载遇到传输中断或短响应时保留已接收片段，下一次通过 Range 续传；最终文件仍必须通过固定 SHA256，非法范围、超长响应与错误摘要继续拒绝。
+- 整批下载增加明确的成功/失败结束事件；UI 不再把连接结束或单文件完成误报为全部成功。修复全缓存状态、重复点击并发、重试后的按钮恢复、流释放，以及每文件速度、剩余时间和中英文进度参数。
+- 增加真实 HTTPX 中断/续传、完整性和取消回归、WHATWG ReadableStream 下载 UI 回归，以及 macOS/Windows 关闭策略检查。最终安装包验证以本标签的产物及报告为准；原生关闭/恢复/退出和连续 GUI 冷下载仍在 [#50](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/50) 跟踪，历史退出触发原因未确认。
+- 同步 0.4.3 版本、下载入口及[发布说明](docs/release-v0.4.3.md)。本版沿用原模型与公式策略，v0.4.2 的失败记录和模型质量结论不重新计分；编译、渲染及提交不代表数学正确。完整差异见 [v0.4.2…v0.4.3](https://github.com/CacinieP/TeXada-the-Math-Agent/compare/v0.4.2...v0.4.3)。
+
+### English
+
+- Hide the main window on close instead of destroying it; restore it through the tray or existing shortcut. Explicit Quit remains available. Add window, exit-code and owned-backend lifecycle logs without formula input or credentials. See [PR #51](https://github.com/CacinieP/TeXada-the-Math-Agent/pull/51).
+- Preserve the received model prefix after transport interruptions or short responses for the next Range retry. Final files still require the pinned SHA256; invalid ranges, overlong responses and bad hashes remain rejected.
+- Add an explicit success/failure terminal for each download batch. Do not treat EOF or one finished file as overall success. Fix cached completion, duplicate streams, retry/button cleanup, reader release, per-file rate/ETA baselines and translated progress parameters.
+- Cover real HTTPX interruption/resume, integrity and cancellation, WHATWG ReadableStream download UI behavior, and macOS/Windows close-policy regressions. Final package checks belong to this tag's artifacts and reports. Native close/restore/Quit and continuous GUI cold-download acceptance remain tracked in [#50](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/50); the historical exit trigger is unknown.
+- Synchronize 0.4.3 metadata, download links and [release notes](docs/release-v0.4.3.md). Models and formula policy remain unchanged; do not rescore v0.4.2 failures or infer mathematical accuracy from compilation, rendering or commits. [Full v0.4.2…v0.4.3 diff](https://github.com/CacinieP/TeXada-the-Math-Agent/compare/v0.4.2...v0.4.3).
+
 ## 0.4.2 - 2026-11-04
 
 ### 中文
