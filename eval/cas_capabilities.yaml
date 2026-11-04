@@ -5,7 +5,7 @@ description: >-
 
 environment:
   python: ">=3.12"
-  katex: "0.17.0"
+  katex: "0.18.2"
   sympy:
     pin: "==1.14.0"
     version: "1.14.0"

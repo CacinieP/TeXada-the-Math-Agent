@@ -1,3 +1,8 @@
+## Unreleased
+
+- 同步 Python 安全依赖锁定，升级 Pillow、certifi、setuptools、rustls 与离线 KaTeX 0.18.2；严格结构解析和安装包检查使用同一版本。为 GTK3 所需的 glib 0.18 回移上游迭代器修复，保留来源及验证记录。Python、Rust 检查与后端构建要求锁定文件一致；npm 审计覆盖低危告警。详见[依赖安全维护记录](docs/dependency-security-2026-11-04.md)。未替换历史安装包。
+- Synchronize vulnerable Python locks, update rustls and offline KaTeX, backport the glib iterator fix for GTK3, and require locked dependency checks/builds. Existing installers are unchanged; see the [security maintenance record](docs/dependency-security-2026-11-04.md).
+
 ## 0.4.2-rc.3 - 2026-10-20
 
 ### 中文

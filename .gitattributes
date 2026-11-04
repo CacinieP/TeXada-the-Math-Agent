@@ -10,3 +10,7 @@
 *.tiff binary
 *.dmg binary
 *.exe binary
+
+# Keep upstream license text and the patch's blank context lines byte-identical.
+tauri-shell/src-tauri/vendor/glib-0.18.5/LICENSE -whitespace
+tauri-shell/src-tauri/vendor/glib-0.18.5-variant-str-iter.patch -whitespace

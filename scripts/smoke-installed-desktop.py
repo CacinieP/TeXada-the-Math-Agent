@@ -131,7 +131,7 @@ def main() -> None:
                 assert result["stop_reason"] == "deterministic_candidate", result
                 assert result["committed"] is True, result
                 assert result["review"] is None, result
-                assert result["semantic_document"]["parser_backend"] == "katex-0.17.0-v8", result
+                assert result["semantic_document"]["parser_backend"] == "katex-0.18.2-v8", result
                 args.output.parent.mkdir(parents=True, exist_ok=True)
                 args.output.write_text(
                     json.dumps(

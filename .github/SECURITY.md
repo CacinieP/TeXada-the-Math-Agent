@@ -4,8 +4,9 @@
 
 | Version | Supported |
 |---------|-----------|
-| 0.1.x | Yes |
-| Older local builds | No |
+| Current default branch | Security fixes land here first |
+| Published installers | See the corresponding release notes; source fixes do not update installed applications |
+| Historical local builds | No backport guarantee |
 
 ## Reporting A Vulnerability / 报告漏洞
 

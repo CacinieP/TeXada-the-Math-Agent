@@ -29,6 +29,7 @@ This directory keeps technical and maintenance documentation. Community health f
 | [Data backup](data-backup.md) / [数据备份](data-backup.md) | JSON export/import format, history merge rules, preset handling, and API key safety. |
 | [Technical report](technical-report.md) / [技术报告](technical-report.md) | v0.3.2 technical baseline with current model notes; historical measurements remain attributed to their original models. |
 | [Source audit](audit.md) / [源码审计](audit.md) | Cleanup scope, removed stale paths, current release surface and intentional defaults. |
+| [Dependency security maintenance](dependency-security-2026-11-04.md) / [依赖安全维护](dependency-security-2026-11-04.md) | Locked Python/Rust updates, offline KaTeX and the GTK3/glib backport boundary. |
 | [File inventory](file-inventory.md) / [文件清单](file-inventory.md) | Purpose of every tracked file that remains in the repository. |
 
 ## Design Docs / 设计文档

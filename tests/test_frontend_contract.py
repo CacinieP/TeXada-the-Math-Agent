@@ -166,7 +166,7 @@ def test_signed_macos_sidecar_allows_the_v8_jit_runtime():
     assert "com.apple.security.cs.allow-jit" in release_workflow
     assert "com.apple.security.cs.allow-unsigned-executable-memory" in release_workflow
     assert "Smoke test signed macOS KaTeX sidecar" in release_workflow
-    assert '"parser_backend"] == "katex-0.17.0-v8"' in release_workflow
+    assert '"parser_backend"] == "katex-0.18.2-v8"' in release_workflow
 
 
 def test_frontend_uses_the_same_placeholder_macro_as_backend_katex():

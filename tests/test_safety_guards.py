@@ -114,7 +114,7 @@ def test_bridge_rejects_deep_input_before_v8_call(monkeypatch):
 
         def call(self, *args):
             called["n"] += 1
-            return '{"ok": true, "ast": [], "version": "0.17.0"}'
+            return '{"ok": true, "ast": [], "version": "0.18.2"}'
 
     monkeypatch.setattr(katex_mod, "MiniRacer", FakeContext)
     parser = katex_mod.KaTeXASTParser(javascript_path=Path("dummy.js"))
@@ -143,7 +143,7 @@ def test_v8_context_self_heals_after_failure(monkeypatch, tmp_path):
             state["calls"] += 1
             if state["calls"] == 1:
                 raise RuntimeError("simulated V8 OOM")
-            return '{"ok": true, "ast": [], "version": "0.17.0"}'
+            return '{"ok": true, "ast": [], "version": "0.18.2"}'
 
         def close(self):
             self.closed = True

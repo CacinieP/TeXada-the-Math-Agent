@@ -76,7 +76,7 @@ async def test_e2e_agent_runtime_and_operator_guard(client):
     assert data["source"] == "agent"
     assert data["valid"] is True
     assert r"\iint" in data["latex"]
-    assert data["semantic_document"]["parser_backend"] == "katex-0.17.0-v8"
+    assert data["semantic_document"]["parser_backend"] == "katex-0.18.2-v8"
     assert data["agent_trace"]
     assert data["agent_trace"][-1]["origin"] == "runtime_guard"
     assert data["stop_reason"]

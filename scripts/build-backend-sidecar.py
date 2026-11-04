@@ -133,6 +133,7 @@ def build_pyinstaller(target: str) -> Path:
     cmd = [
         "uv",
         "run",
+        "--locked",
         "--managed-python",
         "--extra",
         "dev",

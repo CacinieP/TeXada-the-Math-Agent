@@ -12,11 +12,11 @@
 
 ## Validation / 验证
 
-- [ ] `uv run --extra dev ruff check .`
-- [ ] `uv run --extra dev pytest`
-- [ ] `npm audit --audit-level=moderate`
+- [ ] `uv run --locked --extra dev ruff check .`
+- [ ] `uv run --locked --extra dev pytest`
+- [ ] `npm audit --audit-level=low`
 - [ ] `node --check tauri-shell/src/main.js`
-- [ ] `cd tauri-shell/src-tauri && cargo check`
+- [ ] `cd tauri-shell/src-tauri && cargo check --locked`
 - [ ] UI screenshots or recordings attached, if relevant
 
 ## Backend Tested / 已测试后端

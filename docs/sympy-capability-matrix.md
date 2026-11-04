@@ -9,7 +9,7 @@ Reproducible boundary matrix for TeXada's optional CAS adapter. A successful par
 | Component | Version | Pin |
 | --- | --- | --- |
 | Python | >=3.12 | — |
-| KaTeX | 0.17.0 | vendored |
+| KaTeX | 0.18.2 | vendored |
 | sympy | 1.14.0 | `==1.14.0` |
 | antlr4-python3-runtime | 4.11.0 | `==4.11` |
 | lark | 1.3.1 | `==1.3.1` |

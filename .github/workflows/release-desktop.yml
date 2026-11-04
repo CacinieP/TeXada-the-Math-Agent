@@ -31,19 +31,19 @@ jobs:
         run: python -m pip install --upgrade uv
 
       - name: Ruff
-        run: uv run --extra dev --extra cas-eval ruff check .
+        run: uv run --locked --extra dev --extra cas-eval ruff check .
 
       - name: Pytest
-        run: uv run --extra dev --extra cas-eval pytest
+        run: uv run --locked --extra dev --extra cas-eval pytest
 
       - name: Python dependency audit
         # Audit the real project dependency tree. `uvx pip-audit`
         # alone runs inside an ephemeral environment and only audits
         # pip-audit's own dependencies; export the project's resolved
-        # requirements instead. The editable project line (`-e .`) is
-        # filtered because pip-audit cannot resolve it from PyPI.
+        # requirements instead, omitting the local project itself because
+        # pip-audit resolves distribution packages from PyPI.
         run: |
-          uv export --extra dev --extra cas-eval --format requirements-txt --no-hashes | grep -v '^-e ' > /tmp/texada-requirements.txt
+          uv export --locked --extra dev --extra cas-eval --format requirements-txt --no-hashes --no-emit-project > /tmp/texada-requirements.txt
           uvx --from pip-audit pip-audit -r /tmp/texada-requirements.txt --strict
 
       - name: Set up Node.js
@@ -58,7 +58,7 @@ jobs:
       - name: Frontend dependency audit
         env:
           npm_config_registry: https://registry.npmjs.org
-        run: npm audit --audit-level=moderate
+        run: npm audit --audit-level=low
 
       - name: JavaScript syntax check
         run: node --check tauri-shell/src/main.js
@@ -66,9 +66,27 @@ jobs:
       - name: Frontend regressions
         run: node --test tests/*.test.cjs
 
+  glib-backport:
+    name: GTK3 glib iterator backport (release)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install GLib development dependencies
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libglib2.0-dev
+      # The advisory reproduces with optimized iterators. This isolated crate
+      # test exercises the backported source even on non-GTK desktop hosts.
+      - name: Optimized iterator regression
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/texada-glib-target
+        run: cargo test --release --manifest-path tauri-shell/src-tauri/vendor/glib-0.18.5/Cargo.toml --lib variant_iter
+
   build:
     name: Build ${{ matrix.name }}
-    needs: audit
+    needs: [audit, glib-backport]
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -253,7 +271,7 @@ jobs:
           assert result["stop_reason"] == "deterministic_candidate", result
           assert result["committed"] is True, result
           assert result["review"] is None, result
-          assert result["semantic_document"]["parser_backend"] == "katex-0.17.0-v8", result
+          assert result["semantic_document"]["parser_backend"] == "katex-0.18.2-v8", result
           '
 
       - name: Build desktop bundle
