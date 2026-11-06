@@ -261,6 +261,7 @@ class TeXadaAgentRuntime:
                     task="nl",
                     requires_review=_requires_review,
                     input_hash=source_identity,
+                    matrix_requested="矩阵" in user_input,
                 )
                 if deterministic:
                     return deterministic
@@ -1144,6 +1145,7 @@ class TeXadaAgentRuntime:
         input_hash: str = "",
         requires_review: bool = False,
         matrix_spec: MatrixSpec | None = None,
+        matrix_requested: bool = False,
     ) -> AgentRunResult | None:
         """Validate and render a high-confidence candidate without model inference."""
         formula_state = self._scoped_state(
@@ -1154,6 +1156,7 @@ class TeXadaAgentRuntime:
             requires_review=requires_review,
             input_hash=input_hash,
             matrix_spec=matrix_spec,
+            matrix_requested=matrix_requested,
         )
         compile_call = PlannerToolCall(
             id="deterministic-candidate-compile",

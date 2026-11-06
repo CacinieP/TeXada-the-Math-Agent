@@ -7,6 +7,7 @@ import pytest
 
 from texada.agent.runtime import TeXadaAgentRuntime
 from texada.config import TeXadaConfig
+from texada.core.candidates import DeterministicCandidate
 from texada.core.matrices import MatrixSpec, generate_matrix
 from texada.runtime import CommitBarrierError, FormulaState
 
@@ -127,3 +128,15 @@ def test_unrecognized_matrix_grammar_keeps_its_coverage_explicit(tmp_path):
         "verdict": "NOT_CHECKED", "coverage": [],
         "reason": "outside_supported_matrix_grammar", "revision": 1,
     }]
+
+
+@pytest.mark.asyncio
+async def test_matrix_hint_fallback_reports_its_unchecked_request_scope(tmp_path):
+    runtime = matrix_runtime(tmp_path)
+    runtime.candidate_engine.propose = Mock(return_value=DeterministicCandidate(
+        latex=r"\begin{pmatrix}a\end{pmatrix}", rule="explicit_hint",
+    ))
+    result = await runtime.run("写一个分块矩阵")
+    assert result.valid and result.committed
+    assert result.trace[-1]["matrix_recognition"][-1]["verdict"] == "NOT_CHECKED"
+    assert "matrix_constraints" not in result.trace[-1]
