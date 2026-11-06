@@ -68,6 +68,8 @@
       'result.latexSource': 'LaTeX 源码',
       'result.valid': '✓ 语法通过',
       'result.invalid': '✗ 验证未通过',
+      'result.clarificationRequired': '需要补充信息',
+      'result.transcriptionConstraints': '转写约束 {verdict}',
       'result.sourceEdited': '生成期间输入已修改，请重新生成后再采用结果。',
       'result.sourceModel': '🤖 model',
       'result.sourceAgent': '🧭 TeXada Agent',
@@ -309,6 +311,8 @@
       'result.latexSource': 'LaTeX source',
       'result.valid': '✓ Syntax valid',
       'result.invalid': '✗ Validation failed',
+      'result.clarificationRequired': 'Clarification needed',
+      'result.transcriptionConstraints': 'Transcription constraints {verdict}',
       'result.sourceEdited': 'The input changed while this result was being generated. Generate again before adopting it.',
       'result.sourceModel': '🤖 model',
       'result.sourceAgent': '🧭 TeXada Agent',
@@ -1166,6 +1170,14 @@
   }
 
   function showResult(res) {
+    if (res.stop_reason === 'source_clarification_required') {
+      const clarification = (res.agent_trace || [])
+        .flatMap(step => step.observations || [])
+        .find(observation => observation.tool === 'source_clarification');
+      showError(clarification?.output?.clarification || t('result.invalid'));
+      setIntent('⚠️', t('result.clarificationRequired'));
+      return;
+    }
     // 如果之前被 showError 替换过，恢复原始结构
     if (els.nlResult.dataset.originalHtml) {
       els.nlResult.innerHTML = els.nlResult.dataset.originalHtml;
@@ -1236,6 +1248,11 @@
       if (checks.length || step.matrix_recognition) {
         const verdict = checks.find(check => check.revision === res.revision)?.verdict || 'NOT_CHECKED';
         tools += `<span class="matrix-constraint-status">${escapeHtml(t('matrix.constraints', { verdict: t(`matrix.${verdict}`) }))}</span>`;
+      }
+      const sourceChecks = Array.isArray(step.transcription_constraints) ? step.transcription_constraints : [];
+      if (sourceChecks.length || step.transcription_recognition) {
+        const verdict = sourceChecks.find(check => check.revision === res.revision)?.verdict || 'NOT_CHECKED';
+        tools += `<span class="matrix-constraint-status">${escapeHtml(t('result.transcriptionConstraints', { verdict: t(`matrix.${verdict}`) }))}</span>`;
       }
       return `
         <div class="agent-step">
@@ -1329,7 +1346,7 @@
     if (!els.nlResult.dataset.originalHtml) {
       els.nlResult.dataset.originalHtml = els.nlResult.innerHTML;
     }
-    els.nlResult.innerHTML = `<div class="error-box" style="padding:16px"><span class="icon">⚠️</span><div>${escapeHtml(msg)}</div></div>`;
+    els.nlResult.innerHTML = `<div class="error-box" role="alert" aria-live="assertive" style="padding:16px"><span class="icon">⚠️</span><div>${escapeHtml(msg)}</div></div>`;
   }
 
   // ── Clipboard ──

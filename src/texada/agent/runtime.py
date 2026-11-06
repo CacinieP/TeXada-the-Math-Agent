@@ -35,6 +35,11 @@ from texada.core.model import MiniCPMModel
 from texada.core.operator_guard import OperatorDriftGuard
 from texada.core.scope import require_transcription
 from texada.core.symbols import SymbolEngine
+from texada.core.transcription import (
+    TranscriptionSpec,
+    check_transcription,
+    recognize_transcription,
+)
 from texada.render.engine import RenderEngine
 from texada.runtime import CommitBarrierError, FormulaState
 from texada.semantic import SemanticParser
@@ -234,6 +239,42 @@ class TeXadaAgentRuntime:
             )
             assert result is not None
             return result
+        transcription_spec = recognize_transcription(user_input) if _task == "nl" else None
+        transcription_context = transcription_spec is not None and bool(context.strip())
+        if transcription_context:
+            transcription_spec = None
+        if transcription_spec is not None:
+            if transcription_spec.clarification:
+                state = self._scoped_state(
+                    "", origin="nl_source_clarification", task="nl",
+                    requires_review=_requires_review, input_hash=source_identity,
+                )
+                return self._runtime_rejection(
+                    latex="", trace=[], render_mode=render_mode, semantic_diff={},
+                    tokens_used=0, start=start, stop_reason="source_clarification_required",
+                    formula_state=state,
+                    observation={
+                        "tool": "source_clarification", "ok": False,
+                        "output": {
+                            "source_input": user_input,
+                            "clarification": transcription_spec.clarification,
+                            "unspecified_fields": list(transcription_spec.unspecified_fields),
+                        },
+                        "error": transcription_spec.clarification,
+                        "duration_ms": 0.0, "revision": None,
+                    },
+                )
+            result = await self._run_deterministic_candidate(
+                DeterministicCandidate(
+                    latex=transcription_spec.latex, rule=transcription_spec.rule,
+                ),
+                preprocessed=user_input, render_mode=render_mode, start=start, task="nl",
+                requires_review=_requires_review, input_hash=source_identity,
+                transcription_spec=transcription_spec, source_input=user_input,
+            )
+            assert result is not None
+            return result
+        structured_context = matrix_context or transcription_context
         initial_candidate = self.operator_guard.normalize_candidate(
             _initial_candidate
         )
@@ -255,8 +296,14 @@ class TeXadaAgentRuntime:
                 "matrix_context_requires_planning" if matrix_context
                 else "outside_supported_matrix_grammar"
             ),
+            transcription_requested=_task == "nl" and bool(re.search("求和|积分", user_input)),
+            transcription_recognition_reason=(
+                "transcription_context_requires_planning" if transcription_context
+                else "outside_supported_transcription_grammar"
+            ),
+            source_input=user_input,
         )
-        if _task == "nl" and not matrix_context:
+        if _task == "nl" and not structured_context:
             proposal = self.candidate_engine.propose(user_input)
             if (
                 proposal
@@ -275,6 +322,8 @@ class TeXadaAgentRuntime:
                     requires_review=_requires_review,
                     input_hash=source_identity,
                     matrix_requested="矩阵" in user_input,
+                    transcription_requested=bool(re.search("求和|积分", user_input)),
+                    source_input=user_input,
                 )
                 if deterministic:
                     return deterministic
@@ -326,7 +375,7 @@ class TeXadaAgentRuntime:
             try:
                 generation_input = (
                     self._user_prompt(user_input, context, preprocessed)
-                    if matrix_context else preprocessed
+                    if structured_context else preprocessed
                 )
                 generated_latex = await self.model.generate_latex(
                     generation_input,
@@ -1163,9 +1212,13 @@ class TeXadaAgentRuntime:
         requires_review: bool = False,
         matrix_spec: MatrixSpec | None = None,
         matrix_requested: bool = False,
+        transcription_spec: TranscriptionSpec | None = None,
+        transcription_requested: bool = False,
+        source_input: str = "",
     ) -> AgentRunResult | None:
         """Validate and render a high-confidence candidate without model inference."""
         tools = self.matrix_tools if matrix_spec is not None else self.tools
+        constraint_name = "matrix" if matrix_spec is not None else "transcription"
         formula_state = self._scoped_state(
             proposal.latex,
             origin=f"{task}_deterministic_candidate",
@@ -1175,6 +1228,9 @@ class TeXadaAgentRuntime:
             input_hash=input_hash,
             matrix_spec=matrix_spec,
             matrix_requested=matrix_requested,
+            transcription_spec=transcription_spec,
+            transcription_requested=transcription_requested,
+            source_input=source_input,
         )
         compile_call = PlannerToolCall(
             id="deterministic-candidate-compile",
@@ -1193,11 +1249,12 @@ class TeXadaAgentRuntime:
             and compile_observation.output.get("valid")
         )
         if not valid:
-            if matrix_spec is not None:
+            if matrix_spec is not None or transcription_spec is not None:
                 return self._runtime_rejection(
                     latex=proposal.latex, trace=[], render_mode=render_mode,
                     semantic_diff={}, tokens_used=0, start=start,
-                    stop_reason="matrix_validation_failed", formula_state=formula_state,
+                    stop_reason=f"{constraint_name}_validation_failed",
+                    formula_state=formula_state,
                     observation=compile_data,
                 )
             return None
@@ -1218,11 +1275,12 @@ class TeXadaAgentRuntime:
             formula_state, render_observation, revision=formula_state.revision,
         )
         if not render_observation.ok:
-            if matrix_spec is not None:
+            if matrix_spec is not None or transcription_spec is not None:
                 return self._runtime_rejection(
                     latex=proposal.latex, trace=[], render_mode=render_mode,
                     semantic_diff={}, tokens_used=0, start=start,
-                    stop_reason="matrix_render_failed", formula_state=formula_state,
+                    stop_reason=f"{constraint_name}_render_failed",
+                    formula_state=formula_state,
                     observation=render_data,
                 )
             return None
@@ -1237,7 +1295,7 @@ class TeXadaAgentRuntime:
             try:
                 formula_state.commit(expected_revision=formula_state.revision)
             except CommitBarrierError:
-                if matrix_spec is None:
+                if matrix_spec is None and transcription_spec is None:
                     raise
                 constraint_failed = True
 
@@ -1273,7 +1331,7 @@ class TeXadaAgentRuntime:
             tokens_used=0,
             latency_ms=(time.monotonic() - start) * 1000,
             stop_reason=(
-                "matrix_constraint_failed" if constraint_failed
+                f"{constraint_name}_constraint_failed" if constraint_failed
                 else "mutation_scope_review_required" if blockers
                 else "deterministic_candidate" if formula_state.committed
                 else "human_review_required"
@@ -1561,6 +1619,13 @@ class TeXadaAgentRuntime:
             ]
             if recognition:
                 trace[-1]["matrix_recognition"] = recognition
+            for kind in ("transcription_constraints", "transcription_recognition"):
+                checks = [
+                    {**item.output, "revision": item.revision}
+                    for item in state.ledger.evidence if item.kind == kind
+                ]
+                if checks:
+                    trace[-1][kind] = checks
         return trace
 
     async def _record_cas_shadow(self, state: FormulaState, *, start: float) -> None:
@@ -1627,11 +1692,19 @@ class TeXadaAgentRuntime:
         matrix_spec: MatrixSpec | None = None,
         matrix_requested: bool = False,
         matrix_recognition_reason: str = "outside_supported_matrix_grammar",
+        transcription_spec: TranscriptionSpec | None = None,
+        transcription_requested: bool = False,
+        transcription_recognition_reason: str = "outside_supported_transcription_grammar",
+        source_input: str = "",
     ) -> FormulaState:
         state = FormulaState()
         state.matrix_spec = matrix_spec
         state.matrix_requested = matrix_requested
         state.matrix_recognition_reason = matrix_recognition_reason
+        state.transcription_spec = transcription_spec
+        state.transcription_requested = transcription_requested
+        state.transcription_recognition_reason = transcription_recognition_reason
+        state.source_input = source_input
         state.mutation_scope_guard = MutationScopeGuard(
             task=task, prefix=prefix, uncertain_roles=uncertain_roles,
         )
@@ -1716,6 +1789,23 @@ class TeXadaAgentRuntime:
                     output={
                         "verdict": "NOT_CHECKED", "coverage": [],
                         "reason": formula_state.matrix_recognition_reason,
+                    },
+                )
+            transcription_spec = getattr(formula_state, "transcription_spec", None)
+            if transcription_spec is not None:
+                check = check_transcription(transcription_spec, formula_state.latex)
+                formula_state.add_evidence(
+                    revision=formula_state.revision, kind="transcription_constraints",
+                    ok=check["verdict"] == "MATCH",
+                    output={**check, "source_input": formula_state.source_input},
+                )
+            elif getattr(formula_state, "transcription_requested", False):
+                formula_state.add_evidence(
+                    revision=formula_state.revision, kind="transcription_recognition", ok=False,
+                    output={
+                        "verdict": "NOT_CHECKED", "coverage": [],
+                        "reason": formula_state.transcription_recognition_reason,
+                        "source_input": formula_state.source_input,
                     },
                 )
         return formula_state.latex

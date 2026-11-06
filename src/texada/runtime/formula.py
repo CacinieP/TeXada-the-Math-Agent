@@ -199,14 +199,19 @@ class FormulaLedger:
             )
 
         evidence = [compile_evidence.sequence, render_evidence.sequence]
-        if any(item.kind == "matrix_constraints" for item in self._evidence):
-            constraints = self._latest_evidence(expected_revision, "matrix_constraints")
+        constraint_kinds = {
+            "matrix_constraints": "matrix", "transcription_constraints": "transcription",
+        }
+        required = {item.kind for item in self._evidence} & constraint_kinds.keys()
+        for kind in sorted(required):
+            constraints = self._latest_evidence(expected_revision, kind)
             if not (
                 constraints and constraints.ok
                 and constraints.output.get("verdict") == "MATCH"
             ):
                 raise CommitBarrierError(
-                    f"revision {expected_revision} lacks matching matrix constraint evidence"
+                    f"revision {expected_revision} lacks matching {constraint_kinds[kind]} "
+                    "constraint evidence"
                 )
             evidence.append(constraints.sequence)
 

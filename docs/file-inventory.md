@@ -54,6 +54,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `docs/adr/011-formula-runtime-ledger.md` | ADR for revision-bound FormulaState, evidence, Planner Projection, and Commit Barrier. |
 | `docs/adr/012-planner-projection.md` | ADR for bounded model-facing observations and full-tree exclusion. |
 | `docs/adr/018-parameterized-matrix-candidates.md` | Shared matrix generation, finite request recognition, revision-bound constraints, and release-baseline evidence. |
+| `docs/adr/019-bounded-sum-transcription.md` | Source constraints for finite sums, explicit domains, region integrals, clarification and revision-bound checks. |
 | `docs/images/matrix-presets-preview.png` | Browser preview of the symbolic tridiagonal preset form and its checked result. |
 | `docs/e2e-manual.md` | Human and automated local E2E checklist for the Agent Runtime path. |
 | `docs/local-model-benchmark-2026-09-12.md` | Local MiniCPM5-1B/2B Q4 comparison, development-regression results, thinking tradeoffs, and local deployment evidence, distinct from official release artifacts. |
@@ -99,6 +100,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `src/texada/core/fixer.py` | Deterministic LaTeX repair for common brace, environment, and command mistakes. |
 | `src/texada/core/intent.py` | Regex-based intent classifier for math categories without model calls. |
 | `src/texada/core/matrices.py` | Validated matrix parameters, finite request recognition, deterministic generation, and conservative matrix constraint checks. |
+| `src/texada/core/transcription.py` | Finite source recognition and structural checks for indexed sums, set domains and indexed region integrals. |
 | `src/texada/core/model.py` | OpenAI-compatible chat wrapper for text, completion, vision OCR, timeout handling, and LaTeX extraction. |
 | `src/texada/core/operator_guard.py` | Shared Level 0 request-structure guard for operator rank, commands, Greek symbols, subscripts, delimiters, and multi-part formula shape. |
 | `src/texada/core/ocr.py` | OCR pipeline wrapper around the configured vision model. |
@@ -177,6 +179,10 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `tests/test_agent_runtime.py` | Planner → Tool → Observation multi-step execution tests. |
 | `tests/test_matrices.py` | Matrix generation, indexing, compact dimensions, bounded recognition, and structural counterexamples. |
 | `tests/test_matrix_runtime.py` | Matrix candidate routing, zero-model execution, revision-bound evidence, commit blocking, and concurrent requests. |
+| `tests/test_transcription.py` | Finite source grammar, clarification boundaries and exact official-release sum/integral counterexamples. |
+| `tests/test_transcription_runtime.py` | Source-bound candidate checks, revision changes, commit evidence and contextual Planner fallback. |
+| `tests/test_transcription_api.py` | Offline Agent routing, run logs, history, clarification and backup roundtrips. |
+| `tests/transcription-clarification-ui.test.cjs` | Visible, escaped clarification alerts through the natural-language result entry point. |
 | `tests/test_matrix_release_regressions.py` | Offline checks of the exact C10/C11/C12 release outputs, corrected deterministic generation, and rejection at the current Commit Barrier. |
 | `tests/test_matrix_api.py` | Structured matrix API validation, Agent response compatibility, history, run logs, and backup regression. |
 | `tests/test_matrix_budget.py` | Supported large-matrix generation, bounded tool budgets, formula validation, and history/run-log/backup roundtrips. |

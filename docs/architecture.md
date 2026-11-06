@@ -52,6 +52,18 @@ The roadmap assigns this work to a bounded candidate slice after v0.4.3 and
 the cross-cutting evidence track, with its release version awaiting
 scheduling. [Delivery order and gates](iteration-roadmap-v0.4.1-to-v1.0.md#v043-后有界候选改进批次已接受设计具体发版待排期)
 
+## Bounded Sum Transcription
+
+The unreleased implementation recognizes finite indexed sums, explicit set
+domains and indexed region-integral sums before symbol substitution. It keeps
+unspecified bounds and integration measures implicit and returns a visible
+clarification for missing or conflicting indices. The actual candidate receives
+revision-bound `transcription_constraints` evidence, which the Commit Barrier
+requires together with compile and render evidence. Supplemental context enters
+the model/Planner path with unchecked source coverage recorded in the trace.
+The released v0.4.3 failures remain regression counterexamples.
+[ADR-019](adr/019-bounded-sum-transcription.md)
+
 ## System Overview
 
 ```text
