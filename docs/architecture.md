@@ -37,8 +37,8 @@ tridiagonal pattern. Package identity, new run IDs, configuration, and
 acceptance scope are recorded in ADR-018. Desktop interaction has a separate
 acceptance step. [ADR-018](adr/018-parameterized-matrix-candidates.md)
 
-The implementation awaits release. General, tridiagonal, identity, zero,
-diagonal and upper/lower-triangular presets share a stateless parameterized
+The v0.4.4 release source includes this implementation. General, tridiagonal,
+identity, zero, diagonal and upper/lower-triangular presets share a stateless parameterized
 generator. General/tridiagonal descriptions use a bounded
 natural-language recognizer. Original requests supply the authoritative
 constraints. Candidates enter FormulaState, and independent checks inspect
@@ -50,12 +50,12 @@ evidence supports the revision crossing the Commit Barrier.
 Issues #55, #56, and #57 cover the first matrix delivery. Issue #59 tracks sum
 and integral fidelity separately. Issue #58 adds the five follow-up preset kinds.
 The roadmap assigns this work to a bounded candidate slice after v0.4.3 and
-the cross-cutting evidence track, with its release version awaiting
-scheduling. [Delivery order and gates](iteration-roadmap-v0.4.1-to-v1.0.md#v043-后有界候选改进批次已接受设计具体发版待排期)
+the cross-cutting evidence track. It is included in v0.4.4 release source,
+with final package records supplied in the release assets. [Delivery order and gates](iteration-roadmap-v0.4.1-to-v1.0.md#v043-后有界候选改进批次已接受设计具体发版待排期)
 
 ## Bounded Sum Transcription
 
-The unreleased implementation recognizes finite indexed sums, explicit set
+The v0.4.4 release source recognizes finite indexed sums, explicit set
 domains and indexed region-integral sums before symbol substitution. It keeps
 unspecified bounds and integration measures implicit and returns a visible
 clarification for missing or conflicting indices. The actual candidate receives
@@ -106,7 +106,7 @@ clients.
 | Product path | Model role | Agent loop |
 |--------------|------------|------------|
 | Natural language (`/api/agent`) | Deterministic candidate or configured model/Planner | Yes |
-| Matrix presets (`/api/matrix`, unreleased) | Shared deterministic matrix generator | FormulaState with compile/render and matrix constraint evidence |
+| Matrix presets (`/api/matrix`, v0.4.4 release source) | Shared deterministic matrix generator | FormulaState with compile/render and matrix constraint evidence |
 | OCR (`/api/ocr`) | Vision candidate → shared Planner | Yes |
 | Completion (`/api/complete`) | Rule/model candidate → shared Planner | Yes |
 | Validation (`/api/validate`) | Deterministic local code | No model |

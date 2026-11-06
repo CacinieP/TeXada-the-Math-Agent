@@ -23,7 +23,7 @@ This directory keeps technical and maintenance documentation. Community health f
 | [ADR-014 Tool Runtime Contract](adr/014-tool-runtime-contract.md) | v0.4.1 tool-contract work merged into the v0.5 design phase; capability probe, schema validation, affordance policy. |
 | [ADR-015 Semantic Patch Apply Model](adr/015-semantic-patch-apply-model.md) | Hybrid patch model: planner produces patches, deterministic applier applies, Scope Guard bounds, commit barrier decides. |
 | [ADR-016 Local Model Runtime](adr/016-local-model-runtime-llama-server.md) | Built-in llama-server sidecar as default runtime with Ollama and cloud as compatibility backends. |
-| [ADR-018 Parameterized Matrix Candidates](adr/018-parameterized-matrix-candidates.md) | Shared matrix generation, bounded natural-language routing, revision-bound checks, official v0.4.3 baseline evidence, and the unreleased first implementation. |
+| [ADR-018 Parameterized Matrix Candidates](adr/018-parameterized-matrix-candidates.md) | Shared matrix generation, bounded natural-language routing, revision-bound checks, official v0.4.3 baseline evidence, and the implementation included in v0.4.4 release source. |
 | [ADR-019 Bounded Sum Transcription](adr/019-bounded-sum-transcription.md) | Finite sum/domain/region-integral recognition, implicit missing bounds and measures, clarification, and revision-bound source checks. |
 | [SymPy capability matrix](sympy-capability-matrix.md) / [SymPy 能力矩阵](sympy-capability-matrix.md) | Generated boundary declaration for the optional, unregistered CAS scaffold, including parser drift, deterministic seed policy, and acceptance red lines. |
 | [Local E2E](e2e-manual.md) / [本地端到端测试](e2e-manual.md) | Human and automated validation for the MiniCPM5 Agent Runtime path. |
@@ -53,4 +53,5 @@ This directory keeps technical and maintenance documentation. Community health f
 | [Security](../.github/SECURITY.md) | Supported versions and private vulnerability reporting. |
 | [Support](../.github/SUPPORT.md) | Bug-report checklist and model/Ollama troubleshooting entry point. |
 | [Code of Conduct](../.github/CODE_OF_CONDUCT.md) | Community behavior expectations. |
+| [v0.4.4 release](release-v0.4.4.md) | Matrix and transcription changes, package identity, installation gates and pending native acceptance. |
 | [Changelog](../CHANGELOG.md) | Release history. |

@@ -93,6 +93,8 @@ v0.4.3 后的有界候选改进批次。该批设计已接受，首批矩阵实�
 
 ### v0.4.3 后有界候选改进批次（已接受设计，具体发版待排期）
 
+本批能力已纳入 v0.4.4 发行源码。最终安装产物及逐包检查由本次 Release 附件记录。[发布说明](release-v0.4.4.md)
+
 本批解决初始矩阵候选对明确结构要求的保留问题。架构归属为 Input Layer /
 Deterministic Tools / Semantic Layer / Evidence Layer，需求检查连接既有
 Formula Runtime 与 Commit Barrier。实施采用现有候选入口和预设页，按

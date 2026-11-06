@@ -2,16 +2,20 @@
 
 ## Unreleased
 
+## 0.4.4 - 2026-11-06
+
 ### 中文
 
 - macOS 插入前先隐藏窗口和应用，隐藏失败时返回错误并停止发送粘贴命令。托盘、快捷键和显示命令恢复应用后显示并聚焦窗口。新增无公式正文的插入阶段诊断，目标应用实际收文与恢复流程继续由 #64 原生验收。
 - 矩阵预设增加单位、零、对角、上三角和下三角矩阵，支持按类型搜索、具体与符号尺寸、括号和索引起点。新类型共用矩阵生成、修订绑定结构检查、历史恢复及备份链路。
-- 修复有限求和描述的求和项、整数索引域和区域积分保真问题。未指定范围或积分测度时保留一般记号，缺失或冲突索引时显示补充提示；实际候选通过当前 revision 的结构检查后提交。带上下文的请求进入规划并记录未检查范围，正式版 v0.4.3 的三条失败输出固化为回归。
+- 修复有限求和描述的求和项、整数索引域和区域积分保真问题。未指定范围或积分测度时保留一般记号，缺失或冲突索引时显示补充提示。实际候选通过当前 revision 的结构检查后提交。带上下文的请求进入规划并记录未检查范围，正式版 v0.4.3 的三条失败输出固化为回归。
 - 将正式版 v0.4.3 的 C10/C11/C12 原始矩阵失败输出固化为带版本来源的最小公式样例。离线回归验证语法有效、需求判定 `DIFFERENT`、当前提交屏障拒绝，以及修正候选 `MATCH`。
-- 修复矩阵评审发现的四项问题，矩阵专用工具采用 32768 字符预算，大公式可校验并往返导入历史与日志；带补充上下文的请求进入规划，候选生成同时读取上下文；矩阵历史按参数恢复预设，兼容旧版自然语言记录；维度解析保留前导小数点。
+- 修复矩阵评审发现的四项问题，矩阵专用工具采用 32768 字符预算，大公式可校验并往返导入历史与日志。带补充上下文的请求进入规划，候选生成同时读取上下文。矩阵历史按参数恢复预设，兼容旧版自然语言记录。维度解析保留前导小数点。
 - 预设页新增参数化通用矩阵与三对角矩阵，支持具体/符号尺寸、上下对角、括号、索引起点及展开方式。有限自然语言矩阵句式复用同一生成逻辑，受支持模式零模型调用。
 - 新增 `POST /api/matrix`，复用现有 Agent 结果、历史与运行日志。矩阵候选经过编译、渲染及绑定当前 revision 的结构检查，需求不匹配或检查不受支持时保留诊断并阻止提交。
 - 增加旧式自定义预设与备份导入的兼容性回归。矩阵表单编辑后清理过期结果，结构判定和复制/插入状态分别显示。
+
+- 同步 0.4.4 版本、下载入口和发行说明，正式安装产物与原生验收范围按本次发布附件记录。[发布说明](docs/release-v0.4.4.md)
 
 ### English
 
@@ -23,6 +27,7 @@
 - Add parameterized general and tridiagonal matrices to Presets with concrete or symbolic dimensions, diagonal expressions, brackets, index origin, and expanded or compact display. Supported natural-language descriptions share the zero-model generator.
 - Add `POST /api/matrix` using the Agent response, history, and run ledger. Revision-bound matrix checks inspect the actual candidate alongside compilation and rendering, with diagnostics and commit blocking for mismatched or unsupported structures.
 - Cover legacy custom-preset and backup imports in compatibility regressions. Form edits invalidate stale matrix results, and the result reports structure evidence and copy/insertion availability.
+- Synchronize 0.4.4 metadata, download links and release notes, with tagged package identity and native acceptance scope recorded in the release assets. [Release notes](docs/release-v0.4.4.md)
 
 ## 0.4.3 - 2026-11-04
 
