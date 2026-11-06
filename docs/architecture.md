@@ -26,6 +26,32 @@ records the measurements collected before the installer release.
 Parsing, validation, repair, diffing, rendering, and export are deterministic
 software tools. In particular, `repair_tex` is not a model endpoint.
 
+## Accepted Matrix Candidate Design
+
+The 2026-11-06 matrix decision uses official v0.4.3 at
+`6adcba0ab1540f2efb1bf78156783842001bc72c` as its evidence baseline.
+Fourteen requests were replayed through the macOS arm64 package's backend
+APIs and bundled llama-server with a real local Q4 model. All responses were
+valid and committed, while three matrix results omitted the requested
+tridiagonal pattern. Package identity, new run IDs, configuration, and
+acceptance scope are recorded in ADR-018. Desktop interaction has a separate
+acceptance step. [ADR-018](adr/018-parameterized-matrix-candidates.md)
+
+The accepted design has implementation pending. General and tridiagonal
+matrix presets will share a stateless parameterized generator with a bounded
+natural-language recognizer. Original requests supply the authoritative
+constraints. Candidates enter FormulaState, and independent checks inspect
+supported dimensions, diagonals, indices, and zero entries. Constraint
+evidence names the inspected revision and its coverage. Known mismatches
+enter the existing rejection or human-review flow, while compile/render
+evidence supports the revision crossing the Commit Barrier.
+
+Issues #55, #56, and #57 cover the first matrix delivery. Issue #59 tracks sum
+and integral fidelity separately. Issue #58 collects later matrix types.
+The roadmap assigns this work to a bounded candidate slice after v0.4.3 and
+the cross-cutting evidence track, with its release version awaiting
+scheduling. [Delivery order and gates](iteration-roadmap-v0.4.1-to-v1.0.md#v043-后有界候选改进批次已接受设计具体发版待排期)
+
 ## System Overview
 
 ```text

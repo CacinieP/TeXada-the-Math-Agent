@@ -6,6 +6,9 @@ Status: Active（当前唯一权威排期）
 
 基线：`main` @ v0.4.1（2026-09-12 发布）
 
+2026-11-06 增补以正式版 v0.4.3 的安装包实测为矩阵决策基线，新增 D8 及
+v0.4.3 后的有界候选改进批次。该批设计已接受，实现与具体发行版本待排期。
+
 本路线图回答两个问题：**接下来要做哪些架构决策**，以及**以什么顺序、什么门槛做**。
 它是排期与门槛的唯一权威文档。与现有文档的关系：
 
@@ -19,7 +22,7 @@ Status: Active（当前唯一权威排期）
 本路线图不改变 freeze 文档冻结的词汇与不变量。里程碑表中的范围漂移记录在
 §2，不作为新冻结。
 
-## 1. 决策清单（D1–D7）
+## 1. 决策清单（D1–D8）
 
 | 编号 | 决策 | 结论 | ADR |
 |---|---|---|---|
@@ -30,6 +33,7 @@ Status: Active（当前唯一权威排期）
 | D5 | CAS 收敛 | 保留 `cas-eval` 门禁为回归资产，产品路线图上标注为文档化未来方向 | 本文档 §5 |
 | D6 | 模型依赖测试的 CI 边界 | 真实模型跑法手动/tag 触发；常规 CI 只跑确定性断言与录制 fixture | [013](adr/013-golden-set-evidence.md) |
 | D7 | 本地模型运行时 | 双运行时：内置 llama-server sidecar 为默认，Ollama 与 OpenAI-compatible 为兼容后端 | [016](adr/016-local-model-runtime-llama-server.md) |
+| D8 | 参数化矩阵候选与需求证据 | 预设与有限自然语言识别共用确定性生成，按当前 revision 检查已识别矩阵约束，分开记录编译、提交和需求判定 | [018](adr/018-parameterized-matrix-candidates.md) |
 
 ## 2. 已知漂移与事实修正
 
@@ -85,6 +89,35 @@ Status: Active（当前唯一权威排期）
 - **不做**：移除 Ollama 兼容分支；模型微调或量化自研；云后端扩展。
 - 设计文档：待 Iteration 1 完成后按本路线图顺序编写（ADR-016 已给出决策
   与验证清单）。
+
+### v0.4.3 后有界候选改进批次（已接受设计，具体发版待排期）
+
+本批解决初始矩阵候选对明确结构要求的保留问题。架构归属为 Input Layer /
+Deterministic Tools / Semantic Layer / Evidence Layer，需求检查连接既有
+Formula Runtime 与 Commit Barrier。实施采用现有候选入口和预设页，按
+ADR-018 的有限参数及展示契约验收。[ADR-018](adr/018-parameterized-matrix-candidates.md)
+
+2026-11-06 对正式 v0.4.3 macOS arm64 安装包的包内后端 API 和真实本地 Q4
+模型回放了 14 次请求。14 次均 valid、committed，三次矩阵结果仍缺少要求的
+三对角结构。ADR-018 记录安装包摘要、配置、新 run_id 与结果范围，桌面交互
+另行验收。原 beta.4 备份提供文案来源，本批判定使用正式版新回放。
+
+| 顺序与优先级 | Issue | 归属及交付 | 验收依赖 |
+|---|---|---|---|
+| 先定义契约，P1 | [#55 参数化通用矩阵与三对角预设](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/55) | Input Layer / Deterministic Tools，含可用预设入口 | 明确尺寸、索引、上下对角、括号和展开方式。 |
+| 与契约并行，P1 | [#57 矩阵需求结构校验](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/57) | Semantic Layer / Evidence Layer / Commit Barrier，横向质量轨道 | 检查候选本身，覆盖正式版反例，证据绑定当前 revision。 |
+| 接入共享生成，P1 | [#56 自然语言矩阵路由](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/56) | Input Layer / Deterministic Tools，保留原始需求约束 | 复用 #55，联合 #57 验收。 |
+| 独立推进，P1 | [#59 求和与积分保真](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/59) | Input Layer / Semantic Layer / Evidence Layer，横向质量轨道 | 覆盖额外求和项、区域积分臆造上下限和整数索引域丢失。 |
+| 首批验收后，P2 | [#58 其他矩阵预设](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/58) | Input Layer / Deterministic Tools，后续类型扩展 | 依赖 #55 和 #57，复用相同契约。 |
+
+首批矩阵交付的门槛为参数输入、生成、预览、复制/插入、自然语言接入及
+修订绑定检查形成完整流程。确定性回归覆盖 n=1、2、10、符号 n、上下对角
+交换、非法参数、错误索引和带外非零。省略展示按可支持的逻辑尺寸及端点
+契约检查，覆盖范围明确记录。旧自定义预设字符串和备份导入同时验收。
+
+常规 CI 使用确定性断言，真实模型回放按 D6 单独执行并记录安装包与模型身份。
+请求完成、公式有效、提交状态和需求判定分别记录。具体发版号随本批验收与
+维护排期确定，后续语义编辑仍按 ADR-014/015 的设计和门槛推进。
 
 ### Iteration 2 — v0.5 设计：工具契约 + patch 模型（不发版）
 
