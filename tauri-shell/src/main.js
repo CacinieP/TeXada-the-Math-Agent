@@ -48,6 +48,16 @@
     '\\placeholder': '\\square',
   });
 
+  const MATRIX_TYPES = {
+    general: { labelKey: 'matrix.general', fields: ['columns', 'element'] },
+    tridiagonal: { labelKey: 'matrix.tridiagonal', fields: ['diagonal', 'upper', 'lower'] },
+    identity: { labelKey: 'matrix.identity', fields: [] },
+    zero: { labelKey: 'matrix.zero', fields: ['columns'] },
+    diagonal: { labelKey: 'matrix.diagonalMatrix', fields: ['diagonal'] },
+    upper_triangular: { labelKey: 'matrix.upperTriangular', fields: ['element'] },
+    lower_triangular: { labelKey: 'matrix.lowerTriangular', fields: ['element'] },
+  };
+
   const I18N = {
     zh: {
       'tab.complete': '补全',
@@ -100,6 +110,12 @@
       'matrix.kind': '类型',
       'matrix.tridiagonal': '三对角矩阵',
       'matrix.general': '通用矩阵',
+      'matrix.identity': '单位矩阵',
+      'matrix.zero': '零矩阵',
+      'matrix.diagonalMatrix': '对角矩阵',
+      'matrix.upperTriangular': '上三角矩阵',
+      'matrix.lowerTriangular': '下三角矩阵',
+      'matrix.searchTypes': '匹配的矩阵类型',
       'matrix.order': '阶数',
       'matrix.rows': '行数',
       'matrix.columns': '列数',
@@ -343,6 +359,12 @@
       'matrix.kind': 'Type',
       'matrix.tridiagonal': 'Tridiagonal matrix',
       'matrix.general': 'General matrix',
+      'matrix.identity': 'Identity matrix',
+      'matrix.zero': 'Zero matrix',
+      'matrix.diagonalMatrix': 'Diagonal matrix',
+      'matrix.upperTriangular': 'Upper triangular matrix',
+      'matrix.lowerTriangular': 'Lower triangular matrix',
+      'matrix.searchTypes': 'Matching matrix types',
       'matrix.order': 'Order',
       'matrix.rows': 'Rows',
       'matrix.columns': 'Columns',
@@ -562,6 +584,7 @@
     generateMatrixBtn: document.getElementById('btn-generate-matrix'),
     shorthandGrid: document.getElementById('shorthand-grid'),
     shorthandSearch: document.getElementById('shorthand-search'),
+    matrixSearchResults: document.getElementById('matrix-search-results'),
     shorthandKeyInput: document.getElementById('shorthand-key-input'),
     shorthandValueInput: document.getElementById('shorthand-value-input'),
     shorthandSaveStatus: document.getElementById('shorthand-save-status'),
@@ -2666,37 +2689,34 @@
     const dimension = value => /^\d+$/.test(value.trim()) ? Number(value) : value.trim();
     const kind = fields.namedItem('kind').value;
     const rows = dimension(fields.namedItem('rows').value);
-    const entries = kind === 'tridiagonal'
-      ? {
-        diagonal: fields.namedItem('diagonal').value.trim(),
-        upper: fields.namedItem('upper').value.trim(),
-        lower: fields.namedItem('lower').value.trim(),
-      }
-      : { element: fields.namedItem('element').value.trim() };
-    return {
+    const spec = {
       kind,
       rows,
-      columns: kind === 'tridiagonal' ? rows : dimension(fields.namedItem('columns').value),
-      ...entries,
+      columns: rows,
       bracket: fields.namedItem('bracket').value,
       display: fields.namedItem('display').value,
       index_start: Number(fields.namedItem('index_start').value),
     };
+    for (const name of MATRIX_TYPES[kind].fields) {
+      const value = fields.namedItem(name).value.trim();
+      spec[name] = name === 'columns' ? dimension(value) : value;
+    }
+    return spec;
   }
 
   function updateMatrixFields() {
     const fields = els.matrixForm.elements;
-    const tridiagonal = fields.namedItem('kind').value === 'tridiagonal';
-    for (const [selector, visible] of [['[data-matrix-general]', !tridiagonal], ['[data-matrix-tridiagonal]', tridiagonal]]) {
-      els.matrixForm.querySelectorAll(selector).forEach(field => {
-        field.hidden = !visible;
-        field.querySelector('input').disabled = !visible;
-      });
-    }
-    els.matrixRowsLabel.dataset.i18n = tridiagonal ? 'matrix.order' : 'matrix.rows';
+    const parameters = MATRIX_TYPES[fields.namedItem('kind').value].fields;
+    const rectangular = parameters.includes('columns');
+    els.matrixForm.querySelectorAll('[data-matrix-parameter]').forEach(field => {
+      const visible = parameters.includes(field.dataset.matrixParameter);
+      field.hidden = !visible;
+      field.querySelector('input').disabled = !visible;
+    });
+    els.matrixRowsLabel.dataset.i18n = rectangular ? 'matrix.rows' : 'matrix.order';
     els.matrixRowsLabel.textContent = t(els.matrixRowsLabel.dataset.i18n);
     const symbolic = /^[A-Za-z]$/.test(fields.namedItem('rows').value.trim())
-      || (!tridiagonal && /^[A-Za-z]$/.test(fields.namedItem('columns').value.trim()));
+      || (rectangular && /^[A-Za-z]$/.test(fields.namedItem('columns').value.trim()));
     const display = fields.namedItem('display');
     display.querySelector('option[value="expanded"]').disabled = symbolic;
     if (symbolic) display.value = 'compact';
@@ -2728,9 +2748,9 @@
       const spec = { ...defaults, ...value };
       const dimension = value => Number.isInteger(value) && value >= 1 && value <= 20
         || typeof value === 'string' && /^[A-Za-z]$/.test(value);
-      if (!['general', 'tridiagonal'].includes(spec.kind)
+      if (typeof spec.kind !== 'string' || !Object.hasOwn(MATRIX_TYPES, spec.kind)
           || !dimension(spec.rows) || !dimension(spec.columns)
-          || spec.kind === 'tridiagonal' && spec.rows !== spec.columns
+          || !MATRIX_TYPES[spec.kind].fields.includes('columns') && spec.rows !== spec.columns
           || !['pmatrix', 'bmatrix', 'matrix', 'vmatrix'].includes(spec.bracket)
           || !['expanded', 'compact'].includes(spec.display)
           || ![0, 1].includes(spec.index_start)
@@ -2849,19 +2869,57 @@
     els.matrixResult.hidden = false;
   }
 
+  function renderMatrixSearch(query) {
+    if (!els.matrixSearchResults) return false;
+    const matches = !query ? [] : Object.entries(MATRIX_TYPES).filter(([kind, type]) =>
+      [kind.replaceAll('_', ' '), I18N.zh[type.labelKey], I18N.en[type.labelKey]]
+        .some(label => label.toLowerCase().includes(query))
+    );
+    els.matrixSearchResults.hidden = matches.length === 0;
+    els.matrixSearchResults.innerHTML = matches.length ? `
+      <p class="setting-desc" data-i18n="matrix.searchTypes">${t('matrix.searchTypes')}</p>
+      <div class="matrix-search-types">
+        ${matches.map(([kind, type]) => `
+          <button class="action-btn" type="button" data-matrix-kind="${kind}" data-i18n="${type.labelKey}">
+            ${escapeHtml(t(type.labelKey))}
+          </button>`).join('')}
+      </div>` : '';
+    els.matrixSearchResults.querySelectorAll('[data-matrix-kind]').forEach(button => {
+      button.addEventListener('click', () => {
+        const kind = els.matrixForm.elements.namedItem('kind');
+        kind.value = button.dataset.matrixKind;
+        els.matrixForm.closest('details').open = true;
+        updateMatrixFields();
+        invalidateMatrixResult();
+        kind.focus();
+      });
+    });
+    return matches.length > 0;
+  }
+
   // ── Shorthand ──
   async function loadShorthands() {
     try {
       const items = await apiJson('/api/shorthands');
       allShorthands = items || [];
-      renderShorthands(allShorthands);
+      renderShorthands();
     } catch (e) {
       els.shorthandGrid.innerHTML = `<div class="empty-state"><div class="text">${t('shorthand.loadError')}</div></div>`;
     }
   }
 
-  function renderShorthands(items) {
+  function renderShorthands() {
+    const query = els.shorthandSearch?.value.trim().toLowerCase() || '';
+    const items = !query ? allShorthands : allShorthands.filter(item =>
+      (item.key || '').toLowerCase().includes(query)
+        || (item.value || '').toLowerCase().includes(query)
+    );
+    const matrixMatches = renderMatrixSearch(query);
     if (!items || !items.length) {
+      if (matrixMatches) {
+        els.shorthandGrid.innerHTML = '';
+        return;
+      }
       const msg = allShorthands.length ? t('shorthand.noMatch') : t('shorthand.emptyCustom');
       els.shorthandGrid.innerHTML = `<div class="empty-state"><div class="text">${msg}</div></div>`;
       return;
@@ -2952,15 +3010,9 @@
     }
   }
 
-  // Client-side shorthand search filter (data already fully loaded)
+  // Client-side preset search (data already fully loaded)
   if (els.shorthandSearch) {
-    els.shorthandSearch.addEventListener('input', () => {
-      const q = els.shorthandSearch.value.trim().toLowerCase();
-      const filtered = !q ? allShorthands : allShorthands.filter(i =>
-        (i.key || '').toLowerCase().includes(q) || (i.value || '').toLowerCase().includes(q)
-      );
-      renderShorthands(filtered);
-    });
+    els.shorthandSearch.addEventListener('input', renderShorthands);
   }
 
   // ── History ──

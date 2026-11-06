@@ -4,6 +4,7 @@
 
 ### 中文
 
+- 矩阵预设增加单位、零、对角、上三角和下三角矩阵，支持按类型搜索、具体与符号尺寸、括号和索引起点。新类型共用矩阵生成、修订绑定结构检查、历史恢复及备份链路。
 - 修复有限求和描述的求和项、整数索引域和区域积分保真问题。未指定范围或积分测度时保留一般记号，缺失或冲突索引时显示补充提示；实际候选通过当前 revision 的结构检查后提交。带上下文的请求进入规划并记录未检查范围，正式版 v0.4.3 的三条失败输出固化为回归。
 - 将正式版 v0.4.3 的 C10/C11/C12 原始矩阵失败输出固化为带版本来源的最小公式样例。离线回归验证语法有效、需求判定 `DIFFERENT`、当前提交屏障拒绝，以及修正候选 `MATCH`。
 - 修复矩阵评审发现的四项问题，矩阵专用工具采用 32768 字符预算，大公式可校验并往返导入历史与日志；带补充上下文的请求进入规划，候选生成同时读取上下文；矩阵历史按参数恢复预设，兼容旧版自然语言记录；维度解析保留前导小数点。
@@ -13,6 +14,7 @@
 
 ### English
 
+- Add identity, zero, diagonal, upper-triangular and lower-triangular matrix presets with type search, concrete or symbolic dimensions, brackets and index origin. New kinds share matrix generation, revision-bound checks, history restoration and backup replay.
 - Preserve terms, integer domains and indexed region integrals in finite sum descriptions. Keep unspecified bounds and measures implicit, show clarification for missing or conflicting indices, and bind actual-candidate checks to committed revisions. Contextual requests enter planning with unchecked coverage recorded. Retain three exact v0.4.3 failures as regressions.
 - Retain the exact C10/C11/C12 matrix failures from official v0.4.3 as minimal versioned formula fixtures. Offline regressions check valid syntax, `DIFFERENT` request evidence, rejection at the current Commit Barrier, and corrected `MATCH` candidates.
 - Address the four matrix review findings with a bounded 32768-character matrix tool budget and large-formula validation/backup roundtrips, context-aware planning and candidate generation, parameter restoration for current and legacy matrix history, and preserved leading decimal points during dimension recognition.

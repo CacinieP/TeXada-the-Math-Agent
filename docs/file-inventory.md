@@ -185,6 +185,8 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `tests/transcription-clarification-ui.test.cjs` | Visible, escaped clarification alerts through the natural-language result entry point. |
 | `tests/test_matrix_release_regressions.py` | Offline checks of the exact C10/C11/C12 release outputs, corrected deterministic generation, and rejection at the current Commit Barrier. |
 | `tests/test_matrix_api.py` | Structured matrix API validation, Agent response compatibility, history, run logs, and backup regression. |
+| `tests/test_matrix_kinds.py` | Identity, zero, diagonal and triangular cell contracts, compact displays, shape validation and structural counterexamples. |
+| `tests/test_matrix_kinds_api.py` | Additional preset kinds through the offline Agent API, revision evidence, history and backup replay. |
 | `tests/test_matrix_budget.py` | Supported large-matrix generation, bounded tool budgets, formula validation, and history/run-log/backup roundtrips. |
 | `tests/matrix-presets-ui.test.cjs` | Matrix form parameters, symbolic display, stale-result gating, translations, and accessible error handling. |
 | `tests/test_backend.py` | Backend readiness/status tests for OpenAI-compatible config and Ollama missing-model states. |

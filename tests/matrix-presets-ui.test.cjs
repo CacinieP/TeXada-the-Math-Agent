@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 
 const source = fs.readFileSync(path.join(__dirname, '../tauri-shell/src/main.js'), 'utf8');
+const typeCode = source.slice(source.indexOf('  const MATRIX_TYPES ='), source.indexOf('  const I18N ='));
 const matrixCode = source.slice(source.indexOf('  // ── Parameterized matrix presets'), source.indexOf('  // ── Shorthand ──'));
 const traceCode = source.slice(source.indexOf('  function agentTraceView('), source.indexOf('  function inlineAgentTrace('));
 
@@ -16,19 +17,20 @@ function fixture() {
   };
   const fields = Object.fromEntries(Object.entries(values).map(([name, value]) => [name, {value}]));
   fields.rows.focus = function () { this.focused = true; };
+  fields.kind.focus = function () { this.focused = true; };
   fields.display.expandedOption = {disabled: false};
   fields.display.querySelector = () => fields.display.expandedOption;
-  const groups = {
-    '[data-matrix-general]': [{hidden: true, querySelector: () => fields.columns}, {hidden: true, querySelector: () => fields.element}],
-    '[data-matrix-tridiagonal]': ['diagonal', 'upper', 'lower'].map(name => ({hidden: false, querySelector: () => fields[name]})),
-  };
+  const groups = ['columns', 'element', 'diagonal', 'upper', 'lower'].map(name => ({
+    dataset: {matrixParameter: name}, hidden: ['columns', 'element'].includes(name),
+    querySelector: () => fields[name],
+  }));
   const handlers = {};
   const els = {
     matrixForm: {
       details: {open: false},
       elements: {namedItem: name => fields[name]}, valid: true, attributes: {},
       reportValidity() { return this.valid; },
-      querySelectorAll: selector => groups[selector],
+      querySelectorAll: selector => selector === '[data-matrix-parameter]' ? groups : [],
       setAttribute(name, value) { this.attributes[name] = value; },
       addEventListener(name, handler) { handlers[name] = handler; },
       closest() { return this.details; },
@@ -53,7 +55,7 @@ function fixture() {
     historyTypeLabel: type => type,
   };
   vm.createContext(context);
-  vm.runInContext(matrixCode, context);
+  vm.runInContext(typeCode + matrixCode, context);
   context.showMatrixResult = result => { shown.push(result); els.matrixResult._texadaResult = result; els.matrixResult.hidden = false; };
   return {context, els, fields, groups, handlers, sent, shown, gate, reviews, tabs};
 }
@@ -90,6 +92,48 @@ test('general matrices keep rectangular and symbolic dimensions with relevant co
   assert.equal(f.context.matrixSpecFromForm().element, undefined);
 });
 
+const parameterFields = {
+  general: ['columns', 'element'],
+  tridiagonal: ['diagonal', 'upper', 'lower'],
+  identity: [],
+  zero: ['columns'],
+  diagonal: ['diagonal'],
+  upper_triangular: ['element'],
+  lower_triangular: ['element'],
+};
+
+for (const [kind, visibleFields] of Object.entries(parameterFields)) {
+  test(`${kind} sends only its relevant parameters and preserves hidden drafts`, async () => {
+    const f = fixture();
+    f.fields.kind.value = kind;
+    f.fields.rows.value = '2'; f.fields.columns.value = '4';
+    f.fields.element.value = '\\beta'; f.fields.diagonal.value = '2.5';
+    for (const origin of [0, 1]) {
+      f.fields.index_start.value = String(origin);
+      f.context.updateMatrixFields();
+      assert.deepEqual(f.groups.filter(group => !group.hidden).map(group => group.dataset.matrixParameter),
+        ['columns', 'element', 'diagonal', 'upper', 'lower'].filter(name => visibleFields.includes(name)));
+      for (const group of f.groups) {
+        assert.equal(group.querySelector('input').disabled, group.hidden);
+      }
+      const expected = {
+        kind, rows: 2, columns: visibleFields.includes('columns') ? 4 : 2,
+        bracket: 'pmatrix', display: 'expanded', index_start: origin,
+      };
+      for (const name of visibleFields.filter(name => name !== 'columns')) {
+        expected[name] = f.fields[name].value;
+      }
+      await f.context.submitMatrixForm({preventDefault() {}});
+      assert.deepEqual(JSON.parse(JSON.stringify(f.sent.at(-1).options.body.spec)), expected);
+    }
+    f.fields.kind.value = 'general';
+    f.context.updateMatrixFields();
+    assert.equal(f.fields.columns.value, '4');
+    assert.equal(f.fields.element.value, '\\beta');
+    assert.equal(f.fields.diagonal.value, '2.5');
+  });
+}
+
 test('typing a symbolic order selects compact display before blur or submission', async () => {
   const f = fixture();
   f.context.bindMatrixForm();
@@ -120,6 +164,29 @@ test('symbolic columns affect general matrices while hidden column drafts leave 
   assert.equal(f.fields.display.value, 'compact');
   f.fields.display.value = 'expanded'; f.handlers.change();
   assert.equal(f.fields.display.value, 'expanded');
+});
+
+test('all square kinds ignore a hidden symbolic column and zero matrices keep rectangular columns', () => {
+  const f = fixture();
+  f.fields.columns.value = 'n';
+  for (const kind of ['identity', 'diagonal', 'upper_triangular', 'lower_triangular']) {
+    f.fields.kind.value = kind;
+    f.fields.rows.value = '3';
+    f.context.updateMatrixFields();
+    assert.equal(f.fields.display.expandedOption.disabled, false);
+    assert.equal(f.context.matrixSpecFromForm().columns, 3);
+    f.fields.rows.value = 'm';
+    f.context.updateMatrixFields();
+    assert.equal(f.fields.display.expandedOption.disabled, true);
+    assert.equal(f.fields.display.value, 'compact');
+    assert.equal(f.context.matrixSpecFromForm().columns, 'm');
+  }
+  f.fields.kind.value = 'zero';
+  f.fields.rows.value = '2';
+  f.context.updateMatrixFields();
+  assert.equal(f.fields.display.expandedOption.disabled, true);
+  assert.equal(f.context.matrixSpecFromForm().columns, 'n');
+  assert.equal(f.fields.element.disabled, true);
 });
 
 test('valid submission disables repeat posting and discards adoption when the draft changes in flight', async () => {
@@ -244,7 +311,7 @@ test('legacy nl matrix histories and history viewing use the preset entry', () =
 });
 
 test('invalid or unknown history parameters cannot alter controls or enter NL', () => {
-  for (const spec of [{rows: false}, {rows: 21}, {rows: 'n', columns: 'm', kind: 'tridiagonal'}, {display: 'unrecognized'}, {extra: '<img>'}]) {
+  for (const spec of [{rows: false}, {rows: 21}, {kind: 'unknown'}, {kind: ['identity']}, {kind: null}, {kind: 0}, {rows: 'n', columns: 'm', kind: 'tridiagonal'}, {display: 'unrecognized'}, {extra: '<img>'}]) {
     const f = fixture();
     loadHistoryActions(f.context);
     const before = f.fields.rows.value;
@@ -255,6 +322,27 @@ test('invalid or unknown history parameters cannot alter controls or enter NL', 
     assert.equal(f.sent.length, 0);
   }
 });
+
+for (const kind of ['identity', 'zero', 'diagonal', 'upper_triangular', 'lower_triangular']) {
+  test(`${kind} history restores and regenerates with its shape and parameters`, async () => {
+    const f = fixture();
+    loadHistoryActions(f.context);
+    const spec = {
+      kind, rows: 'm', columns: kind === 'zero' ? 'n' : 'm',
+      bracket: 'bmatrix', display: 'compact', index_start: 0,
+    };
+    if (kind === 'diagonal') spec.diagonal = 'x_i';
+    if (kind.endsWith('_triangular')) spec.element = 'y';
+    f.context.reuseHistoryInput({type: 'matrix', input: '矩阵预设 ' + JSON.stringify(spec)});
+    assert.equal(f.fields.kind.value, kind);
+    assert.equal(f.fields.display.value, 'compact');
+    await f.context.submitMatrixForm({preventDefault() {}});
+    assert.deepEqual(JSON.parse(JSON.stringify(f.sent[0].options.body.spec)), spec);
+    if (kind !== 'zero') {
+      assert.equal(f.context.matrixHistorySpec({input: '矩阵预设 ' + JSON.stringify({...spec, columns: 'n'})}), null);
+    }
+  });
+}
 
 test('restoring matrix history during a request prevents adoption of the old response', async () => {
   const f = fixture();
@@ -268,4 +356,98 @@ test('restoring matrix history during a request prevents adoption of the old res
   assert.equal(f.shown[0]._reviewBlocked, true);
   assert.equal(f.fields.rows.value, '2');
   assert.equal(f.fields.columns.value, '3');
+});
+
+function searchFixture() {
+  const f = fixture();
+  const results = {
+    hidden: true,
+    buttons: [],
+    querySelectorAll() { return this.buttons; },
+    get innerHTML() { return this.html || ''; },
+    set innerHTML(value) {
+      this.html = value;
+      this.buttons = [...value.matchAll(/data-matrix-kind="([^"]+)"/g)].map(match => ({
+        dataset: {matrixKind: match[1]},
+        addEventListener(name, handler) { this[name] = handler; },
+      }));
+    },
+  };
+  f.els.matrixSearchResults = results;
+  f.els.shorthandSearch = {value: ''};
+  f.els.shorthandGrid = {innerHTML: '', querySelectorAll() { return []; }};
+  f.context.allShorthands = [{key: 'pyth', value: 'a^2+b^2=c^2'}];
+  f.context.bindFormulaInsertHandlers = () => {};
+  f.context.escapeHtml = text => String(text).replaceAll('&', '&amp;').replaceAll('<', '&lt;');
+  vm.runInContext(source.slice(source.indexOf('  const I18N ='), source.indexOf('  const els =')), f.context);
+  vm.runInContext(source.slice(source.indexOf('  function renderShorthands('), source.indexOf('  async function addShorthandFromForm(')), f.context);
+  return {...f, results};
+}
+
+test('matrix search supports every type in Chinese, English and kind names', () => {
+  const f = searchFixture();
+  const queries = {
+    general: '通用', tridiagonal: '三对角', identity: 'IDENTITY', zero: '零矩阵',
+    diagonal: '对角矩阵', upper_triangular: 'upper triangular', lower_triangular: '下三角',
+  };
+  for (const [kind, query] of Object.entries(queries)) {
+    f.els.shorthandSearch.value = ' ' + query + ' ';
+    f.context.renderShorthands();
+    assert.equal(f.results.hidden, false);
+    assert.ok(f.results.buttons.some(button => button.dataset.matrixKind === kind));
+    assert.match(f.results.innerHTML, /type="button"/);
+    assert.equal(f.els.shorthandGrid.innerHTML, '');
+  }
+});
+
+test('search selection opens the same form, preserves drafts and invalidates the old result', () => {
+  const f = searchFixture();
+  f.fields.rows.value = '7'; f.fields.columns.value = '9'; f.fields.diagonal.value = '5';
+  f.els.matrixForm.details.open = false;
+  const prior = {latex: 'previous', valid: true, committed: true};
+  f.els.matrixResult._texadaResult = prior;
+  f.els.shorthandSearch.value = 'identity';
+  f.context.renderShorthands();
+  f.results.buttons[0].click();
+  assert.equal(f.fields.kind.value, 'identity');
+  assert.equal(f.fields.kind.focused, true);
+  assert.equal(f.els.matrixForm.details.open, true);
+  assert.equal(f.fields.rows.value, '7'); assert.equal(f.fields.columns.value, '9');
+  assert.equal(f.fields.diagonal.value, '5');
+  assert.equal(prior._reviewBlocked, true);
+  assert.equal(f.sent.length, 0);
+});
+
+test('matrix-only results, no matches and clearing search preserve static preset behavior', () => {
+  const f = searchFixture();
+  f.els.shorthandSearch.value = 'zero';
+  f.context.renderShorthands();
+  assert.equal(f.els.shorthandGrid.innerHTML, '');
+  f.els.shorthandSearch.value = 'no matching entry';
+  f.context.renderShorthands();
+  assert.equal(f.results.hidden, true);
+  assert.match(f.els.shorthandGrid.innerHTML, /shorthand.noMatch/);
+  f.els.shorthandSearch.value = 'pyth';
+  f.context.renderShorthands();
+  assert.equal(f.results.hidden, true);
+  assert.match(f.els.shorthandGrid.innerHTML, /a\^2\+b\^2=c\^2/);
+  f.els.shorthandSearch.value = '';
+  f.context.renderShorthands();
+  assert.equal(f.results.hidden, true);
+  assert.equal(f.results.innerHTML, '');
+  assert.match(f.els.shorthandGrid.innerHTML, /pyth/);
+});
+
+test('selecting a type through search while generating rejects the older response', async () => {
+  const f = searchFixture();
+  let finish;
+  f.context.apiJson = async () => new Promise(resolve => { finish = resolve; });
+  const pending = f.context.submitMatrixForm({preventDefault() {}});
+  f.els.shorthandSearch.value = 'diagonal matrix';
+  f.context.renderShorthands();
+  f.results.buttons.find(button => button.dataset.matrixKind === 'diagonal').click();
+  finish({latex: 'old request', valid: true, committed: true});
+  await pending;
+  assert.equal(f.shown[0]._reviewBlocked, true);
+  assert.equal(f.fields.kind.value, 'diagonal');
 });
