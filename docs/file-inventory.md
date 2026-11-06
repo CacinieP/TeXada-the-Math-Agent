@@ -39,6 +39,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | File | Purpose |
 |------|---------|
 | `eval/cas_capabilities.yaml` | Pinned machine-readable CAS boundary: Semantic Unit adapter cases, raw parser drift probes, SymPy contracts, seeds, assumptions, cache identity, worker resources, and zero-false-verified acceptance rules. |
+| `eval/matrix_release_regressions.json` | Three minimal official v0.4.3 matrix request/output counterexamples with package, model, replay, and input-lineage identities. |
 
 ## Documentation / 文档
 
@@ -176,6 +177,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `tests/test_agent_runtime.py` | Planner → Tool → Observation multi-step execution tests. |
 | `tests/test_matrices.py` | Matrix generation, indexing, compact dimensions, bounded recognition, and structural counterexamples. |
 | `tests/test_matrix_runtime.py` | Matrix candidate routing, zero-model execution, revision-bound evidence, commit blocking, and concurrent requests. |
+| `tests/test_matrix_release_regressions.py` | Offline checks of the exact C10/C11/C12 release outputs, corrected deterministic generation, and rejection at the current Commit Barrier. |
 | `tests/test_matrix_api.py` | Structured matrix API validation, Agent response compatibility, history, run logs, and backup regression. |
 | `tests/test_matrix_budget.py` | Supported large-matrix generation, bounded tool budgets, formula validation, and history/run-log/backup roundtrips. |
 | `tests/matrix-presets-ui.test.cjs` | Matrix form parameters, symbolic display, stale-result gating, translations, and accessible error handling. |

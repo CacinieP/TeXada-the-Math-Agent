@@ -4,6 +4,7 @@
 
 ### 中文
 
+- 将正式版 v0.4.3 的 C10/C11/C12 原始矩阵失败输出固化为带版本来源的最小公式样例。离线回归验证语法有效、需求判定 `DIFFERENT`、当前提交屏障拒绝，以及修正候选 `MATCH`。
 - 修复矩阵评审发现的四项问题，矩阵专用工具采用 32768 字符预算，大公式可校验并往返导入历史与日志；带补充上下文的请求进入规划，候选生成同时读取上下文；矩阵历史按参数恢复预设，兼容旧版自然语言记录；维度解析保留前导小数点。
 - 预设页新增参数化通用矩阵与三对角矩阵，支持具体/符号尺寸、上下对角、括号、索引起点及展开方式。有限自然语言矩阵句式复用同一生成逻辑，受支持模式零模型调用。
 - 新增 `POST /api/matrix`，复用现有 Agent 结果、历史与运行日志。矩阵候选经过编译、渲染及绑定当前 revision 的结构检查，需求不匹配或检查不受支持时保留诊断并阻止提交。
@@ -11,6 +12,7 @@
 
 ### English
 
+- Retain the exact C10/C11/C12 matrix failures from official v0.4.3 as minimal versioned formula fixtures. Offline regressions check valid syntax, `DIFFERENT` request evidence, rejection at the current Commit Barrier, and corrected `MATCH` candidates.
 - Address the four matrix review findings with a bounded 32768-character matrix tool budget and large-formula validation/backup roundtrips, context-aware planning and candidate generation, parameter restoration for current and legacy matrix history, and preserved leading decimal points during dimension recognition.
 - Add parameterized general and tridiagonal matrices to Presets with concrete or symbolic dimensions, diagonal expressions, brackets, index origin, and expanded or compact display. Supported natural-language descriptions share the zero-model generator.
 - Add `POST /api/matrix` using the Agent response, history, and run ledger. Revision-bound matrix checks inspect the actual candidate alongside compilation and rendering, with diagnostics and commit blocking for mismatched or unsupported structures.
