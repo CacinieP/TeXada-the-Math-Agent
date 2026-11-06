@@ -198,10 +198,22 @@ class FormulaLedger:
                 f"revision {expected_revision} lacks successful render evidence"
             )
 
+        evidence = [compile_evidence.sequence, render_evidence.sequence]
+        if any(item.kind == "matrix_constraints" for item in self._evidence):
+            constraints = self._latest_evidence(expected_revision, "matrix_constraints")
+            if not (
+                constraints and constraints.ok
+                and constraints.output.get("verdict") == "MATCH"
+            ):
+                raise CommitBarrierError(
+                    f"revision {expected_revision} lacks matching matrix constraint evidence"
+                )
+            evidence.append(constraints.sequence)
+
         commit = FormulaCommit(
             sequence=len(self._commits) + 1,
             revision=expected_revision,
-            evidence=(compile_evidence.sequence, render_evidence.sequence),
+            evidence=tuple(evidence),
         )
         self._commits.append(commit)
         return commit

@@ -14,6 +14,7 @@ from texada.core.validator import LaTeXValidator
 from texada.render.engine import RenderEngine
 from texada.semantic import SemanticDiffer, SemanticParser
 from texada.semantic.model import SemanticDepthError
+from texada.semantic.structure import MAX_EXPRESSION_CHARS
 from texada.types import RenderMode
 
 # Tools are CPU-bound and synchronous internally; each one runs on a worker
@@ -169,7 +170,11 @@ class TeXToolset:
         config: TeXadaConfig,
         *,
         repair_service: DeterministicRepairService | None = None,
+        max_tex_length: int = MAX_TEX_LENGTH,
     ):
+        if type(max_tex_length) is not int or not 1 <= max_tex_length <= MAX_EXPRESSION_CHARS:
+            raise ValueError(f"max_tex_length must be between 1 and {MAX_EXPRESSION_CHARS}")
+        self.max_tex_length = max_tex_length
         self.parser = SemanticParser()
         self.differ = SemanticDiffer(self.parser)
         self.validator = LaTeXValidator()
@@ -255,15 +260,14 @@ class TeXToolset:
             "semantic_document": self.parser.parse(latex).to_dict(),
         }
 
-    @staticmethod
-    def _tex(value: str, *, label: str = "latex") -> str:
+    def _tex(self, value: str, *, label: str = "latex") -> str:
         if not isinstance(value, str):
             raise TypeError(f"{label} must be a string")
         value = value.strip()
         if not value:
             raise ValueError(f"{label} must not be empty")
-        if len(value) > MAX_TEX_LENGTH:
-            raise ValueError(f"{label} exceeds {MAX_TEX_LENGTH} characters")
+        if len(value) > self.max_tex_length:
+            raise ValueError(f"{label} exceeds {self.max_tex_length} characters")
         return value
 
 

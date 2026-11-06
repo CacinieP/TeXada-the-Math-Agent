@@ -130,6 +130,59 @@
 
   <!-- Shorthand Tab -->
   <div class="tab-content" id="tab-shorthand" role="tabpanel" aria-labelledby="tab-button-shorthand" aria-hidden="true">
+    <details class="matrix-editor" open>
+      <summary data-i18n="matrix.title">矩阵预设</summary>
+      <form id="matrix-form" action="/api/matrix" method="post" autocomplete="off">
+        <fieldset>
+          <legend class="matrix-legend" data-i18n="matrix.parameters">矩阵参数</legend>
+          <div class="matrix-fields">
+            <label class="matrix-field" for="matrix-kind"><span data-i18n="matrix.kind">类型</span>
+              <select id="matrix-kind" name="kind">
+                <option value="tridiagonal" data-i18n="matrix.tridiagonal">三对角矩阵</option>
+                <option value="general" data-i18n="matrix.general">通用矩阵</option>
+              </select>
+            </label>
+            <label class="matrix-field" for="matrix-rows"><span id="matrix-rows-label" data-i18n="matrix.order">阶数</span>
+              <input id="matrix-rows" name="rows" type="text" value="10" pattern="[1-9][0-9]*|[A-Za-z]" maxlength="3" required aria-describedby="matrix-help" autocorrect="off" autocapitalize="off" spellcheck="false">
+            </label>
+            <label class="matrix-field" for="matrix-columns" data-matrix-general hidden><span data-i18n="matrix.columns">列数</span>
+              <input id="matrix-columns" name="columns" type="text" value="10" pattern="[1-9][0-9]*|[A-Za-z]" maxlength="3" required disabled aria-describedby="matrix-help" autocorrect="off" autocapitalize="off" spellcheck="false">
+            </label>
+            <label class="matrix-field" for="matrix-element" data-matrix-general hidden><span data-i18n="matrix.element">元素符号</span>
+              <input id="matrix-element" name="element" type="text" value="a" maxlength="40" required disabled autocorrect="off" autocapitalize="off" spellcheck="false">
+            </label>
+            <label class="matrix-field" for="matrix-diagonal" data-matrix-tridiagonal><span data-i18n="matrix.diagonal">主对角线</span>
+              <input id="matrix-diagonal" name="diagonal" type="text" value="a_i" maxlength="80" required autocorrect="off" autocapitalize="off" spellcheck="false">
+            </label>
+            <label class="matrix-field" for="matrix-upper" data-matrix-tridiagonal><span data-i18n="matrix.upper">上对角线</span>
+              <input id="matrix-upper" name="upper" type="text" value="b_i" maxlength="80" required autocorrect="off" autocapitalize="off" spellcheck="false">
+            </label>
+            <label class="matrix-field" for="matrix-lower" data-matrix-tridiagonal><span data-i18n="matrix.lower">下对角线</span>
+              <input id="matrix-lower" name="lower" type="text" value="c_i" maxlength="80" required autocorrect="off" autocapitalize="off" spellcheck="false">
+            </label>
+            <label class="matrix-field" for="matrix-bracket"><span data-i18n="matrix.bracket">括号</span>
+              <select id="matrix-bracket" name="bracket">
+                <option value="pmatrix">( )</option><option value="bmatrix">[ ]</option>
+                <option value="vmatrix">| |</option><option value="matrix" data-i18n="matrix.noBracket">无括号</option>
+              </select>
+            </label>
+            <label class="matrix-field" for="matrix-display"><span data-i18n="matrix.display">展示</span>
+              <select id="matrix-display" name="display">
+                <option value="expanded" data-i18n="matrix.expanded">完整展开</option>
+                <option value="compact" data-i18n="matrix.compact">省略展示</option>
+              </select>
+            </label>
+            <label class="matrix-field" for="matrix-index-start"><span data-i18n="matrix.indexStart">下标起点</span>
+              <select id="matrix-index-start" name="index_start"><option value="1">1</option><option value="0">0</option></select>
+            </label>
+          </div>
+          <p id="matrix-help" class="setting-desc" data-i18n="matrix.help">阶数可填正整数或单个字母。符号维度使用省略展示，完整展开最多 20×20。</p>
+          <button class="action-btn primary" id="btn-generate-matrix" type="submit" data-i18n="matrix.generate">生成矩阵</button>
+          <p id="matrix-status" class="setting-desc" role="status" aria-live="polite" tabindex="-1"></p>
+        </fieldset>
+      </form>
+      <div id="matrix-result" hidden></div>
+    </details>
     <div class="shorthand-editor">
       <input type="text" id="shorthand-key-input" data-i18n-placeholder="shorthand.keyPlaceholder" placeholder="预设键…">
       <input type="text" id="shorthand-value-input" data-i18n-placeholder="shorthand.valuePlaceholder" placeholder="LaTeX 预设公式…">

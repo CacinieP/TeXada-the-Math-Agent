@@ -103,11 +103,27 @@ settings remain respected. See [release scope and validation](docs/release-v0.4.
 | Completion | Rules or the configured model propose a completion; the shared Agent validates it |
 | Validation and repair | Check, fix, render and highlight LaTeX |
 | Presets, history, and run logs | Keep reusable presets, reopen results, and inspect each Agent/OCR/completion success or failure with model, latency, tools, and trace |
+| Matrix presets (unreleased) | Parameterized general and tridiagonal matrices with shared natural-language generation and revision-bound structure checks |
 | Desktop insertion | Click a formula block to type it at the system cursor on macOS/Windows; Linux copies it for manual paste |
 | UI controls | Switch language, zoom from 80% to 140%, and drag the floating window |
 | Release packages | macOS DMGs, Windows x64 NSIS, and Linux x64 deb/AppImage packages from GitHub Actions |
 
 ### Examples
+
+The unreleased matrix form in Presets accepts concrete dimensions from 1 to 20
+or single-letter symbolic dimensions, bracket style, index origin, and full or
+compact display. Tridiagonal controls specify the main, upper, and lower
+diagonals. Entries support simple symbols, indexed symbols such as `a_i`, and
+numeric constants. Symbolic dimensions use compact display.
+
+Natural-language requests such as `写一个10阶矩阵，主对角线是ai，两条次对角线分别是bi，ci`
+use the same generator. The result reports the checked revision, constraint
+verdict, and coverage. Supported matrix generation runs locally with zero model
+tokens. The API entry is `POST /api/matrix` with a `spec` object and optional
+`render_mode`, using the existing Agent response format. See
+[ADR-018](docs/adr/018-parameterized-matrix-candidates.md).
+
+![Symbolic tridiagonal matrix preset and structure result](docs/images/matrix-presets-preview.png)
 
 | Workflow | Demo | What is verified |
 |----------|------|------------------|
@@ -637,11 +653,21 @@ Level 1，但只在明确存在 before/after 公式时启用，不会把自然�
 | 公式补全 | 规则或配置的模型产出候选，再由统一 Agent 校验 |
 | 校验与修复 | 检查、修复、渲染并高亮 LaTeX |
 | 预设、历史与运行日志 | 保存预设、重新打开结果，并检查每次 Agent/OCR/补全成功或失败的模型、耗时、工具与轨迹 |
+| 矩阵预设（待发布） | 参数化通用矩阵和三对角矩阵，预设与自然语言共用生成逻辑，结构检查绑定具体修订 |
 | 桌面键入 | macOS/Windows 点击公式块可在系统光标处键入；Linux 复制后需手动粘贴 |
 | 界面控制 | 设置页切换中英文、80% 到 140% 缩放、拖动浮窗 |
 | 安装包发布 | GitHub Actions 构建 macOS DMG、Windows x64 NSIS 与 Linux x64 deb/AppImage 安装包 |
 
 ### 示例
+
+待发布的矩阵表单位于预设页，支持 1–20 的具体行列数或单字母符号维度、
+括号、索引起点和完整/省略展示。三对角参数明确主、上、下对角线，可填简单
+符号、`a_i` 等带下标符号或数值常量。符号维度采用省略展示。
+
+`写一个10阶矩阵，主对角线是ai，两条次对角线分别是bi，ci` 等有限句式复用
+相同生成逻辑。结果显示结构判定、覆盖范围和被检查的修订，受支持模式为
+零模型调用。`POST /api/matrix` 接收 `spec` 与可选 `render_mode`，返回现有
+Agent 结果格式。设计与验收边界见 [ADR-018](docs/adr/018-parameterized-matrix-candidates.md)。
 
 | 工作流 | 演示 | 实际验证 |
 |--------|------|----------|
