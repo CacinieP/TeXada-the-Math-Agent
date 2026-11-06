@@ -196,8 +196,13 @@ expansion, symbolic dimensions, swapped diagonals, invalid parameters, wrong
 indices, and nonzero entries outside the band. Legacy custom preset strings
 and backup imports receive compatibility checks.
 
-Current-release failure outputs become focused deterministic counterexamples.
+The exact C10, C11, and C12 request texts and failed LaTeX outputs are retained
+in `eval/matrix_release_regressions.json`, with official package, model, and
+replay identities. Earlier input-record identities are stored separately from
+the official-release run IDs. The offline tests establish that each original
+output compiles, receives `DIFFERENT`, and is blocked by the current Commit
+Barrier. The same recognized requests generate valid `MATCH` candidates.
 Real-model replays run separately with recorded package and model identities.
-Ordinary CI uses deterministic assertions under ADR-013. Necessary request
-texts, output summaries, and run identities document the evidence, following
-the repository's contribution policy for runtime data.
+Ordinary CI uses deterministic assertions under ADR-013. The fixture contains
+the formula counterexamples and their provenance, following the repository's
+contribution policy for runtime data.

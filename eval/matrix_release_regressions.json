@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "release_tag": "v0.4.3",
+    "source_commit": "6adcba0ab1540f2efb1bf78156783842001bc72c",
+    "release_url": "https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.3",
+    "replayed_at": "2026-11-06",
+    "installer": "TeXada_0.4.3_aarch64.dmg",
+    "installer_sha256": "aa1a352d5312ad81ca13b13d9a7fb5c77c254e80575f1c905c76cb37edb984f0",
+    "replay_export_sha256": "c23b8862b2b23fd99c0cb0a395fb00c781391bbcbba2ee058fae2d205d67202c",
+    "model_sha256": "588c6c94c82f756b86dba35c42ed9ba9ec187d65824eb52f039c347df563e63d",
+    "mmproj_sha256": "fb9cc047a3cdad5317fd8433a4aeda2d22f00f02ca4bd93b34ad84165b25a900",
+    "inference_config": {
+      "backend": "llama_server",
+      "model": "MiniCPM-V-4.7-1B",
+      "runtime_build": 11669,
+      "seed": 47,
+      "temperature": 0.1,
+      "context_size": 8192,
+      "max_tokens": 2048,
+      "agent_max_steps": 3,
+      "planner_surface": "full",
+      "nl_candidate_first": true,
+      "context": ""
+    },
+    "scope": "Minimal request/formula counterexamples from official v0.4.3 packaged backend replay. lineage_source_run_id identifies the earlier input record. replay_run_id identifies the official-release observation. Offline tests inspect these formulas and current deterministic generation."
+  },
+  "cases": [
+    {
+      "case_id": "C10",
+      "lineage_source_run_id": "d8090a7269934fd4be745f97110563c0",
+      "replay_run_id": "1a9965012d7047a893933cb6e4939ee4",
+      "input": "写一个矩阵，主对角线是ai，两条次对角线分别是bi，ci",
+      "observed_latex": "\\begin{pmatrix} a_{11} & a_{12} & \\cdots & a_{1n} \\\\ a_{21} & a_{22} & \\cdots & a_{2n} \\\\ \\vdots & \\vdots & \\ddots & \\vdots \\\\ a_{m1} & a_{m2} & \\cdots & a_{mn} \\end{pmatrix}",
+      "observed_latex_sha256": "e813689b127015528ec5b76d85d98e53f7391bac2a6d113ba890ef11f417c8e4",
+      "observed_syntax_valid": true,
+      "observed_committed": true,
+      "expected_spec": {
+        "kind": "tridiagonal",
+        "rows": "n",
+        "columns": "n"
+      }
+    },
+    {
+      "case_id": "C11",
+      "lineage_source_run_id": "ec17c8ee4c614dc3bf1f84900ebb84a3",
+      "replay_run_id": "d9f13b145fda403eb72ceecb57c885fc",
+      "input": "写一个10阶矩阵，主对角线是ai，两条次对角线分别是bi，ci",
+      "observed_latex": "\\begin{pmatrix}\na_{11} & a_{12} & a_{13} & \\cdots & a_{110} \\\\\na_{21} & a_{22} & a_{23} & \\cdots & a_{210} \\\\\n\\vdots & \\vdots & \\vdots & \\ddots & \\vdots \\\\\na_{101} & a_{201} & a_{301} & \\cdots & a_{101} \\\\\na_{110} & a_{210} & a_{310} & \\cdots & a_{110}\n\\end{pmatrix}",
+      "observed_latex_sha256": "2602316fdc155096eb51e579f74dbc214db89eb04d536a9ffa27d4eb71934735",
+      "observed_syntax_valid": true,
+      "observed_committed": true,
+      "expected_spec": {
+        "kind": "tridiagonal",
+        "rows": 10,
+        "columns": 10
+      }
+    },
+    {
+      "case_id": "C12",
+      "lineage_source_run_id": "42d7d3373fa34349b41309d553d0933c",
+      "replay_run_id": "92ae2ed601264182a390bc69ca49d33d",
+      "input": "写一个10阶矩阵，主对角线是ai，两条次对角线分别是bi，ci",
+      "observed_latex": "\\begin{pmatrix}\na_{11} & a_{12} & a_{13} & \\cdots & a_{110} \\\\\na_{21} & a_{22} & a_{23} & \\cdots & a_{210} \\\\\n\\vdots & \\vdots & \\vdots & \\ddots & \\vdots \\\\\na_{101} & a_{201} & a_{301} & \\cdots & a_{101} \\\\\na_{110} & a_{210} & a_{310} & \\cdots & a_{110}\n\\end{pmatrix}",
+      "observed_latex_sha256": "2602316fdc155096eb51e579f74dbc214db89eb04d536a9ffa27d4eb71934735",
+      "observed_syntax_valid": true,
+      "observed_committed": true,
+      "expected_spec": {
+        "kind": "tridiagonal",
+        "rows": 10,
+        "columns": 10
+      }
+    }
+  ]
+}
