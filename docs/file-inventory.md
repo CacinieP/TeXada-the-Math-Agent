@@ -56,6 +56,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `docs/adr/018-parameterized-matrix-candidates.md` | Shared matrix generation, finite request recognition, revision-bound constraints, and release-baseline evidence. |
 | `docs/adr/019-bounded-sum-transcription.md` | Source constraints for finite sums, explicit domains, region integrals, clarification and revision-bound checks. |
 | `docs/images/matrix-presets-preview.png` | Browser preview of the symbolic tridiagonal preset form and its checked result. |
+| `docs/images/matrix-kinds-preview.jpg` | Browser verification of a searched/restored symbolic lower-triangular preset with current structural evidence. |
 | `docs/e2e-manual.md` | Human and automated local E2E checklist for the Agent Runtime path. |
 | `docs/local-model-benchmark-2026-09-12.md` | Local MiniCPM5-1B/2B Q4 comparison, development-regression results, thinking tradeoffs, and local deployment evidence, distinct from official release artifacts. |
 | `docs/audit.md` | Source audit scope, stale-code removals, remediation history, and intentional defaults. |
