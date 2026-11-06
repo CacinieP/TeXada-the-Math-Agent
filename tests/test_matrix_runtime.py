@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from texada.agent.protocol import PlannerToolCall, PlannerTurn
 from texada.agent.runtime import TeXadaAgentRuntime
 from texada.config import TeXadaConfig
 from texada.core.candidates import DeterministicCandidate
@@ -140,3 +141,53 @@ async def test_matrix_hint_fallback_reports_its_unchecked_request_scope(tmp_path
     assert result.valid and result.committed
     assert result.trace[-1]["matrix_recognition"][-1]["verdict"] == "NOT_CHECKED"
     assert "matrix_constraints" not in result.trace[-1]
+
+
+@pytest.mark.parametrize("candidate_first", [False, True])
+@pytest.mark.asyncio
+async def test_matrix_context_reaches_planning_and_candidate_generation(tmp_path, candidate_first):
+    context = "使用方括号，元素写成 x_{i,j}，不要用 a。"
+    expected = r"\begin{bmatrix}x_{1,1} & x_{1,2} \\ x_{2,1} & x_{2,2}\end{bmatrix}"
+    compile_turn = PlannerTurn(tool_calls=[PlannerToolCall(
+        "compile", "compile_tex", {"latex": expected},
+    )])
+    finish_turn = PlannerTurn(tool_calls=[PlannerToolCall(
+        "finish", "finish_formula", {"expected_revision": 1},
+    )])
+    model = Mock()
+    model.generate_latex = AsyncMock(return_value=expected)
+    model.plan = AsyncMock(side_effect=[finish_turn] if candidate_first
+                           else [compile_turn, finish_turn])
+    model.consume_tokens_used = Mock(return_value=0)
+    backend = Mock()
+    backend.ensure_ready = AsyncMock()
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first),
+        model=model, backend=backend,
+    )
+    # A previous shortcut must not consume this request after matrix recognition falls back.
+    runtime.candidate_engine.propose = Mock(side_effect=AssertionError("context was ignored"))
+    result = await runtime.run("写一个2阶矩阵", context=context)
+    assert result.valid and result.committed
+    assert result.latex == expected
+    assert context in str(model.plan.call_args_list[0])
+    if candidate_first:
+        assert context in model.generate_latex.call_args.args[0]
+    else:
+        model.generate_latex.assert_not_called()
+    assert result.trace[-1]["matrix_recognition"][-1]["reason"] == (
+        "matrix_context_requires_planning"
+    )
+    assert "matrix_constraints" not in result.trace[-1]
+
+
+@pytest.mark.asyncio
+async def test_matrix_budget_is_separate_from_default_tool_budget(tmp_path):
+    runtime = matrix_runtime(tmp_path)
+    spec = MatrixSpec(rows=20, columns=20, element=r"\varepsilon")
+    result = await runtime.run("矩阵预设", _matrix_spec=spec)
+    assert result.valid and result.committed
+    assert len(result.latex) > 4000
+    ordinary = await runtime.tools.execute("compile_tex", {"latex": result.latex})
+    assert not ordinary.ok
+    assert "4000 characters" in ordinary.error

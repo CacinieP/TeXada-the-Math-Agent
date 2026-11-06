@@ -42,6 +42,7 @@ from texada.core.scope import ComputationOutsideScope, require_transcription
 from texada.handoff import FormulaTransfer, HandoffError, TransferRegistry, produce_formula_transfer
 from texada.render.engine import RenderEngine
 from texada.semantic.katex import shared_katex_parser
+from texada.semantic.structure import MAX_EXPRESSION_CHARS
 from texada.store.history import HistoryStore
 from texada.store.pending_review import (
     PendingReviewStore,
@@ -173,7 +174,7 @@ class InlineCompletionResponse(BaseModel):
     edit_version: int = 0
 
 class ValidateRequest(BaseModel):
-    latex: str = Field(min_length=1, max_length=4000)
+    latex: str = Field(min_length=1, max_length=MAX_EXPRESSION_CHARS)
 
 class ValidateResponse(BaseModel):
     valid: bool
@@ -283,7 +284,7 @@ class HistoryImportEntry(BaseModel):
     run_id: str = Field(default="", max_length=80)
     input_text: str = Field(min_length=1, max_length=4000)
     input_type: str = Field(default="nl", max_length=40)
-    latex: str = Field(min_length=1, max_length=4000)
+    latex: str = Field(min_length=1, max_length=MAX_EXPRESSION_CHARS)
     intent: str = Field(default="", max_length=120)
     source: str = Field(default="model", max_length=40)
     render_mode: str = Field(default="katex", pattern="^(katex|latex)$")
@@ -303,7 +304,7 @@ class RunLogImportEntry(BaseModel):
     run_id: str = Field(min_length=1, max_length=80)
     operation: str = Field(default="", max_length=40)
     input_type: str = Field(default="", max_length=40)
-    input_text: str = Field(default="", max_length=4000)
+    input_text: str = Field(default="", max_length=MAX_EXPRESSION_CHARS)
     input_bytes: int = Field(default=0, ge=0)
     input_mime: str = Field(default="", max_length=120)
     model_role: str = Field(default="", max_length=40)
@@ -311,7 +312,7 @@ class RunLogImportEntry(BaseModel):
     backend: str = Field(default="", max_length=80)
     status: str = Field(default="success", pattern="^(success|error)$")
     status_code: int = Field(default=200, ge=100, le=599)
-    output_latex: str = Field(default="", max_length=4000)
+    output_latex: str = Field(default="", max_length=MAX_EXPRESSION_CHARS)
     intent: str = Field(default="", max_length=120)
     source: str = Field(default="", max_length=40)
     render_mode: str = Field(default="", max_length=20)
@@ -972,6 +973,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         )
 
     async def execute_agent(req: ConvertRequest, *, matrix_spec: MatrixSpec | None = None):
+        input_type = "matrix" if matrix_spec is not None else "nl"
         try:
             require_transcription(req.text)
         except ComputationOutsideScope as exc:
@@ -993,7 +995,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             )
         except RuntimeError as e:
             await record_run(RunLogEntry(
-                run_id=run_id, operation="agent", input_type="nl",
+                run_id=run_id, operation="agent", input_type=input_type,
                 input_text=req.text, model_role="planner",
                 model_name=config.active_model_name, backend=config.backend,
                 status="error", status_code=503, render_mode=req_mode.value,
@@ -1003,7 +1005,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
             raise HTTPException(status_code=503, detail=str(e)) from e
         except Exception as e:
             await record_run(RunLogEntry(
-                run_id=run_id, operation="agent", input_type="nl",
+                run_id=run_id, operation="agent", input_type=input_type,
                 input_text=req.text, model_role="planner",
                 model_name=config.active_model_name, backend=config.backend,
                 status="error", status_code=500, render_mode=req_mode.value,
@@ -1014,7 +1016,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         history_entry = HistoryEntry(
                 run_id=run_id,
                 input_text=req.text,
-                input_type="nl",
+                input_type=input_type,
                 latex=result.latex,
                 intent="agent",
                 source="agent",
@@ -1030,7 +1032,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
                 pass
         tool_names = _trace_tool_names(result.trace)
         await record_run(RunLogEntry(
-            run_id=run_id, operation="agent", input_type="nl",
+            run_id=run_id, operation="agent", input_type=input_type,
             input_text=req.text, model_role="planner",
             model_name=config.active_model_name, backend=config.backend,
             status="success", status_code=200, output_latex=result.latex,

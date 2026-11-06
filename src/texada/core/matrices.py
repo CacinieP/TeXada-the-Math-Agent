@@ -192,7 +192,7 @@ def _order(value: str) -> int | str:
 
 def recognize_matrix(text: str) -> MatrixSpec | None:
     """Recognize complete, finite descriptions before symbol substitution."""
-    text = re.sub(r"\s+", "", text).strip("。.!！?？")
+    text = re.sub(r"\s+", "", text).rstrip("。.!！?？")
     text = text.replace("，", ",")
     rectangle = _RECTANGLE.fullmatch(text)
     if rectangle:

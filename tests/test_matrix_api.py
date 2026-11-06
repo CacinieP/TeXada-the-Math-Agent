@@ -39,6 +39,7 @@ def test_matrix_api_generates_without_model_and_records_bound_checks(tmp_path, m
 
         run = client.get(f"/api/runs/{result['run_id']}").json()
         assert run["operation"] == "agent"
+        assert run["input_type"] == "matrix"
         assert run["tokens_used"] == 0
         assert run["trace"] == result["agent_trace"]
         assert run["inference_fingerprint"]["capture_status"] == "COMPLETE"
@@ -48,6 +49,13 @@ def test_matrix_api_generates_without_model_and_records_bound_checks(tmp_path, m
         assert source["rows"] == source["columns"] == 10
         history = client.get("/api/history").json()
         assert any(item["run_id"] == result["run_id"] for item in history)
+        entry = next(item for item in history if item["run_id"] == result["run_id"])
+        assert entry["input_type"] == "matrix"
+        restored_spec = json.loads(entry["input_text"].removeprefix("矩阵预设 "))
+        replay = client.post("/api/matrix", json={"spec": restored_spec}).json()
+        assert replay["committed"] is True
+        assert replay["tokens_used"] == 0
+        assert replay["latex"] == result["latex"]
 
 
 @pytest.mark.parametrize("spec", [
@@ -101,3 +109,27 @@ def test_matrix_api_uses_origin_policy(tmp_path):
             headers={"Origin": "https://example.invalid"},
         )
         assert response.status_code == 403
+
+
+def test_matrix_history_type_and_parameters_survive_export_import(tmp_path, monkeypatch):
+    async def stopped_backend(*args, **kwargs):
+        raise RuntimeError("model backend is stopped")
+
+    monkeypatch.setattr(BackendManager, "ensure_ready", stopped_backend)
+    with TestClient(create_app(TeXadaConfig(data_dir=tmp_path))) as client:
+        first = client.post("/api/matrix", json={"spec": {
+            "kind": "tridiagonal", "rows": 2, "columns": 2,
+            "upper": "c_i", "lower": "b_i", "index_start": 0,
+        }}).json()
+        exported = client.get("/api/history/export").json()
+        assert exported["history"][0]["input_type"] == "matrix"
+        assert client.post("/api/history/import", json={
+            "mode": "replace", "history": exported["history"],
+        }).status_code == 200
+        entry = client.get("/api/history").json()[0]
+        spec = json.loads(entry["input_text"].removeprefix("矩阵预设 "))
+        replay = client.post("/api/matrix", json={"spec": spec}).json()
+        assert entry["input_type"] == "matrix"
+        assert replay["committed"] is True
+        assert replay["tokens_used"] == 0
+        assert replay["latex"] == first["latex"]

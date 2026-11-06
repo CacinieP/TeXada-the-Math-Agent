@@ -174,6 +174,16 @@ before importing; the desktop UI defaults to safer `merge`.
 
 ## Presets / 预设
 
+Matrix results use the `matrix` history input type. Their source text carries
+the preset parameters, and history reuse restores those parameters into the
+preset form. Legacy `nl` entries with the canonical matrix source are also
+recognized. Formula fields in history and run-log imports, and formula
+validation, support up to 32768 characters for generated matrix results.
+
+矩阵结果的历史类型为 `matrix`，来源文本包含预设参数。复用历史会将参数恢复到
+预设表单，旧版 `nl` 类型的矩阵参数记录也可恢复。历史与运行日志导入的公式字段、
+以及公式校验支持最多 32768 字符的大矩阵结果。
+
 Custom preset export uses `{ "_meta": ..., "presets": { ... } }`. Import also
 accepts the legacy `shorthands` key. Built-in presets are never exported,
 overwritten, or removed. `replace` replaces only user-owned presets.

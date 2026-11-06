@@ -185,6 +185,22 @@ def test_recognizer_covers_explicit_general_shapes(description, rows, columns):
 
 
 @pytest.mark.parametrize("description", [
+    ".5阶矩阵", ".5行4列矩阵", ".5阶三对角矩阵",
+    "写一个0.5阶矩阵", "通用3行.5列矩阵",
+    "-5阶矩阵", "-.5阶矩阵", "写一个-0.5阶矩阵",
+])
+def test_recognizer_preserves_fractional_and_negative_dimension_text(description):
+    assert recognize_matrix(description) is None
+
+
+@pytest.mark.parametrize("punctuation", ["。", ".", "!", "！", "?", "？", "。!？"])
+def test_recognizer_cleans_trailing_sentence_punctuation(punctuation):
+    spec = recognize_matrix(f" 5阶矩阵{punctuation} ")
+    assert spec is not None
+    assert spec.rows == spec.columns == 5
+
+
+@pytest.mark.parametrize("description", [
     "写一个矩阵", "写一个矩阵并求逆", "n阶三对角矩阵的逆",
     "写一个10阶矩阵，主对角线是ai，两条次对角线分别是bi，ci，其他元素为1",
     "写一个10阶矩阵，主对角线是ai，上对角线是bi",

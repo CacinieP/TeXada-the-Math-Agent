@@ -15,6 +15,7 @@ function fixture() {
     upper: 'b_i', lower: 'c_i', bracket: 'pmatrix', display: 'expanded', index_start: '1',
   };
   const fields = Object.fromEntries(Object.entries(values).map(([name, value]) => [name, {value}]));
+  fields.rows.focus = function () { this.focused = true; };
   fields.display.expandedOption = {disabled: false};
   fields.display.querySelector = () => fields.display.expandedOption;
   const groups = {
@@ -24,11 +25,13 @@ function fixture() {
   const handlers = {};
   const els = {
     matrixForm: {
+      details: {open: false},
       elements: {namedItem: name => fields[name]}, valid: true, attributes: {},
       reportValidity() { return this.valid; },
       querySelectorAll: selector => groups[selector],
       setAttribute(name, value) { this.attributes[name] = value; },
       addEventListener(name, handler) { handlers[name] = handler; },
+      closest() { return this.details; },
     },
     matrixRowsLabel: {dataset: {}, textContent: ''},
     matrixStatus: {textContent: '', focus() { this.focused = true; }},
@@ -38,6 +41,7 @@ function fixture() {
   const shown = [];
   const gate = [];
   const reviews = new Map();
+  const tabs = [];
   const context = {
     els, matrixDraftRevision: 0, matrixProcessing: false, renderMode: 'katex', resultReviews: reviews,
     t: (key, values = {}) => key + (values.verdict ? ' ' + values.verdict : ''),
@@ -45,11 +49,13 @@ function fixture() {
     apiJson: async (url, options) => { sent.push({url, options}); return {latex: 'x', valid: true, committed: true}; },
     clearReview: root => { delete root._texadaResult; },
     updateReviewGate: (root, result) => gate.push(result),
+    switchTab: tab => tabs.push(tab), setTimeout: callback => callback(), setIntent() {},
+    historyTypeLabel: type => type,
   };
   vm.createContext(context);
   vm.runInContext(matrixCode, context);
   context.showMatrixResult = result => { shown.push(result); els.matrixResult._texadaResult = result; els.matrixResult.hidden = false; };
-  return {context, els, fields, groups, handlers, sent, shown, gate, reviews};
+  return {context, els, fields, groups, handlers, sent, shown, gate, reviews, tabs};
 }
 
 test('matrix form sends typed dimensions, selected direction expressions and origin', async () => {
@@ -192,4 +198,74 @@ test('structured parameter errors identify the field and server validation messa
     assert.match(error.message, /spec\.rows — Use dimensions from 1 to 20/);
     return true;
   });
+});
+
+function loadHistoryActions(context) {
+  vm.runInContext(source.slice(source.indexOf('  function reuseHistoryInput('), source.indexOf('  function renderHistory(')), context);
+}
+
+test('new matrix history restores controls and regenerates through the matrix API', async () => {
+  const f = fixture();
+  loadHistoryActions(f.context);
+  f.els.matrixResult._texadaResult = {latex: 'old', committed: true};
+  const spec = {
+    kind: 'tridiagonal', rows: 'n', columns: 'n', diagonal: '2', upper: '-1', lower: '-1',
+    bracket: 'bmatrix', display: 'compact', index_start: 0,
+  };
+  f.context.reuseHistoryInput({type: 'matrix', input: '矩阵预设 ' + JSON.stringify(spec)});
+  assert.deepEqual(f.tabs, ['shorthand']);
+  assert.equal(f.fields.rows.value, 'n');
+  assert.equal(f.fields.upper.value, '-1');
+  assert.equal(f.fields.bracket.value, 'bmatrix');
+  assert.equal(f.fields.index_start.value, '0');
+  assert.equal(f.els.matrixResult._texadaResult._reviewBlocked, true);
+  assert.equal(f.els.matrixForm.details.open, true);
+  await f.context.submitMatrixForm({preventDefault() {}});
+  assert.equal(f.sent[0].url, '/api/matrix');
+  assert.deepEqual(JSON.parse(JSON.stringify(f.sent[0].options.body.spec)), spec);
+});
+
+test('legacy nl matrix histories and history viewing use the preset entry', () => {
+  const f = fixture();
+  loadHistoryActions(f.context);
+  f.context.markdownFormula = latex => '$$' + latex + '$$';
+  const item = {
+    type: 'nl', input: '矩阵预设 ' + JSON.stringify({rows: 3, columns: 4}),
+    latex: 'matrix', valid: true, renderMode: 'katex',
+  };
+  f.context.reuseHistoryInput(item);
+  assert.equal(f.fields.kind.value, 'general');
+  assert.equal(f.fields.columns.value, '4');
+  f.context.viewHistoryResult(item);
+  assert.equal(f.shown[0].latex, 'matrix');
+  assert.equal(f.shown[0].agent_trace, undefined);
+  assert.equal(f.shown[0].revision, undefined);
+  assert.ok(f.tabs.every(tab => tab === 'shorthand'));
+});
+
+test('invalid or unknown history parameters cannot alter controls or enter NL', () => {
+  for (const spec of [{rows: false}, {rows: 21}, {rows: 'n', columns: 'm', kind: 'tridiagonal'}, {display: 'unrecognized'}, {extra: '<img>'}]) {
+    const f = fixture();
+    loadHistoryActions(f.context);
+    const before = f.fields.rows.value;
+    f.context.reuseHistoryInput({type: 'matrix', input: '矩阵预设 ' + JSON.stringify(spec)});
+    assert.equal(f.fields.rows.value, before);
+    assert.equal(f.els.matrixStatus.textContent, 'history.invalidMatrix');
+    assert.deepEqual(f.tabs, ['shorthand']);
+    assert.equal(f.sent.length, 0);
+  }
+});
+
+test('restoring matrix history during a request prevents adoption of the old response', async () => {
+  const f = fixture();
+  loadHistoryActions(f.context);
+  let finish;
+  f.context.apiJson = async () => new Promise(resolve => { finish = resolve; });
+  const pending = f.context.submitMatrixForm({preventDefault() {}});
+  f.context.reuseHistoryInput({type: 'matrix', input: '矩阵预设 ' + JSON.stringify({rows: 2, columns: 3})});
+  finish({latex: 'old request', valid: true, committed: true});
+  await pending;
+  assert.equal(f.shown[0]._reviewBlocked, true);
+  assert.equal(f.fields.rows.value, '2');
+  assert.equal(f.fields.columns.value, '3');
 });

@@ -39,6 +39,7 @@ from texada.render.engine import RenderEngine
 from texada.runtime import CommitBarrierError, FormulaState
 from texada.semantic import SemanticParser
 from texada.semantic.model import SemanticDepthError
+from texada.semantic.structure import MAX_EXPRESSION_CHARS
 from texada.store.pending_review import input_source_hash as hash_review_source
 from texada.tools import TeXToolset, ToolObservation, ToolRouter
 from texada.types import RenderMode, RenderResult
@@ -178,6 +179,10 @@ class TeXadaAgentRuntime:
             TeXToolset(config),
             timeout_seconds=config.tool_timeout_seconds,
         )
+        self.matrix_tools = tool_router or ToolRouter(
+            TeXToolset(config, max_tex_length=MAX_EXPRESSION_CHARS),
+            timeout_seconds=config.tool_timeout_seconds,
+        )
         self.backend = backend or getattr(self.model, "backend", None) or BackendManager(config)
         self.symbol_engine = SymbolEngine()
         self.operator_guard = OperatorDriftGuard()
@@ -207,8 +212,12 @@ class TeXadaAgentRuntime:
         start = time.monotonic()
         source_identity = input_source_hash or hash_review_source(user_input, _source_image)
         matrix_spec = _matrix_spec
+        matrix_context = False
         if matrix_spec is None and _task == "nl":
             matrix_spec = recognize_matrix(user_input)
+            matrix_context = matrix_spec is not None and bool(context.strip())
+            if matrix_context:
+                matrix_spec = None
         if matrix_spec is not None:
             result = await self._run_deterministic_candidate(
                 DeterministicCandidate(
@@ -242,8 +251,12 @@ class TeXadaAgentRuntime:
             requires_review=_requires_review,
             input_hash=source_identity,
             matrix_requested=_task == "nl" and "矩阵" in user_input,
+            matrix_recognition_reason=(
+                "matrix_context_requires_planning" if matrix_context
+                else "outside_supported_matrix_grammar"
+            ),
         )
-        if _task == "nl":
+        if _task == "nl" and not matrix_context:
             proposal = self.candidate_engine.propose(user_input)
             if (
                 proposal
@@ -311,8 +324,12 @@ class TeXadaAgentRuntime:
             if not self._model_call_budget_available(start):
                 return reject_model_budget()
             try:
+                generation_input = (
+                    self._user_prompt(user_input, context, preprocessed)
+                    if matrix_context else preprocessed
+                )
                 generated_latex = await self.model.generate_latex(
-                    preprocessed,
+                    generation_input,
                     self.intent_classifier.classify(user_input).intent,
                     force_operators=self.operator_guard.forced_operators(
                         preprocessed,
@@ -1148,6 +1165,7 @@ class TeXadaAgentRuntime:
         matrix_requested: bool = False,
     ) -> AgentRunResult | None:
         """Validate and render a high-confidence candidate without model inference."""
+        tools = self.matrix_tools if matrix_spec is not None else self.tools
         formula_state = self._scoped_state(
             proposal.latex,
             origin=f"{task}_deterministic_candidate",
@@ -1163,7 +1181,7 @@ class TeXadaAgentRuntime:
             name="compile_tex",
             arguments={"latex": proposal.latex},
         )
-        compile_observation = await self.tools.execute(
+        compile_observation = await tools.execute(
             compile_call.name,
             compile_call.arguments,
         )
@@ -1192,7 +1210,7 @@ class TeXadaAgentRuntime:
                 "mode": render_mode.value,
             },
         )
-        render_observation = await self.tools.execute(
+        render_observation = await tools.execute(
             render_call.name,
             render_call.arguments,
         )
@@ -1608,10 +1626,12 @@ class TeXadaAgentRuntime:
         input_hash: str = "",
         matrix_spec: MatrixSpec | None = None,
         matrix_requested: bool = False,
+        matrix_recognition_reason: str = "outside_supported_matrix_grammar",
     ) -> FormulaState:
         state = FormulaState()
         state.matrix_spec = matrix_spec
         state.matrix_requested = matrix_requested
+        state.matrix_recognition_reason = matrix_recognition_reason
         state.mutation_scope_guard = MutationScopeGuard(
             task=task, prefix=prefix, uncertain_roles=uncertain_roles,
         )
@@ -1695,7 +1715,7 @@ class TeXadaAgentRuntime:
                     revision=formula_state.revision, kind="matrix_recognition", ok=False,
                     output={
                         "verdict": "NOT_CHECKED", "coverage": [],
-                        "reason": "outside_supported_matrix_grammar",
+                        "reason": formula_state.matrix_recognition_reason,
                     },
                 )
         return formula_state.latex

@@ -157,10 +157,13 @@
       'history.copyLatex': '复制 LaTeX',
       'history.copyMarkdown': '复制 Markdown',
       'history.type.nl': '自然语言',
+      'history.type.matrix': '矩阵',
       'history.type.completion': '补全',
       'history.type.ocr': 'OCR',
       'history.type.text': '文本',
       'history.reuseNl': '已填入自然语言输入',
+      'history.reuseMatrix': '已恢复矩阵参数',
+      'history.invalidMatrix': '历史矩阵参数无法恢复，请重新填写。',
       'history.reuseCompletion': '已填入补全输入',
       'history.restored': '已打开历史结果',
       'runs.search': '搜索运行 ID、输入、模型或错误…',
@@ -395,10 +398,13 @@
       'history.copyLatex': 'Copy LaTeX',
       'history.copyMarkdown': 'Copy Markdown',
       'history.type.nl': 'Natural',
+      'history.type.matrix': 'Matrix',
       'history.type.completion': 'Completion',
       'history.type.ocr': 'OCR',
       'history.type.text': 'Text',
       'history.reuseNl': 'Filled natural language input',
+      'history.reuseMatrix': 'Matrix parameters restored',
+      'history.invalidMatrix': 'Matrix parameters could not be restored. Enter them again.',
       'history.reuseCompletion': 'Filled completion input',
       'history.restored': 'Opened history result',
       'runs.search': 'Search run ID, input, model, or error…',
@@ -2691,6 +2697,53 @@
     els.matrixStatus.textContent = t('result.sourceEdited');
   }
 
+  function matrixHistorySpec(item) {
+    const prefix = '矩阵预设 ';
+    if (typeof item?.input !== 'string' || !item.input.startsWith(prefix)) return null;
+    const defaults = {
+      kind: 'general', rows: 3, columns: 3, element: 'a', diagonal: 'a_i',
+      upper: 'b_i', lower: 'c_i', bracket: 'pmatrix', display: 'expanded', index_start: 1,
+    };
+    try {
+      const value = JSON.parse(item.input.slice(prefix.length));
+      if (!value || typeof value !== 'object' || Array.isArray(value)
+          || Object.keys(value).some(key => !Object.hasOwn(defaults, key))) return null;
+      const spec = { ...defaults, ...value };
+      const dimension = value => Number.isInteger(value) && value >= 1 && value <= 20
+        || typeof value === 'string' && /^[A-Za-z]$/.test(value);
+      if (!['general', 'tridiagonal'].includes(spec.kind)
+          || !dimension(spec.rows) || !dimension(spec.columns)
+          || spec.kind === 'tridiagonal' && spec.rows !== spec.columns
+          || !['pmatrix', 'bmatrix', 'matrix', 'vmatrix'].includes(spec.bracket)
+          || !['expanded', 'compact'].includes(spec.display)
+          || ![0, 1].includes(spec.index_start)
+          || ['element', 'diagonal', 'upper', 'lower'].some(key =>
+            typeof spec[key] !== 'string' || !spec[key].trim() || spec[key].length > 80)) return null;
+      return spec;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function restoreMatrixHistory(item) {
+    const spec = matrixHistorySpec(item);
+    switchTab('shorthand');
+    els.matrixForm.closest('details').open = true;
+    invalidateMatrixResult();
+    if (!spec) {
+      els.matrixStatus.textContent = t('history.invalidMatrix');
+      els.matrixStatus.focus();
+      return false;
+    }
+    for (const [key, value] of Object.entries(spec)) {
+      els.matrixForm.elements.namedItem(key).value = String(value);
+    }
+    updateMatrixFields();
+    els.matrixStatus.textContent = t('history.reuseMatrix');
+    setTimeout(() => els.matrixForm.elements.namedItem('rows').focus(), 50);
+    return true;
+  }
+
   function bindMatrixForm() {
     if (!els.matrixForm) return;
     updateMatrixFields();
@@ -3156,6 +3209,10 @@
 
   function reuseHistoryInput(item) {
     if (!item.input) return;
+    if (item.type === 'matrix' || item.input.startsWith('矩阵预设 ')) {
+      if (restoreMatrixHistory(item)) setIntent('↺', t('history.reuseMatrix'));
+      return;
+    }
     if (item.type === 'completion') {
       els.completeInput.value = item.input;
       els.completeInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -3196,7 +3253,10 @@
     renderMode = historyRenderMode(item.renderMode);
     lastResult = historyResultFromItem(item);
 
-    if (item.type === 'completion') {
+    if (item.type === 'matrix' || item.input?.startsWith('矩阵预设 ')) {
+      if (!restoreMatrixHistory(item)) return;
+      showMatrixResult(lastResult);
+    } else if (item.type === 'completion') {
       if (item.input) els.completeInput.value = item.input;
       switchTab('complete');
       showCompleteResult(lastResult);

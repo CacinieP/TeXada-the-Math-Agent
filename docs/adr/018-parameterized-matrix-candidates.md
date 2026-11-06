@@ -167,6 +167,20 @@ their own constraint check. Recognized patterns use zero model calls, and
 unrecognized matrix descriptions report their unchecked coverage in the trace.
 The official v0.4.3 replay above remains the released baseline for comparison.
 
+The review fixes give validated matrix generation a separate tool instance
+with a 32768-character ceiling, matching the strict structure parser budget.
+Formula validation, imported history formulas, and imported run-log formulas
+share that ceiling. Model-proposed tool inputs use their 4000-character budget.
+Matrix requests with nonempty supplemental context enter the planner path,
+and candidate generation receives that context. Their matrix requirement
+coverage is recorded as `NOT_CHECKED` with a planning reason.
+
+Structured preset history uses the `matrix` input type. Reuse restores the
+parameters into Presets, including legacy `nl` rows carrying the canonical
+JSON source. Restoration invalidates previous and in-flight draft results.
+Dimension recognition cleans trailing sentence punctuation while preserving
+leading decimal points for the normal unsupported-input path.
+
 | Priority | Issue | Layer and delivery role | Dependency |
 |---|---|---|---|
 | P1 | [#55 Parameterized matrix presets](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/55) | Input Layer / Deterministic Tools, shared generator and usable preset entry | Parameter contract precedes natural-language integration. |
