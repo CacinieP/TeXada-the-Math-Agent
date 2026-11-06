@@ -30,6 +30,7 @@ from texada.core.candidates import (
     DeterministicCandidateEngine,
 )
 from texada.core.intent import IntentClassifier
+from texada.core.matrices import MatrixSpec, check_matrix, generate_matrix, recognize_matrix
 from texada.core.model import MiniCPMModel
 from texada.core.operator_guard import OperatorDriftGuard
 from texada.core.scope import require_transcription
@@ -199,11 +200,31 @@ class TeXadaAgentRuntime:
         input_source_hash: str | None = None,
         _source_image: bytes | None = None,
         _requires_review: bool = False,
+        _matrix_spec: MatrixSpec | None = None,
     ) -> AgentRunResult:
-        if _task != "ocr":
+        if _task != "ocr" and _matrix_spec is None:
             require_transcription(user_input)
         start = time.monotonic()
         source_identity = input_source_hash or hash_review_source(user_input, _source_image)
+        matrix_spec = _matrix_spec
+        if matrix_spec is None and _task == "nl":
+            matrix_spec = recognize_matrix(user_input)
+        if matrix_spec is not None:
+            result = await self._run_deterministic_candidate(
+                DeterministicCandidate(
+                    latex=generate_matrix(matrix_spec),
+                    rule="matrix_parameters" if _matrix_spec is not None else "matrix_nl",
+                ),
+                preprocessed=user_input,
+                render_mode=render_mode,
+                start=start,
+                task="nl",
+                requires_review=_requires_review,
+                input_hash=source_identity,
+                matrix_spec=matrix_spec,
+            )
+            assert result is not None
+            return result
         initial_candidate = self.operator_guard.normalize_candidate(
             _initial_candidate
         )
@@ -220,6 +241,7 @@ class TeXadaAgentRuntime:
             uncertain_roles=_uncertain_role_paths,
             requires_review=_requires_review,
             input_hash=source_identity,
+            matrix_requested=_task == "nl" and "矩阵" in user_input,
         )
         if _task == "nl":
             proposal = self.candidate_engine.propose(user_input)
@@ -1121,8 +1143,18 @@ class TeXadaAgentRuntime:
         source_prefix: str = "",
         input_hash: str = "",
         requires_review: bool = False,
+        matrix_spec: MatrixSpec | None = None,
     ) -> AgentRunResult | None:
         """Validate and render a high-confidence candidate without model inference."""
+        formula_state = self._scoped_state(
+            proposal.latex,
+            origin=f"{task}_deterministic_candidate",
+            task=task,
+            prefix=source_prefix,
+            requires_review=requires_review,
+            input_hash=input_hash,
+            matrix_spec=matrix_spec,
+        )
         compile_call = PlannerToolCall(
             id="deterministic-candidate-compile",
             name="compile_tex",
@@ -1132,11 +1164,21 @@ class TeXadaAgentRuntime:
             compile_call.name,
             compile_call.arguments,
         )
+        compile_data = self._record_formula_evidence(
+            formula_state, compile_observation, revision=formula_state.revision,
+        )
         valid = bool(
             compile_observation.ok
             and compile_observation.output.get("valid")
         )
         if not valid:
+            if matrix_spec is not None:
+                return self._runtime_rejection(
+                    latex=proposal.latex, trace=[], render_mode=render_mode,
+                    semantic_diff={}, tokens_used=0, start=start,
+                    stop_reason="matrix_validation_failed", formula_state=formula_state,
+                    observation=compile_data,
+                )
             return None
 
         render_call = PlannerToolCall(
@@ -1151,34 +1193,32 @@ class TeXadaAgentRuntime:
             render_call.name,
             render_call.arguments,
         )
+        render_data = self._record_formula_evidence(
+            formula_state, render_observation, revision=formula_state.revision,
+        )
         if not render_observation.ok:
+            if matrix_spec is not None:
+                return self._runtime_rejection(
+                    latex=proposal.latex, trace=[], render_mode=render_mode,
+                    semantic_diff={}, tokens_used=0, start=start,
+                    stop_reason="matrix_render_failed", formula_state=formula_state,
+                    observation=render_data,
+                )
             return None
 
-        formula_state = self._scoped_state(
-            proposal.latex,
-            origin=f"{task}_deterministic_candidate",
-            task=task,
-            prefix=source_prefix,
-            requires_review=requires_review,
-            input_hash=input_hash,
-        )
-        compile_data = self._record_formula_evidence(
-            formula_state,
-            compile_observation,
-            revision=formula_state.revision,
-        )
-        render_data = self._record_formula_evidence(
-            formula_state,
-            render_observation,
-            revision=formula_state.revision,
-        )
         if formula_state.revision is None:
             return None
         await self._record_cas_shadow(formula_state, start=start)
         review_reasons = self._review_reasons(formula_state)
         blockers = MutationScopeGuard.commit_blockers(formula_state)
+        constraint_failed = False
         if not blockers and not formula_state.review_required:
-            formula_state.commit(expected_revision=formula_state.revision)
+            try:
+                formula_state.commit(expected_revision=formula_state.revision)
+            except CommitBarrierError:
+                if matrix_spec is None:
+                    raise
+                constraint_failed = True
 
         trace = [
             {
@@ -1212,7 +1252,8 @@ class TeXadaAgentRuntime:
             tokens_used=0,
             latency_ms=(time.monotonic() - start) * 1000,
             stop_reason=(
-                "mutation_scope_review_required" if blockers
+                "matrix_constraint_failed" if constraint_failed
+                else "mutation_scope_review_required" if blockers
                 else "deterministic_candidate" if formula_state.committed
                 else "human_review_required"
             ),
@@ -1487,6 +1528,18 @@ class TeXadaAgentRuntime:
             trace[-1]["cas_transition"] = [
                 item.output for item in state.ledger.evidence if item.kind == "cas_transition"
             ]
+            matrix_checks = [
+                {**item.output, "revision": item.revision}
+                for item in state.ledger.evidence if item.kind == "matrix_constraints"
+            ]
+            if matrix_checks:
+                trace[-1]["matrix_constraints"] = matrix_checks
+            recognition = [
+                {**item.output, "revision": item.revision}
+                for item in state.ledger.evidence if item.kind == "matrix_recognition"
+            ]
+            if recognition:
+                trace[-1]["matrix_recognition"] = recognition
         return trace
 
     async def _record_cas_shadow(self, state: FormulaState, *, start: float) -> None:
@@ -1550,8 +1603,12 @@ class TeXadaAgentRuntime:
         uncertain_roles: tuple[str, ...] = (),
         requires_review: bool = False,
         input_hash: str = "",
+        matrix_spec: MatrixSpec | None = None,
+        matrix_requested: bool = False,
     ) -> FormulaState:
         state = FormulaState()
+        state.matrix_spec = matrix_spec
+        state.matrix_requested = matrix_requested
         state.mutation_scope_guard = MutationScopeGuard(
             task=task, prefix=prefix, uncertain_roles=uncertain_roles,
         )
@@ -1623,6 +1680,21 @@ class TeXadaAgentRuntime:
                 ok=scope.verdict == MutationVerdict.ALLOWED, output=scope.to_dict(),
                 error=scope.reason,
             )
+            matrix_spec = getattr(formula_state, "matrix_spec", None)
+            if matrix_spec is not None:
+                check = check_matrix(matrix_spec, formula_state.latex)
+                formula_state.add_evidence(
+                    revision=formula_state.revision, kind="matrix_constraints",
+                    ok=check["verdict"] == "MATCH", output=check,
+                )
+            elif getattr(formula_state, "matrix_requested", False):
+                formula_state.add_evidence(
+                    revision=formula_state.revision, kind="matrix_recognition", ok=False,
+                    output={
+                        "verdict": "NOT_CHECKED", "coverage": [],
+                        "reason": "outside_supported_matrix_grammar",
+                    },
+                )
         return formula_state.latex
 
     def _action_rejection_result(

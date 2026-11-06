@@ -678,6 +678,58 @@ body {
 .search-box input::placeholder { color: var(--text-muted); }
 
 /* Shorthand grid */
+.matrix-editor {
+  margin: 12px 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+}
+.matrix-editor > summary {
+  cursor: pointer;
+  color: var(--accent-cyan);
+  font-size: 13px;
+}
+.matrix-editor fieldset {
+  border: 0;
+  min-width: 0;
+  padding: 12px 0 0;
+  margin: 0;
+}
+.matrix-legend { padding: 8px 0 0; font-size: 12px; color: var(--text-secondary); }
+.matrix-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.matrix-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 12px; color: var(--text-secondary); }
+.matrix-field[hidden] { display: none; }
+.matrix-field input, .matrix-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font: 13px var(--font-mono);
+  padding: 7px 9px;
+}
+.matrix-field input:focus-visible, .matrix-field select:focus-visible, .matrix-editor > summary:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+#matrix-help { line-height: 1.5; margin-block: 10px; }
+#matrix-status { min-height: 1.5em; white-space: pre-wrap; margin-block-start: 8px; }
+#matrix-result { margin-block-start: 12px; min-width: 0; }
+#matrix-result .render-preview { overflow-x: auto; }
+.matrix-source { color: var(--text-secondary); font-size: 12px; margin-block-start: 8px; }
+.matrix-source pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); margin-block-start: 6px; }
+.matrix-constraint-status { color: var(--text-secondary); font-size: 11px; margin-block: 6px; }
+.agent-step-tools .matrix-constraint-status { display: inline-block; }
+@media (max-width: 480px) {
+  .matrix-fields { grid-template-columns: 1fr; }
+}
+@media (pointer: coarse) {
+  .matrix-field input, .matrix-field select, #btn-generate-matrix { min-height: 48px; }
+}
+
 .shorthand-editor {
   display: grid;
   grid-template-columns: minmax(76px, .8fr) minmax(150px, 1.4fr) 34px;

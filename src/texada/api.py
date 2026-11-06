@@ -36,6 +36,7 @@ from texada.core.inference_fingerprint import (
     without_inference_collection,
 )
 from texada.core.llama_server import LlamaServerError, LlamaServerManager
+from texada.core.matrices import MatrixSpec
 from texada.core.router import InputRouter
 from texada.core.scope import ComputationOutsideScope, require_transcription
 from texada.handoff import FormulaTransfer, HandoffError, TransferRegistry, produce_formula_transfer
@@ -78,7 +79,7 @@ EXPORTABLE_SETTINGS_FIELDS = frozenset({
 _request_resources: ContextVar[dict | None] = ContextVar("texada_request_resources", default=None)
 _INFERENCE_RUN_PATHS = frozenset({
     "/api/convert", "/api/agent", "/api/ocr", "/api/complete", "/api/validate",
-    "/api/handoff/formula",
+    "/api/handoff/formula", "/api/matrix",
 })
 
 # ── Request / Response models ──
@@ -88,6 +89,13 @@ class ConvertRequest(BaseModel):
     context: str = Field(default="", max_length=8000)
     intent_override: str | None = Field(default=None, max_length=80)
     render_mode: str = Field(default="katex", pattern="^(katex|latex)$")
+
+
+class MatrixRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    spec: MatrixSpec
+    render_mode: str = Field(default="katex", pattern="^(katex|latex)$")
+
 
 class LaTeXResponse(BaseModel):
     run_id: str
@@ -951,6 +959,19 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
     @app.post("/api/agent", response_model=AgentResponse)
     async def run_agent(req: ConvertRequest):
         """Primary NL path: MiniCPM5 planner → tools → observations."""
+        return await execute_agent(req)
+
+    @app.post("/api/matrix", response_model=AgentResponse)
+    async def generate_matrix(req: MatrixRequest):
+        source_text = "矩阵预设 " + json.dumps(
+            req.spec.model_dump(), ensure_ascii=False, sort_keys=True,
+        )
+        return await execute_agent(
+            ConvertRequest(text=source_text, render_mode=req.render_mode),
+            matrix_spec=req.spec,
+        )
+
+    async def execute_agent(req: ConvertRequest, *, matrix_spec: MatrixSpec | None = None):
         try:
             require_transcription(req.text)
         except ComputationOutsideScope as exc:
@@ -963,10 +984,12 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         started = time.monotonic()
         req_mode = _parse_render_mode(req.render_mode)
         try:
+            matrix_options = {"_matrix_spec": matrix_spec} if matrix_spec is not None else {}
             result = await agent_runtime.run(
                 req.text,
                 context=req.context,
                 render_mode=req_mode,
+                **matrix_options,
             )
         except RuntimeError as e:
             await record_run(RunLogEntry(

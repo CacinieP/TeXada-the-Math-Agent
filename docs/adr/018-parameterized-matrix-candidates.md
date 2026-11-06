@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Accepted design, implementation pending |
+| Status | Accepted design, first matrix delivery implemented on an unreleased feature branch |
 | Date | 2026-11-06 |
 | Layers | Input Layer / Deterministic Tools / Semantic Layer / Evidence Layer |
 | Scheduling | Bounded candidate improvements after v0.4.3, with cross-cutting evidence work. Release version awaits scheduling. |
@@ -158,6 +158,14 @@ cell inspection, so the checker must publish its coverage. Request-specific
 structural evidence supports fidelity review within that declared scope.
 
 ## Delivery and acceptance
+
+The first implementation adds the preset form, `POST /api/matrix`, narrow
+natural-language recognition, a shared matrix generator, and revision-bound
+checks through the existing Agent Runtime. The commit records the matching
+matrix evidence with compile and render evidence. Changed revisions require
+their own constraint check. Recognized patterns use zero model calls, and
+unrecognized matrix descriptions report their unchecked coverage in the trace.
+The official v0.4.3 replay above remains the released baseline for comparison.
 
 | Priority | Issue | Layer and delivery role | Dependency |
 |---|---|---|---|

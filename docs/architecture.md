@@ -37,8 +37,8 @@ tridiagonal pattern. Package identity, new run IDs, configuration, and
 acceptance scope are recorded in ADR-018. Desktop interaction has a separate
 acceptance step. [ADR-018](adr/018-parameterized-matrix-candidates.md)
 
-The accepted design has implementation pending. General and tridiagonal
-matrix presets will share a stateless parameterized generator with a bounded
+The first implementation is an unreleased feature branch. General and
+tridiagonal matrix presets share a stateless parameterized generator with a bounded
 natural-language recognizer. Original requests supply the authoritative
 constraints. Candidates enter FormulaState, and independent checks inspect
 supported dimensions, diagonals, indices, and zero entries. Constraint
@@ -93,6 +93,7 @@ clients.
 | Product path | Model role | Agent loop |
 |--------------|------------|------------|
 | Natural language (`/api/agent`) | Deterministic candidate or configured model/Planner | Yes |
+| Matrix presets (`/api/matrix`, unreleased) | Shared deterministic matrix generator | FormulaState with compile/render and matrix constraint evidence |
 | OCR (`/api/ocr`) | Vision candidate → shared Planner | Yes |
 | Completion (`/api/complete`) | Rule/model candidate → shared Planner | Yes |
 | Validation (`/api/validate`) | Deterministic local code | No model |

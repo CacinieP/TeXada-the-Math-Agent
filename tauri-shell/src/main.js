@@ -28,6 +28,8 @@
   let historyView = 'results';
   let pendingDataImport = null;
   let backendStartupPromise = null;
+  let matrixDraftRevision = 0;
+  let matrixProcessing = false;
   let savedBackend = null;
   let savedLlamaSettings = null;
   let backendSettingsSaving = false;
@@ -91,6 +93,35 @@
       'ocr.tooLarge': '图片过大，请使用 {limit} MB 以内的图片',
       'complete.placeholder': '输入部分 LaTeX… 如: \\\\sum_{i=1}^{',
       'complete.hint': 'Enter 补全 · Esc 关闭',
+      'matrix.title': '矩阵预设',
+      'matrix.parameters': '矩阵参数',
+      'matrix.kind': '类型',
+      'matrix.tridiagonal': '三对角矩阵',
+      'matrix.general': '通用矩阵',
+      'matrix.order': '阶数',
+      'matrix.rows': '行数',
+      'matrix.columns': '列数',
+      'matrix.element': '元素符号',
+      'matrix.diagonal': '主对角线',
+      'matrix.upper': '上对角线',
+      'matrix.lower': '下对角线',
+      'matrix.bracket': '括号',
+      'matrix.noBracket': '无括号',
+      'matrix.display': '展示',
+      'matrix.expanded': '完整展开',
+      'matrix.compact': '省略展示',
+      'matrix.indexStart': '下标起点',
+      'matrix.help': '阶数可填正整数或单个字母。符号维度使用省略展示，完整展开最多 20×20。',
+      'matrix.generate': '生成矩阵',
+      'matrix.generating': '正在生成矩阵…',
+      'matrix.generated': '已生成，请核对结构后使用。',
+      'matrix.constraints': '结构检查 {verdict}',
+      'matrix.MATCH': '符合已识别约束',
+      'matrix.DIFFERENT': '与需求不符',
+      'matrix.UNSUPPORTED': '结构暂不支持检查',
+      'matrix.NOT_CHECKED': '需求尚未检查',
+      'matrix.insert': '插入矩阵',
+      'matrix.source': 'LaTeX 源码',
       'shorthand.keyPlaceholder': '预设键…',
       'shorthand.valuePlaceholder': 'LaTeX 预设公式…',
       'shorthand.add': '添加预设',
@@ -300,6 +331,35 @@
       'ocr.tooLarge': 'Image is too large. Use an image under {limit} MB',
       'complete.placeholder': 'Enter partial LaTeX… e.g. \\\\sum_{i=1}^{',
       'complete.hint': 'Enter to complete · Tab accept · Esc dismiss',
+      'matrix.title': 'Matrix presets',
+      'matrix.parameters': 'Matrix parameters',
+      'matrix.kind': 'Type',
+      'matrix.tridiagonal': 'Tridiagonal matrix',
+      'matrix.general': 'General matrix',
+      'matrix.order': 'Order',
+      'matrix.rows': 'Rows',
+      'matrix.columns': 'Columns',
+      'matrix.element': 'Element symbol',
+      'matrix.diagonal': 'Main diagonal',
+      'matrix.upper': 'Upper diagonal',
+      'matrix.lower': 'Lower diagonal',
+      'matrix.bracket': 'Brackets',
+      'matrix.noBracket': 'No brackets',
+      'matrix.display': 'Display',
+      'matrix.expanded': 'Fully expanded',
+      'matrix.compact': 'Abbreviated',
+      'matrix.indexStart': 'Index origin',
+      'matrix.help': 'Use positive integers or single letters. Symbolic dimensions use abbreviated display. Full expansion supports up to 20×20.',
+      'matrix.generate': 'Generate matrix',
+      'matrix.generating': 'Generating matrix…',
+      'matrix.generated': 'Generated. Check the structure before use.',
+      'matrix.constraints': 'Structure check {verdict}',
+      'matrix.MATCH': 'matches recognized constraints',
+      'matrix.DIFFERENT': 'differs from request',
+      'matrix.UNSUPPORTED': 'structure check unsupported',
+      'matrix.NOT_CHECKED': 'request not checked',
+      'matrix.insert': 'Insert matrix',
+      'matrix.source': 'LaTeX source',
       'shorthand.keyPlaceholder': 'Preset key…',
       'shorthand.valuePlaceholder': 'LaTeX preset…',
       'shorthand.add': 'Add preset',
@@ -485,6 +545,11 @@
     latexSection: document.getElementById('latex-result-section'),
     statusDot: document.getElementById('status-dot'),
     tabBar: document.getElementById('tab-bar'),
+    matrixForm: document.getElementById('matrix-form'),
+    matrixStatus: document.getElementById('matrix-status'),
+    matrixResult: document.getElementById('matrix-result'),
+    matrixRowsLabel: document.getElementById('matrix-rows-label'),
+    generateMatrixBtn: document.getElementById('btn-generate-matrix'),
     shorthandGrid: document.getElementById('shorthand-grid'),
     shorthandSearch: document.getElementById('shorthand-search'),
     shorthandKeyInput: document.getElementById('shorthand-key-input'),
@@ -803,7 +868,10 @@
       const res = await fetch(`${API_BASE}${path}`, fetchOptions);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const error = new Error(data.detail || `HTTP ${res.status}`);
+        const detail = Array.isArray(data.detail)
+          ? data.detail.map(item => `${item.loc?.slice(1).join('.') || ''} — ${item.msg || ''}`).join('\n')
+          : data.detail;
+        const error = new Error(detail || `HTTP ${res.status}`);
         error.status = res.status;
         throw error;
       }
@@ -1155,9 +1223,14 @@
       const names = stepToolNames(step);
       const origin = String(step.origin || 'planner');
       const status = observations.some(observation => !observation.ok) ? 'error' : 'ok';
-      const tools = names.length
+      let tools = names.length
         ? names.map(name => `<code>${escapeHtml(name)}</code>`).join('')
         : '<span class="agent-no-tool">final</span>';
+      const checks = Array.isArray(step.matrix_constraints) ? step.matrix_constraints : [];
+      if (checks.length || step.matrix_recognition) {
+        const verdict = checks.find(check => check.revision === res.revision)?.verdict || 'NOT_CHECKED';
+        tools += `<span class="matrix-constraint-status">${escapeHtml(t('matrix.constraints', { verdict: t(`matrix.${verdict}`) }))}</span>`;
+      }
       return `
         <div class="agent-step">
           <span class="agent-step-index">#${Number(step.step || 0)}</span>
@@ -1195,6 +1268,7 @@
   }
 
   function updateRender() {
+    if (els.matrixResult._texadaResult) renderMatrixPreview(els.matrixResult._texadaResult);
     const result = els.nlResult._texadaResult || lastResult;
     if (!result) return;
     if (renderMode === 'katex') {
@@ -1314,7 +1388,7 @@
     root.querySelectorAll('.formula-click-target').forEach(target => {
       target.onclick = e => {
         if (e.target.closest('button')) return;
-        const owner = target.closest('#nl-result, #ocr-result, #complete-result');
+        const owner = target.closest('#nl-result, #ocr-result, #complete-result, #matrix-result');
         if (owner && !window.TeXadaReview.canAdopt(owner._texadaResult)) return;
         const text = target.dataset.insertText || formulaText(target.dataset.insertTarget, owner?._texadaResult || lastResult);
         insertAtCursor(text);
@@ -1324,7 +1398,7 @@
 
   function updateReviewGate(root, result) {
     const allowed = window.TeXadaReview.canAdopt(result);
-    root.querySelectorAll('#btn-copy-main, #btn-copy-src, #btn-copy-md, [data-copy-result]').forEach(button => {
+    root.querySelectorAll('#btn-copy-main, #btn-copy-src, #btn-copy-md, [data-copy-result], [data-insert-result]').forEach(button => {
       button.disabled = !allowed;
     });
     root.querySelectorAll('.formula-click-target').forEach(target => {
@@ -1381,9 +1455,13 @@
       els.resultSource.textContent = t(`result.source${kind}`);
       renderAgentTrace(result);
     }
-    for (const root of [els.ocrResult, els.completeResult]) {
+    for (const root of [els.ocrResult, els.completeResult, els.matrixResult]) {
       const result = root._texadaResult;
       if (result) root.querySelector('.valid-badge').textContent = t(result.valid ? 'result.valid' : 'result.invalid');
+    }
+    const matrixVerdict = els.matrixResult.querySelector('[data-matrix-verdict]');
+    if (matrixVerdict) {
+      matrixVerdict.textContent = t('matrix.constraints', { verdict: t(`matrix.${matrixVerdict.dataset.matrixVerdict}`) });
     }
   }
 
@@ -1497,6 +1575,7 @@
   const nlSourceRevision = window.TeXadaReview.bindInputInvalidation(els.nlInput, () => resultReviews.get(els.nlResult));
   const completeSourceRevision = window.TeXadaReview.bindInputInvalidation(els.completeInput, () => resultReviews.get(els.completeResult));
   bindInlineCompletion();
+  bindMatrixForm();
 
   if ($('#btn-save-backend')) {
     $('#btn-save-backend').addEventListener('click', saveBackendSettings);
@@ -2556,6 +2635,148 @@
     clearReview(el);
     el.style.display = 'block';
     el.innerHTML = `<div class="error-box"><span class="icon">⚠️</span><div>${escapeHtml(msg)}</div></div>`;
+  }
+
+  // ── Parameterized matrix presets ──
+  function matrixSpecFromForm() {
+    const fields = els.matrixForm.elements;
+    const dimension = value => /^\d+$/.test(value.trim()) ? Number(value) : value.trim();
+    const kind = fields.namedItem('kind').value;
+    const rows = dimension(fields.namedItem('rows').value);
+    const entries = kind === 'tridiagonal'
+      ? {
+        diagonal: fields.namedItem('diagonal').value.trim(),
+        upper: fields.namedItem('upper').value.trim(),
+        lower: fields.namedItem('lower').value.trim(),
+      }
+      : { element: fields.namedItem('element').value.trim() };
+    return {
+      kind,
+      rows,
+      columns: kind === 'tridiagonal' ? rows : dimension(fields.namedItem('columns').value),
+      ...entries,
+      bracket: fields.namedItem('bracket').value,
+      display: fields.namedItem('display').value,
+      index_start: Number(fields.namedItem('index_start').value),
+    };
+  }
+
+  function updateMatrixFields() {
+    const fields = els.matrixForm.elements;
+    const tridiagonal = fields.namedItem('kind').value === 'tridiagonal';
+    for (const [selector, visible] of [['[data-matrix-general]', !tridiagonal], ['[data-matrix-tridiagonal]', tridiagonal]]) {
+      els.matrixForm.querySelectorAll(selector).forEach(field => {
+        field.hidden = !visible;
+        field.querySelector('input').disabled = !visible;
+      });
+    }
+    els.matrixRowsLabel.dataset.i18n = tridiagonal ? 'matrix.order' : 'matrix.rows';
+    els.matrixRowsLabel.textContent = t(els.matrixRowsLabel.dataset.i18n);
+    const symbolic = /^[A-Za-z]$/.test(fields.namedItem('rows').value.trim())
+      || (!tridiagonal && /^[A-Za-z]$/.test(fields.namedItem('columns').value.trim()));
+    const display = fields.namedItem('display');
+    display.querySelector('option[value="expanded"]').disabled = symbolic;
+    if (symbolic) display.value = 'compact';
+  }
+
+  function invalidateMatrixResult() {
+    matrixDraftRevision += 1;
+    els.matrixStatus.textContent = '';
+    const result = els.matrixResult._texadaResult;
+    if (!result) return;
+    result._reviewInputChanged = true;
+    result._reviewBlocked = true;
+    resultReviews.get(els.matrixResult)?.invalidate();
+    updateReviewGate(els.matrixResult, result);
+    els.matrixStatus.textContent = t('result.sourceEdited');
+  }
+
+  function bindMatrixForm() {
+    if (!els.matrixForm) return;
+    updateMatrixFields();
+    const updateDraft = () => {
+      updateMatrixFields();
+      invalidateMatrixResult();
+    };
+    els.matrixForm.addEventListener('input', updateDraft);
+    els.matrixForm.addEventListener('change', updateDraft);
+    els.matrixForm.addEventListener('keydown', event => {
+      if (event.key === 'Enter' && isImeComposing(event)) event.preventDefault();
+    });
+    els.matrixForm.addEventListener('submit', submitMatrixForm);
+  }
+
+  async function submitMatrixForm(event) {
+    event.preventDefault();
+    if (matrixProcessing || !els.matrixForm.reportValidity()) return;
+    const spec = matrixSpecFromForm();
+    const sourceRevision = matrixDraftRevision;
+    matrixProcessing = true;
+    els.generateMatrixBtn.disabled = true;
+    els.matrixForm.setAttribute('aria-busy', 'true');
+    els.matrixStatus.textContent = t('matrix.generating');
+    clearReview(els.matrixResult);
+    els.matrixResult.hidden = true;
+    try {
+      const result = await apiJson('/api/matrix', { method: 'POST', body: { spec, render_mode: renderMode } });
+      if (sourceRevision !== matrixDraftRevision) {
+        result._reviewInputChanged = true;
+        result._reviewBlocked = true;
+      }
+      showMatrixResult(result);
+      els.matrixStatus.textContent = t(result._reviewInputChanged ? 'result.sourceEdited' : 'matrix.generated');
+    } catch (error) {
+      els.matrixStatus.textContent = String(error).replace(/^Error:\s*/, '');
+      els.matrixStatus.focus();
+    } finally {
+      matrixProcessing = false;
+      els.generateMatrixBtn.disabled = false;
+      els.matrixForm.setAttribute('aria-busy', 'false');
+    }
+  }
+
+  function renderMatrixPreview(result) {
+    const preview = els.matrixResult.querySelector('[data-matrix-preview]');
+    if (!preview) return;
+    if (renderMode === 'latex') {
+      preview.classList.add('pure-latex');
+      preview.innerHTML = highlightLatex(result.latex);
+    } else {
+      preview.classList.remove('pure-latex');
+      renderKatexPreview(preview, result.latex, result.katex_html || '');
+    }
+  }
+
+  function showMatrixResult(result) {
+    const checks = (result.agent_trace || []).flatMap(step => step.matrix_constraints || []);
+    const verdict = checks.findLast(check => check.revision === result.revision)?.verdict || 'NOT_CHECKED';
+    els.matrixResult.innerHTML = `
+      <div class="result-section">
+        <div class="result-label"><span data-i18n="matrix.title">${t('matrix.title')}</span> <span class="valid-badge ${result.valid ? 'ok' : 'err'}">${t(result.valid ? 'result.valid' : 'result.invalid')}</span></div>
+        <p class="matrix-constraint-status" data-matrix-verdict="${escapeHtml(verdict)}">${escapeHtml(t('matrix.constraints', { verdict: t(`matrix.${verdict}`) }))}</p>
+        <div class="render-preview formula-click-target" data-matrix-preview data-insert-target="copy"></div>
+        <details class="matrix-source"><summary data-i18n="matrix.source">${t('matrix.source')}</summary><pre></pre></details>
+      </div>
+      ${inlineAgentTrace(result)}
+      <div class="action-row">
+        <button class="action-btn primary" type="button" data-insert-result data-i18n="matrix.insert">${t('matrix.insert')}</button>
+        <button class="action-btn" type="button" data-copy-result="latex" data-i18n="shorthand.copyLatex">${t('shorthand.copyLatex')}</button>
+        <button class="action-btn" type="button" data-copy-result="markdown" data-i18n="shorthand.copyMarkdown">${t('shorthand.copyMarkdown')}</button>
+      </div>`;
+    els.matrixResult.querySelector('pre').textContent = result.latex;
+    els.matrixResult.querySelector('[data-matrix-preview]').dataset.insertText = result.copy_text || result.latex;
+    els.matrixResult.querySelector('[data-insert-result]').addEventListener('click', () => {
+      if (window.TeXadaReview.canAdopt(result)) insertAtCursor(result.copy_text || result.latex);
+    });
+    els.matrixResult.querySelectorAll('[data-copy-result]').forEach(button => {
+      button.addEventListener('click', () => {
+        if (window.TeXadaReview.canAdopt(result)) copyToClipboard(formulaText(button.dataset.copyResult, result));
+      });
+    });
+    renderMatrixPreview(result);
+    mountReview(els.matrixResult, result);
+    bindFormulaInsertHandlers(els.matrixResult);
+    els.matrixResult.hidden = false;
   }
 
   // ── Shorthand ──
