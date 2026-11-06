@@ -57,6 +57,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `docs/adr/019-bounded-sum-transcription.md` | Source constraints for finite sums, explicit domains, region integrals, clarification and revision-bound checks. |
 | `docs/images/matrix-presets-preview.png` | Browser preview of the symbolic tridiagonal preset form and its checked result. |
 | `docs/e2e-manual.md` | Human and automated local E2E checklist for the Agent Runtime path. |
+| `docs/issue64-macos-insertion.md` | Native insertion observations, application hide/show repair, diagnostic scope and pending target-text acceptance. |
 | `docs/local-model-benchmark-2026-09-12.md` | Local MiniCPM5-1B/2B Q4 comparison, development-regression results, thinking tradeoffs, and local deployment evidence, distinct from official release artifacts. |
 | `docs/audit.md` | Source audit scope, stale-code removals, remediation history, and intentional defaults. |
 | `docs/file-inventory.md` | This file-by-file source map. |
@@ -194,6 +195,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `tests/test_e2e.py` | Optional live API E2E tests gated by `TEXADA_RUN_E2E=1`. |
 | `tests/test_fixer.py` | LaTeX auto-fixer tests. |
 | `tests/test_frontend_contract.py` | Static desktop DOM-ID and data-portability wiring contracts. |
+| `tests/test_desktop_insert_contract.py` | Production insertion SDK wiring, macOS application hide/show symmetry, failure propagation and content-free diagnostics. |
 | `tests/test_formula_runtime.py` | Formula revision, stale-write, evidence-binding, projection, and commit-barrier invariants. |
 | `tests/test_highlighter.py` | Pure LaTeX syntax highlighter tests. |
 | `tests/test_history.py` | SQLite history store tests. |
