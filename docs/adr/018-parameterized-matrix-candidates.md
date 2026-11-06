@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Accepted design, first matrix delivery implemented on an unreleased feature branch |
+| Status | Accepted design, first matrix delivery implemented, release pending |
 | Date | 2026-11-06 |
 | Layers | Input Layer / Deterministic Tools / Semantic Layer / Evidence Layer |
 | Scheduling | Bounded candidate improvements after v0.4.3, with cross-cutting evidence work. Release version awaits scheduling. |
