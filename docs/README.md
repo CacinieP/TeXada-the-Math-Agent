@@ -16,13 +16,14 @@ This directory keeps technical and maintenance documentation. Community health f
 | [Design evolution](design-evolution.md) / [设计思路与版本迭代](design-evolution.md) | Long-form product, architecture, algorithm, and per-version Diff rationale from the original prototype through v0.3.8. |
 | [Architecture](architecture.md) / [架构文档](architecture.md) | System layout, backend model flow, frontend shell, configuration, CI and release shape. |
 | [Architecture freeze](architecture-freeze-v0.4.md) / [架构冻结](architecture-freeze-v0.4.md) | Frozen v0.4-v1.0 layers, milestone scope, and change gate. |
-| [Iteration roadmap](iteration-roadmap-v0.4.1-to-v1.0.md) / [迭代路线图](iteration-roadmap-v0.4.1-to-v1.0.md) | Current authoritative sequencing: decisions D1-D7, iteration order and acceptance gates from v0.4.1 to v1.0, plus recorded milestone drift. |
+| [Iteration roadmap](iteration-roadmap-v0.4.1-to-v1.0.md) / [迭代路线图](iteration-roadmap-v0.4.1-to-v1.0.md) | Current authoritative sequencing with decisions D1-D8, iteration order, post-v0.4.3 matrix acceptance gates, and recorded milestone drift. |
 | [ADR-011 Formula Runtime Ledger](adr/011-formula-runtime-ledger.md) | Revision-bound formula state, evidence lifecycle, and commit barrier decision. |
 | [ADR-012 Planner Projection](adr/012-planner-projection.md) | Bounded model-facing state and Semantic summaries without full trees. |
 | [ADR-013 Golden Set Evidence](adr/013-golden-set-evidence.md) | Cross-cutting evidence track: golden set, repair dataset, recorded vs real modes, CI boundary. |
 | [ADR-014 Tool Runtime Contract](adr/014-tool-runtime-contract.md) | v0.4.1 tool-contract work merged into the v0.5 design phase; capability probe, schema validation, affordance policy. |
 | [ADR-015 Semantic Patch Apply Model](adr/015-semantic-patch-apply-model.md) | Hybrid patch model: planner produces patches, deterministic applier applies, Scope Guard bounds, commit barrier decides. |
 | [ADR-016 Local Model Runtime](adr/016-local-model-runtime-llama-server.md) | Built-in llama-server sidecar as default runtime with Ollama and cloud as compatibility backends. |
+| [ADR-018 Parameterized Matrix Candidates](adr/018-parameterized-matrix-candidates.md) | Accepted design for shared matrix generation, bounded natural-language routing, revision-bound constraint checks, and official v0.4.3 replay evidence. Implementation pending. |
 | [SymPy capability matrix](sympy-capability-matrix.md) / [SymPy 能力矩阵](sympy-capability-matrix.md) | Generated boundary declaration for the optional, unregistered CAS scaffold, including parser drift, deterministic seed policy, and acceptance red lines. |
 | [Local E2E](e2e-manual.md) / [本地端到端测试](e2e-manual.md) | Human and automated validation for the MiniCPM5 Agent Runtime path. |
 | [Local model comparison, 2026-09-12](local-model-benchmark-2026-09-12.md) / [本机模型对照](local-model-benchmark-2026-09-12.md) | MiniCPM5-1B/2B Q4 local measurements, development-regression scope, thinking tradeoffs, and deployment evidence; not an official installer release announcement. |
