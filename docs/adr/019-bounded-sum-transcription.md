@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Implemented, release pending |
+| Status | Included in v0.4.4 release source. Final package records belong to release assets. |
 | Date | 2026-11-06 |
 | Layers | Input / Deterministic Tools / Semantic / Evidence |
 | Baseline | Official v0.4.3 at `6adcba0ab1540f2efb1bf78156783842001bc72c` |

@@ -46,6 +46,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | File | Purpose |
 |------|---------|
 | `docs/README.md` | Documentation index grouping technical docs and root-level community/release files. |
+| `docs/release-v0.4.4.md` | v0.4.4 feature summary, download paths, exact-artifact release gates and pending native insertion acceptance. |
 | `docs/comparison.md` | Product-focus comparison with direct links to official adjacent-product documentation. |
 | `docs/design-philosophy.md` | Rationale for separating planner decisions, deterministic tool execution, and compiler verification. |
 | `docs/design-evolution.md` | Long-form Chinese design rationale and verified per-version architecture Diff from the original prototype through v0.3.8. |

@@ -2,10 +2,10 @@
 
 | Field | Value |
 |---|---|
-| Status | Accepted design, first matrix delivery implemented, release pending |
+| Status | Included in v0.4.4 release source. Final package records belong to release assets. |
 | Date | 2026-11-06 |
 | Layers | Input Layer / Deterministic Tools / Semantic Layer / Evidence Layer |
-| Scheduling | Bounded candidate improvements after v0.4.3, with cross-cutting evidence work. Release version awaits scheduling. |
+| Scheduling | Bounded candidate improvements following v0.4.3, included in v0.4.4 release source with cross-cutting evidence work. |
 | Baseline | Official v0.4.3 at `6adcba0ab1540f2efb1bf78156783842001bc72c` |
 
 ## Problem and current-release evidence
