@@ -51,7 +51,10 @@ class MatrixSpec(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True, validate_default=True)
 
-    kind: Literal["general", "tridiagonal"] = "general"
+    kind: Literal[
+        "general", "tridiagonal", "identity", "zero", "diagonal",
+        "upper_triangular", "lower_triangular",
+    ] = "general"
     rows: int | str = 3
     columns: int | str = 3
     element: str = "a"
@@ -101,8 +104,8 @@ class MatrixSpec(BaseModel):
 
     @model_validator(mode="after")
     def validate_shape(self) -> MatrixSpec:
-        if self.kind == "tridiagonal" and self.rows != self.columns:
-            raise ValueError("tridiagonal matrices must have matching row and column dimensions")
+        if self.kind not in {"general", "zero"} and self.rows != self.columns:
+            raise ValueError(f"{self.kind} matrices must have matching row and column dimensions")
         if isinstance(self.rows, str) or isinstance(self.columns, str):
             object.__setattr__(self, "display", "compact")
         return self
@@ -164,15 +167,31 @@ def generate_matrix(spec: MatrixSpec) -> str:
             rows.append(cells)
     else:
         rows = []
-        for row in _positions(spec.rows, start, spec.display):
+        row_positions = _positions(spec.rows, start, spec.display)
+        column_positions = _positions(spec.columns, start, spec.display)
+        for row_offset, row in enumerate(row_positions):
             cells = []
-            for column in _positions(spec.columns, start, spec.display):
-                if row is None and column is None:
+            for column_offset, column in enumerate(column_positions):
+                # Display offsets retain ordering for symbolic endpoint labels.
+                zero_entry = (
+                    spec.kind in {"identity", "diagonal"} and row_offset != column_offset
+                    or spec.kind == "upper_triangular" and row_offset > column_offset
+                    or spec.kind == "lower_triangular" and row_offset < column_offset
+                )
+                if zero_entry:
+                    cells.append("0")
+                elif row is None and column is None:
                     cells.append(r"\ddots")
                 elif row is None:
                     cells.append(r"\vdots")
                 elif column is None:
                     cells.append(r"\cdots")
+                elif spec.kind == "zero":
+                    cells.append("0")
+                elif spec.kind == "identity":
+                    cells.append("1")
+                elif spec.kind == "diagonal":
+                    cells.append(_entry(spec.diagonal, row))
                 else:
                     cells.append(f"{spec.element}_{{{row},{column}}}")
             rows.append(cells)
@@ -284,6 +303,17 @@ class _MatrixDisplayParser:
 
 def check_matrix(spec: MatrixSpec, latex: str) -> dict[str, Any]:
     """Check actual candidate structure against the supported display contract."""
+    checks = ["dimensions", "bracket", "display_contract"]
+    if spec.kind not in {"identity", "zero"}:
+        checks.insert(1, "element_indices")
+    checks.extend({
+        "tridiagonal": ["diagonal_expressions", "direction", "band_exterior_zeros"],
+        "identity": ["unit_diagonal", "off_diagonal_zeros"],
+        "zero": ["all_entries_zero"],
+        "diagonal": ["diagonal_expressions", "off_diagonal_zeros"],
+        "upper_triangular": ["upper_triangle_elements", "lower_triangle_zeros"],
+        "lower_triangular": ["lower_triangle_elements", "upper_triangle_zeros"],
+    }.get(spec.kind, []))
     result: dict[str, Any] = {
         "verdict": "NOT_CHECKED",
         "spec": spec.model_dump(),
@@ -293,15 +323,11 @@ def check_matrix(spec: MatrixSpec, latex: str) -> dict[str, Any]:
             "logical_rows": spec.rows,
             "logical_columns": spec.columns,
             "dot_normalization": "katex-0.18.2-vdots-expansion",
-            "checks": ["dimensions", "element_indices", "bracket", "display_contract"],
+            "checks": checks,
         },
         "normalization_version": f"matrix-display-v1/{NORMALIZATION_VERSION}",
         "diagnostics": [],
     }
-    if spec.kind == "tridiagonal":
-        result["coverage"]["checks"].extend(
-            ["diagonal_expressions", "direction", "band_exterior_zeros"]
-        )
     if not isinstance(latex, str) or not latex.strip():
         result["diagnostics"] = ["matrix candidate is unavailable"]
         return result

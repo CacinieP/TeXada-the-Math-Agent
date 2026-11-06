@@ -37,8 +37,9 @@ tridiagonal pattern. Package identity, new run IDs, configuration, and
 acceptance scope are recorded in ADR-018. Desktop interaction has a separate
 acceptance step. [ADR-018](adr/018-parameterized-matrix-candidates.md)
 
-The first implementation is complete and awaits release. General and
-tridiagonal matrix presets share a stateless parameterized generator with a bounded
+The implementation awaits release. General, tridiagonal, identity, zero,
+diagonal and upper/lower-triangular presets share a stateless parameterized
+generator. General/tridiagonal descriptions use a bounded
 natural-language recognizer. Original requests supply the authoritative
 constraints. Candidates enter FormulaState, and independent checks inspect
 supported dimensions, diagonals, indices, and zero entries. Constraint
@@ -47,7 +48,7 @@ enter the existing rejection or human-review flow, while compile/render
 evidence supports the revision crossing the Commit Barrier.
 
 Issues #55, #56, and #57 cover the first matrix delivery. Issue #59 tracks sum
-and integral fidelity separately. Issue #58 collects later matrix types.
+and integral fidelity separately. Issue #58 adds the five follow-up preset kinds.
 The roadmap assigns this work to a bounded candidate slice after v0.4.3 and
 the cross-cutting evidence track, with its release version awaiting
 scheduling. [Delivery order and gates](iteration-roadmap-v0.4.1-to-v1.0.md#v043-后有界候选改进批次已接受设计具体发版待排期)

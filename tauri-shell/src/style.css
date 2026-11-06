@@ -723,11 +723,17 @@ body {
 .matrix-source pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); margin-block-start: 6px; }
 .matrix-constraint-status { color: var(--text-secondary); font-size: 11px; margin-block: 6px; }
 .agent-step-tools .matrix-constraint-status { display: inline-block; }
+.matrix-search-results { max-width: 920px; margin: 0 auto; padding: 0 14px 12px; }
+.matrix-search-results[hidden] { display: none; }
+.matrix-search-results p { margin-block-end: 6px; }
+.matrix-search-types { display: flex; flex-wrap: wrap; gap: 6px; }
+.matrix-search-types button { min-height: 36px; }
+.matrix-search-types button:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 @media (max-width: 480px) {
   .matrix-fields { grid-template-columns: 1fr; }
 }
 @media (pointer: coarse) {
-  .matrix-field input, .matrix-field select, #btn-generate-matrix { min-height: 48px; }
+  .matrix-field input, .matrix-field select, #btn-generate-matrix, .matrix-search-types button { min-height: 48px; }
 }
 
 .shorthand-editor {

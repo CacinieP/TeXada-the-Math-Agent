@@ -140,24 +140,29 @@
               <select id="matrix-kind" name="kind">
                 <option value="tridiagonal" data-i18n="matrix.tridiagonal">三对角矩阵</option>
                 <option value="general" data-i18n="matrix.general">通用矩阵</option>
+                <option value="identity" data-i18n="matrix.identity">单位矩阵</option>
+                <option value="zero" data-i18n="matrix.zero">零矩阵</option>
+                <option value="diagonal" data-i18n="matrix.diagonalMatrix">对角矩阵</option>
+                <option value="upper_triangular" data-i18n="matrix.upperTriangular">上三角矩阵</option>
+                <option value="lower_triangular" data-i18n="matrix.lowerTriangular">下三角矩阵</option>
               </select>
             </label>
             <label class="matrix-field" for="matrix-rows"><span id="matrix-rows-label" data-i18n="matrix.order">阶数</span>
               <input id="matrix-rows" name="rows" type="text" value="10" pattern="[1-9][0-9]*|[A-Za-z]" maxlength="3" required aria-describedby="matrix-help" autocorrect="off" autocapitalize="off" spellcheck="false">
             </label>
-            <label class="matrix-field" for="matrix-columns" data-matrix-general hidden><span data-i18n="matrix.columns">列数</span>
+            <label class="matrix-field" for="matrix-columns" data-matrix-parameter="columns" hidden><span data-i18n="matrix.columns">列数</span>
               <input id="matrix-columns" name="columns" type="text" value="10" pattern="[1-9][0-9]*|[A-Za-z]" maxlength="3" required disabled aria-describedby="matrix-help" autocorrect="off" autocapitalize="off" spellcheck="false">
             </label>
-            <label class="matrix-field" for="matrix-element" data-matrix-general hidden><span data-i18n="matrix.element">元素符号</span>
+            <label class="matrix-field" for="matrix-element" data-matrix-parameter="element" hidden><span data-i18n="matrix.element">元素符号</span>
               <input id="matrix-element" name="element" type="text" value="a" maxlength="40" required disabled autocorrect="off" autocapitalize="off" spellcheck="false">
             </label>
-            <label class="matrix-field" for="matrix-diagonal" data-matrix-tridiagonal><span data-i18n="matrix.diagonal">主对角线</span>
+            <label class="matrix-field" for="matrix-diagonal" data-matrix-parameter="diagonal"><span data-i18n="matrix.diagonal">主对角线</span>
               <input id="matrix-diagonal" name="diagonal" type="text" value="a_i" maxlength="80" required autocorrect="off" autocapitalize="off" spellcheck="false">
             </label>
-            <label class="matrix-field" for="matrix-upper" data-matrix-tridiagonal><span data-i18n="matrix.upper">上对角线</span>
+            <label class="matrix-field" for="matrix-upper" data-matrix-parameter="upper"><span data-i18n="matrix.upper">上对角线</span>
               <input id="matrix-upper" name="upper" type="text" value="b_i" maxlength="80" required autocorrect="off" autocapitalize="off" spellcheck="false">
             </label>
-            <label class="matrix-field" for="matrix-lower" data-matrix-tridiagonal><span data-i18n="matrix.lower">下对角线</span>
+            <label class="matrix-field" for="matrix-lower" data-matrix-parameter="lower"><span data-i18n="matrix.lower">下对角线</span>
               <input id="matrix-lower" name="lower" type="text" value="c_i" maxlength="80" required autocorrect="off" autocapitalize="off" spellcheck="false">
             </label>
             <label class="matrix-field" for="matrix-bracket"><span data-i18n="matrix.bracket">括号</span>
@@ -193,6 +198,7 @@
       <span class="icon">🔍</span>
       <input type="text" id="shorthand-search" data-i18n-placeholder="shorthand.search" placeholder="搜索预设…">
     </div>
+    <div class="matrix-search-results" id="matrix-search-results" hidden></div>
     <div class="shorthand-grid" id="shorthand-grid"></div>
   </div>
 

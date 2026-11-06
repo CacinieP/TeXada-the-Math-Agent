@@ -61,7 +61,7 @@ def test_matrix_api_generates_without_model_and_records_bound_checks(tmp_path, m
 @pytest.mark.parametrize("spec", [
     {"rows": 0}, {"rows": True}, {"rows": 1.5}, {"rows": "10"},
     {"rows": 21}, {"columns": "n+1"}, {"index_start": False},
-    {"kind": "identity"}, {"element": r"\input{secret}"},
+    {"kind": "circulant"}, {"element": r"\input{secret}"},
     {"kind": "tridiagonal", "rows": 2, "columns": 3},
 ])
 def test_matrix_api_rejects_invalid_parameters_before_runtime(tmp_path, monkeypatch, spec):

@@ -56,6 +56,7 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `docs/adr/018-parameterized-matrix-candidates.md` | Shared matrix generation, finite request recognition, revision-bound constraints, and release-baseline evidence. |
 | `docs/adr/019-bounded-sum-transcription.md` | Source constraints for finite sums, explicit domains, region integrals, clarification and revision-bound checks. |
 | `docs/images/matrix-presets-preview.png` | Browser preview of the symbolic tridiagonal preset form and its checked result. |
+| `docs/images/matrix-kinds-preview.jpg` | Browser verification of a searched/restored symbolic lower-triangular preset with current structural evidence. |
 | `docs/e2e-manual.md` | Human and automated local E2E checklist for the Agent Runtime path. |
 | `docs/issue64-macos-insertion.md` | Native insertion observations, application hide/show repair, diagnostic scope and pending target-text acceptance. |
 | `docs/local-model-benchmark-2026-09-12.md` | Local MiniCPM5-1B/2B Q4 comparison, development-regression results, thinking tradeoffs, and local deployment evidence, distinct from official release artifacts. |
@@ -186,6 +187,8 @@ This inventory covers the tracked files in TeXada-the-Math-Agent after the commu
 | `tests/transcription-clarification-ui.test.cjs` | Visible, escaped clarification alerts through the natural-language result entry point. |
 | `tests/test_matrix_release_regressions.py` | Offline checks of the exact C10/C11/C12 release outputs, corrected deterministic generation, and rejection at the current Commit Barrier. |
 | `tests/test_matrix_api.py` | Structured matrix API validation, Agent response compatibility, history, run logs, and backup regression. |
+| `tests/test_matrix_kinds.py` | Identity, zero, diagonal and triangular cell contracts, compact displays, shape validation and structural counterexamples. |
+| `tests/test_matrix_kinds_api.py` | Additional preset kinds through the offline Agent API, revision evidence, history and backup replay. |
 | `tests/test_matrix_budget.py` | Supported large-matrix generation, bounded tool budgets, formula validation, and history/run-log/backup roundtrips. |
 | `tests/matrix-presets-ui.test.cjs` | Matrix form parameters, symbolic display, stale-result gating, translations, and accessible error handling. |
 | `tests/test_backend.py` | Backend readiness/status tests for OpenAI-compatible config and Ollama missing-model states. |

@@ -159,6 +159,31 @@ structural evidence supports fidelity review within that declared scope.
 
 ## Delivery and acceptance
 
+### Additional preset kinds
+
+The follow-up implementation adds `identity`, `zero`, `diagonal`,
+`upper_triangular` and `lower_triangular` to the shared parameter contract.
+Identity presets contain a unit diagonal, diagonal presets use the configured
+diagonal expression, and triangular presets use the element symbol with row
+and column indices in the retained region. Zero presets support rectangular
+dimensions. The other additional kinds require square dimensions.
+
+Concrete sizes use the existing expansion limit of 20. Symbolic sizes and
+compact displays use ordered sampled positions and explicit logical
+dimensions. Diagonal/identity abbreviated forms retain diagonal ellipses and
+off-diagonal zeros. Triangular forms mask the zero region by display position,
+so symbolic endpoint labels require no string ordering assumptions. The
+checker reports the particular kind's inspected structure and current revision.
+
+The preset type selector, conditional fields, type search, history restoration
+and backup replay accept the additional kinds. Search results provide buttons
+that select a type in the same editable form. Natural-language recognition
+covers the finite general/tridiagonal descriptions recorded in the first
+delivery. Package acceptance belongs to the exact candidate that includes
+these source changes.
+
+### First delivery
+
 The first implementation adds the preset form, `POST /api/matrix`, narrow
 natural-language recognition, a shared matrix generator, and revision-bound
 checks through the existing Agent Runtime. The commit records the matching
