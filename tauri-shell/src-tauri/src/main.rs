@@ -427,12 +427,30 @@ async fn insert_text_at_cursor(
     window: tauri::WebviewWindow,
     text: String,
 ) -> Result<(), String> {
-    app.clipboard()
-        .write_text(text)
-        .map_err(|e| format!("Clipboard write failed: {}", e))?;
-    let _ = window.hide();
+    eprintln!("lifecycle insert_started has_text={}", !text.is_empty());
+    app.clipboard().write_text(text).map_err(|error| {
+        eprintln!("lifecycle insert_failed stage=clipboard_write");
+        format!("Clipboard write failed: {}", error)
+    })?;
+    eprintln!("lifecycle insert_clipboard_written");
+    window.hide().map_err(|error| {
+        eprintln!("lifecycle insert_failed stage=window_hide");
+        format!("Window hide failed: {}", error)
+    })?;
+    eprintln!("lifecycle insert_window_hidden");
+    #[cfg(target_os = "macos")]
+    {
+        app.hide().map_err(|error| {
+            eprintln!("lifecycle insert_failed stage=application_hide");
+            format!("Application hide failed: {}", error)
+        })?;
+        eprintln!("lifecycle insert_application_hidden");
+    }
     tokio::time::sleep(Duration::from_millis(160)).await;
-    trigger_system_paste()
+    eprintln!("lifecycle insert_paste_requested");
+    let result = trigger_system_paste();
+    eprintln!("lifecycle insert_paste_finished success={}", result.is_ok());
+    result
 }
 
 #[tauri::command]
@@ -441,9 +459,23 @@ fn hide_window(window: tauri::WebviewWindow) {
 }
 
 #[tauri::command]
-fn show_window(window: tauri::WebviewWindow) {
-    let _ = window.show();
-    let _ = window.set_focus();
+fn show_window(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<(), String> {
+    show_focused_window(&app, &window)
+}
+
+fn show_focused_window(
+    _app: &tauri::AppHandle,
+    window: &tauri::WebviewWindow,
+) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    _app.show()
+        .map_err(|error| format!("Application show failed: {}", error))?;
+    window
+        .show()
+        .map_err(|error| format!("Window show failed: {}", error))?;
+    window
+        .set_focus()
+        .map_err(|error| format!("Window focus failed: {}", error))
 }
 
 #[tauri::command]
@@ -544,8 +576,9 @@ fn toggle_window(app: &tauri::AppHandle) {
             let _ = window.hide();
         } else {
             position_window_near_cursor(&window);
-            let _ = window.show();
-            let _ = window.set_focus();
+            if let Err(error) = show_focused_window(app, &window) {
+                eprintln!("lifecycle window_show_failed error={}", error);
+            }
         }
     }
 }
