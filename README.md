@@ -1123,3 +1123,9 @@ Linux 尚未实现系统光标自动键入；点击公式后需手动粘贴。Wa
 The built-in backend uses one MiniCPM-V-4.7-1B Q4_K_M checkpoint for text and OCR. Download the model in Settings and start llama-server. Existing Ollama and OpenAI-compatible settings remain selectable. Model files are not included in installers.
 
 Generated formulas require mathematical review: syntax validation and successful submission do not prove correctness. See [the v0.4.4 release notes](docs/release-v0.4.4.md) for current behavior and package verification; [beta validation](docs/beta-release-validation.md) remains historical evidence.
+
+## Author and citation · 作者与引用
+
+Created and maintained by [CacinieP](https://github.com/CacinieP). 由 CacinieP 创建与维护。
+
+Citation metadata / 引用信息：[CITATION.cff](CITATION.cff). Please include the exact version or commit used / 请注明使用的版本或提交。
