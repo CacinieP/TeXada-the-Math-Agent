@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, cite this repository and include the exact commit you used."
+type: software
+title: "TeXada — The Math Agent"
+authors:
+  - name: "CacinieP"
+    website: "https://github.com/CacinieP"
+repository-code: "https://github.com/CacinieP/TeXada-the-Math-Agent"
+url: "https://github.com/CacinieP/TeXada-the-Math-Agent"
+license: AGPL-3.0-or-later
+abstract: "Local-first math formula recognition, transcription and typesetting with independently testable TeX tools."
+keywords:
+  - latex
+  - math
+  - local-first
+  - agent
+  - ocr
