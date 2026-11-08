@@ -184,6 +184,12 @@
       'history.invalidMatrix': '历史矩阵参数无法恢复，请重新填写。',
       'history.reuseCompletion': '已填入补全输入',
       'history.restored': '已打开历史结果',
+      'history.previewTitle': '历史公式预览',
+      'history.closePreview': '关闭预览',
+      'history.snapshotNote': '只读历史快照：不重新生成，不修改编辑中的内容；保存时的语法结果不代表数学语义正确。',
+      'history.originalInput': '保存的原始输入',
+      'history.source': '完整 LaTeX 源码',
+      'history.renderUnavailable': '此公式暂时无法渲染，已保留完整源码供检查和复制。',
       'runs.search': '搜索运行 ID、输入、模型或错误…',
       'runs.operationAll': '全部运行',
       'runs.statusAll': '全部状态',
@@ -433,6 +439,12 @@
       'history.invalidMatrix': 'Matrix parameters could not be restored. Enter them again.',
       'history.reuseCompletion': 'Filled completion input',
       'history.restored': 'Opened history result',
+      'history.previewTitle': 'History formula preview',
+      'history.closePreview': 'Close preview',
+      'history.snapshotNote': 'Read-only snapshot: no regeneration or editor changes. Saved syntax status does not establish mathematical correctness.',
+      'history.originalInput': 'Saved input',
+      'history.source': 'Full LaTeX source',
+      'history.renderUnavailable': 'This formula could not be rendered. Its full source is preserved for inspection and copying.',
       'runs.search': 'Search run ID, input, model, or error…',
       'runs.operationAll': 'All runs',
       'runs.statusAll': 'All statuses',
@@ -589,6 +601,7 @@
     shorthandValueInput: document.getElementById('shorthand-value-input'),
     shorthandSaveStatus: document.getElementById('shorthand-save-status'),
     historyList: document.getElementById('history-list'),
+    historyPreview: document.getElementById('history-preview'),
     historySearch: document.getElementById('history-search'),
     historyFilter: document.getElementById('history-filter'),
     historyViewSwitch: document.getElementById('history-view-switch'),
@@ -1330,26 +1343,34 @@
 
   function renderKatexPreview(target, latex, fallbackHtml = '', displayMode = true) {
     if (!target) return;
+    target.dataset.renderState = 'source';
     if (window.katex) {
       try {
         target.innerHTML = '';
         window.katex.render(latex, target, {
-          throwOnError: false,
+          throwOnError: true,
           displayMode,
           strict: 'ignore',
+          trust: false,
           maxExpand: 1000,
-          macros: KATEX_MACROS,
+          // KaTeX array environments write local macros (e.g. \cr).
+          // A fresh mutable copy also prevents user macros leaking between results.
+          macros: { ...KATEX_MACROS },
         });
+        target.dataset.renderState = 'rendered';
         return;
       } catch (e) {
-        // Fall back below; the user should still see a usable formula string.
+        // Preserve a backend preview or safe source text; expose the fallback state.
       }
     }
     if (fallbackHtml) {
       target.innerHTML = fallbackHtml;
-    } else {
-      target.textContent = latex;
+      if (target.querySelector('.katex') && !target.querySelector('.katex-error')) {
+        target.dataset.renderState = 'fallback';
+        return;
+      }
     }
+    target.textContent = latex;
   }
 
   function highlightLatex(latex) {
@@ -1824,6 +1845,7 @@
     setDataStatus(t('settings.saving'));
     try {
       const result = await apiClearHistory();
+      clearHistoryPreview();
       historyData = [];
       localStorage.removeItem('texada-history');
       if (currentTab === 'history') renderHistory([]);
@@ -3238,6 +3260,7 @@
   }
 
   async function loadHistory() {
+    clearHistoryPreview();
     const q = (els.historySearch?.value || '').trim();
     els.historyList.setAttribute('aria-busy', 'true');
     els.historyList.innerHTML = `<div class="empty-state"><div class="text">${t('history.loading')}</div></div>`;
@@ -3297,50 +3320,58 @@
     setIntent('↺', t('history.reuseNl'));
   }
 
-  function historyRenderMode(mode) {
-    return mode === 'katex' || mode === 'latex' ? mode : renderMode;
-  }
-
-  function historyResultFromItem(item) {
-    const mode = historyRenderMode(item.renderMode);
-    return {
-      latex: item.latex || '',
-      katex_html: '',
-      latex_highlighted: null,
-      copy_text: mode === 'katex' ? markdownFormula(item.latex || '') : (item.latex || ''),
-      valid: item.valid,
-      source: item.source || 'model',
-      intent: item.intent || historyTypeLabel(item.type),
-      confidence: 1,
-      latency_ms: item.latencyMs || 0,
-      tokens_used: item.tokensUsed || 0,
-    };
+  function clearHistoryPreview() {
+    const panel = els.historyPreview;
+    if (!panel) return;
+    panel.hidden = true;
+    // Discard stale content and closures when history changes. Do not move focus
+    // here: refresh/filter can run while the user is typing in the search box.
+    for (const name of ['input', 'source', 'math', 'time']) {
+      panel.querySelector(`[data-history-preview-${name}]`).textContent = '';
+    }
+    for (const name of ['copy-latex', 'copy-markdown', 'reuse', 'close']) {
+      panel.querySelector(`[data-history-preview-${name}]`).onclick = null;
+    }
+    panel.querySelector('[data-history-preview-error]').hidden = true;
   }
 
   function viewHistoryResult(item) {
-    if (!item || !item.latex) return;
-    renderMode = historyRenderMode(item.renderMode);
-    lastResult = historyResultFromItem(item);
-
-    if (item.type === 'matrix' || item.input?.startsWith('矩阵预设 ')) {
-      if (!restoreMatrixHistory(item)) return;
-      showMatrixResult(lastResult);
-    } else if (item.type === 'completion') {
-      if (item.input) els.completeInput.value = item.input;
-      switchTab('complete');
-      showCompleteResult(lastResult);
-    } else if (item.type === 'ocr') {
-      switchTab('ocr');
-      if (els.ocrDrop) els.ocrDrop.style.display = 'block';
-      if (els.ocrPreview) els.ocrPreview.style.display = 'none';
-      showOcrResult(lastResult);
-    } else {
-      if (item.input) els.nlInput.value = item.input;
-      switchTab('nl');
-      showResult(lastResult);
-    }
-
-    setIntent('↺', t('history.restored'));
+    if (!item || typeof item.latex !== 'string' || !item.latex.trim()) return;
+    const panel = els.historyPreview;
+    if (!panel) return;
+    // Viewing is not reuse: never alter a live draft, global render mode, lastResult,
+    // revision, or tab. Legacy records need only their saved TeX, not a valid spec.
+    const snapshot = Object.freeze({ ...item });
+    const returnFocus = document.activeElement;
+    const node = name => panel.querySelector(`[data-history-preview-${name}]`);
+    const typeKey = `history.type.${snapshot.type || 'nl'}`;
+    node('type').dataset.i18n = typeKey;
+    node('type').textContent = historyTypeLabel(snapshot.type || 'nl');
+    const statusKey = snapshot.valid ? 'result.valid' : 'result.invalid';
+    node('valid').dataset.i18n = statusKey;
+    node('valid').textContent = t(statusKey);
+    node('valid').className = `valid-badge ${snapshot.valid ? 'ok' : 'err'}`;
+    node('time').textContent = formatHistoryTime(snapshot.time);
+    node('input').textContent = snapshot.input || '';
+    node('source').textContent = snapshot.latex;
+    const preview = node('math');
+    // The snapshot is always visually previewed, even when originally saved in
+    // source mode. Full, unchanged source remains available in the details view.
+    renderKatexPreview(preview, latexForRender(snapshot.latex));
+    preview.scrollLeft = 0;
+    node('error').hidden = preview.dataset.renderState !== 'source';
+    node('error').textContent = t('history.renderUnavailable');
+    node('copy-latex').onclick = () => copyToClipboard(snapshot.latex);
+    node('copy-markdown').onclick = () => copyToClipboard(markdownFormula(snapshot.latex));
+    node('reuse').hidden = snapshot.type === 'ocr' || !snapshot.input;
+    node('reuse').onclick = () => reuseHistoryInput(snapshot);
+    node('close').onclick = () => {
+      clearHistoryPreview();
+      if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
+    };
+    panel.hidden = false;
+    panel.focus({ preventScroll: true });
+    panel.scrollIntoView({ block: 'nearest' });
   }
 
   function renderHistory(items) {

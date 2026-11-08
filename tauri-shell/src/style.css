@@ -421,7 +421,15 @@ body {
   min-height: 56px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  overflow-x: auto;
+}
+/* Center small formulas with auto margins, but never put a wide matrix's
+   leading columns at negative, unscrollable coordinates. */
+.render-preview > .katex-display,
+.render-preview > .katex {
+  flex: 0 0 auto;
+  margin-inline: auto;
 }
 .render-preview .katex { font-size: 1.4em; color: #fff; }
 .katex-fallback {
@@ -900,6 +908,24 @@ body {
 #run-logs-panel {
   width: 100%;
 }
+.history-preview {
+  width: min(920px, calc(100% - 28px));
+  min-width: 0;
+  margin: 0 auto 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+.history-preview[hidden] { display: none; }
+.history-preview:focus-visible { outline: 2px solid var(--border-focus); }
+.history-preview-head, .history-preview-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.history-preview-head { justify-content: space-between; }
+.history-preview-head h3 { font-size: 13px; margin: 0; }
+.history-preview-meta { margin-block: 8px; }
+.history-preview .render-preview { margin-block-start: 10px; }
+.history-preview .action-row { flex-wrap: wrap; }
+.history-render-warning { color: var(--accent-orange, #ffc069); font-size: 12px; margin-block: 8px; }
 .history-toolbar {
   display: flex;
   align-items: center;

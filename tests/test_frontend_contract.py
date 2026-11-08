@@ -171,7 +171,7 @@ def test_signed_macos_sidecar_allows_the_v8_jit_runtime():
 
 def test_frontend_uses_the_same_placeholder_macro_as_backend_katex():
     assert "'\\\\placeholder': '\\\\square'" in JAVASCRIPT
-    assert "macros: KATEX_MACROS" in JAVASCRIPT
+    assert "macros: { ...KATEX_MACROS }" in JAVASCRIPT
 
 
 def test_shorthand_grid_keeps_katex_previews_inside_the_window():

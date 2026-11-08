@@ -292,7 +292,7 @@ test('new matrix history restores controls and regenerates through the matrix AP
   assert.deepEqual(JSON.parse(JSON.stringify(f.sent[0].options.body.spec)), spec);
 });
 
-test('legacy nl matrix histories and history viewing use the preset entry', () => {
+test('explicit reuse of legacy nl matrix histories restores the preset entry', () => {
   const f = fixture();
   loadHistoryActions(f.context);
   f.context.markdownFormula = latex => '$$' + latex + '$$';
@@ -303,11 +303,8 @@ test('legacy nl matrix histories and history viewing use the preset entry', () =
   f.context.reuseHistoryInput(item);
   assert.equal(f.fields.kind.value, 'general');
   assert.equal(f.fields.columns.value, '4');
-  f.context.viewHistoryResult(item);
-  assert.equal(f.shown[0].latex, 'matrix');
-  assert.equal(f.shown[0].agent_trace, undefined);
-  assert.equal(f.shown[0].revision, undefined);
-  assert.ok(f.tabs.every(tab => tab === 'shorthand'));
+  assert.equal(f.shown.length, 0);
+  assert.deepEqual(f.tabs, ['shorthand']);
 });
 
 test('invalid or unknown history parameters cannot alter controls or enter NL', () => {
