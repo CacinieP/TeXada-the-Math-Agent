@@ -10,7 +10,8 @@ const source = fs.readFileSync(path.join(root, 'tauri-shell/src/main.js'), 'utf8
 const vendor = fs.readFileSync(path.join(root, 'tauri-shell/src/vendor/katex/katex.min.js'), 'utf8');
 const macros = source.slice(source.indexOf('  const KATEX_MACROS ='), source.indexOf('  const MATRIX_TYPES ='));
 const renderer = source.slice(source.indexOf('  function renderKatexPreview('), source.indexOf('  function highlightLatex('));
-const view = source.slice(source.indexOf('  function viewHistoryResult('), source.indexOf('  function renderHistory('));
+const clearStart = source.indexOf('  function clearHistoryPreview(');
+const view = source.slice(clearStart >= 0 ? clearStart : source.indexOf('  function viewHistoryResult('), source.indexOf('  function renderHistory('));
 const delimiters = source.slice(source.indexOf('  function markdownFormula('), source.indexOf('  async function insertAtCursor('));
 
 class Element {
@@ -157,4 +158,32 @@ test('bad saved TeX shows a visible warning, not an empty preview or a false fre
   assert.equal(f.panel.nodes['[data-history-preview-input]'].innerHTML, '');
   assert.equal(f.panel.nodes['[data-history-preview-valid]'].textContent, 'result.invalid');
   assert.deepEqual(f.reused, []);
+});
+
+
+test('closing history removes the displayed source and action closures', () => {
+  const f = fixture();
+  f.context.viewHistoryResult({type: 'matrix', input: 'temporary input', latex: 'x_1', valid: true});
+  f.panel.nodes['[data-history-preview-close]'].onclick();
+  for (const key of ['input', 'source', 'math', 'time']) {
+    assert.equal(f.panel.nodes[`[data-history-preview-${key}]`].textContent, '');
+    assert.equal(f.panel.nodes[`[data-history-preview-${key}]`].innerHTML, '');
+  }
+  for (const key of ['copy-latex', 'copy-markdown', 'reuse', 'close']) {
+    assert.equal(f.panel.nodes[`[data-history-preview-${key}]`].onclick, null);
+  }
+  assert.equal(f.trigger.focusCount, 1);
+});
+
+test('refresh clears the snapshot without stealing search-field focus', () => {
+  const f = fixture();
+  f.context.viewHistoryResult({type: 'nl', input: 'old request', latex: 'x', valid: true});
+  f.context.clearHistoryPreview();
+  assert.equal(f.panel.hidden, true);
+  assert.equal(f.trigger.focusCount, 0);
+  assert.equal(f.panel.nodes['[data-history-preview-source]'].textContent, '');
+  const load = source.slice(source.indexOf('  async function loadHistory()'), source.indexOf('  function historyTypeLabel('));
+  assert.match(load, /clearHistoryPreview\(\);/);
+  const clear = source.slice(source.indexOf('  async function clearHistoryData()'), source.indexOf('  async function clearRunLogData()'));
+  assert.ok(clear.indexOf('clearHistoryPreview();') > clear.indexOf('await apiClearHistory()'));
 });

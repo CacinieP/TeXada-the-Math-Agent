@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Clear stale history previews and their action closures on close, refresh/filter and successful history deletion without stealing search-field focus. / 关闭、刷新/筛选及成功清空历史时同步清理旧预览和操作引用，避免残留已移除内容或抢走搜索输入焦点。
+
 - 修复历史矩阵/预设卡片渲染：KaTeX 每次使用独立可变宏表，避免冻结宏表在矩阵环境中抛错；保留宏隔离及可见的源码回退。历史「查看」改为页内只读数学预览，不再自动跳到预设或覆盖草稿；只有「复用输入」才恢复参数。大矩阵首尾列均可滚动查看。见 [#70](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/70)。
 - Fix matrix/preset rendering with per-render mutable macro copies. View historical formulas in a read-only History preview without navigating or changing drafts; only explicit reuse restores editor parameters. Preserve full source, visible render failures, and scrollable edges for wide matrices. [Validation](docs/issue70-history-preview.md).
 

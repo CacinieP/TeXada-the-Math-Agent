@@ -8,7 +8,7 @@
     "failed": 16
   },
   "frontend_node": {
-    "passed": 140,
+    "passed": 142,
     "failed": 0
   },
   "python_focused": {
@@ -18,7 +18,8 @@
     "passed": 1722,
     "skipped": 14,
     "deselected": 1,
-    "excluded_baseline_test": "tests/test_cas_transition.py::test_shadow_uses_remaining_request_budget_and_ignores_late_thread_result"
+    "excluded_baseline_test": "tests/test_cas_transition.py::test_shadow_uses_remaining_request_budget_and_ignores_late_thread_result",
+    "seconds": 90.59
   },
   "chromium": {
     "version": "Google Chrome 156.0.8078.80",
@@ -78,6 +79,14 @@
       {
         "name": "only explicit reuse switches tabs; only Generate calls matrix API",
         "pass": true
+      },
+      {
+        "name": "search refresh clears stale preview without stealing focus",
+        "pass": true
+      },
+      {
+        "name": "explicit history deletion clears preview and list",
+        "pass": true
       }
     ],
     "page_errors": [],
@@ -91,8 +100,19 @@
     "errors": []
   },
   "source_sha256": {
-    "tauri-shell/src/main.js": "c840a9378943534edbb45673051caacabf0c9114ec04789e86f5eb6da404028e",
+    "tauri-shell/src/main.js": "abd28fb5bb96a9be2a83ce2cc4d22571894e7c47752b916636e4ac331ab23852",
     "tauri-shell/src/index.html": "8a3b6e353ebaf6edea2762b3fd6ee75fac91648742cf3f878729682bf630ab83",
     "tauri-shell/src/style.css": "fd2f4a7768ca09fea4a8a9f24a082ef6886cab0f868f4191e6015281580a4635"
+  },
+  "followup_reset_regressions": {
+    "before_fix": {
+      "passed": 17,
+      "failed": 2
+    },
+    "after_fix": {
+      "passed": 19,
+      "failed": 0
+    },
+    "scope": "Closing, search refresh and successful deletion clear stale snapshot content and closures without stealing search-field focus"
   }
 }

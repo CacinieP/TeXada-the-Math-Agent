@@ -50,6 +50,8 @@ A real Chromium baseline test observed `activeTab=tab-shorthand` and zero
 - Copy LaTeX/Markdown explicitly. Only **Reuse input** restores parameters and
   changes tabs; generating again remains a separate action. Existing stale
   result/commit protections remain in place.
+- Closing, refreshing/filtering or successfully deleting history clears the old
+  preview text and event closures; background refresh does not steal search focus.
 - Report a source-only rendering fallback visibly. Historical syntax status
   is labeled as saved evidence, not a fresh structural or mathematical check.
 - Center narrow formulas with auto margins while preserving scrollable left
@@ -60,11 +62,11 @@ A real Chromium baseline test observed `activeTab=tab-shorthand` and zero
 | Scope | Result | Boundary |
 | --- | --- | --- |
 | New production-helper/history regressions before fix | 1 passed / 16 failed | Preserves the failing baseline |
-| New regressions after fix | 17 passed | Calls the vendored KaTeX implementation |
-| Complete frontend Node suite | 140 passed | Existing tests plus 17 new cases |
+| New regressions after follow-up | 19 passed | Calls the vendored KaTeX implementation |
+| Complete frontend Node suite | 142 passed | Existing tests plus 19 new cases |
 | Focused Python matrix/API/render/frontend tests | 163 passed | No model required |
 | Full Python regression | 1722 passed, 14 skipped, 1 deselected | The existing CAS timing failure is disclosed below |
-| Real Chromium history workflow | 132/132 matrices; 9 grouped checks; 0 page errors | Actual frontend/KaTeX, isolated mock APIs |
+| Real Chromium history workflow | 132/132 matrices; 11 grouped checks; 0 page errors | Actual frontend/KaTeX, isolated mock APIs |
 | Native macOS WKWebView | 132/132 matrices; 0 POST; 0 script errors | Actual frontend/KaTeX in a standalone native WebKit harness |
 
 The 132 cases cover seven matrix types; dimensions 1/2/3/10/20 in expanded and
@@ -76,7 +78,9 @@ horizontal scrolling. Full source is compared exactly for every history view.
 Additional workflow checks cover static preset matrices/cases, generated
 matrix previews, draft preservation, exact copying, closing/focus, invalid
 saved TeX, legacy `nl` matrix records with unreadable metadata, explicit reuse,
-stale-result protection and explicit regeneration. All history viewing and
+stale-result protection, explicit regeneration, search refresh and clearing history.
+The two added stale-snapshot regressions fail on the initial rendering fix
+(17 passed / 2 failed), and both pass after the follow-up cleanup. All history viewing and
 copying checks produce **zero POST requests**. Only Generate invokes the
 mocked matrix API. The browser audit does not contact the user's real backend
 or edit their saved history.

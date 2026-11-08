@@ -48,7 +48,10 @@ const requests=[], errors=[];
    if(p==='/api/runtime')data={max_ocr_bytes:5242880,allowed_image_mime_types:['image/png'],api_request_timeout_seconds:240};
    else if(p==='/api/settings/ui')data={ui_language:'zh',ui_zoom:1};
    else if(p==='/api/status')data={ready:true,status:'ready',backend:'llama_server',model:'MiniCPM-V-4.7-1B',vision:'MiniCPM-V-4.7-1B'};
-   else if(p==='/api/history')data=histories;
+   else if(p==='/api/history'){
+    if(req.method()==='DELETE'){data={deleted:histories.length};histories=[];}
+    else data=histories;
+   }
    else if(p==='/api/shorthands')data=[{key:'matrix-audit',value:normal.latex},{key:'wrapped-matrix',value:'$$'+normal.latex+'$$'},{key:'cases-audit',value:String.raw`f(x)=\begin{cases}x&x>0\\0&x\leq0\end{cases}`}];
    else if(p==='/api/matrix'){
     const spec=req.postDataJSON().spec;
@@ -120,6 +123,21 @@ const requests=[], errors=[];
   await page.locator('#btn-generate-matrix').click();await page.waitForFunction(()=>document.querySelector('#matrix-result')?._texadaResult?.committed===true);
   assert.equal(await page.locator('[data-insert-result]').isDisabled(),false);assert.equal(await page.locator('[data-matrix-preview] .katex').count(),1);assert.equal(postCount(),beforeView+1);
   records.push({name:'only explicit reuse switches tabs; only Generate calls matrix API',pass:true});
+  // Refresh/search must clear a selected snapshot without stealing text-field focus.
+  await tab('history');await loaded();await page.locator('[data-history-view-result="0"]').click();
+  await page.locator('#history-search').fill('audit');
+  await page.waitForFunction(()=>document.querySelector('#history-preview').hidden===true);
+  assert.equal(await page.locator('[data-history-preview-source]').textContent(),'');
+  assert.equal(await page.evaluate(()=>document.activeElement?.id),'history-search');
+  records.push({name:'search refresh clears stale preview without stealing focus',pass:true});
+  await loaded();await page.locator('[data-history-view-result="0"]').click();
+  await tab('settings');page.once('dialog',dialog=>dialog.accept());
+  await page.locator('#btn-clear-history').click();
+  await page.waitForFunction(()=>document.querySelector('[data-history-preview-source]').textContent==='');
+  await tab('history');await loaded();
+  assert.equal(await page.locator('#history-preview').isVisible(),false);
+  assert.equal(await page.locator('[data-history-view-result]').count(),0);
+  records.push({name:'explicit history deletion clears preview and list',pass:true});
   assert.deepEqual(errors,[]);console.log('DONE',JSON.stringify({checks:records.length,matrices:geometry.length,pageErrors:errors.length}));
  }catch(e){records.push({name:'ERROR',pass:false,error:String(e),stack:e.stack});console.error(e);process.exitCode=1;}
  finally{fs.writeFileSync(path.join(output,'report.json'),JSON.stringify({records,requests,errors,scope:'Real Chromium DOM with actual frontend and KaTeX, mocked local APIs; no installed-app replacement or model inference'},null,2));await browser.close();await new Promise(r=>server.close(r));}

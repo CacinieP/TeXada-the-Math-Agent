@@ -1845,6 +1845,7 @@
     setDataStatus(t('settings.saving'));
     try {
       const result = await apiClearHistory();
+      clearHistoryPreview();
       historyData = [];
       localStorage.removeItem('texada-history');
       if (currentTab === 'history') renderHistory([]);
@@ -3259,6 +3260,7 @@
   }
 
   async function loadHistory() {
+    clearHistoryPreview();
     const q = (els.historySearch?.value || '').trim();
     els.historyList.setAttribute('aria-busy', 'true');
     els.historyList.innerHTML = `<div class="empty-state"><div class="text">${t('history.loading')}</div></div>`;
@@ -3318,6 +3320,21 @@
     setIntent('↺', t('history.reuseNl'));
   }
 
+  function clearHistoryPreview() {
+    const panel = els.historyPreview;
+    if (!panel) return;
+    panel.hidden = true;
+    // Discard stale content and closures when history changes. Do not move focus
+    // here: refresh/filter can run while the user is typing in the search box.
+    for (const name of ['input', 'source', 'math', 'time']) {
+      panel.querySelector(`[data-history-preview-${name}]`).textContent = '';
+    }
+    for (const name of ['copy-latex', 'copy-markdown', 'reuse', 'close']) {
+      panel.querySelector(`[data-history-preview-${name}]`).onclick = null;
+    }
+    panel.querySelector('[data-history-preview-error]').hidden = true;
+  }
+
   function viewHistoryResult(item) {
     if (!item || typeof item.latex !== 'string' || !item.latex.trim()) return;
     const panel = els.historyPreview;
@@ -3349,7 +3366,7 @@
     node('reuse').hidden = snapshot.type === 'ocr' || !snapshot.input;
     node('reuse').onclick = () => reuseHistoryInput(snapshot);
     node('close').onclick = () => {
-      panel.hidden = true;
+      clearHistoryPreview();
       if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
     };
     panel.hidden = false;
