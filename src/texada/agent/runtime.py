@@ -221,9 +221,10 @@ class TeXadaAgentRuntime:
         if matrix_spec is None and _task == "nl":
             matrix_spec = recognize_matrix(user_input)
             matrix_context = matrix_spec is not None and bool(context.strip())
-            if matrix_context:
-                matrix_spec = None
-        if matrix_spec is not None:
+        # Context may refine presentation or add constraints, so keep the model
+        # path. Never discard the source-derived spec: the final candidate must
+        # still satisfy its original mathematical requirements before commit.
+        if matrix_spec is not None and not matrix_context:
             result = await self._run_deterministic_candidate(
                 DeterministicCandidate(
                     latex=generate_matrix(matrix_spec),
@@ -241,9 +242,7 @@ class TeXadaAgentRuntime:
             return result
         transcription_spec = recognize_transcription(user_input) if _task == "nl" else None
         transcription_context = transcription_spec is not None and bool(context.strip())
-        if transcription_context:
-            transcription_spec = None
-        if transcription_spec is not None:
+        if transcription_spec is not None and not transcription_context:
             if transcription_spec.clarification:
                 state = self._scoped_state(
                     "", origin="nl_source_clarification", task="nl",
@@ -291,6 +290,9 @@ class TeXadaAgentRuntime:
             uncertain_roles=_uncertain_role_paths,
             requires_review=_requires_review,
             input_hash=source_identity,
+            matrix_spec=matrix_spec if matrix_context else None,
+            transcription_spec=transcription_spec if transcription_context else None,
+            context_constraint_guard=structured_context,
             matrix_requested=_task == "nl" and "矩阵" in user_input,
             matrix_recognition_reason=(
                 "matrix_context_requires_planning" if matrix_context
@@ -1512,7 +1514,20 @@ class TeXadaAgentRuntime:
             formula_state.commit(expected_revision=formula_state.revision)
         except CommitBarrierError as exc:
             commit_error = str(exc)
-            if stop_reason not in {
+            context_mismatches = [
+                {"kind": item.kind, "verdict": item.output.get("verdict"),
+                 "revision": item.revision}
+                for item in formula_state.ledger.evidence
+                if item.revision == formula_state.revision
+                and item.kind in {"matrix_constraints", "transcription_constraints"}
+                and (not item.ok or item.output.get("verdict") != "MATCH")
+            ]
+            if getattr(formula_state, "context_constraint_guard", False) and context_mismatches:
+                # A context-driven candidate can be valid LaTeX yet contradict
+                # the source request. Keep it visible but require clarification;
+                # never promote NOT_CHECKED or DIFFERENT to commit evidence.
+                stop_reason = "context_constraint_review_required"
+            elif stop_reason not in {
                 "mutation_scope_review_required", "human_review_required"
             }:
                 stop_reason = "commit_barrier_failed"
@@ -1520,7 +1535,16 @@ class TeXadaAgentRuntime:
                 {
                     "tool": "commit_barrier",
                     "ok": False,
-                    "output": {"revision": formula_state.revision, "mutation_blockers": blockers},
+                    "output": {
+                        "revision": formula_state.revision,
+                        "mutation_blockers": blockers,
+                        "context_constraint_mismatches": context_mismatches,
+                        "clarification": (
+                            "Contextual candidate conflicts with the source formula "
+                            "requirements; clarify the intended notation or edit the request."
+                            if stop_reason == "context_constraint_review_required" else ""
+                        ),
+                    },
                     "error": commit_error,
                     "duration_ms": 0.0,
                     "revision": formula_state.revision,
@@ -1696,6 +1720,7 @@ class TeXadaAgentRuntime:
         transcription_requested: bool = False,
         transcription_recognition_reason: str = "outside_supported_transcription_grammar",
         source_input: str = "",
+        context_constraint_guard: bool = False,
     ) -> FormulaState:
         state = FormulaState()
         state.matrix_spec = matrix_spec
@@ -1705,6 +1730,7 @@ class TeXadaAgentRuntime:
         state.transcription_requested = transcription_requested
         state.transcription_recognition_reason = transcription_recognition_reason
         state.source_input = source_input
+        state.context_constraint_guard = context_constraint_guard
         state.mutation_scope_guard = MutationScopeGuard(
             task=task, prefix=prefix, uncertain_roles=uncertain_roles,
         )
