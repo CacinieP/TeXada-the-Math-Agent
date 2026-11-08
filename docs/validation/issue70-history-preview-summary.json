@@ -1,0 +1,98 @@
+{
+  "date": "2026-11-08",
+  "issue": 70,
+  "baseline_source_commit": "0cccb7fa5a3b9efe385803b995cc61a0387bfe6f",
+  "scope": "Patched frontend and vendored KaTeX with isolated mock APIs; no new installer or model-quality claim",
+  "baseline_new_tests": {
+    "passed": 1,
+    "failed": 16
+  },
+  "frontend_node": {
+    "passed": 140,
+    "failed": 0
+  },
+  "python_focused": {
+    "passed": 163
+  },
+  "python_full": {
+    "passed": 1722,
+    "skipped": 14,
+    "deselected": 1,
+    "excluded_baseline_test": "tests/test_cas_transition.py::test_shadow_uses_remaining_request_budget_and_ignores_late_thread_result"
+  },
+  "chromium": {
+    "version": "Google Chrome 156.0.8078.80",
+    "checks": [
+      {
+        "name": "baseline reproduction",
+        "pass": true,
+        "details": {
+          "activeTab": "tab-shorthand",
+          "mathNodes": 0,
+          "sourceText": "\\begin{pmatrix}\na_{1} & b_{1} \\\\\nc_{1} & a_{2}\n\\end{pmatrix}"
+        }
+      },
+      {
+        "name": "preset cards and generation render without fallback",
+        "pass": true,
+        "cards": [
+          {
+            "state": "rendered",
+            "count": 1
+          },
+          {
+            "state": "rendered",
+            "count": 1
+          },
+          {
+            "state": "rendered",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "name": "view remains in history and preserves live drafts with zero POST",
+        "pass": true
+      },
+      {
+        "name": "exact copies do not regenerate or switch tab",
+        "pass": true
+      },
+      {
+        "name": "close returns focus to view control",
+        "pass": true
+      },
+      {
+        "name": "all matrix history render and left/right scroll bounds",
+        "pass": true,
+        "count": 132
+      },
+      {
+        "name": "invalid history is safe source with explicit warning",
+        "pass": true
+      },
+      {
+        "name": "legacy history can be viewed without parsing matrix parameters",
+        "pass": true
+      },
+      {
+        "name": "only explicit reuse switches tabs; only Generate calls matrix API",
+        "pass": true
+      }
+    ],
+    "page_errors": [],
+    "matrix_history_cases": 132
+  },
+  "webkit": {
+    "engine": "macOS WKWebView",
+    "passed": true,
+    "history_cases": 132,
+    "post_requests": 0,
+    "errors": []
+  },
+  "source_sha256": {
+    "tauri-shell/src/main.js": "c840a9378943534edbb45673051caacabf0c9114ec04789e86f5eb6da404028e",
+    "tauri-shell/src/index.html": "8a3b6e353ebaf6edea2762b3fd6ee75fac91648742cf3f878729682bf630ab83",
+    "tauri-shell/src/style.css": "fd2f4a7768ca09fea4a8a9f24a082ef6886cab0f868f4191e6015281580a4635"
+  }
+}

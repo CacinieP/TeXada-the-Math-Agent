@@ -222,6 +222,27 @@
         </div>
         <button class="action-btn history-refresh" id="btn-refresh-history" type="button" data-i18n-title="history.refresh" title="刷新历史" aria-label="刷新历史">↻</button>
       </div>
+      <section id="history-preview" class="history-preview" hidden tabindex="-1" aria-labelledby="history-preview-heading">
+        <div class="history-preview-head">
+          <h3 id="history-preview-heading" data-i18n="history.previewTitle">历史公式预览</h3>
+          <button class="action-btn" type="button" data-history-preview-close data-i18n="history.closePreview">关闭预览</button>
+        </div>
+        <div class="history-preview-meta">
+          <span class="history-type" data-history-preview-type></span>
+          <span class="history-time" data-history-preview-time></span>
+          <span class="valid-badge" data-history-preview-valid></span>
+        </div>
+        <p class="setting-desc" data-i18n="history.snapshotNote">只读历史快照：不重新生成，不修改编辑中的内容；保存时的语法结果不代表数学语义正确。</p>
+        <details class="matrix-source"><summary data-i18n="history.originalInput">保存的原始输入</summary><pre data-history-preview-input></pre></details>
+        <div class="render-preview" data-history-preview-math></div>
+        <p class="history-render-warning" data-history-preview-error data-i18n="history.renderUnavailable" role="status" hidden></p>
+        <details class="matrix-source"><summary data-i18n="history.source">完整 LaTeX 源码</summary><pre data-history-preview-source></pre></details>
+        <div class="action-row">
+          <button class="action-btn" type="button" data-history-preview-copy-latex data-i18n="history.copyLatex">复制 LaTeX</button>
+          <button class="action-btn" type="button" data-history-preview-copy-markdown data-i18n="history.copyMarkdown">复制 Markdown</button>
+          <button class="action-btn" type="button" data-history-preview-reuse data-i18n="history.reuseInput">复用输入</button>
+        </div>
+      </section>
       <div class="history-list" id="history-list" role="status" aria-live="polite"></div>
     </div>
     <div id="run-logs-panel" hidden>
