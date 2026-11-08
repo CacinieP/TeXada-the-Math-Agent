@@ -123,11 +123,88 @@ async def test_supplemental_context_reaches_model_without_old_shortcuts(tmp_path
     )
     runtime.candidate_engine.propose = Mock(side_effect=AssertionError("context was ignored"))
     result = await runtime.run(text, context=context)
-    assert result.valid and result.committed and result.latex == expected
+    assert result.valid and not result.committed and result.latex == expected
+    assert result.stop_reason == "context_constraint_review_required"
     assert context in str(model.plan.call_args_list[0])
     if candidate_first:
         assert context in model.generate_latex.call_args.args[0]
-    assert result.trace[-1]["transcription_recognition"][-1]["reason"] == (
-        "transcription_context_requires_planning"
+    check = result.trace[-1]["transcription_constraints"][-1]
+    assert check["verdict"] == "DIFFERENT"
+    assert check["revision"] == result.revision
+    assert not result.formula_ledger["commits"]
+
+
+
+@pytest.mark.parametrize("candidate_first", [False, True])
+@pytest.mark.asyncio
+async def test_contextual_integer_domain_wrong_model_candidate_cannot_commit(
+    tmp_path, candidate_first,
+):
+    text = "对F(x)进行求和，其中x取遍整数中的元素"
+    context = "本段约定x为整数索引，F是未指定的函数，只做符号排版。"
+    wrong = r"\sum_{x=1}^{n} F(x)"
+    model = Mock()
+    model.generate_latex = AsyncMock(return_value=wrong)
+    model.plan = AsyncMock(side_effect=[
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            "compile", "compile_tex", {"latex": wrong},
+        )]),
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            "finish", "finish_formula", {"expected_revision": 1},
+        )]),
+    ] if not candidate_first else [
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            "finish", "finish_formula", {"expected_revision": 1},
+        )]),
+    ])
+    model.consume_tokens_used = Mock(return_value=0)
+    backend = Mock()
+    backend.ensure_ready = AsyncMock()
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first),
+        model=model, backend=backend,
     )
-    assert "transcription_constraints" not in result.trace[-1]
+    result = await runtime.run(text, context=context)
+    assert result.valid and not result.committed
+    assert result.stop_reason == "context_constraint_review_required"
+    assert result.trace[-1]["transcription_constraints"][-1]["verdict"] == "DIFFERENT"
+    assert result.trace[-1]["transcription_constraints"][-1]["revision"] == result.revision
+    assert not result.formula_ledger["commits"]
+
+
+@pytest.mark.parametrize("candidate_first", [False, True])
+@pytest.mark.asyncio
+async def test_contextual_integer_domain_matching_candidate_can_commit(
+    tmp_path, candidate_first,
+):
+    text = "对F(x)进行求和，其中x取遍整数中的元素"
+    context = "本段约定x为整数索引，F是未指定的函数，只做符号排版。"
+    expected = recognize_transcription(text).latex
+    model = Mock()
+    model.generate_latex = AsyncMock(return_value=expected)
+    model.plan = AsyncMock(side_effect=[
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            "compile", "compile_tex", {"latex": expected},
+        )]),
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            "finish", "finish_formula", {"expected_revision": 1},
+        )]),
+    ] if not candidate_first else [
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            "finish", "finish_formula", {"expected_revision": 1},
+        )]),
+    ])
+    model.consume_tokens_used = Mock(return_value=0)
+    backend = Mock()
+    backend.ensure_ready = AsyncMock()
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first),
+        model=model, backend=backend,
+    )
+    result = await runtime.run(text, context=context)
+    assert result.valid and result.committed
+    check = result.trace[-1]["transcription_constraints"][-1]
+    assert check["verdict"] == "MATCH" and check["revision"] == result.revision
+    evidence = next(e for e in result.formula_ledger["evidence"]
+                    if e["kind"] == "transcription_constraints")
+    assert evidence["sequence"] in result.formula_ledger["commits"][0]["evidence"]

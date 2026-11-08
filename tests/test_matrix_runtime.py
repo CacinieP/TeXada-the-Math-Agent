@@ -168,17 +168,21 @@ async def test_matrix_context_reaches_planning_and_candidate_generation(tmp_path
     # A previous shortcut must not consume this request after matrix recognition falls back.
     runtime.candidate_engine.propose = Mock(side_effect=AssertionError("context was ignored"))
     result = await runtime.run("写一个2阶矩阵", context=context)
-    assert result.valid and result.committed
+    assert result.valid and not result.committed
     assert result.latex == expected
+    assert result.stop_reason == "context_constraint_review_required"
     assert context in str(model.plan.call_args_list[0])
     if candidate_first:
         assert context in model.generate_latex.call_args.args[0]
     else:
         model.generate_latex.assert_not_called()
-    assert result.trace[-1]["matrix_recognition"][-1]["reason"] == (
-        "matrix_context_requires_planning"
-    )
-    assert "matrix_constraints" not in result.trace[-1]
+    check = result.trace[-1]["matrix_constraints"][-1]
+    assert check["verdict"] == "DIFFERENT"
+    assert check["revision"] == result.revision
+    assert not result.formula_ledger["commits"]
+    barrier = result.trace[-1]["observations"][-1]
+    assert barrier["tool"] == "commit_barrier"
+    assert barrier["output"]["context_constraint_mismatches"][0]["verdict"] == "DIFFERENT"
 
 
 @pytest.mark.asyncio
@@ -191,3 +195,79 @@ async def test_matrix_budget_is_separate_from_default_tool_budget(tmp_path):
     ordinary = await runtime.tools.execute("compile_tex", {"latex": result.latex})
     assert not ordinary.ok
     assert "4000 characters" in ordinary.error
+
+
+
+@pytest.mark.parametrize("candidate_first", [False, True])
+@pytest.mark.asyncio
+async def test_contextual_tridiagonal_wrong_model_candidate_cannot_commit(
+    tmp_path, candidate_first,
+):
+    text = "写一个10阶矩阵，主对角线是ai，两条次对角线分别是bi，ci"
+    context = "本节的a_i、b_i、c_i是矩阵条目符号，不是常数；请忠实转写。"
+    wrong = r"\begin{pmatrix}a & b \\ c & d\end{pmatrix}"
+    model = Mock()
+    model.generate_latex = AsyncMock(return_value=wrong)
+    model.plan = AsyncMock(side_effect=[
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            "compile", "compile_tex", {"latex": wrong},
+        )]),
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            "finish", "finish_formula", {"expected_revision": 1},
+        )]),
+    ] if not candidate_first else [
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            "finish", "finish_formula", {"expected_revision": 1},
+        )]),
+    ])
+    model.consume_tokens_used = Mock(return_value=0)
+    backend = Mock()
+    backend.ensure_ready = AsyncMock()
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first),
+        model=model, backend=backend,
+    )
+    result = await runtime.run(text, context=context)
+    assert result.valid and not result.committed
+    assert result.stop_reason == "context_constraint_review_required"
+    assert result.trace[-1]["matrix_constraints"][-1]["verdict"] == "DIFFERENT"
+    assert result.trace[-1]["matrix_constraints"][-1]["revision"] == result.revision
+    assert not result.formula_ledger["commits"]
+
+
+@pytest.mark.parametrize("candidate_first", [False, True])
+@pytest.mark.asyncio
+async def test_contextual_tridiagonal_matching_candidate_can_commit(
+    tmp_path, candidate_first,
+):
+    text = "写一个10阶矩阵，主对角线是ai，两条次对角线分别是bi，ci"
+    context = "这里 a_i、b_i、c_i 仅是矩阵条目的符号约定。"
+    expected = generate_matrix(MatrixSpec(kind="tridiagonal", rows=10, columns=10))
+    model = Mock()
+    model.generate_latex = AsyncMock(return_value=expected)
+    model.plan = AsyncMock(side_effect=[
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            "compile", "compile_tex", {"latex": expected},
+        )]),
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            "finish", "finish_formula", {"expected_revision": 1},
+        )]),
+    ] if not candidate_first else [
+        PlannerTurn(tool_calls=[PlannerToolCall(
+            "finish", "finish_formula", {"expected_revision": 1},
+        )]),
+    ])
+    model.consume_tokens_used = Mock(return_value=0)
+    backend = Mock()
+    backend.ensure_ready = AsyncMock()
+    runtime = TeXadaAgentRuntime(
+        TeXadaConfig(data_dir=tmp_path, nl_candidate_first=candidate_first),
+        model=model, backend=backend,
+    )
+    result = await runtime.run(text, context=context)
+    assert result.valid and result.committed
+    check = result.trace[-1]["matrix_constraints"][-1]
+    assert check["verdict"] == "MATCH" and check["revision"] == result.revision
+    evidence = next(e for e in result.formula_ledger["evidence"]
+                    if e["kind"] == "matrix_constraints")
+    assert evidence["sequence"] in result.formula_ledger["commits"][0]["evidence"]
