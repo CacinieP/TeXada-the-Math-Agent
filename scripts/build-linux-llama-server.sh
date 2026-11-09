@@ -13,7 +13,7 @@ git clone --filter=blob:none --no-checkout https://github.com/ggml-org/llama.cpp
 git -C "$WORK/source" checkout --detach "$SOURCE_COMMIT"
 test "$(git -C "$WORK/source" rev-parse HEAD)" = "$SOURCE_COMMIT"
 cmake -S "$WORK/source" -B "$WORK/build" \
-  -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=OFF \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_BUILD_RPATH_USE_ORIGIN=ON -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=OFF \
   -DGGML_CUDA=OFF -DGGML_VULKAN=OFF -DLLAMA_OPENSSL=OFF \
   -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=ON
 cmake --build "$WORK/build" --target llama-server --parallel 2
@@ -22,6 +22,8 @@ grep -Eq '\bbuild[[:space:]]+11669\b' <<< "$VERSION_OUT"
 mkdir -p "$(dirname "$RES_DIR")"
 STAGED="$(mktemp -d "${RES_DIR}.staging.XXXXXX")"
 cp -a "$WORK/build/bin"/. "$STAGED"/
+# Verify that copied libraries resolve without depending on the build directory.
+"$STAGED/llama-server" --version
 python3 - "$STAGED/runtime-source.json" "$SOURCE_COMMIT" <<'PY'
 import json
 import sys
