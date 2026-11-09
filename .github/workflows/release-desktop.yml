@@ -121,7 +121,7 @@ jobs:
             rust-targets: x86_64-pc-windows-msvc
             tauri-args: --target x86_64-pc-windows-msvc --bundles nsis
           - name: Linux x64 deb and AppImage
-            os: ubuntu-24.04
+            os: ubuntu-22.04
             rust-targets: x86_64-unknown-linux-gnu
             tauri-args: --target x86_64-unknown-linux-gnu --bundles deb,appimage
 
@@ -146,7 +146,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libglib2.0-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2t64 xvfb xauth
+          sudo apt-get install -y build-essential pkg-config libglib2.0-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2 xvfb xauth cmake
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -223,7 +223,12 @@ jobs:
             exit 1
           }
 
+      - name: Build pinned Linux llama-server on the compatibility baseline
+        if: runner.os == 'Linux'
+        run: bash scripts/build-linux-llama-server.sh
+
       - name: Fetch pinned llama-server binary
+        if: runner.os != 'Linux'
         run: bash scripts/fetch-llama-server.sh "${{ matrix.rust-targets }}"
 
       - name: Sign bundled macOS llama runtime
@@ -515,6 +520,15 @@ jobs:
           python scripts/smoke-installed-desktop.py $installer.FullName --version "${{ needs.preflight.outputs.version }}" --expected-commit "$env:GITHUB_SHA" --output "native-smoke-${{ matrix.rust-targets }}.json"
           if ($LASTEXITCODE -ne 0) { throw "Installed Windows smoke failed" }
 
+      - name: Reject newer glibc imports in Linux package contents
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          appdir="$(find tauri-shell/src-tauri/target -type d -name '*.AppDir' -print -quit)"
+          test -n "$appdir"
+          python scripts/check-linux-glibc.py "$appdir"
+
       - name: Smoke both installed Linux packages under Xvfb
         if: runner.os == 'Linux'
         shell: bash
@@ -524,7 +538,10 @@ jobs:
             if [ "$format" = deb ]; then pattern='*/bundle/deb/*.deb'; else pattern='*/bundle/appimage/*.AppImage'; fi
             installer="$(find tauri-shell/src-tauri/target -path "$pattern" -type f -print -quit)"
             test -n "$installer" || { echo "::error::Linux $format installer missing."; exit 1; }
-            xvfb-run -a python scripts/smoke-installed-linux.py --installer "$installer" --format "$format" --version "${{ needs.preflight.outputs.version }}" --expected-commit "$GITHUB_SHA" --out "native-smoke-${{ matrix.rust-targets }}-$format.json"
+            # Block external networking while retaining loopback for the sidecar.
+            xvfb-run -a sudo --preserve-env=DISPLAY,XAUTHORITY unshare --net -- \
+              bash -c 'ip link set lo up; exec runuser -u "$1" -- "${@:2}"' \
+              bash "$USER" "$(command -v python)" scripts/smoke-installed-linux.py --installer "$installer" --format "$format" --version "${{ needs.preflight.outputs.version }}" --expected-commit "$GITHUB_SHA" --out "native-smoke-${{ matrix.rust-targets }}-$format.json"
           done
 
       - name: Upload installer artifact

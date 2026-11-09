@@ -1,0 +1,140 @@
+# Linux build steps mirror release-desktop.yml; this workflow never publishes.
+name: Linux package compatibility
+'on':
+  pull_request:
+    paths:
+    - .github/workflows/**
+    - scripts/**
+    - tauri-shell/src-tauri/**
+    - texada/**
+    - pyproject.toml
+    - uv.lock
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: linux-package-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  linux:
+    name: Ubuntu 22.04 packaged startup (offline)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    strategy:
+      matrix:
+        include:
+        - name: Linux compatibility packages
+          os: ubuntu-22.04
+          rust-targets: x86_64-unknown-linux-gnu
+          tauri-args: --target x86_64-unknown-linux-gnu --bundles deb,appimage
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+    - name: Read source version
+      id: version
+      run: python -c 'from texada import __version__; print("version=" + __version__)' >> "$GITHUB_OUTPUT"
+    - name: Install uv
+      run: python -m pip install --upgrade uv
+    - name: Install Rust stable
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.rust-targets }}
+    - name: Install Linux native build and installation dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential pkg-config libglib2.0-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2 xvfb xauth cmake
+    - name: Rust cache
+      uses: swatinem/rust-cache@v2
+      with:
+        workspaces: tauri-shell/src-tauri -> target
+    - name: Restore pinned Tauri CLI
+      id: cli-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.cargo/bin/cargo-tauri*
+        key: tauri-cli-2.12.2-${{ matrix.rust-targets }}-${{ matrix.os }}
+    - name: Install Tauri CLI
+      if: steps.cli-cache.outputs.cache-hit != 'true'
+      run: cargo install tauri-cli --version "2.12.2" --locked
+    - name: Save pinned Tauri CLI
+      if: steps.cli-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.cargo/bin/cargo-tauri*
+        key: tauri-cli-2.12.2-${{ matrix.rust-targets }}-${{ matrix.os }}
+    - name: Build pinned Linux llama-server on the compatibility baseline
+      run: bash scripts/build-linux-llama-server.sh
+    - name: Build bundled FastAPI backend sidecar
+      run: python scripts/build-backend-sidecar.py --mode pyinstaller --target ${{ matrix.rust-targets }}
+    - name: Build desktop bundle
+      uses: tauri-apps/tauri-action@v1
+      env:
+        APPIMAGE_EXTRACT_AND_RUN: '1'
+      with:
+        projectPath: tauri-shell/src-tauri
+        tauriScript: cargo tauri
+        args: ${{ matrix.tauri-args }}
+    - name: Normalize installer filenames for stable download links
+      shell: bash
+      env:
+        RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        RELEASE_TARGET: ${{ matrix.rust-targets }}
+      run: |
+        python - <<'PY'
+        import os
+        from pathlib import Path
+
+        version, target = os.environ["RELEASE_VERSION"], os.environ["RELEASE_TARGET"]
+        layouts = {
+            "aarch64-apple-darwin": [("dmg", "*.dmg", f"TeXada_{version}_aarch64.dmg")],
+            "x86_64-apple-darwin": [("dmg", "*.dmg", f"TeXada_{version}_x64.dmg")],
+            "x86_64-pc-windows-msvc": [("nsis", "*.exe", f"TeXada_{version}_x64-setup.exe")],
+            "x86_64-unknown-linux-gnu": [("deb", "*.deb", f"TeXada_{version}_amd64.deb"),
+                                         ("appimage", "*.AppImage", f"TeXada_{version}_amd64.AppImage")],
+        }
+        for bundle, pattern, name in layouts[target]:
+            candidates = list(Path("tauri-shell/src-tauri/target").glob(f"**/bundle/{bundle}/{pattern}"))
+            if len(candidates) != 1:
+                raise SystemExit(f"Expected one {bundle} installer, found {len(candidates)}")
+            original = candidates[0]
+            original.replace(original.with_name(name))
+        PY
+    - name: Reject newer glibc imports in Linux package contents
+      shell: bash
+      run: |
+        set -euo pipefail
+        appdir="$(find tauri-shell/src-tauri/target -type d -name '*.AppDir' -print -quit)"
+        test -n "$appdir"
+        python scripts/check-linux-glibc.py "$appdir"
+    - name: Smoke both installed Linux packages under Xvfb
+      shell: bash
+      run: |
+        set -euo pipefail
+        for format in deb AppImage; do
+          if [ "$format" = deb ]; then pattern='*/bundle/deb/*.deb'; else pattern='*/bundle/appimage/*.AppImage'; fi
+          installer="$(find tauri-shell/src-tauri/target -path "$pattern" -type f -print -quit)"
+          test -n "$installer" || { echo "::error::Linux $format installer missing."; exit 1; }
+          # Block external networking while retaining loopback for the sidecar.
+          xvfb-run -a sudo --preserve-env=DISPLAY,XAUTHORITY unshare --net -- \
+            bash -c 'ip link set lo up; exec runuser -u "$1" -- "${@:2}"' \
+            bash "$USER" "$(command -v python)" scripts/smoke-installed-linux.py --installer "$installer" --format "$format" --version "${{ steps.version.outputs.version }}" --expected-commit "$(git rev-parse HEAD)" --out "native-smoke-${{ matrix.rust-targets }}-$format.json"
+        done
+    - name: Upload installer artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.name }}
+        if-no-files-found: error
+        path: |
+          tauri-shell/src-tauri/target/**/bundle/dmg/*.dmg
+          tauri-shell/src-tauri/target/**/bundle/nsis/*.exe
+          tauri-shell/src-tauri/target/**/bundle/deb/*.deb
+          tauri-shell/src-tauri/target/**/bundle/appimage/*.AppImage
+          native-smoke-*.json
+          notarization-*.json
