@@ -38,7 +38,7 @@ jobs:
         python-version: '3.12'
     - name: Read source version
       id: version
-      run: python -c 'from texada import __version__; print("version=" + __version__)' >> "$GITHUB_OUTPUT"
+      run: python -c 'import tomllib; print("version=" + tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])' >> "$GITHUB_OUTPUT"
     - name: Install uv
       run: python -m pip install --upgrade uv
     - name: Install Rust stable
