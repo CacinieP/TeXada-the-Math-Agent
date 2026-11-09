@@ -18,9 +18,9 @@ def check_tree(root: Path, baseline=(2, 35)) -> int:
         checked += 1
         # Only undefined imports impose requirements on the host. Definitions
         # inside a bundled library must not be mistaken for imported versions.
-        symbols = subprocess.check_output(['objdump', '-T', str(path)], text=True)
+        symbols = subprocess.check_output(['readelf', '--dyn-syms', '--wide', str(path)], text=True)
         for line in symbols.splitlines():
-            if '*UND*' not in line:
+            if not re.search(r'\bUND\b', line):
                 continue
             for version in re.findall(r'GLIBC_(\d+(?:\.\d+)+)', line):
                 if tuple(map(int, version.split('.'))) > baseline:

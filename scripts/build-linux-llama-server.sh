@@ -14,7 +14,7 @@ git -C "$WORK/source" checkout --detach "$SOURCE_COMMIT"
 test "$(git -C "$WORK/source" rev-parse HEAD)" = "$SOURCE_COMMIT"
 cmake -S "$WORK/source" -B "$WORK/build" \
   -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=OFF \
-  -DGGML_CUDA=OFF -DGGML_VULKAN=OFF -DLLAMA_CURL=OFF \
+  -DGGML_CUDA=OFF -DGGML_VULKAN=OFF -DLLAMA_OPENSSL=OFF \
   -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=ON
 cmake --build "$WORK/build" --target llama-server --parallel 2
 VERSION_OUT="$("$WORK/build/bin/llama-server" --version 2>&1)"
