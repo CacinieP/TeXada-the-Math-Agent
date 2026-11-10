@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.4.6 - 2026-11-10
+
+- Fix Linux compatibility by building the desktop, Python backend and pinned llama-server on Ubuntu 22.04 / glibc 2.35.
+- Reject packaged ELF imports newer than glibc 2.35, including weak imports. Validate deb installation and extracted AppImage startup with external networking disabled and loopback retained.
+- Linux validation covers desktop/backend startup and deterministic KaTeX rendering; it does not test model inference, every Linux distribution, or AppImageHub acceptance.
+- Preserve published v0.4.5 assets. Version 0.4.6 requires freshly built installers, matching SHA-256 checksums and source-bound validation reports.
+- 修复 Linux 构建基线和离线启动验证；保留 v0.4.5 原始发布文件，新版使用独立版本与校验记录。
+
 ## 0.4.5 - 2026-11-08
 
 - Clear stale history previews and their action closures on close, refresh/filter and successful history deletion without stealing search-field focus. / 关闭、刷新/筛选及成功清空历史时同步清理旧预览和操作引用，避免残留已移除内容或抢走搜索输入焦点。
