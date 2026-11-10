@@ -514,6 +514,8 @@ GitHub Actions builds release installers manually from `main` and automatically 
 
 ### Shortcuts
 
+Linux packaging targets the Ubuntu 22.04 / glibc 2.35 baseline. The desktop, Python sidecar and pinned llama-server are built on that baseline; PR package CI checks imported glibc symbols and starts both installers with external networking disabled (loopback remains available for the local backend). This is a compatibility gate, not validation of every Linux distribution.
+
 Linux system-cursor insertion is not implemented; formula clicks copy for manual paste. Wayland integration and Linux shortcuts have not received independent manual acceptance testing.
 
 | Action | Shortcut |
