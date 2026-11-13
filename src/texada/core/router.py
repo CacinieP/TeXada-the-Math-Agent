@@ -5,7 +5,8 @@ import re
 import time
 
 from texada.config import TeXadaConfig
-from texada.core.fixer import LaTeXFixer
+from texada.core.evaluation_guard import suspects_evaluation
+from texada.core.fixer import MAX_FIX_ROUNDS, LaTeXFixer
 from texada.core.intent import IntentClassifier
 from texada.core.model import MiniCPMModel
 from texada.core.operator_guard import OperatorDriftGuard
@@ -28,7 +29,15 @@ from texada.types import (
 
 
 class ConversationMemory:
-    """Agent Memory — keeps last N turns for context-aware generation."""
+    """Per-router turn buffer — intentionally NOT fed to the model.
+
+    A 1B model reuses the previous answer when history is passed back, so
+    ``/api/convert`` calls bled into each other (issue #80, kept as a regression
+    by ``tests/test_router.py::test_nl_conversion_does_not_reuse_previous_memory``).
+    Turns are still recorded here for diagnostics; if you ever want
+    context-aware generation, add explicit session scoping first — do not just
+    pass ``to_messages()`` back into ``generate_latex``.
+    """
 
     def __init__(self, max_turns: int = 6):
         self.max_turns = max_turns
@@ -52,6 +61,8 @@ class ConversationMemory:
 
 class InputRouter:
     """Routes user input to the correct pipeline based on type and content."""
+
+    MAX_REPAIR_ROUNDS = MAX_FIX_ROUNDS
 
     def __init__(self, config: TeXadaConfig):
         self.config = config
@@ -245,7 +256,25 @@ class InputRouter:
             if retried and not self._check_operator_drift(preprocessed, retried):
                 latex = retried
 
-        # Store turn in Agent Memory
+        # Evaluation guard: the prompt forbids computing, but the model still
+        # answers `2+3` with `2+3=5`. Retry once with an explicit "transcribe
+        # only" constraint; if the retry still computes, keep the first answer
+        # and flag the run instead of silently swapping in a different wrong one.
+        evaluation_suspected = False
+        if suspects_evaluation(text, latex):
+            retried = await self.model.generate_latex(
+                preprocessed,
+                intent_result.intent,
+                transcribe_only=True,
+            )
+            model_tokens += self._consume_model_tokens()
+            if retried and not suspects_evaluation(text, retried):
+                latex = retried
+            else:
+                evaluation_suspected = True
+
+        # Recorded for diagnostics only — never sent back to the model (see
+        # ConversationMemory). Do not "fix" this by passing memory_messages.
         self.memory.add(ConversationTurn(role="user", content=text))
         self.memory.add(ConversationTurn(role="assistant", content=latex))
 
@@ -260,6 +289,8 @@ class InputRouter:
         latency = (time.monotonic() - start) * 1000
 
         fix_log = [] if valid_result.valid else ["auto-fixed"]
+        if evaluation_suspected:
+            fix_log.append("evaluation-suspected")
 
         return ConvertResult(
             latex=final_latex,
@@ -344,13 +375,19 @@ class InputRouter:
         result = self.validator.validate(latex)
         if result.valid:
             return latex, result, tokens_used
-        # Try auto-fix
-        fix = self.fixer.fix(latex, result.errors)
-        if fix.fixed:
-            re_validated = self.validator.validate(fix.latex)
-            if re_validated.valid:
-                return fix.latex, re_validated, tokens_used
-        return latex, result, tokens_used
+        # Try auto-fix. Repairs compose (`\begin{case}fx` needs the environment
+        # name fixed first, then the missing \end), so iterate until the output
+        # validates or the fixer stops changing it.
+        current = latex
+        for _ in range(self.MAX_REPAIR_ROUNDS):
+            fix = self.fixer.fix(current, result.errors)
+            if not fix.fixed or fix.latex == current:
+                break
+            current = fix.latex
+            result = self.validator.validate(current)
+            if result.valid:
+                return current, result, tokens_used
+        return latex, self.validator.validate(latex), tokens_used
 
     def _consume_model_tokens(self) -> int:
         consume = getattr(self.model, "consume_tokens_used", None)

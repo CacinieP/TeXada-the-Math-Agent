@@ -36,6 +36,13 @@ def requests_computation(text: str) -> bool:
         return True
     if re.search(r"等于多少|结果是多少|答案是(?:多少|什么)|解(?:这个|一下)?方程", instruction):
         return True
+    # 口语化的求值请求：真实语料里 "2+3 等于几" / "3的平方加上4的平方是多少" /
+    # "1加2加3一直加到100的和" 都会绕过上面的动词表（eval/real_world_set.yaml
+    # 的 no-solving 类目就是这批输入）。
+    if re.search(r"等于几|是几|是多少|几多", instruction):
+        return True
+    if re.search(r"加到\s*\d+\s*的?(?:和|积|乘积|结果)", instruction):
+        return True
     if re.search(
         r"\b(?:what is|how much is)\s+(?:the\s+)?"
         r"(?:derivative of|integral of|[0-9]+\s*[+*/-])", instruction, flags=re.I,

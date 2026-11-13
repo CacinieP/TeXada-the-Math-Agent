@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from texada.core.fixer import LaTeXFixer
+from texada.core.fixer import MAX_FIX_ROUNDS, LaTeXFixer
 from texada.core.validator import LaTeXValidator
 from texada.semantic import SemanticDiffer
 from texada.types import CheckResult
@@ -66,6 +66,18 @@ class DeterministicRepairService:
         fixed = self.fixer.fix(latex, errors)
         candidate = fixed.latex.strip() or latex
         candidate_validation = self.validator.validate(candidate)
+        # Deterministic repairs compose (e.g. an illegal environment name plus
+        # its missing \end); keep fixing while it helps, bounded by the same
+        # three rounds the router uses.
+        for _ in range(MAX_FIX_ROUNDS):
+            if candidate_validation.valid:
+                break
+            again = self.fixer.fix(candidate, candidate_validation.errors)
+            if not again.fixed or again.latex == candidate:
+                break
+            candidate = again.latex.strip() or candidate
+            fixed.log.extend(again.log)
+            candidate_validation = self.validator.validate(candidate)
 
         return DeterministicRepairResult(
             original=latex,
