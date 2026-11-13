@@ -264,6 +264,7 @@ class MiniCPMModel:
         memory_messages: list[dict] | None = None,
         force_operators: list[str] | None = None,
         deadline_monotonic: float | None = None,
+        transcribe_only: bool = False,
     ) -> str:
         """NL→LaTeX inference — pure chat, no tool calling.
 
@@ -277,6 +278,11 @@ class MiniCPMModel:
 
         ``deadline_monotonic`` shares the runtime's original wall-clock budget;
         each provider call is limited to its remaining time, including retries.
+
+        ``transcribe_only`` adds an explicit "do not evaluate" constraint to the
+        user turn. The router sets it for the retry triggered by
+        ``evaluation_guard`` — the standing system prompt alone does not stop a
+        1B model from answering ``2+3=5``.
         """
         self._reset_tokens()
         messages: list[dict] = [
@@ -285,7 +291,13 @@ class MiniCPMModel:
         ]
         if memory_messages:
             messages.extend(memory_messages)
-        messages.append({"role": "user", "content": preprocessed})
+        user_content = preprocessed
+        if transcribe_only:
+            user_content = (
+                f"{preprocessed}\n\n"
+                "[约束] 只转写这个式子本身，不要计算、化简、求值或给出结果。"
+            )
+        messages.append({"role": "user", "content": user_content})
 
         response = await asyncio.to_thread(
             self._completion_create,

@@ -91,8 +91,19 @@ def anchor_hit(latex: str, anchor: str) -> bool:
     return any(anchor_present(strip_delimiters(latex), v) for v in variants)
 
 
-def judge(entry: dict, latex: str) -> tuple[bool, list[str]]:
-    """Apply the corpus rules to one model output. Returns (ok, reasons)."""
+def judge(entry: dict, latex: str, *, rejected: bool = False) -> tuple[bool, list[str]]:
+    """Apply the corpus rules to one model output. Returns (ok, reasons).
+
+    ``rejected`` marks an input the product boundary refused
+    (``core/scope.py`` → HTTP 422) instead of transcribing. Entries that opt in
+    with ``reject_ok`` treat that refusal as a pass: for "2+3 等于几" refusing is
+    the intended behavior, transcribing the expression is the fallback.
+    """
+    if rejected:
+        if entry.get("reject_ok"):
+            return True, ["rejected by the product scope boundary (expected)"]
+        return False, ["rejected by the product scope boundary (not expected here)"]
+
     reasons: list[str] = []
     text = strip_delimiters(latex)
     if not text:

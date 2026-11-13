@@ -193,3 +193,63 @@ async def test_deterministic_completion_candidates_skip_generation(
     assert tokens == 0
     router.backend.ensure_ready.assert_not_awaited()
     router.model.complete_latex.assert_not_awaited()
+
+
+# ── 只转写不解答：输出层守卫（issue #78）──────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_evaluation_guard_retries_with_transcribe_only_and_adopts_clean_answer(tmp_path):
+    router = InputRouter(TeXadaConfig(data_dir=tmp_path))
+    router.backend.ensure_ready = AsyncMock(return_value=True)
+    calls: list[dict] = []
+
+    async def fake_generate(preprocessed, intent, transcribe_only=False, **_):
+        calls.append({"transcribe_only": transcribe_only})
+        return r"\int_0^{\pi}\sin x\,dx=2" if not transcribe_only else r"\int_0^{\pi}\sin x\,dx"
+
+    router.model.generate_latex = fake_generate
+
+    # 该输入能通过 scope 门禁（只描述积分记号），所以走输出侧守卫
+    result = await router.process_text(
+        "sin x 从 0 到 π 的定积分记号", route_override=Route.NL2LATEX
+    )
+
+    assert result.latex == r"\int_0^{\pi}\sin x\,dx"
+    assert [c["transcribe_only"] for c in calls] == [False, True]
+    assert "evaluation-suspected" not in result.fix_log
+
+
+@pytest.mark.asyncio
+async def test_evaluation_guard_keeps_first_answer_and_flags_when_retry_still_computes(tmp_path):
+    router = InputRouter(TeXadaConfig(data_dir=tmp_path))
+    router.backend.ensure_ready = AsyncMock(return_value=True)
+
+    async def fake_generate(preprocessed, intent, **_):
+        return "9+16=25"
+
+    router.model.generate_latex = fake_generate
+
+    result = await router.process_text("3 的平方加上 4 的平方的记号", route_override=Route.NL2LATEX)
+
+    assert result.latex == "9+16=25"  # 不静默替换成另一个答案
+    assert result.fix_log == ["evaluation-suspected"]
+
+
+@pytest.mark.asyncio
+async def test_evaluation_guard_leaves_legitimate_equations_alone(tmp_path):
+    router = InputRouter(TeXadaConfig(data_dir=tmp_path))
+    router.backend.ensure_ready = AsyncMock(return_value=True)
+    calls = []
+
+    async def fake_generate(preprocessed, intent, transcribe_only=False, **_):
+        calls.append(transcribe_only)
+        return "x^2-5x+6=0"
+
+    router.model.generate_latex = fake_generate
+
+    result = await router.process_text("x 的平方减 5x 加 6 等于 0", route_override=Route.NL2LATEX)
+
+    assert result.latex == "x^2-5x+6=0"
+    assert calls == [False]            # 没有触发重试
+    assert result.fix_log == []        # 也没有被标记

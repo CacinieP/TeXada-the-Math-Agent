@@ -5,6 +5,11 @@ import re
 
 from texada.types import CheckResult, FixResult
 
+# Deterministic repairs compose (an illegal environment name plus its missing
+# \end takes two rounds); three is enough for the observed chains and keeps a
+# pathological input from looping.
+MAX_FIX_ROUNDS = 3
+
 # Common model confusion mappings
 COMMAND_FIXES: dict[str, str] = {
     r"\begin{array}": r"\begin{aligned}",
@@ -12,6 +17,34 @@ COMMAND_FIXES: dict[str, str] = {
     r"\begin{equation*}": r"\begin{aligned}",
     r"\end{equation*}": r"\end{aligned}",
 }
+
+# Truncated / mistyped commands the small model actually emits. Only entries
+# that normalize onto a real KaTeX command are listed: a wrong guess here would
+# silently change the meaning of a formula, which is worse than leaving it
+# invalid and visible.
+TRUNCATED_COMMANDS: dict[str, str] = {
+    "fr": "frac",
+    "frc": "frac",
+    "sqr": "sqrt",
+    "bet": "beta",
+    "lam": "lambda",
+    "thet": "theta",
+    "alph": "alpha",
+    "omeg": "omega",
+    "inf": "infty",
+    "part": "partial",
+}
+
+# Environments KaTeX supports in math mode, plus the spelling mistakes observed
+# in real run logs (eval/real_world_set.yaml rw-045 being the canonical case).
+KATEX_ENVIRONMENTS: frozenset[str] = frozenset({
+    "cases", "matrix", "pmatrix", "bmatrix", "Bmatrix", "vmatrix",
+    "Vmatrix", "smallmatrix", "aligned", "alignedat", "gathered", "split",
+    "array", "subarray", "gather", "align", "alignat", "CD",
+})
+
+_UNDEFINED_COMMAND = re.compile(r"Undefined control sequence: \\([A-Za-z]+)")
+_BAD_ENVIRONMENT = re.compile(r"No such environment: ([A-Za-z]+)")
 
 
 class LaTeXFixer:
@@ -37,8 +70,55 @@ class LaTeXFixer:
                 fixed = result
                 if log:
                     fix_log.append(log)
+            elif error.type == "katex_parse":
+                result, log = self._fix_katex_error(fixed, error.error)
+                fixed = result
+                if log:
+                    fix_log.append(log)
 
         return FixResult(latex=fixed, fixed=bool(fix_log), log=fix_log)
+
+    def _fix_katex_error(self, latex: str, message: str) -> tuple[str, str]:
+        """Repair mistyped commands and unknown environment names.
+
+        KaTeX is the product's only syntax authority, so undefined commands and
+        illegal environment names arrive as ``katex_parse`` errors (the old
+        ``unknown_command`` check no longer exists).
+        """
+        logs: list[str] = []
+        text = latex
+
+        for command in _UNDEFINED_COMMAND.findall(message or ""):
+            replacement = TRUNCATED_COMMANDS.get(command)
+            if not replacement or replacement == command:
+                continue
+            pattern = re.compile(r"\\" + re.escape(command) + r"(?![A-Za-z])")
+            if pattern.search(text):
+                text = pattern.sub("\\\\" + replacement, text)
+                logs.append(f"修正命令 \\{command} → \\{replacement}")
+
+        for environment in _BAD_ENVIRONMENT.findall(message or ""):
+            if environment in KATEX_ENVIRONMENTS:
+                continue
+            replacement = self._closest_environment(environment)
+            if not replacement:
+                continue
+            pattern = re.compile(r"\\(begin|end)\{" + re.escape(environment) + r"\}")
+            if not pattern.search(text):
+                continue
+            text = pattern.sub(
+                lambda match, repl=replacement: "\\" + match.group(1) + "{" + repl + "}",
+                text,
+            )
+            logs.append(f"修正环境 {environment} → {replacement}")
+
+        return text, "；".join(logs)
+
+    @staticmethod
+    def _closest_environment(environment: str) -> str:
+        """Return the unique KaTeX environment this name is a prefix of."""
+        candidates = [e for e in KATEX_ENVIRONMENTS if e.startswith(environment)]
+        return candidates[0] if len(candidates) == 1 else ""
 
     def _fix_braces(self, latex: str) -> tuple[str, str]:
         """Auto-complete missing closing braces.

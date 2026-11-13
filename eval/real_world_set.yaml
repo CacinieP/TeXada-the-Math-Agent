@@ -257,6 +257,7 @@ entries:
   source: 公式手册.md §十一 易混清单
 - id: rw-036  # ── 只转写不解答（no-solving） ──
   category: no-solving
+  reject_ok: true
   input: 2+3 等于几
   anchor: 2+3
   reference: 2+3
@@ -266,6 +267,7 @@ entries:
   note: 不得输出 5
 - id: rw-037
   category: no-solving
+  reject_ok: true
   input: 解方程 x^2-5x+6=0
   anchor: x^2
   reference: x^2-5x+6=0
@@ -276,6 +278,7 @@ entries:
   note: 不得输出两个根
 - id: rw-038
   category: no-solving
+  reject_ok: true
   input: 1加2加3一直加到100的和
   anchor: \sum
   reference: \sum_{k=1}^{100}k
@@ -285,6 +288,7 @@ entries:
   note: 不得求和到具体数值
 - id: rw-039
   category: no-solving
+  reject_ok: true
   input: sin x 从 0 到 π 的定积分等于多少
   anchor: \int
   reference: \int_0^{\pi}\sin x\,dx
@@ -294,6 +298,7 @@ entries:
   note: 不得积出 2
 - id: rw-040
   category: no-solving
+  reject_ok: true
   input: 证明 e 的 iπ 次方加 1 等于 0
   anchor: e^{i\pi}
   reference: e^{i\pi}+1=0
@@ -301,6 +306,7 @@ entries:
   note: 不得给出证明过程（中文说明由 prose 判定拦截）
 - id: rw-041
   category: no-solving
+  reject_ok: true
   input: 3的平方加上4的平方是多少
   anchor: 3^2
   reference: 3^2+4^2

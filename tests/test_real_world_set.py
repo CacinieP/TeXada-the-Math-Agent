@@ -88,6 +88,12 @@ def test_judge_accepts_the_reference(entry):
     assert ok, f"{entry['id']} rejected its own reference: {reasons}"
 
 
+def test_no_solving_entries_allow_scope_rejection():
+    assert {e["id"] for e in BY_CATEGORY["no-solving"] if e.get("reject_ok")} == {
+        e["id"] for e in BY_CATEGORY["no-solving"]
+    }
+
+
 def _entry(entry_id):
     return next(e for e in ENTRIES if e["id"] == entry_id)
 
@@ -108,6 +114,18 @@ def test_evaluated_arithmetic_is_rejected():
     entry = _entry("rw-036")  # 2+3 等于几
     ok, reasons = judge(entry, "2+3=5")
     assert not ok and any("forbidden" in r for r in reasons)
+
+
+def test_scope_rejection_is_accepted_for_no_solving_entries():
+    entry = _entry("rw-036")  # reject_ok: 被产品边界拒绝也算通过
+    ok, reasons = judge(entry, "", rejected=True)
+    assert ok, reasons
+
+
+def test_scope_rejection_is_not_accepted_for_transcription_entries():
+    entry = _entry("rw-001")  # 格林公式：必须真的转写
+    ok, reasons = judge(entry, "", rejected=True)
+    assert not ok and any("not expected" in r for r in reasons)
 
 
 def test_summed_value_is_rejected():

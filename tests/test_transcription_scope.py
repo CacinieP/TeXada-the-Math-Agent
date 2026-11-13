@@ -81,3 +81,25 @@ async def test_matrix_completion_api_closes_environment_and_preserves_unknown_ce
     assert result['latex'] == partial + r'\placeholder{}\end{pmatrix}'
     assert result['tokens_used'] == 0
     assert result['stop_reason'] == 'deterministic_candidate'
+
+
+@pytest.mark.parametrize('text', [
+    # 真实语料里的口语化求值请求（eval/real_world_set.yaml no-solving）
+    '2+3 等于几',
+    '3的平方加上4的平方是多少',
+    '1加2加3一直加到100的和',
+])
+def test_colloquial_evaluation_requests_are_outside_scope(text):
+    assert requests_computation(text)
+
+
+@pytest.mark.parametrize('text', [
+    'x 的平方减 5x 加 6 等于 0',
+    'a 的平方加 b 的平方等于 c 的平方',
+    '2+3',
+    '输入 2+3',
+    'sin x 从 0 到 pi 的定积分',
+    'n 从 1 到 100 的求和记号',
+])
+def test_plain_formula_descriptions_still_pass_the_scope_gate(text):
+    assert not requests_computation(text)
