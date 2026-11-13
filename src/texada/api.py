@@ -357,7 +357,7 @@ def _app_version() -> str:
     try:
         return version("texada")
     except PackageNotFoundError:
-        return "0.4.8"
+        return "0.4.9"
 
 
 def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
