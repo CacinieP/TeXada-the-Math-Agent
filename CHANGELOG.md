@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.4.9 - 2026-11-13
+
+- 新增术语名词表 `src/texada/core/glossary.py`（24 条，含格林/高斯/斯托克斯/贝叶斯/全概率/华里士/施密特/拉格朗日/罗尔/柯西/泰勒/洛必达/一阶线性 ODE/二阶常系数/中心极限/样本方差/欧拉/夹逼/路径无关/二项分布/分部积分/N-L/柯西不等式/秩不等式），每条带名称别名、LaTeX、出处与备注。
+- 词表沿既有确定性快路径接入：`DeterministicCandidateEngine._canonical_concept` 兜底查表（规则名仍为 `nl_canonical_concept`），`/api/convert` 在同一处先查表，命中返回 `Source.TEMPLATE`、`tokens_used=0`。匹配要求规范化后与别名完全相等，带参数的句子与复合问句仍交给模型；每条 LaTeX 必须通过 KaTeX 校验，失败则回退模型路径。
+- 实测（MiniCPM-V 4.7 1B）：真实语料 31/52 → **47/52**，其中 `named-formula` 5/20 → **20/20**；52 条里 21 条零 token 直出，词表命中 p50 ≈ 12 ms，模型路径 ≈ 0.8 s。100 条 golden set 仍为 59/95，未借词表刷分。
+- 评测 runner 现在区分「确定性直出」与「模型结果」并单列条目，避免把查表得分读成模型能力；README 中英双段与 `docs/architecture.md`、`eval/known-gaps.md`（G-017）同步。
+- Serve bare theorem names from a curated glossary (24 entries) on the existing deterministic-candidate path, so the small model is no longer asked to recall textbook formulas.
+
 ## 0.4.8 - 2026-11-13
 
 - 修复计算范围门禁的误拒：`u 除以 v 的求导法则`、`泰勒公式的求导法则`、`基本积分公式表` 这类"要排版的内容"此前因动词 `求导` 命中而被整句拒绝。现在动词扫描前先剥离 `求导/积分/极限 +（的）法则|公式|规则|表` 固定搭配，`计算这个求导公式`、`推导…的求导法则` 仍按计算请求拒绝。
