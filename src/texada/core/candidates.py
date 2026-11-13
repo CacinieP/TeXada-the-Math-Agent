@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from texada.core.glossary import lookup as lookup_glossary_entry
 from texada.core.scope import transcription_description
 
 
@@ -414,7 +415,14 @@ class DeterministicCandidateEngine:
                 r"P(A\mid B)=\frac{P(B\mid A)P(A)}{P(B)}"
             ),
         }
-        return concepts.get(normalized, "")
+        concept = concepts.get(normalized, "")
+        if concept:
+            return concept
+        # Named theorems beyond the hand-written table above (格林/高斯/斯托克斯/
+        # 华里士/泰勒…): the answer is fixed and public, so serve it from the
+        # curated glossary instead of asking the 1B model to recall it (#87).
+        entry = lookup_glossary_entry(text)
+        return entry.latex if entry is not None else ""
 
     @classmethod
     def _restore_bare_commands(cls, candidate: str) -> str:

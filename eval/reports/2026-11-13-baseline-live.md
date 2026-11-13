@@ -15,7 +15,8 @@
 ## Repair dataset (deterministic, brace-balance scope)
 
 - Repair pass rate: 53/53 (100.0%)
+- Served by deterministic rules (glossary/preset/transcription, no inference): 7 (002, 008, 054, 065, 072, 084, 092)
 - Refused by the computation-scope gate (product boundary, not model failures): 2 (010, 073)
-- Latency p50 / p95: 1548 ms / 4218 ms
+- Latency p50 / p95: 1255 ms / 3325 ms
 
 > Development-regression scope; not a general benchmark. See eval/known-gaps.md for measured boundaries.

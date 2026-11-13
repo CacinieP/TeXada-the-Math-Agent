@@ -67,6 +67,7 @@ def run(args) -> dict:
 
     for index, entry in enumerate(entries, 1):
         rejected = False
+        source = "reference" if args.dry_run else ""
         if args.dry_run:
             latex, error, latency = entry["reference"], None, 0.0
         else:
@@ -80,6 +81,7 @@ def run(args) -> dict:
                     args.timeout,
                 )
                 latex, error = payload.get("latex", ""), None
+                source = payload.get("source", "")
             except urllib.error.HTTPError as exc:
                 # 422 = the scope boundary refused an explicit computation input.
                 body = exc.read().decode("utf-8", "replace")
@@ -99,6 +101,7 @@ def run(args) -> dict:
                 "ok": ok,
                 "reasons": reasons,
                 "latency_ms": latency,
+                "source": source,
             }
         )
         print(
@@ -127,7 +130,11 @@ def run(args) -> dict:
         },
         "rows": rows,
     }
-    print(f"\n{passed}/{len(rows)} passed")
+    deterministic = sum(1 for r in rows if r.get("source") == "template")
+    print(
+        f"\n{passed}/{len(rows)} passed"
+        + (f"  ({deterministic} served by the glossary, no inference)" if deterministic else "")
+    )
     for category, (ok, total) in sorted(per_category.items()):
         print(f"  {category:<17} {ok}/{total}")
     failures = Counter(r["id"] for r in rows if not r["ok"])

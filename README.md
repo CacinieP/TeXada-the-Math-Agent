@@ -602,6 +602,9 @@ row above, so the two are **not** a like-for-like improvement claim:
 | Deterministic repair pass rate | 53/53 (100%) |
 | Latency p50 / p95 | 1.5s / 4.2s |
 
+Seven of the 95 anchor-checkable entries are answered by deterministic rules
+(glossary / preset / transcription) with zero tokens; the rest are model runs.
+
 Two golden entries (`010`, `073`) are refused by the computation-scope gate
 instead of transcribed; they are listed separately in the baseline report and
 kept out of the denominators. `062` (`u 除以 v 的求导法则`) used to be refused too
@@ -617,12 +620,19 @@ inputs the 100-entry set does not contain:
 
 | Real-world corpus | Pass |
 |--------|------|
-| Overall | **31/52 (59.6%)** |
-| `named-formula` (only a theorem name, e.g. 格林公式) | 5/20 |
+| Overall | **47/52 (90.4%)** |
+| `named-formula` (only a theorem name, e.g. 格林公式) | **20/20** (served by the glossary) |
 | `lecture-sentence` (exam/lecture sentences) | 6/8 |
-| `common-mistake` (classic wrong forms) | 4/7 |
+| `common-mistake` (classic wrong forms) | 5/7 |
 | `no-solving` (must not be evaluated) | 6/6 (refused by the scope gate) |
 | `completion` (half-finished / mistyped LaTeX) | 10/11 |
+
+`named-formula` no longer measures the model. A bare theorem name is answered by
+the curated glossary (`src/texada/core/glossary.py`, 24 entries) under the
+existing `nl_canonical_concept` rule, in ~12 ms with zero tokens; 21 of the 52
+entries are served that way. Before the glossary the same 1B model scored 5/20
+on this slice — that gap is knowledge recall, not transcription. The remaining
+failures are genuine model results.
 
 Reproduce with `python eval/run_real_world.py --base-url ... --output ...`;
 per-case verdicts and reasons are in [eval/real-world-baseline.json](eval/real-world-baseline.json),
@@ -1158,6 +1168,8 @@ llama-server。模型与管线都和上面 2026-09-19 那次不同，**不能当
 | 确定性修复通过率 | 53/53（100%） |
 | 延迟 p50 / p95 | 1.5s / 4.2s |
 
+95 条可判条目里有 7 条由确定性规则（词表/预设/转写）零 token 直出，其余是模型跑出来的。
+
 其中 `010`、`073` 两条被计算范围门禁拒绝而不是转写，基线报告里单列、不计入
 分母。`062`（`u 除以 v 的求导法则`）此前也被误拒，v0.4.8 已修——`求导法则/
 公式/规则/表` 现在按名词处理。剩下两条是**有意的产品边界**，登记在
@@ -1169,12 +1181,17 @@ llama-server。模型与管线都和上面 2026-09-19 那次不同，**不能当
 
 | 真实语料 | 通过 |
 |------|------|
-| 合计 | **31/52（59.6%）** |
-| `named-formula`（只给定理名，如格林公式） | 5/20 |
+| 合计 | **47/52（90.4%）** |
+| `named-formula`（只给定理名，如格林公式） | **20/20**（由词表直出） |
 | `lecture-sentence`（讲义/真题整句） | 6/8 |
-| `common-mistake`（易混写法） | 4/7 |
+| `common-mistake`（易混写法） | 5/7 |
 | `no-solving`（只转写不解答） | 6/6（由范围门禁拒绝） |
 | `completion`（半截/拼错 LaTeX） | 10/11 |
+
+`named-formula` 这一档**不再测模型**：只给术语名时由受控词表
+（`src/texada/core/glossary.py`，24 条）沿既有 `nl_canonical_concept` 规则直出，
+约 12 ms、零 token；52 条里有 21 条走这条路。加词表前同一个 1B 模型在这档是
+5/20——差的是"记不记得住定理"，不是"会不会转写"。其余失败项仍是模型真实结果。
 
 复现：`python eval/run_real_world.py --base-url … --output …`；逐条判定与理由见
 [eval/real-world-baseline.json](eval/real-world-baseline.json)，原始报告见
