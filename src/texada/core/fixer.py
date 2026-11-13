@@ -21,7 +21,8 @@ COMMAND_FIXES: dict[str, str] = {
 # Truncated / mistyped commands the small model actually emits. Only entries
 # that normalize onto a real KaTeX command are listed: a wrong guess here would
 # silently change the meaning of a formula, which is worse than leaving it
-# invalid and visible.
+# invalid and visible. Deliberately *not* mapped: `\inf` (valid KaTeX = infimum)
+# and anything whose intended target is ambiguous.
 TRUNCATED_COMMANDS: dict[str, str] = {
     "fr": "frac",
     "frc": "frac",
@@ -31,8 +32,6 @@ TRUNCATED_COMMANDS: dict[str, str] = {
     "thet": "theta",
     "alph": "alpha",
     "omeg": "omega",
-    "inf": "infty",
-    "part": "partial",
 }
 
 # Environments KaTeX supports in math mode, plus the spelling mistakes observed
