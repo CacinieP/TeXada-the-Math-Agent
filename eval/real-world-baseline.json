@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "corpus": "eval/real_world_set.yaml",
-  "generated_at": "2026-11-13T14:33:10",
+  "generated_at": "2026-11-13T14:57:55",
   "dry_run": false,
   "backend": {
     "status": "ready",
@@ -43,7 +43,7 @@
         "forbidden fragment(s): ['\\\\nabla']",
         "anchor missing: '\\\\oint_L P\\\\,dx'"
       ],
-      "latency_ms": 1189.4
+      "latency_ms": 4997.1
     },
     {
       "id": "rw-002",
@@ -54,7 +54,7 @@
       "reasons": [
         "anchor missing: '\\\\iiint_\\\\Omega'"
       ],
-      "latency_ms": 709.0
+      "latency_ms": 527.0
     },
     {
       "id": "rw-003",
@@ -65,7 +65,7 @@
       "reasons": [
         "anchor missing: '\\\\oint_\\\\Gamma'"
       ],
-      "latency_ms": 2136.3
+      "latency_ms": 1327.4
     },
     {
       "id": "rw-004",
@@ -74,7 +74,7 @@
       "output": "P(A|B) = \\frac{P(B|A) \\cdot P(A)}{P(B)}",
       "ok": true,
       "reasons": [],
-      "latency_ms": 640.7
+      "latency_ms": 876.0
     },
     {
       "id": "rw-005",
@@ -85,7 +85,7 @@
       "reasons": [
         "anchor missing: '\\\\sum_{i=1}^{n}'"
       ],
-      "latency_ms": 360.1
+      "latency_ms": 365.9
     },
     {
       "id": "rw-006",
@@ -96,7 +96,7 @@
       "reasons": [
         "anchor missing: '\\\\int_0^{\\\\frac{\\\\pi}{2}}'"
       ],
-      "latency_ms": 451.9
+      "latency_ms": 371.1
     },
     {
       "id": "rw-007",
@@ -107,7 +107,7 @@
       "reasons": [
         "anchor missing: '\\\\beta_k'"
       ],
-      "latency_ms": 277.6
+      "latency_ms": 658.4
     },
     {
       "id": "rw-008",
@@ -118,7 +118,7 @@
       "reasons": [
         "anchor missing: \"f'(\\\\xi)\""
       ],
-      "latency_ms": 1181.8
+      "latency_ms": 345.1
     },
     {
       "id": "rw-009",
@@ -129,7 +129,7 @@
       "reasons": [
         "anchor missing: \"f'(\\\\xi)=0\""
       ],
-      "latency_ms": 345.0
+      "latency_ms": 961.1
     },
     {
       "id": "rw-010",
@@ -140,7 +140,7 @@
       "reasons": [
         "anchor missing: \"g'(\\\\xi)\""
       ],
-      "latency_ms": 1260.8
+      "latency_ms": 1188.8
     },
     {
       "id": "rw-011",
@@ -151,7 +151,7 @@
       "reasons": [
         "anchor missing: 'x_0'"
       ],
-      "latency_ms": 962.9
+      "latency_ms": 658.9
     },
     {
       "id": "rw-012",
@@ -160,7 +160,7 @@
       "output": "\\lim_{x \\to a} \\frac{f(x)}{g(x)} = \\lim_{x \\to a} \\frac{f'(x)}{g'(x)},",
       "ok": true,
       "reasons": [],
-      "latency_ms": 763.1
+      "latency_ms": 1129.5
     },
     {
       "id": "rw-013",
@@ -171,7 +171,7 @@
       "reasons": [
         "anchor missing: '\\\\int'"
       ],
-      "latency_ms": 868.2
+      "latency_ms": 440.1
     },
     {
       "id": "rw-014",
@@ -182,7 +182,7 @@
       "reasons": [
         "anchor missing: 'C_1e'"
       ],
-      "latency_ms": 700.7
+      "latency_ms": 799.3
     },
     {
       "id": "rw-015",
@@ -193,7 +193,7 @@
       "reasons": [
         "anchor missing: 'N(0,1)'"
       ],
-      "latency_ms": 1531.3
+      "latency_ms": 1388.1
     },
     {
       "id": "rw-016",
@@ -202,7 +202,7 @@
       "output": "\\mathrm{Var}(X) = \\frac{1}{n-1} \\sum_{i=1}^{n} (x_i - \\bar{x})^2",
       "ok": true,
       "reasons": [],
-      "latency_ms": 1878.5
+      "latency_ms": 2453.5
     },
     {
       "id": "rw-017",
@@ -211,7 +211,7 @@
       "output": "e^{i\\theta} = \\cos\\theta + i\\sin\\theta",
       "ok": true,
       "reasons": [],
-      "latency_ms": 515.5
+      "latency_ms": 320.4
     },
     {
       "id": "rw-018",
@@ -220,7 +220,7 @@
       "output": "\\lim_{x \\to a} f(x) = L",
       "ok": true,
       "reasons": [],
-      "latency_ms": 305.1
+      "latency_ms": 648.7
     },
     {
       "id": "rw-019",
@@ -231,7 +231,7 @@
       "reasons": [
         "anchor missing: '\\\\frac{\\\\partial P}{\\\\partial y} 或 P_y'"
       ],
-      "latency_ms": 1507.8
+      "latency_ms": 1014.1
     },
     {
       "id": "rw-020",
@@ -242,7 +242,7 @@
       "reasons": [
         "anchor missing: 'np'"
       ],
-      "latency_ms": 646.1
+      "latency_ms": 1015.2
     },
     {
       "id": "rw-021",
@@ -251,7 +251,7 @@
       "output": "\\int_0^x e^{t^2} \\sin t \\, dt",
       "ok": true,
       "reasons": [],
-      "latency_ms": 1404.5
+      "latency_ms": 726.9
     },
     {
       "id": "rw-022",
@@ -260,7 +260,7 @@
       "output": "\\sum_{n=1}^{\\infty} \\left( \\sin(n^3) \\cdot \\frac{\\pi}{n^2} + 1 \\right)",
       "ok": true,
       "reasons": [],
-      "latency_ms": 1393.3
+      "latency_ms": 1086.9
     },
     {
       "id": "rw-023",
@@ -269,7 +269,7 @@
       "output": "\\lim_{x \\to 0} \\frac{1+x}{x} = 1",
       "ok": true,
       "reasons": [],
-      "latency_ms": 633.4
+      "latency_ms": 365.9
     },
     {
       "id": "rw-024",
@@ -278,7 +278,7 @@
       "output": "\\int_{\\theta_1}^{\\theta_2} \\int_{r_1}^{r_2} r \\cdot f(r, \\theta, r) \\, dr \\, d\\theta",
       "ok": true,
       "reasons": [],
-      "latency_ms": 1167.2
+      "latency_ms": 1384.9
     },
     {
       "id": "rw-025",
@@ -287,7 +287,7 @@
       "output": "\\int_L \\sqrt{1 + (y')^2}\\,ds",
       "ok": true,
       "reasons": [],
-      "latency_ms": 540.4
+      "latency_ms": 907.1
     },
     {
       "id": "rw-026",
@@ -298,7 +298,7 @@
       "reasons": [
         "anchor missing: 'dS'"
       ],
-      "latency_ms": 121.2
+      "latency_ms": 137.6
     },
     {
       "id": "rw-027",
@@ -307,7 +307,7 @@
       "output": "f + \\lambda \\times g",
       "ok": true,
       "reasons": [],
-      "latency_ms": 606.1
+      "latency_ms": 214.4
     },
     {
       "id": "rw-028",
@@ -318,7 +318,7 @@
       "reasons": [
         "anchor missing: '\\\\int'"
       ],
-      "latency_ms": 1515.8
+      "latency_ms": 1807.7
     },
     {
       "id": "rw-029",
@@ -327,7 +327,7 @@
       "output": "\\det(kA) = k^n \\det(A)",
       "ok": true,
       "reasons": [],
-      "latency_ms": 253.6
+      "latency_ms": 467.9
     },
     {
       "id": "rw-030",
@@ -338,7 +338,7 @@
       "reasons": [
         "anchor missing: '\\\\ln|x|'"
       ],
-      "latency_ms": 897.2
+      "latency_ms": 333.5
     },
     {
       "id": "rw-031",
@@ -347,7 +347,7 @@
       "output": "r\\,dr\\,\\theta\\,d\\theta",
       "ok": true,
       "reasons": [],
-      "latency_ms": 408.8
+      "latency_ms": 164.3
     },
     {
       "id": "rw-032",
@@ -356,7 +356,7 @@
       "output": "D(X-Y) = D(X) + D(Y)",
       "ok": true,
       "reasons": [],
-      "latency_ms": 425.8
+      "latency_ms": 732.0
     },
     {
       "id": "rw-033",
@@ -365,7 +365,7 @@
       "output": "rank(A) \\leq \\sum_{i} rank(A_i)",
       "ok": true,
       "reasons": [],
-      "latency_ms": 1029.2
+      "latency_ms": 359.9
     },
     {
       "id": "rw-034",
@@ -376,7 +376,7 @@
       "reasons": [
         "anchor missing: 'r(AB) 或 \\\\operatorname{rank}(AB)'"
       ],
-      "latency_ms": 1262.6
+      "latency_ms": 223.8
     },
     {
       "id": "rw-035",
@@ -387,7 +387,7 @@
       "reasons": [
         "anchor missing: '\\\\frac{\\\\partial Q}{\\\\partial x}'"
       ],
-      "latency_ms": 815.6
+      "latency_ms": 1088.9
     },
     {
       "id": "rw-036",
@@ -398,7 +398,7 @@
       "reasons": [
         "rejected by the product scope boundary (expected)"
       ],
-      "latency_ms": 4.9
+      "latency_ms": 2.8
     },
     {
       "id": "rw-037",
@@ -409,7 +409,7 @@
       "reasons": [
         "rejected by the product scope boundary (expected)"
       ],
-      "latency_ms": 4.3
+      "latency_ms": 1.8
     },
     {
       "id": "rw-038",
@@ -420,7 +420,7 @@
       "reasons": [
         "rejected by the product scope boundary (expected)"
       ],
-      "latency_ms": 3.7
+      "latency_ms": 2.1
     },
     {
       "id": "rw-039",
@@ -431,7 +431,7 @@
       "reasons": [
         "rejected by the product scope boundary (expected)"
       ],
-      "latency_ms": 9.4
+      "latency_ms": 11.1
     },
     {
       "id": "rw-040",
@@ -442,7 +442,7 @@
       "reasons": [
         "rejected by the product scope boundary (expected)"
       ],
-      "latency_ms": 2.8
+      "latency_ms": 1.7
     },
     {
       "id": "rw-041",
@@ -453,7 +453,7 @@
       "reasons": [
         "rejected by the product scope boundary (expected)"
       ],
-      "latency_ms": 2.2
+      "latency_ms": 1.6
     },
     {
       "id": "rw-042",
@@ -462,7 +462,7 @@
       "output": "\\sum_{i=1}^{n} x_i",
       "ok": true,
       "reasons": [],
-      "latency_ms": 9.8
+      "latency_ms": 8.4
     },
     {
       "id": "rw-043",
@@ -471,7 +471,7 @@
       "output": "\\sqrt{\\lg \\frac{5x-x^2}{4}}",
       "ok": true,
       "reasons": [],
-      "latency_ms": 10.7
+      "latency_ms": 11.3
     },
     {
       "id": "rw-044",
@@ -480,7 +480,7 @@
       "output": "y=(x+2)e^\\frac1 x",
       "ok": true,
       "reasons": [],
-      "latency_ms": 6.9
+      "latency_ms": 5.3
     },
     {
       "id": "rw-045",
@@ -489,7 +489,7 @@
       "output": "\\begin{cases}fx\\end{cases}",
       "ok": true,
       "reasons": [],
-      "latency_ms": 5.6
+      "latency_ms": 11.9
     },
     {
       "id": "rw-046",
@@ -500,7 +500,7 @@
       "reasons": [
         "anchor missing: '\\\\begin{pmatrix}1&2\\\\\\\\3&4\\\\end{pmatrix}'"
       ],
-      "latency_ms": 6.0
+      "latency_ms": 6.8
     },
     {
       "id": "rw-047",
@@ -509,7 +509,7 @@
       "output": "\\frac{d}{dx}",
       "ok": true,
       "reasons": [],
-      "latency_ms": 5.4
+      "latency_ms": 5.7
     },
     {
       "id": "rw-048",
@@ -518,7 +518,7 @@
       "output": "\\lim_{x \\to 0}",
       "ok": true,
       "reasons": [],
-      "latency_ms": 6.6
+      "latency_ms": 5.1
     },
     {
       "id": "rw-049",
@@ -527,7 +527,7 @@
       "output": "\\int_0^1",
       "ok": true,
       "reasons": [],
-      "latency_ms": 6.5
+      "latency_ms": 5.0
     },
     {
       "id": "rw-050",
@@ -536,7 +536,7 @@
       "output": "\\left(\\frac{a}{b} \\right)",
       "ok": true,
       "reasons": [],
-      "latency_ms": 1665.2
+      "latency_ms": 3974.1
     },
     {
       "id": "rw-051",
@@ -545,7 +545,7 @@
       "output": "\\frac{\\partial^2 f}{\\partial x}",
       "ok": true,
       "reasons": [],
-      "latency_ms": 12.6
+      "latency_ms": 11.7
     },
     {
       "id": "rw-052",
@@ -554,7 +554,7 @@
       "output": "\\alpha + \\beta",
       "ok": true,
       "reasons": [],
-      "latency_ms": 6.6
+      "latency_ms": 4.2
     }
   ]
 }
