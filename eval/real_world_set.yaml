@@ -1,0 +1,385 @@
+# Real-world NL → LaTeX corpus（真实语料补充集）
+#
+# 与 eval/golden_set.yaml（docs/test-prompts-100.md 的 100 条基础语料）互补：
+# 这里只收那 100 条**没有覆盖**的真实场景，因此不重复 A–H 的基础代数/微积分句式。
+#
+# 每条都能溯源到本机具体文件或运行记录（source 字段）。reference 是人工书写的
+# 完整公式（用于自检 anchor 是否被自身满足，以及供 strict 结构评测复用）；
+# anchor 是机器可判的关键结构，`或` 分隔等价写法，CJK 片段会被 anchor_variants 丢弃。
+#
+# 五个类目：
+#   named-formula    只说公式名/定理名（格林、华里士、泰勒…）
+#   lecture-sentence 讲义与真题里的整句表述
+#   common-mistake   公式手册「易混清单」里的经典错法
+#   no-solving       故意诱发解答，断言"只转写、不计算"
+#   completion       半截 LaTeX / 拼错命令的补全与修复
+
+version: 1
+categories:
+- named-formula
+- lecture-sentence
+- common-mistake
+- no-solving
+- completion
+entries:
+- id: rw-001  # ── 术语名（named-formula） ──
+  category: named-formula
+  input: 格林公式
+  anchor: \oint_L P\,dx
+  reference: \oint_L P\,dx+Q\,dy=\iint_D\left(\frac{\partial Q}{\partial x}-\frac{\partial P}{\partial y}\right)dx\,dy
+  forbid:
+  - \nabla
+  source: Documents/kaoyan-math-301/06-附录/公式手册.md §六
+  note: 易混：右边是 Q_x-P_y，不是 P_y-Q_x；答成散度/通量形式视为未命中
+- id: rw-002
+  category: named-formula
+  input: 高斯公式
+  anchor: \iiint_\Omega
+  reference: \iiint_\Omega\left(P_x+Q_y+R_z\right)dV=\oiint_\Sigma P\,dy\,dz+Q\,dz\,dx+R\,dx\,dy
+  source: 公式手册.md §六
+- id: rw-003
+  category: named-formula
+  input: 斯托克斯公式
+  anchor: \oint_\Gamma
+  reference: \oint_\Gamma P\,dx+Q\,dy+R\,dz=\iint_\Sigma\left(\frac{\partial R}{\partial y}-\frac{\partial Q}{\partial z}\right)dy\,dz+\left(\frac{\partial P}{\partial z}-\frac{\partial R}{\partial x}\right)dz\,dx+\left(\frac{\partial Q}{\partial x}-\frac{\partial P}{\partial y}\right)dx\,dy
+  source: 公式手册.md §六
+  note: 真实运行记录里该输入曾返回空字符串
+- id: rw-004
+  category: named-formula
+  input: 贝叶斯公式
+  anchor: P(A \mid B)
+  reference: P(A\mid B)=\frac{P(B\mid A)P(A)}{P(B)}
+  source: 公式手册.md §十；~/.texada/history.db 2026-11-13 真实调用
+- id: rw-005
+  category: named-formula
+  input: 全概率公式
+  anchor: \sum_{i=1}^{n}
+  reference: P(B)=\sum_{i=1}^{n}P(A_i)P(B\mid A_i)
+  source: 公式手册.md §十
+- id: rw-006
+  category: named-formula
+  input: 华里士公式
+  anchor: \int_0^{\frac{\pi}{2}}
+  reference: \int_0^{\frac{\pi}{2}}\sin^n x\,dx=\begin{cases}\frac{(n-1)!!}{n!!}\cdot\frac{\pi}{2},&n\text{ 偶}\\\frac{(n-1)!!}{n!!},&n\text{ 奇}\end{cases}
+  source: 公式手册.md §四
+- id: rw-007
+  category: named-formula
+  input: 施密特正交化
+  anchor: \beta_k
+  reference: \beta_k=\alpha_k-\sum_{i<k}\frac{(\alpha_k,\beta_i)}{(\beta_i,\beta_i)}\beta_i
+  source: 公式手册.md §九
+- id: rw-008
+  category: named-formula
+  input: 拉格朗日中值定理
+  anchor: f'(\xi)
+  reference: f(b)-f(a)=f'(\xi)(b-a)
+  source: 公式手册.md §三
+  note: ξ 与 c 是常见的等价写法
+- id: rw-009
+  category: named-formula
+  input: 罗尔定理
+  anchor: f'(\xi)=0
+  reference: f(a)=f(b)\Rightarrow f'(\xi)=0
+  source: 公式手册.md §三
+- id: rw-010
+  category: named-formula
+  input: 柯西中值定理
+  anchor: g'(\xi)
+  reference: \frac{f(b)-f(a)}{g(b)-g(a)}=\frac{f'(\xi)}{g'(\xi)}
+  source: 公式手册.md §三
+- id: rw-011
+  category: named-formula
+  input: 泰勒公式
+  anchor: x_0
+  reference: f(x)=\sum_{k=0}^{n}\frac{f^{(k)}(x_0)}{k!}(x-x_0)^k+o((x-x_0)^n)
+  source: 公式手册.md §三
+- id: rw-012
+  category: named-formula
+  input: 洛必达法则
+  anchor: \lim_{x\to a}
+  reference: \lim_{x\to a}\frac{f(x)}{g(x)}=\lim_{x\to a}\frac{f'(x)}{g'(x)}
+  source: 公式手册.md；kaoyan-zhenti-jieda/math1/2025 第3题
+- id: rw-013
+  category: named-formula
+  input: 一阶线性微分方程通解
+  anchor: \int
+  reference: y=e^{-\int P\,dx}\left(\int Qe^{\int P\,dx}dx+C\right)
+  source: 公式手册.md §八
+  note: anchor 只卡 \int（y=e^{…}(\int…+C) 的写法差异大，见 known-gaps G-010）
+- id: rw-014
+  category: named-formula
+  input: 二阶常系数齐次线性微分方程通解
+  anchor: C_1e
+  reference: y=C_1e^{r_1x}+C_2e^{r_2x}
+  source: 公式手册.md §八
+- id: rw-015
+  category: named-formula
+  input: 中心极限定理
+  anchor: N(0,1)
+  reference: \frac{\sum X_i-n\mu}{\sqrt{n}\sigma}\xrightarrow{d}N(0,1)
+  source: 公式手册.md §十
+- id: rw-016
+  category: named-formula
+  input: 样本方差的定义式（分母是 n-1）
+  anchor: n-1
+  reference: S^2=\frac{1}{n-1}\sum_{i=1}^{n}(X_i-\bar X)^2
+  source: 公式手册.md §十；04-概率/README.md
+- id: rw-017
+  category: named-formula
+  input: 欧拉公式
+  anchor: e^{i\theta} 或 e^{i\pi}
+  reference: e^{i\theta}=\cos\theta+i\sin\theta
+  source: ~/.texada/history.db 2026-09-02 真实调用（输入 green 曾误出欧拉公式）
+- id: rw-018
+  category: named-formula
+  input: 夹逼准则
+  anchor: \lim
+  reference: g(x)\le f(x)\le h(x),\lim g=\lim h=A\Rightarrow\lim f=A
+  source: 02-高数/01-极限与连续.md §3.1
+- id: rw-019
+  category: named-formula
+  input: 曲线积分与路径无关的条件
+  anchor: \frac{\partial P}{\partial y} 或 P_y
+  reference: P_y=Q_x\quad\left(\frac{\partial P}{\partial y}=\frac{\partial Q}{\partial x}\right)
+  source: 公式手册.md §六
+- id: rw-020
+  category: named-formula
+  input: 二项分布的期望和方差
+  anchor: np
+  reference: E(X)=np,\quad D(X)=np(1-p)
+  source: 公式手册.md §十 七大分布表
+- id: rw-021  # ── 讲义/真题整句（lecture-sentence） ──
+  category: lecture-sentence
+  input: f(x) 等于 0 到 x 上 e 的 t 平方次方乘 sin t 的积分
+  anchor: \int_0^x
+  reference: f(x)=\int_0^x e^{t^2}\sin t\,dt
+  source: kaoyan-zhenti-jieda/math1/2025 第1题 题面
+- id: rw-022
+  category: lecture-sentence
+  input: 级数 n 从 1 到无穷，通项是 sin(n的三次方乘π除以 n平方加1)
+  anchor: \sum_{n=1}^{\infty}
+  reference: \sum_{n=1}^{\infty}\sin\frac{n^3\pi}{n^2+1}
+  source: kaoyan-zhenti-jieda/math1/2025 第2题 题面
+- id: rw-023
+  category: lecture-sentence
+  input: x 趋于 0 时 (1+x) 的 1/x 次方
+  anchor: \lim_{x\to 0}
+  reference: \lim_{x\to 0}(1+x)^{\frac{1}{x}}
+  source: 公式手册.md §一 1^∞ 型
+  note: 只转写，不得算成 e
+- id: rw-024
+  category: lecture-sentence
+  input: 区域 D 上 f(x,y) 的重积分，极坐标下先对 r 再对 theta
+  anchor: \iint_D 或 \int_{\theta_1}
+  reference: \iint_D f(x,y)\,d\sigma=\int_{\theta_1}^{\theta_2}d\theta\int_{r_1}^{r_2}f(r\cos\theta,r\sin\theta)\,r\,dr
+  forbid:
+  - \cdot r\,dr
+  source: 02-高数/05-重积分.md
+  note: 易错：面积元重复乘 r
+- id: rw-025
+  category: lecture-sentence
+  input: 曲线 L 上对弧长的第一类曲线积分
+  anchor: ds
+  reference: \int_L f(x,y)\,ds
+  source: 02-高数/06-曲线曲面积分.md
+- id: rw-026
+  category: lecture-sentence
+  input: 曲面 Sigma 上对面积的曲面积分
+  anchor: dS
+  reference: \iint_\Sigma f(x,y,z)\,dS
+  source: 02-高数/06-曲线曲面积分.md
+- id: rw-027
+  category: lecture-sentence
+  input: 拉格朗日乘数法的辅助函数：f 加上 λ 乘 g
+  anchor: \lambda
+  reference: L=f+\lambda g
+  source: 公式手册.md §五
+- id: rw-028
+  category: lecture-sentence
+  input: 一阶线性方程 y导 加 P(x)y 等于 Q(x) 的通解
+  anchor: \int
+  reference: y'+P(x)y=Q(x)\Rightarrow y=e^{-\int P(x)dx}\left(\int Q(x)e^{\int P(x)dx}dx+C\right)
+  source: 公式手册.md §八
+- id: rw-029  # ── 易混清单（common-mistake） ──
+  category: common-mistake
+  input: n阶方阵A，kA的行列式
+  anchor: k^n
+  reference: \det(kA)=k^n\det A
+  forbid:
+  - k\det
+  source: 公式手册.md §十一 易混清单
+  note: 易错：写成 k|A|
+- id: rw-030
+  category: common-mistake
+  input: x分之一的原函数，写成带绝对值的对数
+  anchor: \ln|x|
+  reference: \int\frac{dx}{x}=\ln|x|+C
+  forbid:
+  - \ln x
+  source: 公式手册.md §十一 易混清单
+- id: rw-031
+  category: common-mistake
+  input: 极坐标下的面积元
+  anchor: r\,dr\,d\theta
+  reference: d\sigma=r\,dr\,d\theta
+  forbid:
+  - d\sigma=dr\,d\theta
+  source: 公式手册.md §十一 易混清单
+  note: 易错：漏掉雅可比 r
+- id: rw-032
+  category: common-mistake
+  input: X与Y独立时，D(X-Y)等于什么
+  anchor: D(X)+D(Y)
+  reference: D(X-Y)=D(X)+D(Y)
+  forbid:
+  - D(X)-D(Y)
+  source: 公式手册.md §十一 易混清单
+- id: rw-033
+  category: common-mistake
+  input: 矩阵和的秩与各自秩之和的不等式
+  anchor: \le
+  reference: r(A+B)\le r(A)+r(B)
+  source: 公式手册.md §九 秩不等式
+  note: 易错：当成等号
+- id: rw-034
+  category: common-mistake
+  input: 矩阵乘积的秩不等式
+  anchor: r(AB) 或 \operatorname{rank}(AB)
+  reference: r(AB)\le\min\{r(A),r(B)\}
+  source: 公式手册.md §九
+- id: rw-035
+  category: common-mistake
+  input: 格林公式右边用偏导数写出的部分
+  anchor: \frac{\partial Q}{\partial x}
+  reference: \iint_D\left(\frac{\partial Q}{\partial x}-\frac{\partial P}{\partial y}\right)dx\,dy
+  forbid:
+  - \frac{\partial P}{\partial x}-\frac{\partial Q}{\partial y}
+  source: 公式手册.md §十一 易混清单
+- id: rw-036  # ── 只转写不解答（no-solving） ──
+  category: no-solving
+  input: 2+3 等于几
+  anchor: 2+3
+  reference: 2+3
+  forbid:
+  - =5
+  source: 产品定位：只转公式不解答
+  note: 不得输出 5
+- id: rw-037
+  category: no-solving
+  input: 解方程 x^2-5x+6=0
+  anchor: x^2
+  reference: x^2-5x+6=0
+  forbid:
+  - x=2
+  - x=3
+  source: 产品定位：只转公式不解答
+  note: 不得输出两个根
+- id: rw-038
+  category: no-solving
+  input: 1加2加3一直加到100的和
+  anchor: \sum
+  reference: \sum_{k=1}^{100}k
+  forbid:
+  - '5050'
+  source: 产品定位：只转公式不解答
+  note: 不得求和到具体数值
+- id: rw-039
+  category: no-solving
+  input: sin x 从 0 到 π 的定积分等于多少
+  anchor: \int
+  reference: \int_0^{\pi}\sin x\,dx
+  forbid:
+  - =2
+  source: 产品定位：只转公式不解答
+  note: 不得积出 2
+- id: rw-040
+  category: no-solving
+  input: 证明 e 的 iπ 次方加 1 等于 0
+  anchor: e^{i\pi}
+  reference: e^{i\pi}+1=0
+  source: 产品定位：只转公式不解答
+  note: 不得给出证明过程（中文说明由 prose 判定拦截）
+- id: rw-041
+  category: no-solving
+  input: 3的平方加上4的平方是多少
+  anchor: 3^2
+  reference: 3^2+4^2
+  forbid:
+  - =25
+  source: 产品定位：只转公式不解答
+  note: 不得算出 25
+- id: rw-042  # ── 补全与修复（completion） ──
+  category: completion
+  input: \sum_{i=1}^{
+  anchor: \sum_{i=1}
+  reference: \sum_{i=1}^{n}x_i
+  source: README 特性示例
+  note: 补全上界并保持花括号平衡
+- id: rw-043
+  category: completion
+  input: \sqrt{\lg \frac{5x-x^2}{4}
+  anchor: \lg\frac{5x-x^2}{4}
+  reference: \sqrt{\lg\frac{5x-x^2}{4}}
+  source: ~/.texada/runs.db 2026-07-31 真实调用（当时 error）
+- id: rw-044
+  category: completion
+  input: y=(x+2)e^\fr1 x
+  anchor: e^{\frac{1}{x}}
+  reference: y=(x+2)e^{\frac{1}{x}}
+  forbid:
+  - \fr1
+  source: ~/.texada/runs.db 2026-09-02 真实调用（\fr 拼错）
+  note: 需要把 \fr 修成 \frac
+- id: rw-045
+  category: completion
+  input: \begin{case}fx
+  anchor: \begin{cases}fx\end{cases}
+  reference: \begin{cases}fx\end{cases}
+  forbid:
+  - \begin{case}
+  source: ~/.texada/runs.db 2026-07-31 真实调用（当时 error）
+  note: 环境名应修正为 cases，而不是补一个同样非法的 \end{case}
+- id: rw-046
+  category: completion
+  input: \begin{pmatrix}1&2\\
+  anchor: \begin{pmatrix}1&2\\3&4\end{pmatrix}
+  reference: \begin{pmatrix}1&2\\3&4\end{pmatrix}
+  source: 公式手册.md §九
+- id: rw-047
+  category: completion
+  input: \frac{d}{dx}
+  anchor: \frac{d}{dx}
+  reference: \frac{d}{dx}f(x)
+  source: ~/.texada/runs.db 2026-07-31 真实调用
+- id: rw-048
+  category: completion
+  input: \lim_{x \to 0}
+  anchor: \lim
+  reference: \lim_{x\to 0}f(x)
+  source: 02-高数/01-极限与连续.md
+- id: rw-049
+  category: completion
+  input: \int_0^1
+  anchor: \int_0^1
+  reference: \int_0^1 f(x)\,dx
+  source: 公式手册.md §四
+- id: rw-050
+  category: completion
+  input: \left(\frac{a}{b}
+  anchor: \frac{a}{b}
+  reference: \left(\frac{a}{b}\right)
+  source: LaTeX 括号不配对
+  note: 孤立的 \left( 由 KaTeX 解析失败兜住，不另设 forbid
+- id: rw-051
+  category: completion
+  input: \frac{\partial^2 f}{\partial x}
+  anchor: \partial
+  reference: \frac{\partial^2 f}{\partial x^2}
+  source: 02-高数/04-多元微分.md
+- id: rw-052
+  category: completion
+  input: \alpha + \bet
+  anchor: \beta
+  reference: \alpha+\beta
+  source: 拼写补全（\bet → \beta）
+  note: 输出必须能被 KaTeX 解析（\bet 不是命令）
