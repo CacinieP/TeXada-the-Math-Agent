@@ -12,6 +12,7 @@ Usage:
   uv run --extra dev --extra eval python eval/run_real_baseline.py --mode recorded
   uv run --extra dev --extra eval python eval/run_real_baseline.py --mode live
 """
+
 from __future__ import annotations
 
 import argparse
@@ -42,18 +43,14 @@ DISCLAIMER = (
 
 
 async def _run_entry(config, text, planner_factory):
-    runtime = TeXadaAgentRuntime(
-        config, model=planner_factory()
-    )
+    runtime = TeXadaAgentRuntime(config, model=planner_factory())
     runtime.backend.ensure_ready = AsyncMock(return_value=True)
     return await runtime.run(text)
 
 
 def _evaluate(result, entry) -> dict:
     variants = anchor_variants(entry["anchor"])
-    anchor_ok = (
-        any(anchor_present(result.latex, v) for v in variants) if variants else None
-    )
+    anchor_ok = any(anchor_present(result.latex, v) for v in variants) if variants else None
     return {
         "anchor": anchor_ok,
         "compile": result.valid,
@@ -71,9 +68,7 @@ async def _recorded(config) -> tuple[list[dict], list[dict]]:
         if entry is None:
             skipped.append(text)
             continue
-        result = await _run_entry(
-            config, text, lambda rec=rec: RecordedPlanner(rec["turns"])
-        )
+        result = await _run_entry(config, text, lambda rec=rec: RecordedPlanner(rec["turns"]))
         rows.append({"entry": entry, "result": result, "layers": _evaluate(result, entry)})
     return rows, skipped
 
@@ -89,15 +84,11 @@ async def _live(config) -> list[dict]:
     for entry in load_golden_set():
         run_id = uuid.uuid4().hex
         try:
-            result = await _run_entry(
-                config, entry["input"], lambda: MiniCPMModel(config)
-            )
+            result = await _run_entry(config, entry["input"], lambda: MiniCPMModel(config))
         except ComputationOutsideScope:
             # Product boundary, not a model failure: the input asked for
             # computation, so the gate refused it before inference.
-            rows.append(
-                {"entry": entry, "result": None, "layers": None, "refused": "scope"}
-            )
+            rows.append({"entry": entry, "result": None, "layers": None, "refused": "scope"})
             continue
         except Exception as exc:
             rows.append(
@@ -116,6 +107,14 @@ async def _live(config) -> list[dict]:
                 "layers": _evaluate(result, entry),
                 "run_id": run_id,
                 "latency_ms": result.latency_ms,
+                "rule": (
+                    (result.trace[0].get("candidate_rule") or "")
+                    if result.trace
+                    else ""
+                ),
+                # A run with zero model tokens means a deterministic rule
+                # answered it (glossary / matrix preset / transcription).
+                "deterministic": result.tokens_used == 0,
             }
         )
     return rows
@@ -160,8 +159,11 @@ def _write_report(path: Path, mode: str, model: str, rows, skipped, repair):
         "",
         f"- Structural pass rate (anchor layer): "
         f"{len(anchor_passed)}/{len(anchor_checked)}"
-        + (f" ({100 * len(anchor_passed) / max(len(anchor_checked), 1):.1f}%)"
-           if anchor_checked else ""),
+        + (
+            f" ({100 * len(anchor_passed) / max(len(anchor_checked), 1):.1f}%)"
+            if anchor_checked
+            else ""
+        ),
         f"- Entries with descriptive (non-machine-checkable) anchors: {len(descriptive)}",
         f"- Compile layer: {_layer_count(rows, 'compile')}/{len(rows)}",
         f"- Render layer: {_layer_count(rows, 'render')}/{len(rows)}",
@@ -175,6 +177,14 @@ def _write_report(path: Path, mode: str, model: str, rows, skipped, repair):
         f"> {DISCLAIMER}",
         "",
     ]
+    deterministic = [r for r in rows if r.get("deterministic")]
+    if deterministic:
+        lines.insert(
+            -3,
+            "- Served by deterministic rules (glossary/preset/transcription, no inference): "
+            f"{len(deterministic)} "
+            f"({', '.join(r['entry']['id'] for r in deterministic)})",
+        )
     refused = [r for r in rows if r.get("refused")]
     if refused:
         lines.insert(

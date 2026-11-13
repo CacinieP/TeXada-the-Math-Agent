@@ -120,6 +120,16 @@ operator-drifting candidates fall back to the normal MiniCPM5 planner loop.
 This preserves the Planner/Tool contract while making exact structured inputs
 effectively instant.
 
+Named theorems are one of those deterministic candidates. `core/glossary.py`
+holds a curated term → standard-LaTeX table (格林/高斯/斯托克斯/贝叶斯/华里士/
+泰勒…), and `DeterministicCandidateEngine._canonical_concept` serves it under the
+existing `nl_canonical_concept` rule. Matching is deliberately exact: the input
+must *be* the name after normalisation, so `格林公式和斯托克斯公式的区别`,
+`泰勒展开式`, or a statement with parameters still reaches the planner. Every
+entry carries its transcription source and must pass the KaTeX validator before
+it is served; a failing entry falls back to the planner. `/api/convert` uses the
+same lookup before inference.
+
 OCR and completion do not become separate autonomous agents. Each first
 produces a candidate, then the shared runtime executes `compile_tex` and gives
 that real Observation to the sole MiniCPM5 planner. The planner can select

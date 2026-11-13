@@ -7,6 +7,7 @@ import time
 from texada.config import TeXadaConfig
 from texada.core.evaluation_guard import suspects_evaluation
 from texada.core.fixer import MAX_FIX_ROUNDS, LaTeXFixer
+from texada.core.glossary import lookup as lookup_glossary_entry
 from texada.core.intent import IntentClassifier
 from texada.core.model import MiniCPMModel
 from texada.core.operator_guard import OperatorDriftGuard
@@ -225,6 +226,27 @@ class InputRouter:
             intent_result = IntentResult(intent=intent_override, confidence=0.95)
         else:
             intent_result = self.intent_classifier.classify(text)
+        # Named-theorem glossary: when the input *is* a theorem name, the answer
+        # is fixed and public, so look it up instead of asking a 1B model to
+        # recall it (issue #87). Misses and invalid entries fall through to the
+        # model path unchanged.
+        glossary = None if context else lookup_glossary_entry(text)
+        if glossary is not None:
+            fixed_latex, fixed_validation, _ = self._validate_and_fix(glossary.latex)
+            if fixed_validation.valid:
+                render = self._render(fixed_latex, render_mode)
+                return ConvertResult(
+                    latex=fixed_latex,
+                    render=render,
+                    valid=True,
+                    source=Source.TEMPLATE,
+                    intent=glossary.intent,
+                    confidence=1.0,
+                    latency_ms=(time.monotonic() - start) * 1000,
+                    tokens_used=0,
+                    fix_log=[f"glossary:{glossary.id}"],
+                )
+
         preprocessed = self.symbol_engine.pre_translate(text)
         if context:
             preprocessed = f"[上下文: {context}]\n{preprocessed}"
