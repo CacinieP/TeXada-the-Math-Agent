@@ -23,7 +23,7 @@ class ComputationOutsideScope(ValueError):
 def requests_computation(text: str) -> bool:
     # Literal labels/code are content to transcribe, not user instructions.
     instruction = re.sub(r'```[\s\S]*?```|`[^`]*`|"[^"\n]*"|“[^”]*”|「[^」]*」', '', text)
-    verbs = r"计算|求值|化简|因式分解|解方程|求解|求导|求积分|求极限|证明|算出|算一下"
+    verbs = r"计算|求值|化简|因式分解|解方程|求解|求导|求积分|求极限|推导|证明|算出|算一下"
     instruction = re.sub(
         rf"(?:不需要|无需|不用|不要|不必|禁止|不做|不)(?:进行)?(?:{verbs})", '', instruction,
     )
@@ -32,6 +32,9 @@ def requests_computation(text: str) -> bool:
         r"(?:compute|calculate|evaluate|solve|simplify|factor(?:ize)?|differentiate|integrate|prove)\b",
         '', instruction, flags=re.I,
     )
+    # 名词化的"求导法则 / 求积分公式 / 极限表"是要排版的对象，不是让我动手算。
+    # 只剥离这些固定搭配，剩下的动词仍照常判定：'计算这个求导公式' 仍会被拒绝。
+    instruction = re.sub(r"(?:求导|积分|极限)(?:的)?(?:法则|公式|规则|表)", '', instruction)
     if re.search(rf"(?:{verbs})(?!符号|记号|二字|这两个字|字样)", instruction):
         return True
     if re.search(r"等于多少|结果是多少|答案是(?:多少|什么)|解(?:这个|一下)?方程", instruction):

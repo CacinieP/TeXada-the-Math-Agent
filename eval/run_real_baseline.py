@@ -81,6 +81,7 @@ async def _recorded(config) -> tuple[list[dict], list[dict]]:
 async def _live(config) -> list[dict]:
     from texada.core.backend import BackendManager
     from texada.core.model import MiniCPMModel
+    from texada.core.scope import ComputationOutsideScope
 
     await BackendManager(config).ensure_ready()  # abort cleanly if unreachable
 
@@ -91,6 +92,13 @@ async def _live(config) -> list[dict]:
             result = await _run_entry(
                 config, entry["input"], lambda: MiniCPMModel(config)
             )
+        except ComputationOutsideScope:
+            # Product boundary, not a model failure: the input asked for
+            # computation, so the gate refused it before inference.
+            rows.append(
+                {"entry": entry, "result": None, "layers": None, "refused": "scope"}
+            )
+            continue
         except Exception as exc:
             rows.append(
                 {
@@ -167,6 +175,14 @@ def _write_report(path: Path, mode: str, model: str, rows, skipped, repair):
         f"> {DISCLAIMER}",
         "",
     ]
+    refused = [r for r in rows if r.get("refused")]
+    if refused:
+        lines.insert(
+            -3,
+            "- Refused by the computation-scope gate (product boundary, "
+            f"not model failures): {len(refused)} "
+            f"({', '.join(r['entry']['id'] for r in refused)})",
+        )
     latencies = [r["latency_ms"] for r in rows if r.get("latency_ms")]
     if latencies:
         lines.insert(

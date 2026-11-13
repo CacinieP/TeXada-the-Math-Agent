@@ -595,18 +595,21 @@ row above, so the two are **not** a like-for-like improvement claim:
 
 | Golden set (100 entries) | Result |
 |--------|--------|
-| NL to LaTeX structural pass rate | **59/94 (62.8%)** |
-| Compile layer | 91/100 |
-| Render layer | 97/100 |
-| Trace layer | 97/100 |
+| NL to LaTeX structural pass rate | **59/95 (62.1%)** |
+| Compile layer | 92/100 |
+| Render layer | 98/100 |
+| Trace layer | 98/100 |
 | Deterministic repair pass rate | 53/53 (100%) |
-| Latency p50 / p95 | 2.9s / 5.4s |
+| Latency p50 / p95 | 1.5s / 4.2s |
 
-Three golden entries (`010`, `062`, `073`) are currently refused by the
-computation-scope gate rather than transcribed, because their wording
-(`分解成两个因式`, `求导法则`, `积分对 x 求导`) trips the verb filter. That is
-tracked as a known scope false positive in
-[eval/known-gaps.md](eval/known-gaps.md).
+Two golden entries (`010`, `073`) are refused by the computation-scope gate
+instead of transcribed; they are listed separately in the baseline report and
+kept out of the denominators. `062` (`u 除以 v 的求导法则`) used to be refused too
+and is fixed in v0.4.8 by treating `求导法则/公式/规则/表` as nouns. The remaining
+two are documented as a deliberate boundary in
+[eval/known-gaps.md](eval/known-gaps.md) (G-016): `010` asks for a factorisation
+*result*, and `073` cannot be separated from a real differentiation request by
+pattern alone.
 
 The new real-world corpus (`eval/real_world_set.yaml`, 52 entries from real
 study notes, exam explanations and run logs) measures a different axis —
@@ -1148,16 +1151,18 @@ llama-server。模型与管线都和上面 2026-09-19 那次不同，**不能当
 
 | 100 条 goldenset | 结果 |
 |------|------|
-| NL 转 LaTeX 结构通过率 | **59/94（62.8%）** |
-| 编译层 | 91/100 |
-| 渲染层 | 97/100 |
-| 轨迹层 | 97/100 |
+| NL 转 LaTeX 结构通过率 | **59/95（62.1%）** |
+| 编译层 | 92/100 |
+| 渲染层 | 98/100 |
+| 轨迹层 | 98/100 |
 | 确定性修复通过率 | 53/53（100%） |
-| 延迟 p50 / p95 | 2.9s / 5.4s |
+| 延迟 p50 / p95 | 1.5s / 4.2s |
 
-其中 `010`、`062`、`073` 三条被计算范围门禁拒绝而不是转写（`分解成两个因式`、
-`求导法则`、`积分对 x 求导` 触发了动词表）。这是已知的误拒，登记在
-[eval/known-gaps.md](eval/known-gaps.md)。
+其中 `010`、`073` 两条被计算范围门禁拒绝而不是转写，基线报告里单列、不计入
+分母。`062`（`u 除以 v 的求导法则`）此前也被误拒，v0.4.8 已修——`求导法则/
+公式/规则/表` 现在按名词处理。剩下两条是**有意的产品边界**，登记在
+[eval/known-gaps.md](eval/known-gaps.md) G-016：`010` 要的是因式分解**结果**，
+`073` 无法用正则与真实的求导请求区分。
 
 新增的真实语料（`eval/real_world_set.yaml`，52 条，取自本机讲义、真题详解与
 运行日志）测的是 100 条集里没有的那一档输入：
