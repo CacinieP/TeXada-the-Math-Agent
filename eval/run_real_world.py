@@ -66,10 +66,12 @@ def run(args) -> dict:
             raise SystemExit(2) from exc
 
     for index, entry in enumerate(entries, 1):
+        rejected = False
         if args.dry_run:
             latex, error, latency = entry["reference"], None, 0.0
         else:
             started = time.perf_counter()
+            rejected = False
             try:
                 payload = post(
                     args.base_url,
@@ -78,10 +80,16 @@ def run(args) -> dict:
                     args.timeout,
                 )
                 latex, error = payload.get("latex", ""), None
+            except urllib.error.HTTPError as exc:
+                # 422 = the scope boundary refused an explicit computation input.
+                body = exc.read().decode("utf-8", "replace")
+                rejected = exc.code == 422 and "转写" in body
+                latex = ""
+                error = None if rejected else f"HTTP {exc.code}: {body[:120]}"
             except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
                 latex, error = "", f"{type(exc).__name__}: {exc}"
             latency = round((time.perf_counter() - started) * 1000, 1)
-        ok, reasons = (False, [error]) if error else judge(entry, latex)
+        ok, reasons = (False, [error]) if error else judge(entry, latex, rejected=rejected)
         rows.append(
             {
                 "id": entry["id"],

@@ -330,7 +330,7 @@ entries:
 - id: rw-044
   category: completion
   input: y=(x+2)e^\fr1 x
-  anchor: e^{\frac{1}{x}}
+  anchor: e^\frac1 x 或 \frac{1}{x}
   reference: y=(x+2)e^{\frac{1}{x}}
   forbid:
   - \fr1

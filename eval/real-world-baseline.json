@@ -1,0 +1,560 @@
+{
+  "schema_version": 1,
+  "corpus": "eval/real_world_set.yaml",
+  "generated_at": "2026-11-13T14:33:10",
+  "dry_run": false,
+  "backend": {
+    "status": "ready",
+    "model": "MiniCPM-V-4.7-1B"
+  },
+  "claim": "Corpus-level transcription check only; not a general model benchmark",
+  "total": 52,
+  "passed": 31,
+  "per_category": {
+    "common-mistake": {
+      "passed": 4,
+      "total": 7
+    },
+    "completion": {
+      "passed": 10,
+      "total": 11
+    },
+    "lecture-sentence": {
+      "passed": 6,
+      "total": 8
+    },
+    "named-formula": {
+      "passed": 5,
+      "total": 20
+    },
+    "no-solving": {
+      "passed": 6,
+      "total": 6
+    }
+  },
+  "rows": [
+    {
+      "id": "rw-001",
+      "category": "named-formula",
+      "input": "格林公式",
+      "output": "\\iint_{\\partial D} u \\, d\\sigma = \\int_{D} \\nabla u \\cdot d\\mathbf{r}",
+      "ok": false,
+      "reasons": [
+        "forbidden fragment(s): ['\\\\nabla']",
+        "anchor missing: '\\\\oint_L P\\\\,dx'"
+      ],
+      "latency_ms": 1189.4
+    },
+    {
+      "id": "rw-002",
+      "category": "named-formula",
+      "input": "高斯公式",
+      "output": "\\iint_{\\partial S} \\mathbf{a} \\cdot d\\mathbf{r} = \\iiint_S (\\nabla \\cdot \\mathbf{a}) dV",
+      "ok": false,
+      "reasons": [
+        "anchor missing: '\\\\iiint_\\\\Omega'"
+      ],
+      "latency_ms": 709.0
+    },
+    {
+      "id": "rw-003",
+      "category": "named-formula",
+      "input": "斯托克斯公式",
+      "output": "\\oint_C f \\cdot dr = \\iint_D (L_1 \\cdot dA_1 + L_2 \\cdot dA_2 + \\dots + L_n \\cdot dA_n)",
+      "ok": false,
+      "reasons": [
+        "anchor missing: '\\\\oint_\\\\Gamma'"
+      ],
+      "latency_ms": 2136.3
+    },
+    {
+      "id": "rw-004",
+      "category": "named-formula",
+      "input": "贝叶斯公式",
+      "output": "P(A|B) = \\frac{P(B|A) \\cdot P(A)}{P(B)}",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 640.7
+    },
+    {
+      "id": "rw-005",
+      "category": "named-formula",
+      "input": "全概率公式",
+      "output": "\\mathbb{P}(A)",
+      "ok": false,
+      "reasons": [
+        "anchor missing: '\\\\sum_{i=1}^{n}'"
+      ],
+      "latency_ms": 360.1
+    },
+    {
+      "id": "rw-006",
+      "category": "named-formula",
+      "input": "华里士公式",
+      "output": "\\sqrt{x^2 + y^2} = z",
+      "ok": false,
+      "reasons": [
+        "anchor missing: '\\\\int_0^{\\\\frac{\\\\pi}{2}}'"
+      ],
+      "latency_ms": 451.9
+    },
+    {
+      "id": "rw-007",
+      "category": "named-formula",
+      "input": "施密特正交化",
+      "output": "v = u \\cos \\theta + w \\sin \\theta",
+      "ok": false,
+      "reasons": [
+        "anchor missing: '\\\\beta_k'"
+      ],
+      "latency_ms": 277.6
+    },
+    {
+      "id": "rw-008",
+      "category": "named-formula",
+      "input": "拉格朗日中值定理",
+      "output": "f(x_0) \\leq f(x) \\leq f(x_0) + f'(x_0)(x - x_0)",
+      "ok": false,
+      "reasons": [
+        "anchor missing: \"f'(\\\\xi)\""
+      ],
+      "latency_ms": 1181.8
+    },
+    {
+      "id": "rw-009",
+      "category": "named-formula",
+      "input": "罗尔定理",
+      "output": "f(c) = f(a) + f(b) - f\\left(\\frac{a+b}{2}\\right)",
+      "ok": false,
+      "reasons": [
+        "anchor missing: \"f'(\\\\xi)=0\""
+      ],
+      "latency_ms": 345.0
+    },
+    {
+      "id": "rw-010",
+      "category": "named-formula",
+      "input": "柯西中值定理",
+      "output": "\\exists c \\in [a, b] \\text{ 使得 } \\frac{f(x_1) - f(x_2)}{x_1 - x_2} = f'(c)",
+      "ok": false,
+      "reasons": [
+        "anchor missing: \"g'(\\\\xi)\""
+      ],
+      "latency_ms": 1260.8
+    },
+    {
+      "id": "rw-011",
+      "category": "named-formula",
+      "input": "泰勒公式",
+      "output": "f(x+h) = f(x) + f'(x)h + \\frac{f''(x)}{2!}h^2 + \\dots",
+      "ok": false,
+      "reasons": [
+        "anchor missing: 'x_0'"
+      ],
+      "latency_ms": 962.9
+    },
+    {
+      "id": "rw-012",
+      "category": "named-formula",
+      "input": "洛必达法则",
+      "output": "\\lim_{x \\to a} \\frac{f(x)}{g(x)} = \\lim_{x \\to a} \\frac{f'(x)}{g'(x)},",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 763.1
+    },
+    {
+      "id": "rw-013",
+      "category": "named-formula",
+      "input": "一阶线性微分方程通解",
+      "output": "y(x) = c_1 e^{k_1 x} + c_2 e^{k_2 x}",
+      "ok": false,
+      "reasons": [
+        "anchor missing: '\\\\int'"
+      ],
+      "latency_ms": 868.2
+    },
+    {
+      "id": "rw-014",
+      "category": "named-formula",
+      "input": "二阶常系数齐次线性微分方程通解",
+      "output": "y(x) = c_1 e^{mx} + c_2 e^{nx}",
+      "ok": false,
+      "reasons": [
+        "anchor missing: 'C_1e'"
+      ],
+      "latency_ms": 700.7
+    },
+    {
+      "id": "rw-015",
+      "category": "named-formula",
+      "input": "中心极限定理",
+      "output": "(X_1, X_2, \\dots, X_n) \\sim \\mathcal{N}(0, \\sigma^2 n),",
+      "ok": false,
+      "reasons": [
+        "anchor missing: 'N(0,1)'"
+      ],
+      "latency_ms": 1531.3
+    },
+    {
+      "id": "rw-016",
+      "category": "named-formula",
+      "input": "样本方差的定义式（分母是 n-1）",
+      "output": "\\mathrm{Var}(X) = \\frac{1}{n-1} \\sum_{i=1}^{n} (x_i - \\bar{x})^2",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 1878.5
+    },
+    {
+      "id": "rw-017",
+      "category": "named-formula",
+      "input": "欧拉公式",
+      "output": "e^{i\\theta} = \\cos\\theta + i\\sin\\theta",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 515.5
+    },
+    {
+      "id": "rw-018",
+      "category": "named-formula",
+      "input": "夹逼准则",
+      "output": "\\lim_{x \\to a} f(x) = L",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 305.1
+    },
+    {
+      "id": "rw-019",
+      "category": "named-formula",
+      "input": "曲线积分与路径无关的条件",
+      "output": "\\int_C f(x,y)\\,dx\\,dy",
+      "ok": false,
+      "reasons": [
+        "anchor missing: '\\\\frac{\\\\partial P}{\\\\partial y} 或 P_y'"
+      ],
+      "latency_ms": 1507.8
+    },
+    {
+      "id": "rw-020",
+      "category": "named-formula",
+      "input": "二项分布的期望和方差",
+      "output": "\\mathbb{E}[X]",
+      "ok": false,
+      "reasons": [
+        "anchor missing: 'np'"
+      ],
+      "latency_ms": 646.1
+    },
+    {
+      "id": "rw-021",
+      "category": "lecture-sentence",
+      "input": "f(x) 等于 0 到 x 上 e 的 t 平方次方乘 sin t 的积分",
+      "output": "\\int_0^x e^{t^2} \\sin t \\, dt",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 1404.5
+    },
+    {
+      "id": "rw-022",
+      "category": "lecture-sentence",
+      "input": "级数 n 从 1 到无穷，通项是 sin(n的三次方乘π除以 n平方加1)",
+      "output": "\\sum_{n=1}^{\\infty} \\left( \\sin(n^3) \\cdot \\frac{\\pi}{n^2} + 1 \\right)",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 1393.3
+    },
+    {
+      "id": "rw-023",
+      "category": "lecture-sentence",
+      "input": "x 趋于 0 时 (1+x) 的 1/x 次方",
+      "output": "\\lim_{x \\to 0} \\frac{1+x}{x} = 1",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 633.4
+    },
+    {
+      "id": "rw-024",
+      "category": "lecture-sentence",
+      "input": "区域 D 上 f(x,y) 的重积分，极坐标下先对 r 再对 theta",
+      "output": "\\int_{\\theta_1}^{\\theta_2} \\int_{r_1}^{r_2} r \\cdot f(r, \\theta, r) \\, dr \\, d\\theta",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 1167.2
+    },
+    {
+      "id": "rw-025",
+      "category": "lecture-sentence",
+      "input": "曲线 L 上对弧长的第一类曲线积分",
+      "output": "\\int_L \\sqrt{1 + (y')^2}\\,ds",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 540.4
+    },
+    {
+      "id": "rw-026",
+      "category": "lecture-sentence",
+      "input": "曲面 Sigma 上对面积的曲面积分",
+      "output": "\\int_S dA",
+      "ok": false,
+      "reasons": [
+        "anchor missing: 'dS'"
+      ],
+      "latency_ms": 121.2
+    },
+    {
+      "id": "rw-027",
+      "category": "lecture-sentence",
+      "input": "拉格朗日乘数法的辅助函数：f 加上 λ 乘 g",
+      "output": "f + \\lambda \\times g",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 606.1
+    },
+    {
+      "id": "rw-028",
+      "category": "lecture-sentence",
+      "input": "一阶线性方程 y导 加 P(x)y 等于 Q(x) 的通解",
+      "output": "y' + P(x)y = Q(x)",
+      "ok": false,
+      "reasons": [
+        "anchor missing: '\\\\int'"
+      ],
+      "latency_ms": 1515.8
+    },
+    {
+      "id": "rw-029",
+      "category": "common-mistake",
+      "input": "n阶方阵A，kA的行列式",
+      "output": "\\det(kA) = k^n \\det(A)",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 253.6
+    },
+    {
+      "id": "rw-030",
+      "category": "common-mistake",
+      "input": "x分之一的原函数，写成带绝对值的对数",
+      "output": "\\left| \\ln(x) \\right|",
+      "ok": false,
+      "reasons": [
+        "anchor missing: '\\\\ln|x|'"
+      ],
+      "latency_ms": 897.2
+    },
+    {
+      "id": "rw-031",
+      "category": "common-mistake",
+      "input": "极坐标下的面积元",
+      "output": "r\\,dr\\,\\theta\\,d\\theta",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 408.8
+    },
+    {
+      "id": "rw-032",
+      "category": "common-mistake",
+      "input": "X与Y独立时，D(X-Y)等于什么",
+      "output": "D(X-Y) = D(X) + D(Y)",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 425.8
+    },
+    {
+      "id": "rw-033",
+      "category": "common-mistake",
+      "input": "矩阵和的秩与各自秩之和的不等式",
+      "output": "rank(A) \\leq \\sum_{i} rank(A_i)",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 1029.2
+    },
+    {
+      "id": "rw-034",
+      "category": "common-mistake",
+      "input": "矩阵乘积的秩不等式",
+      "output": "\\text{rank}(A) \\leq \\min\\{r_i\\}",
+      "ok": false,
+      "reasons": [
+        "anchor missing: 'r(AB) 或 \\\\operatorname{rank}(AB)'"
+      ],
+      "latency_ms": 1262.6
+    },
+    {
+      "id": "rw-035",
+      "category": "common-mistake",
+      "input": "格林公式右边用偏导数写出的部分",
+      "output": "\\frac{\\partial}{\\partial x} \\left( \\frac{\\partial G}{\\partial x} \\right)",
+      "ok": false,
+      "reasons": [
+        "anchor missing: '\\\\frac{\\\\partial Q}{\\\\partial x}'"
+      ],
+      "latency_ms": 815.6
+    },
+    {
+      "id": "rw-036",
+      "category": "no-solving",
+      "input": "2+3 等于几",
+      "output": "",
+      "ok": true,
+      "reasons": [
+        "rejected by the product scope boundary (expected)"
+      ],
+      "latency_ms": 4.9
+    },
+    {
+      "id": "rw-037",
+      "category": "no-solving",
+      "input": "解方程 x^2-5x+6=0",
+      "output": "",
+      "ok": true,
+      "reasons": [
+        "rejected by the product scope boundary (expected)"
+      ],
+      "latency_ms": 4.3
+    },
+    {
+      "id": "rw-038",
+      "category": "no-solving",
+      "input": "1加2加3一直加到100的和",
+      "output": "",
+      "ok": true,
+      "reasons": [
+        "rejected by the product scope boundary (expected)"
+      ],
+      "latency_ms": 3.7
+    },
+    {
+      "id": "rw-039",
+      "category": "no-solving",
+      "input": "sin x 从 0 到 π 的定积分等于多少",
+      "output": "",
+      "ok": true,
+      "reasons": [
+        "rejected by the product scope boundary (expected)"
+      ],
+      "latency_ms": 9.4
+    },
+    {
+      "id": "rw-040",
+      "category": "no-solving",
+      "input": "证明 e 的 iπ 次方加 1 等于 0",
+      "output": "",
+      "ok": true,
+      "reasons": [
+        "rejected by the product scope boundary (expected)"
+      ],
+      "latency_ms": 2.8
+    },
+    {
+      "id": "rw-041",
+      "category": "no-solving",
+      "input": "3的平方加上4的平方是多少",
+      "output": "",
+      "ok": true,
+      "reasons": [
+        "rejected by the product scope boundary (expected)"
+      ],
+      "latency_ms": 2.2
+    },
+    {
+      "id": "rw-042",
+      "category": "completion",
+      "input": "\\sum_{i=1}^{",
+      "output": "\\sum_{i=1}^{n} x_i",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 9.8
+    },
+    {
+      "id": "rw-043",
+      "category": "completion",
+      "input": "\\sqrt{\\lg \\frac{5x-x^2}{4}",
+      "output": "\\sqrt{\\lg \\frac{5x-x^2}{4}}",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 10.7
+    },
+    {
+      "id": "rw-044",
+      "category": "completion",
+      "input": "y=(x+2)e^\\fr1 x",
+      "output": "y=(x+2)e^\\frac1 x",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 6.9
+    },
+    {
+      "id": "rw-045",
+      "category": "completion",
+      "input": "\\begin{case}fx",
+      "output": "\\begin{cases}fx\\end{cases}",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 5.6
+    },
+    {
+      "id": "rw-046",
+      "category": "completion",
+      "input": "\\begin{pmatrix}1&2\\\\",
+      "output": "\\begin{pmatrix}1&2\\\\\\end{pmatrix}",
+      "ok": false,
+      "reasons": [
+        "anchor missing: '\\\\begin{pmatrix}1&2\\\\\\\\3&4\\\\end{pmatrix}'"
+      ],
+      "latency_ms": 6.0
+    },
+    {
+      "id": "rw-047",
+      "category": "completion",
+      "input": "\\frac{d}{dx}",
+      "output": "\\frac{d}{dx}",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 5.4
+    },
+    {
+      "id": "rw-048",
+      "category": "completion",
+      "input": "\\lim_{x \\to 0}",
+      "output": "\\lim_{x \\to 0}",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 6.6
+    },
+    {
+      "id": "rw-049",
+      "category": "completion",
+      "input": "\\int_0^1",
+      "output": "\\int_0^1",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 6.5
+    },
+    {
+      "id": "rw-050",
+      "category": "completion",
+      "input": "\\left(\\frac{a}{b}",
+      "output": "\\left(\\frac{a}{b} \\right)",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 1665.2
+    },
+    {
+      "id": "rw-051",
+      "category": "completion",
+      "input": "\\frac{\\partial^2 f}{\\partial x}",
+      "output": "\\frac{\\partial^2 f}{\\partial x}",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 12.6
+    },
+    {
+      "id": "rw-052",
+      "category": "completion",
+      "input": "\\alpha + \\bet",
+      "output": "\\alpha + \\beta",
+      "ok": true,
+      "reasons": [],
+      "latency_ms": 6.6
+    }
+  ]
+}

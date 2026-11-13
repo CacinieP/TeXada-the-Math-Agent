@@ -84,7 +84,7 @@
 |---|---|---|---|
 | rw-042 | `\sum_{i=1}^{` | `\sum_{i=1}` | README 特性示例 |
 | rw-043 | `\sqrt{\lg \frac{5x-x^2}{4}` | `\lg\frac{5x-x^2}{4}` | ~/.texada/runs.db 2026-07-31 真实调用（当时 error） |
-| rw-044 | `y=(x+2)e^\fr1 x` | `e^{\frac{1}{x}}` | ~/.texada/runs.db 2026-09-02 真实调用（\fr 拼错） |
+| rw-044 | `y=(x+2)e^\fr1 x` | `e^\frac1 x 或 \frac{1}{x}` | ~/.texada/runs.db 2026-09-02 真实调用（\fr 拼错） |
 | rw-045 | `\begin{case}fx` | `\begin{cases}fx\end{cases}` | ~/.texada/runs.db 2026-07-31 真实调用（当时 error） |
 | rw-046 | `\begin{pmatrix}1&2\\` | `\begin{pmatrix}1&2\\3&4\end{pmatrix}` | 公式手册.md §九 |
 | rw-047 | `\frac{d}{dx}` | `\frac{d}{dx}` | ~/.texada/runs.db 2026-07-31 真实调用 |
