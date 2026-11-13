@@ -103,3 +103,33 @@ def test_colloquial_evaluation_requests_are_outside_scope(text):
 ])
 def test_plain_formula_descriptions_still_pass_the_scope_gate(text):
     assert not requests_computation(text)
+
+
+@pytest.mark.parametrize('text', [
+    # 名词化的"法则/公式/表"是排版对象（golden 062：u 除以 v 的求导法则）
+    'u 除以 v 的求导法则',
+    '泰勒公式的求导法则',
+    '基本积分公式表',
+    '定积分的求极限规则',
+])
+def test_nominalised_rules_are_transcription_not_computation(text):
+    assert not requests_computation(text)
+
+
+@pytest.mark.parametrize('text', [
+    # 同一批词一旦带上真正的动作词，仍然要被拒绝
+    '计算这个求导公式',
+    '推导泰勒公式的求导法则',
+    '把基本积分公式表算出来',
+])
+def test_action_words_beside_rules_still_refused(text):
+    assert requests_computation(text)
+
+
+@pytest.mark.parametrize('text,expected', [
+    # 已知边界（issue #84）：这两条仍被拒绝，属于文档化的产品边界
+    ('把 x 平方减一分解成两个因式', True),
+    ('微积分基本定理：从 a 到 x 的 f(t) 积分对 x 求导', True),
+])
+def test_known_scope_boundaries_are_pinned(text, expected):
+    assert requests_computation(text) is expected
