@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.4.8 - 2026-11-13
+
+- 修复计算范围门禁的误拒：`u 除以 v 的求导法则`、`泰勒公式的求导法则`、`基本积分公式表` 这类"要排版的内容"此前因动词 `求导` 命中而被整句拒绝。现在动词扫描前先剥离 `求导/积分/极限 +（的）法则|公式|规则|表` 固定搭配，`计算这个求导公式`、`推导…的求导法则` 仍按计算请求拒绝。
+- 基线报告把范围拒绝与失败分开统计。`ComputationOutsideScope` 不再计入 Errors 与分母，改为单列条目（当前为 golden `010`、`073`）；两条已登记为有意的产品边界（`eval/known-gaps.md` G-016）：`010` 要的是因式分解结果，`073` 无法用正则与真实求导请求区分。
+- 复测 100 条 golden set（MiniCPM-V 4.7 1B，内置 llama-server）：结构通过 59/95（62.1%）、编译 92/100、渲染 98/100、轨迹 98/100、确定性修复 53/53；延迟 p50/p95 = 1.5s/4.2s。分母由 94 变 95 是因为 `062` 重新进入评测，不代表通过率下降。
+- Treat nominalised `求导法则/公式/表` phrases as content to typeset rather than computation requests, and report scope-gate refusals separately from failures in the baseline.
+
 ## 0.4.7 - 2026-11-13
 
 - 修复拼错命令与非法环境名没有任何自动修复路径的问题。KaTeX 成为唯一语法权威后只产出 `katex_parse` 错误，而 fixer 只处理旧的三类错误；现在 `Undefined control sequence: \X` 走截断命令白名单（`\fr`→`\frac`、`\bet`→`\beta` 等，只在完整命令边界替换），`No such environment: X` 走唯一前缀映射（`case`→`cases`，多候选拒绝猜测）。确定性修复改为最多三轮且可组合（改环境名 + 补 `\end`），每轮重新校验，最终仍非法则保留原答案。
