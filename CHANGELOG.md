@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.4.7 - 2026-11-13
+
+- 修复拼错命令与非法环境名没有任何自动修复路径的问题。KaTeX 成为唯一语法权威后只产出 `katex_parse` 错误，而 fixer 只处理旧的三类错误；现在 `Undefined control sequence: \X` 走截断命令白名单（`\fr`→`\frac`、`\bet`→`\beta` 等，只在完整命令边界替换），`No such environment: X` 走唯一前缀映射（`case`→`cases`，多候选拒绝猜测）。确定性修复改为最多三轮且可组合（改环境名 + 补 `\end`），每轮重新校验，最终仍非法则保留原答案。
+- 补齐“只转写不解答”的两段缺口。输入侧 `scope` 增补口语化求值说法（`等于几`、`是几`、`是多少`、`加到 N 的和`），这些真实用例此前会绕过门禁；输出侧新增求值守卫，检出“等号右边是用户从未写过的常数”时带 `transcribe_only` 约束重试一次，重试仍求值则保留首个答案并写 `fix_log=["evaluation-suspected"]`，不静默替换为另一个错答案。
+- 新增真实语料评测集 `eval/real_world_set.yaml`（52 条）与判定器 `eval/real_world_lib.py`、在线基线运行器 `eval/run_real_world.py`、`tests/test_real_world_set.py`（225 条离线断言）。语料覆盖术语名、讲义/真题整句、易混清单、只转写不解答与半截 LaTeX 补全，逐条可溯源；`docs/test-prompts-real-world.md` 为同步的人读表格，`eval/known-gaps.md` 增补 G-009…G-014。
+- 基线（`minicpm-v4.7-1b`，llama-server，52 条）：通过 31 条；`no-solving` 6/6（由输入侧门禁拒绝）、`completion` 10/11、`lecture-sentence` 6/8、`common-mistake` 4/7、`named-formula` 5/20。本轮不宣称模型质量结论，明细见 `eval/real-world-baseline.json`。
+- `ConversationMemory` 明确标注为“只记录、不喂给模型”，两处写入点加注释与回归测试指引，避免后续维护者误当上下文丢失的 bug 修回去。
+- Fix silent repair gaps for mistyped commands and illegal environment names, add an output-side evaluation guard, and ship a 52-entry real-world corpus with an offline judge and live baseline runner.
+
 ## 0.4.6 - 2026-11-10
 
 - Fix Linux compatibility by building the desktop, Python backend and pinned llama-server on Ubuntu 22.04 / glibc 2.35.
