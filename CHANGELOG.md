@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 首次启动按系统语言选择界面，中文环境默认中文，其余环境默认英文。已保存的语言偏好优先，调整缩放不会固定自动选择的语言。
+- Choose the first-run UI language from the system locale and fall back to English. Preserve saved language preferences independently of zoom.
+
 ## 0.4.9 - 2026-11-13
 
 - 新增术语名词表 `src/texada/core/glossary.py`（24 条，含格林/高斯/斯托克斯/贝叶斯/全概率/华里士/施密特/拉格朗日/罗尔/柯西/泰勒/洛必达/一阶线性 ODE/二阶常系数/中心极限/样本方差/欧拉/夹逼/路径无关/二项分布/分部积分/N-L/柯西不等式/秩不等式），每条带名称别名、LaTeX、出处与备注。

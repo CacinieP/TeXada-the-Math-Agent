@@ -21,7 +21,9 @@
   let ocrRunId = 0;
   let ocrElapsedTimer = null;
   let allShorthands = [];
-  let uiLanguage = 'zh';
+  const webviewLanguage = /^zh(?:$|[-_])/i.test(navigator.language || '') ? 'zh' : 'en';
+  const useBackendLocale = isDesktop && /Linux/i.test(navigator.platform || '');
+  let uiLanguage = webviewLanguage;
   let uiZoom = 1.0;
   let isComposingText = false;
   let historyType = 'all';
@@ -683,7 +685,7 @@
   }
 
   function normalizeLanguage(value) {
-    return value === 'en' ? 'en' : 'zh';
+    return value === 'zh' ? 'zh' : 'en';
   }
 
   function normalizeZoom(value) {
@@ -693,7 +695,7 @@
   }
 
   function t(key, values = {}) {
-    const raw = (I18N[uiLanguage] && I18N[uiLanguage][key]) || I18N.zh[key] || key;
+    const raw = (I18N[uiLanguage] && I18N[uiLanguage][key]) || I18N.en[key] || key;
     return raw.replace(/\{(\w+)\}/g, (_, name) => String(values[name] ?? ''));
   }
 
@@ -1096,10 +1098,10 @@
     return await apiJson('/api/settings/ui');
   }
 
-  async function apiSaveUiSettings() {
+  async function apiSaveUiSettings(settings) {
     return await apiJson('/api/settings/ui', {
       method: 'POST',
-      body: { ui_language: uiLanguage, ui_zoom: uiZoom },
+      body: settings,
     });
   }
 
@@ -1868,13 +1870,21 @@
     }
   }
 
+  function applyUiSettingsResponse(cfg) {
+    uiLanguage = cfg.ui_language_explicit === false && !useBackendLocale
+      ? webviewLanguage
+      : normalizeLanguage(cfg.ui_language);
+    uiZoom = normalizeZoom(cfg.ui_zoom);
+    if (cfg.ui_language_explicit === false) {
+      localStorage.removeItem('texada-ui-language');
+    } else {
+      localStorage.setItem('texada-ui-language', uiLanguage);
+    }
+  }
+
   async function loadUiSettings() {
     try {
-      const cfg = await apiGetUiSettings();
-      uiLanguage = normalizeLanguage(cfg.ui_language);
-      uiZoom = normalizeZoom(cfg.ui_zoom);
-      localStorage.setItem('texada-ui-language', uiLanguage);
-      localStorage.setItem('texada-ui-zoom', String(uiZoom));
+      applyUiSettingsResponse(await apiGetUiSettings());
     } catch (e) {
       uiLanguage = normalizeLanguage(localStorage.getItem('texada-ui-language') || uiLanguage);
       uiZoom = normalizeZoom(localStorage.getItem('texada-ui-zoom') || uiZoom);
@@ -1890,17 +1900,13 @@
     localStorage.setItem('texada-ui-language', uiLanguage);
     applyLanguage();
     refreshResultLabels();
-    await persistUiSettings();
+    await persistUiSettings({ ui_language: uiLanguage });
   }
 
-  async function persistUiSettings() {
+  async function persistUiSettings(settings = { ui_zoom: uiZoom }) {
     if (els.uiLanguageStatus) els.uiLanguageStatus.textContent = t('settings.saving');
     try {
-      const cfg = await apiSaveUiSettings();
-      uiLanguage = normalizeLanguage(cfg.ui_language);
-      uiZoom = normalizeZoom(cfg.ui_zoom);
-      localStorage.setItem('texada-ui-language', uiLanguage);
-      localStorage.setItem('texada-ui-zoom', String(uiZoom));
+      applyUiSettingsResponse(await apiSaveUiSettings(settings));
       applyZoom();
       applyLanguage();
       refreshResultLabels();

@@ -6,7 +6,8 @@ name: Linux package compatibility
     - .github/workflows/**
     - scripts/**
     - tauri-shell/src-tauri/**
-    - texada/**
+    - tauri-shell/src/**
+    - src/texada/**
     - pyproject.toml
     - uv.lock
   workflow_dispatch: {}

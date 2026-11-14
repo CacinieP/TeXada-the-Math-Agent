@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,19 +25,19 @@
   <div class="tab-bar" id="tab-bar" role="tablist" aria-label="TeXada">
     <button type="button" class="tab-item active" id="tab-button-nl" role="tab" aria-controls="tab-nl" aria-selected="true" tabindex="0" data-tab="nl"><span class="icon">✏️</span> NL <span class="tab-shortcut">1</span></button>
     <button type="button" class="tab-item" id="tab-button-ocr" role="tab" aria-controls="tab-ocr" aria-selected="false" tabindex="-1" data-tab="ocr"><span class="icon">📷</span> OCR <span class="tab-shortcut">2</span></button>
-    <button type="button" class="tab-item" id="tab-button-complete" role="tab" aria-controls="tab-complete" aria-selected="false" tabindex="-1" data-tab="complete"><span class="icon">{ }</span> <span data-i18n="tab.complete">补全</span> <span class="tab-shortcut">3</span></button>
-    <button type="button" class="tab-item" id="tab-button-shorthand" role="tab" aria-controls="tab-shorthand" aria-selected="false" tabindex="-1" data-tab="shorthand"><span class="icon">⚡</span> <span data-i18n="tab.shorthand">预设</span> <span class="tab-shortcut">4</span></button>
-    <button type="button" class="tab-item" id="tab-button-history" role="tab" aria-controls="tab-history" aria-selected="false" tabindex="-1" data-tab="history"><span class="icon">🕐</span> <span data-i18n="tab.history">历史</span> <span class="tab-shortcut">5</span></button>
-    <button type="button" class="tab-item" id="tab-button-settings" role="tab" aria-controls="tab-settings" aria-selected="false" tabindex="-1" data-tab="settings"><span class="icon">⚙️</span> <span data-i18n="tab.settings">设置</span> <span class="tab-shortcut">6</span></button>
+    <button type="button" class="tab-item" id="tab-button-complete" role="tab" aria-controls="tab-complete" aria-selected="false" tabindex="-1" data-tab="complete"><span class="icon">{ }</span> <span data-i18n="tab.complete">Complete</span> <span class="tab-shortcut">3</span></button>
+    <button type="button" class="tab-item" id="tab-button-shorthand" role="tab" aria-controls="tab-shorthand" aria-selected="false" tabindex="-1" data-tab="shorthand"><span class="icon">⚡</span> <span data-i18n="tab.shorthand">Presets</span> <span class="tab-shortcut">4</span></button>
+    <button type="button" class="tab-item" id="tab-button-history" role="tab" aria-controls="tab-history" aria-selected="false" tabindex="-1" data-tab="history"><span class="icon">🕐</span> <span data-i18n="tab.history">History</span> <span class="tab-shortcut">5</span></button>
+    <button type="button" class="tab-item" id="tab-button-settings" role="tab" aria-controls="tab-settings" aria-selected="false" tabindex="-1" data-tab="settings"><span class="icon">⚙️</span> <span data-i18n="tab.settings">Settings</span> <span class="tab-shortcut">6</span></button>
   </div>
 
   <!-- NL Tab -->
   <div class="tab-content active" id="tab-nl" role="tabpanel" aria-labelledby="tab-button-nl" aria-hidden="false">
     <div class="input-area">
-      <textarea class="input-box" id="nl-input" data-i18n-placeholder="nl.placeholder" placeholder="输入数学描述…  如: 二重积分 f(x,y) 在 D 上" rows="1"></textarea>
+      <textarea class="input-box" id="nl-input" data-i18n-placeholder="nl.placeholder" placeholder="Describe a formula… e.g. double integral of f(x,y) over D" rows="1"></textarea>
       <div class="input-hint">
-        <span data-i18n="nl.hint">仅转写与排版，不计算或解题 · 生成后请核对并采用</span>
-        <span class="intent-tag" id="nl-intent"><span class="intent-icon">🔍</span> 等待输入</span>
+        <span data-i18n="nl.hint">Transcription and typesetting only; no solving. Review before adoption.</span>
+        <span class="intent-tag" id="nl-intent"><span class="intent-icon">🔍</span> Waiting</span>
       </div>
     </div>
     <div class="processing-bar" id="nl-processing"></div>

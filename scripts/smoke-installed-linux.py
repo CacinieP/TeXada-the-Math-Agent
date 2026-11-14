@@ -152,6 +152,7 @@ def isolated_environment(root: Path, port: int) -> dict[str, str]:
         XDG_CONFIG_HOME=str(root / "xdg-config"),
         XDG_DATA_HOME=str(root / "xdg-data"),
         XDG_CACHE_HOME=str(root / "xdg-cache"),
+        LC_ALL="C.UTF-8",
         GDK_BACKEND="x11",
         LIBGL_ALWAYS_SOFTWARE="1",
         NO_PROXY="127.0.0.1,localhost,::1",
@@ -260,6 +261,12 @@ def exercise_desktop(
                     time.sleep(0.5)
             runtime = request(base, "/api/runtime")
             settings = request(base, "/api/settings/backend")
+            ui_settings = request(base, "/api/settings/ui")
+            if (
+                ui_settings.get("ui_language") != "en"
+                or ui_settings.get("ui_language_explicit") is not False
+            ):
+                raise RuntimeError("Fresh Linux UI must default to English under C.UTF-8")
             result = request(base, "/api/agent", {"text": "二重积分", "render_mode": "katex"})
             verify_result(status, runtime, settings, result, version, bundled_runtime)
             if proc.poll() is not None:

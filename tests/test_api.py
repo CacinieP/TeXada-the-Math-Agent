@@ -741,22 +741,26 @@ async def test_backend_settings_key_is_preserved_when_blank(tmp_path):
     assert response.json()["openai_api_key_set"] is True
 
 
-async def test_ui_language_setting_is_persisted(tmp_path):
+async def test_ui_language_setting_is_persisted(tmp_path, monkeypatch):
     from texada.api import create_app
 
+    monkeypatch.setenv("LC_ALL", "C.UTF-8")
     app = create_app(TeXadaConfig(data_dir=tmp_path))
     client = TestClient(app)
 
-    response = client.post("/api/settings/ui", json={"ui_language": "en"})
+    response = client.post("/api/settings/ui", json={"ui_language": "zh"})
 
     assert response.status_code == 200
-    assert response.json()["ui_language"] == "en"
-    assert client.get("/api/settings/ui").json()["ui_language"] == "en"
+    assert response.json()["ui_language"] == "zh"
+    assert response.json()["ui_language_explicit"] is True
+    restarted = TestClient(create_app(TeXadaConfig(data_dir=tmp_path)))
+    assert restarted.get("/api/settings/ui").json()["ui_language"] == "zh"
 
 
-async def test_ui_zoom_setting_is_persisted(tmp_path):
+async def test_ui_zoom_setting_is_persisted(tmp_path, monkeypatch):
     from texada.api import create_app
 
+    monkeypatch.setenv("LC_ALL", "C.UTF-8")
     app = create_app(TeXadaConfig(data_dir=tmp_path))
     client = TestClient(app)
 
@@ -764,7 +768,12 @@ async def test_ui_zoom_setting_is_persisted(tmp_path):
 
     assert response.status_code == 200
     assert response.json()["ui_zoom"] == 1.2
-    assert client.get("/api/settings/ui").json()["ui_zoom"] == 1.2
+    assert client.get("/api/settings/ui").json() == {
+        "ui_language": "en", "ui_zoom": 1.2, "ui_language_explicit": False,
+    }
+    monkeypatch.setenv("LC_ALL", "zh_CN.UTF-8")
+    restarted = TestClient(create_app(TeXadaConfig(data_dir=tmp_path)))
+    assert restarted.get("/api/settings/ui").json()["ui_language"] == "zh"
 
 
 async def test_ollama_host_accepts_custom_port_without_scheme(tmp_path):
