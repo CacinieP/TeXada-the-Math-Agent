@@ -1,11 +1,11 @@
 # TeXada v0.4.9
 
-发布日期 / Release date 2026-11-13（Asia/Shanghai）。
+源码标签日期 / Source tag date 2026-11-13（Asia/Shanghai）。
 
 v0.4.9 解决"只报定理名就答不出/答错"这一档：术语名改用受控词表直出，
 把 1B 模型从"回忆教科书公式"里解放出来。
 
-[下载 Release](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.9) · [完整 diff](https://github.com/CacinieP/TeXada-the-Math-Agent/compare/v0.4.8...v0.4.9) · [CHANGELOG](../CHANGELOG.md#049---2026-11-13) · [使用指南](../README.md)
+[查看源码标签 / View source tag](https://github.com/CacinieP/TeXada-the-Math-Agent/tree/v0.4.9) · [v0.4.10 安装包 / Installers](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.10) · [完整 diff](https://github.com/CacinieP/TeXada-the-Math-Agent/compare/v0.4.8...v0.4.9) · [CHANGELOG](../CHANGELOG.md#049---2026-11-13) · [使用指南](../README.md)
 
 ## 本版变化
 
