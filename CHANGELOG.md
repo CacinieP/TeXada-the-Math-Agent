@@ -1,37 +1,64 @@
 # Changelog / 变更记录
 
+This history includes stable releases, prerelease tags and explicitly marked development snapshots. / 本记录覆盖正式版、预发布标签和明确标注的开发快照。
+
 ## Unreleased
 
 ## 0.4.10 - 2026-11-14
 
-- 首次启动按系统语言选择界面，中文环境默认中文，其余环境默认英文。已保存的语言偏好优先，调整缩放不会固定自动选择的语言。
-- Choose the first-run UI language from the system locale and fall back to English. Preserve saved language preferences independently of zoom.
+### 中文
 
-- Verify the English first window from the actual Linux AppImage and deb with a fresh profile under Xvfb. See [Ubuntu 24.04 validation](docs/validation/2026-11-14-ubuntu24-appimage/README.md).
+- 首次启动按系统语言选择界面。Linux 按 `LC_ALL`、`LC_MESSAGES`、`LANG` 的优先级判断，macOS 和 Windows 使用 WebView 的语言环境。中文环境默认中文，其余环境默认英文。显式保存的语言优先，单独调整缩放会继续沿用自动语言选择。见 [#90](https://github.com/CacinieP/TeXada-the-Math-Agent/pull/90)。
+- 正式版 Ubuntu 22.04 安装检查验证了 deb 和 AppImage 的离线启动、英文首屏和确定性公式渲染。独立 Ubuntu 24.04.5 的英文首屏、CPU 文本转写和 OCR 实测使用的是同一修复分支的 v0.4.9 CI 候选包。见 [发布工作流](https://github.com/CacinieP/TeXada-the-Math-Agent/actions/runs/43581742151)和 [Ubuntu 24.04 实测](docs/validation/2026-11-14-ubuntu24-appimage/README.md)。
+- AppImageHub 复测通过的是正式发布的 `TeXada_0.4.10_amd64.AppImage`，报告记录 glibc 2.35；目录收录仍待维护者审核。见 [上游测试报告](https://github.com/AppImage/appimage.github.io/pull/11396#issuecomment-6875598626)。
+
+### English
+
+- Select the first-run UI language from the system locale. On Linux, check `LC_ALL`, `LC_MESSAGES` and `LANG` in that order. On macOS and Windows, use the WebView locale. Chinese locales select Chinese, and other locales select English. An explicit language choice takes precedence, and changing zoom alone preserves automatic selection. See [#90](https://github.com/CacinieP/TeXada-the-Math-Agent/pull/90).
+- Verify offline startup, the English first window and deterministic formula rendering for the released Ubuntu 22.04 deb and AppImage. The separate Ubuntu 24.04.5 English-window, CPU transcription and OCR run used a v0.4.9 CI candidate from the locale-fix branch. See the [release workflow](https://github.com/CacinieP/TeXada-the-Math-Agent/actions/runs/43581742151) and [Ubuntu 24.04 hardware validation](docs/validation/2026-11-14-ubuntu24-appimage/README.md).
+- AppImageHub passed the public `TeXada_0.4.10_amd64.AppImage` with a glibc 2.35 baseline. Catalog review is pending. See the [upstream test report](https://github.com/AppImage/appimage.github.io/pull/11396#issuecomment-6875598626).
+
+[GitHub release / 正式发布](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.10) · [Compare / 版本差异](https://github.com/CacinieP/TeXada-the-Math-Agent/compare/v0.4.9...v0.4.10)
 
 ## 0.4.9 - 2026-11-13
 
+### 中文
+
 - 新增术语名词表 `src/texada/core/glossary.py`（24 条，含格林/高斯/斯托克斯/贝叶斯/全概率/华里士/施密特/拉格朗日/罗尔/柯西/泰勒/洛必达/一阶线性 ODE/二阶常系数/中心极限/样本方差/欧拉/夹逼/路径无关/二项分布/分部积分/N-L/柯西不等式/秩不等式），每条带名称别名、LaTeX、出处与备注。
 - 词表沿既有确定性快路径接入：`DeterministicCandidateEngine._canonical_concept` 兜底查表（规则名仍为 `nl_canonical_concept`），`/api/convert` 在同一处先查表，命中返回 `Source.TEMPLATE`、`tokens_used=0`。匹配要求规范化后与别名完全相等，带参数的句子与复合问句仍交给模型；每条 LaTeX 必须通过 KaTeX 校验，失败则回退模型路径。
-- 实测（MiniCPM-V 4.7 1B）：真实语料 31/52 → **47/52**，其中 `named-formula` 5/20 → **20/20**；52 条里 21 条零 token 直出，词表命中 p50 ≈ 12 ms，模型路径 ≈ 0.8 s。100 条 golden set 仍为 59/95，未借词表刷分。
+- 实测（MiniCPM-V 4.7 1B）：真实语料从 v0.4.7 的 31/52 升至 **47/52**，其中 `named-formula` 从 5/20 升至 **20/20**；52 条中 21 条由模板直出，模板路径 p50 为 12.3 ms。100 条 golden set 的结构通过率仍为 59/95，整套运行的 p50/p95 为 1255/3325 ms。见[真实语料逐条结果](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.9/eval/real-world-baseline.json)和[黄金集报告](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.9/eval/reports/2026-11-13-baseline-live.md)。
 - 评测 runner 现在区分「确定性直出」与「模型结果」并单列条目，避免把查表得分读成模型能力；README 中英双段与 `docs/architecture.md`、`eval/known-gaps.md`（G-017）同步。
-- Serve bare theorem names from a curated glossary (24 entries) on the existing deterministic-candidate path, so the small model is no longer asked to recall textbook formulas.
+### English
+
+- Add a 24-entry formula glossary with aliases, LaTeX and provenance. A normalized exact match on a bare name uses the existing deterministic candidate path, including `/api/convert`. A failed KaTeX check falls back to the model. Parameterized and compound requests continue through the model path.
+- On the 52-case real-world corpus, the MiniCPM-V 4.7 1B configuration went from 31/52 in v0.4.7 to 47/52. Named formulas went from 5/20 to 20/20 via the glossary. The evaluator records template, model and agent paths separately. The 100-case golden set retained 59/95 structural passes.
 
 ## 0.4.8 - 2026-11-13
+
+### 中文
 
 - 修复计算范围门禁的误拒：`u 除以 v 的求导法则`、`泰勒公式的求导法则`、`基本积分公式表` 这类"要排版的内容"此前因动词 `求导` 命中而被整句拒绝。现在动词扫描前先剥离 `求导/积分/极限 +（的）法则|公式|规则|表` 固定搭配，`计算这个求导公式`、`推导…的求导法则` 仍按计算请求拒绝。
 - 基线报告把范围拒绝与失败分开统计。`ComputationOutsideScope` 不再计入 Errors 与分母，改为单列条目（当前为 golden `010`、`073`）；两条已登记为有意的产品边界（`eval/known-gaps.md` G-016）：`010` 要的是因式分解结果，`073` 无法用正则与真实求导请求区分。
 - 复测 100 条 golden set（MiniCPM-V 4.7 1B，内置 llama-server）：结构通过 59/95（62.1%）、编译 92/100、渲染 98/100、轨迹 98/100、确定性修复 53/53；延迟 p50/p95 = 1.5s/4.2s。分母由 94 变 95 是因为 `062` 重新进入评测，不代表通过率下降。
-- Treat nominalised `求导法则/公式/表` phrases as content to typeset rather than computation requests, and report scope-gate refusals separately from failures in the baseline.
+### English
+
+- Treat phrases such as `求导法则` (differentiation rule), `基本积分公式表` (table of standard integrals) and equivalent limit phrases as notation requests. Explicit requests to calculate or derive a result still hit the computation gate.
+- Report `ComputationOutsideScope` separately and exclude the two scope refusals (`010`, `073`) from the structural denominator. Restoring case `062` gives 59/95 structural passes, 92/100 compile, 98/100 render, 98/100 trace and 53/53 deterministic repairs. The tagged run recorded 1548/4218 ms p50/p95. See the [v0.4.8 report](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.8/eval/reports/2026-11-13-baseline-live.md).
 
 ## 0.4.7 - 2026-11-13
+
+### 中文
 
 - 修复拼错命令与非法环境名没有任何自动修复路径的问题。KaTeX 成为唯一语法权威后只产出 `katex_parse` 错误，而 fixer 只处理旧的三类错误；现在 `Undefined control sequence: \X` 走截断命令白名单（`\fr`→`\frac`、`\bet`→`\beta` 等，只在完整命令边界替换），`No such environment: X` 走唯一前缀映射（`case`→`cases`，多候选拒绝猜测）。确定性修复改为最多三轮且可组合（改环境名 + 补 `\end`），每轮重新校验，最终仍非法则保留原答案。
 - 补齐“只转写不解答”的两段缺口。输入侧 `scope` 增补口语化求值说法（`等于几`、`是几`、`是多少`、`加到 N 的和`），这些真实用例此前会绕过门禁；输出侧新增求值守卫，检出“等号右边是用户从未写过的常数”时带 `transcribe_only` 约束重试一次，重试仍求值则保留首个答案并写 `fix_log=["evaluation-suspected"]`，不静默替换为另一个错答案。
 - 新增真实语料评测集 `eval/real_world_set.yaml`（52 条）与判定器 `eval/real_world_lib.py`、在线基线运行器 `eval/run_real_world.py`、`tests/test_real_world_set.py`（225 条离线断言）。语料覆盖术语名、讲义/真题整句、易混清单、只转写不解答与半截 LaTeX 补全，逐条可溯源；`docs/test-prompts-real-world.md` 为同步的人读表格，`eval/known-gaps.md` 增补 G-009…G-014。
-- 基线（`minicpm-v4.7-1b`，llama-server，52 条）：通过 31 条；`no-solving` 6/6（由输入侧门禁拒绝）、`completion` 10/11、`lecture-sentence` 6/8、`common-mistake` 4/7、`named-formula` 5/20。本轮不宣称模型质量结论，明细见 `eval/real-world-baseline.json`。
+- 基线（`minicpm-v4.7-1b`，llama-server，52 条）：通过 31 条；`no-solving` 6/6（由输入侧门禁拒绝）、`completion` 10/11、`lecture-sentence` 6/8、`common-mistake` 4/7、`named-formula` 5/20。见 [v0.4.7 冻结结果](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.7/eval/real-world-baseline.json)。
 - `ConversationMemory` 明确标注为“只记录、不喂给模型”，两处写入点加注释与回归测试指引，避免后续维护者误当上下文丢失的 bug 修回去。
-- Fix silent repair gaps for mistyped commands and illegal environment names, add an output-side evaluation guard, and ship a 52-entry real-world corpus with an offline judge and live baseline runner.
+### English
+
+- Repair allowlisted truncated commands and unambiguous environment names. Combine fixes across up to three revalidated passes, preserving the original invalid result when repair fails.
+- Catch more colloquial computation requests at the input gate. On `/api/convert`, retry once when an unsolicited numeric result is detected and record `evaluation-suspected` if the retry also performs evaluation. Conversation memory remains a record of turns and is excluded from model context.
+- Add the 52-case real-world corpus, offline assertions and live runner. The first tagged baseline passed 31/52, including 5/20 named formulas and all six scope refusals.
 
 ## 0.4.6 - 2026-11-10
 
@@ -39,7 +66,8 @@
 - Reject packaged ELF imports newer than glibc 2.35, including weak imports. Validate deb installation and extracted AppImage startup with external networking disabled and loopback retained.
 - Linux validation covers desktop/backend startup and deterministic KaTeX rendering; it does not test model inference, every Linux distribution, or AppImageHub acceptance.
 - Preserve published v0.4.5 assets. Version 0.4.6 requires freshly built installers, matching SHA-256 checksums and source-bound validation reports.
-- 修复 Linux 构建基线和离线启动验证；保留 v0.4.5 原始发布文件，新版使用独立版本与校验记录。
+- 桌面、Python 后端和固定版本的 llama-server 统一在 Ubuntu 22.04 / glibc 2.35 基线上构建。打包检查拒绝更高版本的 glibc 符号引用，包括弱符号。deb 和解包后的 AppImage 在关闭外网、保留回环时验证启动与确定性渲染。
+- 保留 v0.4.5 原始发布文件，v0.4.6 使用新构建的安装包、对应的 SHA-256 校验值和源提交绑定的安装报告。
 
 ## 0.4.5 - 2026-11-08
 
@@ -116,6 +144,20 @@
 - Preserve all terms in the narrow subscript-plus-one request, accept supported first-derivative notation, and cover the pinned not-equal AST. Isolated data directories load their own settings. Keep V8 creation, calls and cleanup on one owner thread and serialize close/reopen, fixing the native shutdown crash exposed by Linux regression.
 - Include [PR #45](https://github.com/CacinieP/TeXada-the-Math-Agent/pull/45): patched Python locks, rustls/webpki and offline KaTeX 0.18.2, plus the documented upstream two-line glib 0.18.5 source backport required by GTK3. Lock checks and the optimized Linux iterator regression gate releases; do not describe the backport as an official fixed crate or a dismissed alert.
 - This formal release is scoped to engineering acceptance. Historical failures and metrics remain unchanged; independent human transcription review, real scanned/handwritten material and Windows/Intel model quality remain follow-up work. Compilation, rendering, commits and installer startup do not establish mathematical accuracy. Linux compatibility follows final native Ubuntu package checks.
+
+## 0.4.2-pre-inline-fix.1 - 2026-11-04
+
+### 中文
+
+- v0.4.2 正式版之前的打包检查点，包含 [#47](https://github.com/CacinieP/TeXada-the-Math-Agent/pull/47) 的 V8 生命周期和 Linux 安装依赖修复，以及 [#48](https://github.com/CacinieP/TeXada-the-Math-Agent/pull/48) 的安装检查修复。macOS DMG 校验保留挂载输出，Windows 冒烟测试用文件身份核对内置运行时，兼容扩展长度路径前缀。
+- 后续 [#49](https://github.com/CacinieP/TeXada-the-Math-Agent/pull/49) 的行内补全按键隔离与过期提示修复进入 v0.4.2 正式标签。
+
+### English
+
+- Packaging checkpoint before v0.4.2. Includes the V8 lifecycle and Linux runtime dependency fixes from #47 and the installer smoke fixes from #48. Keep DMG mount output visible and compare the Windows bundled runtime by file identity so extended-length paths work.
+- The inline-completion key handling and stale-hint fixes from #49 landed in the final v0.4.2 tag.
+
+[Tag / 标签](https://github.com/CacinieP/TeXada-the-Math-Agent/tree/v0.4.2-pre-inline-fix.1) · [Compare with v0.4.2 / 与正式版对比](https://github.com/CacinieP/TeXada-the-Math-Agent/compare/v0.4.2-pre-inline-fix.1...v0.4.2)
 
 ## 0.4.2-rc.3 - 2026-10-20
 
@@ -858,6 +900,8 @@ OCR 继续使用独立配置的视觉模型；不安装 OCR 模型也可使用�
 
 ## 0.2.5 - 2026-07-09
 
+Development snapshot recorded in [commit `2a756b4`](https://github.com/CacinieP/TeXada-the-Math-Agent/commit/2a756b4), with no `v0.2.5` tag.
+
 - Fixed the OCR tab so a second recognition can start immediately by dragging, pasting, or selecting another image after a completed run.
 - Prevented duplicate OCR drag/drop handlers from being registered when reopening the OCR tab.
 - Changed the desktop shell to open visible by default instead of starting hidden.
@@ -865,6 +909,8 @@ OCR 继续使用独立配置的视觉模型；不安装 OCR 模型也可使用�
 - Stabilized macOS Intel release packaging by signing the bundled backend after PyInstaller creates it.
 
 ## 0.2.5 - 2026-07-09 中文
+
+此版本见[源码提交 `2a756b4`](https://github.com/CacinieP/TeXada-the-Math-Agent/commit/2a756b4)，仓库没有 `v0.2.5` 标签。
 
 - 修复 OCR 页：第一次识别完成后，可以直接拖图、粘贴或选择另一张图片继续第二次识别。
 - 避免反复进入 OCR 页时重复注册拖放事件，导致一次拖图触发多次请求。

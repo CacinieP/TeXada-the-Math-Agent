@@ -54,5 +54,7 @@ This directory keeps technical and maintenance documentation. Community health f
 | [Security](../.github/SECURITY.md) | Supported versions and private vulnerability reporting. |
 | [Support](../.github/SUPPORT.md) | Bug-report checklist and model/Ollama troubleshooting entry point. |
 | [Code of Conduct](../.github/CODE_OF_CONDUCT.md) | Community behavior expectations. |
-| [v0.4.4 release](release-v0.4.4.md) | Matrix and transcription changes, package identity, installation gates and pending native acceptance. |
+| [v0.4.10 release](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.10) · [Changelog entry](../CHANGELOG.md#0410---2026-11-14) | Installers, first-run locale selection, and Linux release and catalog evidence. |
+| [v0.4.9](release-v0.4.9.md), [v0.4.8](release-v0.4.8.md), [v0.4.7](release-v0.4.7.md) | Glossary, computation-scope fixes, deterministic repair and tagged evaluation baselines. |
+| [v0.4.4](release-v0.4.4.md), [v0.4.3](release-v0.4.3.md), [v0.4.2](release-v0.4.2.md) | Matrix and transcription changes, plus historical release and installer notes. |
 | [Changelog](../CHANGELOG.md) | Release history. |

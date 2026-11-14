@@ -32,12 +32,11 @@
 
 ## TeXada
 
-**v0.4.4** adds seven parameterized matrix presets, revision-bound matrix
-checks, source-faithful finite sum/integral descriptions and macOS insertion
-focus handoff diagnostics. Presets support type search, history restoration
-and backup replay. Final package checks and pending native insertion acceptance
-are recorded in the release documentation.
-[Release scope and installer checks](docs/release-v0.4.4.md) · [Changelog](CHANGELOG.md#044---2026-11-06)
+**v0.4.10** follows the system language on first launch. Chinese locales start
+in Chinese, other locales start in English, and a saved choice takes precedence.
+It includes the 24-entry formula glossary, seven parameterized matrix presets and
+the Ubuntu 22.04 / glibc 2.35 Linux build baseline.
+[Download v0.4.10](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.10) · [Changelog](CHANGELOG.md#0410---2026-11-14)
 
 TeXada helps transcribe formulas into LaTeX. Describe notation in
 natural language, paste a clear typeset formula screenshot, or give it an
@@ -90,13 +89,13 @@ do not establish transcription accuracy. Compare the source and candidate;
 
 The built-in and named MiniCPM-V 4.7 1B profiles default to candidate generation
 before tool review. Other checkpoints keep direct planning; explicit experimental
-settings remain respected. See [release scope and validation](docs/release-v0.4.4.md).
+settings remain respected. See [tool routing and validation](docs/architecture.md).
 
 ### Highlights
 
 | Capability | Description |
 |------------|-------------|
-| Natural language to LaTeX | Describe a formula and get copyable LaTeX or Markdown |
+| Natural language to LaTeX | Describe a formula and get copyable LaTeX or Markdown. Exact matches in the formula glossary use a deterministic template. |
 | Formula OCR | The vision role proposes a formula; the shared Planner reviews it through TeX tools |
 | Completion | Rules or the configured model propose a completion; the shared Agent validates it |
 | Validation and repair | Check, fix, render and highlight LaTeX |
@@ -170,30 +169,29 @@ The Ollama port is configurable. The default is `http://localhost:11434`, but Se
 
 ### Download
 
-Open the [current public release](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/latest)
-and choose the asset for your machine:
+Open the [latest public release](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/latest)
+or choose a v0.4.10 installer below.
 
 | Platform | Installer |
 |----------|-----------|
-| macOS Apple Silicon | `TeXada_<version>_aarch64.dmg` |
-| macOS Intel | `TeXada_<version>_x64.dmg` |
-| Windows x64 | `TeXada_<version>_x64-setup.exe` |
-| Linux x64, Debian/Ubuntu | `TeXada_<version>_amd64.deb` |
-| Linux x64, AppImage | `TeXada_<version>_amd64.AppImage` |
+| macOS Apple Silicon | [TeXada_0.4.10_aarch64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.10/TeXada_0.4.10_aarch64.dmg) |
+| macOS Intel | [TeXada_0.4.10_x64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.10/TeXada_0.4.10_x64.dmg) |
+| Windows x64 | [TeXada_0.4.10_x64-setup.exe](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.10/TeXada_0.4.10_x64-setup.exe) |
+| Linux x64, Debian/Ubuntu | [TeXada_0.4.10_amd64.deb](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.10/TeXada_0.4.10_amd64.deb) |
+| Linux x64, AppImage | [TeXada_0.4.10_amd64.AppImage](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.10/TeXada_0.4.10_amd64.AppImage) |
 
 macOS requires 13.3 or later. Model weights download separately in Settings.
-Windows installers are not code-signed. Linux compatibility is scoped to the
-final Ubuntu native build and installed-package checks; it is not a claim of
-support for every distribution. Check the release assets and attached validation
-records for the final package results; older beta/RC checks are historical. See the
-[Linux installation guide](docs/linux-installation.md) for verified environments, locale behavior and the local model.
+Both macOS DMGs are signed and notarized. The Windows installer is unsigned.
+The release manifest identifies the five installers, their SHA-256 checksums and
+per-package installation reports. Ubuntu 22.04 release checks cover offline startup
+and the English first window for both Linux installers. The public x64 AppImage
+also passed the AppImageHub test. See the [release manifest](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.10/release-manifest.json), [Linux installation guide](docs/linux-installation.md) and [catalog test](https://github.com/AppImage/appimage.github.io/pull/11396#issuecomment-6875598626).
 
 Generated formulas still need comparison with the source. Historical beta runs
 include mathematically incorrect committed results and have no independent
-human adjudication; this release does not convert those records into accuracy
-claims. See the [release limitations](docs/release-v0.4.4.md#known-limits).
+human adjudication. See the [evaluation limitations](eval/known-gaps.md).
 
-v0.4.4 uses `AGPL-3.0-or-later`. Immutable older tags retain their own licenses:
+TeXada v0.4.10 uses `AGPL-3.0-or-later`. Older tags retain their own licenses.
 `v0.3.6` and earlier artifacts use `GPL-3.0-or-later`; `v0.3.7` and later use
 `AGPL-3.0-or-later`. Historical installers remain on the
 [release list](https://github.com/CacinieP/TeXada-the-Math-Agent/releases).
@@ -201,8 +199,8 @@ v0.4.4 uses `AGPL-3.0-or-later`. Immutable older tags retain their own licenses:
 Closing the main window hides TeXada; restore it from the tray or the existing
 shortcut. To stop the app, choose **Quit** in its menu. If a model download is
 interrupted, retry in Settings: received data can resume, and completion appears
-only after the whole batch succeeds. Native close/restore/Quit acceptance for
-this patch remains tracked in [#50](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/50).
+only after the whole batch succeeds. The v0.4.3 close/restore/Quit and cold
+download acceptance record is in [#50](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/50).
 
 ### From A Fresh Machine To First Formula
 
@@ -259,7 +257,7 @@ Save after changing the backend or its runtime paths before using service contro
 
 ### Quick Start With Built-in llama-server
 
-1. Install and open **v0.4.4** from the release link above.
+1. Install and open TeXada from the release link above.
 2. Open **Settings → Backend**, select **`Built-in llama-server`**, and click **Save**.
    Keep the default address `http://127.0.0.1:8080`. Leave **llama-server executable** and **Model directory** blank to use the packaged runtime and `~/.texada/models`.
 3. In **Local inference service (llama-server)**, click **Download model**. Wait until downloading finishes for both the model weights and the vision projector. They are not included in the installer.
@@ -588,11 +586,10 @@ recorded outputs with `--mode recorded`. Details and measured boundaries live
 in [eval/known-gaps.md](eval/known-gaps.md) and
 [eval/reports/2026-09-19-baseline-live.md](eval/reports/2026-09-19-baseline-live.md).
 
-#### Re-measured on 2026-11-13 (v0.4.7)
+#### Golden set reruns on 2026-11-13 (v0.4.8 and v0.4.9)
 
-Same runner, current default model **MiniCPM-V 4.7 (1B)** via the bundled
-llama-server on Apple silicon. Different model and pipeline from the 2026-09-19
-row above, so the two are **not** a like-for-like improvement claim:
+Both tagged runs used **MiniCPM-V 4.7 (1B)** via the bundled llama-server on
+Apple silicon. The September baseline used MiniCPM5-2B and a different pipeline.
 
 | Golden set (100 entries) | Result |
 |--------|--------|
@@ -601,10 +598,11 @@ row above, so the two are **not** a like-for-like improvement claim:
 | Render layer | 98/100 |
 | Trace layer | 98/100 |
 | Deterministic repair pass rate | 53/53 (100%) |
-| Latency p50 / p95 | 1.5s / 4.2s |
+| Latency p50 / p95, v0.4.8 | 1548 ms / 4218 ms |
+| Latency p50 / p95, v0.4.9 | 1255 ms / 3325 ms |
 
-Seven of the 95 anchor-checkable entries are answered by deterministic rules
-(glossary / preset / transcription) with zero tokens; the rest are model runs.
+The v0.4.9 report records seven zero-token deterministic results across the
+golden set. See the [v0.4.8 report](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.8/eval/reports/2026-11-13-baseline-live.md) and [v0.4.9 report](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.9/eval/reports/2026-11-13-baseline-live.md).
 
 Two golden entries (`010`, `073`) are refused by the computation-scope gate
 instead of transcribed; they are listed separately in the baseline report and
@@ -615,9 +613,10 @@ two are documented as a deliberate boundary in
 *result*, and `073` cannot be separated from a real differentiation request by
 pattern alone.
 
-The new real-world corpus (`eval/real_world_set.yaml`, 52 entries from real
-study notes, exam explanations and run logs) measures a different axis —
-inputs the 100-entry set does not contain:
+#### Real-world corpus (v0.4.7 and v0.4.9)
+
+The 52-case corpus draws on study notes, exam explanations and run logs.
+v0.4.7 passed 31/52. The table shows the v0.4.9 rerun.
 
 | Real-world corpus | Pass |
 |--------|------|
@@ -628,22 +627,17 @@ inputs the 100-entry set does not contain:
 | `no-solving` (must not be evaluated) | 6/6 (refused by the scope gate) |
 | `completion` (half-finished / mistyped LaTeX) | 10/11 |
 
-`named-formula` no longer measures the model. A bare theorem name is answered by
-the curated glossary (`src/texada/core/glossary.py`, 24 entries) under the
-existing `nl_canonical_concept` rule, in ~12 ms with zero tokens; 21 of the 52
-entries are served that way. Before the glossary the same 1B model scored 5/20
-on this slice — that gap is knowledge recall, not transcription. The remaining
-failures are genuine model results.
+The glossary raised `named-formula` from 5/20 to 20/20 by serving exact matches
+on bare theorem names. The v0.4.9 run recorded 21 `template` results across all
+52 cases, with a median of 12.3 ms. Its five failures were reported on the model
+or agent paths, including one completion case.
 
 Reproduce with `python eval/run_real_world.py --base-url ... --output ...`;
-per-case verdicts and reasons are in [eval/real-world-baseline.json](eval/real-world-baseline.json),
-and the raw run is in [eval/reports/2026-11-13-baseline-live.md](eval/reports/2026-11-13-baseline-live.md).
-Named theorems are the weakest slice: the 1B model often answers a different
-theorem or just echoes `\text{...}`.
+per-case verdicts are available for [v0.4.7](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.7/eval/real-world-baseline.json) and [v0.4.9](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.9/eval/real-world-baseline.json).
 
 ### Quality Gate
 
-The current `main` branch has no known blocking issue after the latest audit pass. That means tests and static checks pass; it is not a mathematical promise that no software bug can exist. Maintainer validation details live in [Contributing](.github/CONTRIBUTING.md), [Source audit](docs/audit.md), and GitHub Actions.
+The [Audit workflow](https://github.com/CacinieP/TeXada-the-Math-Agent/actions/workflows/audit.yml) tracks test and static-check results by commit. See [Contributing](.github/CONTRIBUTING.md) and [Source audit](docs/audit.md) for the checks and their scope.
 
 ### Documentation
 
@@ -668,13 +662,13 @@ releases retain the license recorded in their immutable tag. See [LICENSE](LICEN
 
 ## TeXada
 
-**v0.4.4 正式版** 提供七种参数化矩阵预设、修订绑定结构检查、有限求和与区域积分保真，以及 macOS 插入焦点交接和阶段诊断。预设支持类型搜索、历史恢复和备份重放。最终安装包检查及待完成的原生插入验收记录见发布说明。[正式版说明](docs/release-v0.4.4.md) · [更新日志](CHANGELOG.md#044---2026-11-06)
+**v0.4.10 正式版** 首次启动时跟随系统语言，中文环境默认中文，其他环境默认英文，已保存的语言选择优先。当前版本包含 24 条公式术语词表、七种参数化矩阵预设和 Ubuntu 22.04 / glibc 2.35 Linux 构建基线。 [下载 v0.4.10](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.10) · [更新日志](CHANGELOG.md#0410---2026-11-14)
 
 TeXada 是一个用于数学公式识别、转写与排版的本地工具。你可以输入自然语言、
 粘贴清晰的排版公式截图，也可以交给它一段不完整的 TeX；TeXada 会把输入转换为
 结构化公式，用确定性工具检查，再渲染为可核对、可复制的结果。手写与真实扫描页面尚未完成独立验收，转写仍需逐项对照原件。
 
-**支持范围：**只识别、转写、编辑和排版公式；不提供求值、化简、因式分解、解方程、求导、积分计算或证明。导数与积分的记号仍支持输入。`7+5` 保留为表达式，不补成 `12`。自然语言和 OCR 候选现在直接提交，请对照原文与候选结果；编译通过不代表转写准确。详见 [正式版范围与验证](docs/release-v0.4.4.md)。
+**支持范围：**识别、转写、编辑和排版公式。求值、化简、因式分解、解方程、求导、积分计算和证明超出支持范围。导数与积分的记号仍支持输入。`7+5` 保留为表达式。自然语言和 OCR 候选会直接提交，请对照原文检查转写结果。详见 [工具路由和校验](docs/architecture.md)。
 
 它不是聊天界面套壳，而是基于端侧 Agent 的结构化数学编辑器。产品明确只有两个
 模型保留规划/文本与视觉/OCR 两个职责。MiniCPM-V 4.7 profile 用同一个
@@ -704,7 +698,7 @@ Level 1，但只在明确存在 before/after 公式时启用，不会把自然�
 
 | 能力 | 说明 |
 |------|------|
-| 自然语言转 LaTeX | 输入公式描述，生成可复制的 LaTeX 或 Markdown |
+| 自然语言转 LaTeX | 输入公式描述，生成可复制的 LaTeX 或 Markdown。精确命中术语词表时使用确定性模板。 |
 | 公式 OCR | 视觉职责产出候选，共享 Planner 再通过 TeX 工具审查 |
 | 公式补全 | 规则或配置的模型产出候选，再由统一 Agent 校验 |
 | 校验与修复 | 检查、修复、渲染并高亮 LaTeX |
@@ -769,23 +763,23 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 
 ### 下载
 
-前往[当前正式发布页](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/latest)，选择适合自己机器的安装包：
+前往[最新正式发布页](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/latest)，或从下表下载适合自己机器的 v0.4.10 安装包。
 
 | 平台 | 安装包 |
 |------|--------|
-| macOS Apple Silicon | `TeXada_<version>_aarch64.dmg` |
-| macOS Intel | `TeXada_<version>_x64.dmg` |
-| Windows x64 | `TeXada_<version>_x64-setup.exe` |
-| Linux x64，Debian/Ubuntu | `TeXada_<version>_amd64.deb` |
-| Linux x64，AppImage | `TeXada_<version>_amd64.AppImage` |
+| macOS Apple Silicon | [TeXada_0.4.10_aarch64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.10/TeXada_0.4.10_aarch64.dmg) |
+| macOS Intel | [TeXada_0.4.10_x64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.10/TeXada_0.4.10_x64.dmg) |
+| Windows x64 | [TeXada_0.4.10_x64-setup.exe](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.10/TeXada_0.4.10_x64-setup.exe) |
+| Linux x64，Debian/Ubuntu | [TeXada_0.4.10_amd64.deb](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.10/TeXada_0.4.10_amd64.deb) |
+| Linux x64，AppImage | [TeXada_0.4.10_amd64.AppImage](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.10/TeXada_0.4.10_amd64.AppImage) |
 
-macOS 需要 13.3 或更新版本；模型权重安装后单独下载。Windows 安装包未做代码签名。Linux 兼容范围以最终 Ubuntu 原生构建和安装包检查记录为准，不代表所有发行版已经通过验收。最终产物及检查结果以 Release 资产和附带记录为准，旧 Beta/RC 的实测仅属于历史版本。验证环境、首屏语言和本地模型说明见 [Linux 安装指南](docs/linux-installation.md)。
+macOS 需要 13.3 或更新版本，两个 DMG 均已签名和公证。Windows 安装包未签名。模型权重安装后单独下载。发布清单列出五个安装包、对应的 SHA-256 校验值和安装验证报告。两个 Linux 安装包均在 Ubuntu 22.04 上通过离线启动与英文首屏检查，正式发布的 x64 AppImage 也通过了 AppImageHub 复测。 [发布清单](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.10/release-manifest.json) · [Linux 安装指南](docs/linux-installation.md) · [目录复测](https://github.com/AppImage/appimage.github.io/pull/11396#issuecomment-6875598626)
 
-生成结果仍需对照原文。历史 Beta 记录中存在数学错误公式成功提交，且没有独立人工复核；本次正式发布不把这些记录改写为准确率结论。详见[已知限制](docs/release-v0.4.4.md#known-limits)。
+请对照原文检查生成结果。历史 Beta 记录中存在数学错误公式成功提交的情况，且缺少独立人工复核。详见 [评测限制](eval/known-gaps.md)。
 
-v0.4.4 使用 `AGPL-3.0-or-later`。旧标签及安装包继续适用其标签内许可证：`v0.3.6` 及更早产物为 `GPL-3.0-or-later`，`v0.3.7` 起为 `AGPL-3.0-or-later`。历史安装包仍保留在 [Release 列表](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)。
+v0.4.10 使用 `AGPL-3.0-or-later`。`v0.3.6` 及更早产物为 `GPL-3.0-or-later`，`v0.3.7` 起为 `AGPL-3.0-or-later`。历史安装包见 [Release 列表](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)。
 
-关闭主窗口会隐藏 TeXada，可通过托盘或现有快捷键恢复；需要停止应用时，请在菜单中选择 **Quit / 退出**。模型下载中断后可在设置中重试，已接收的数据支持续传，整批文件成功后才显示完成。本修版的原生关闭、恢复及退出复验继续在 [#50](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/50) 跟踪。
+关闭主窗口会隐藏 TeXada，可通过托盘或现有快捷键恢复。需要停止应用时，请在菜单中选择 **Quit / 退出**。模型下载中断后可在设置中重试，已接收的数据支持续传，整批文件成功后才显示完成。v0.4.3 的原生关闭、恢复、退出及冷下载验收见 [#50](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/50)。
 
 ### 从裸机到第一次使用
 
@@ -841,7 +835,7 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 
 ### 内置 llama-server 快速启动
 
-1. 从上方 Release 链接安装并打开 **v0.4.4**。
+1. 从上方 Release 链接安装并打开 TeXada。
 2. 打开**设置 → 后端连接**，选择 **`Built-in llama-server`**，点击**保存**。
    地址保留 `http://127.0.0.1:8080`；**llama-server 路径**和**模型目录**留空，使用应用内置运行时及 `~/.texada/models`。
 3. 在**本地推理服务（llama-server）**中点击**下载模型**，等待模型权重和视觉投影文件全部下载完成。安装包不包含这些文件。
@@ -1155,10 +1149,9 @@ Linux 尚未实现系统光标自动键入；点击公式后需手动粘贴。Wa
 [eval/known-gaps.md](eval/known-gaps.md) 与
 [eval/reports/2026-09-19-baseline-live.md](eval/reports/2026-09-19-baseline-live.md)。
 
-#### 2026-11-13 复测（v0.4.7）
+#### 2026-11-13 黄金集复测（v0.4.8 与 v0.4.9）
 
-同一套 runner，当前默认模型 **MiniCPM-V 4.7（1B）**，跑在 Apple 芯片上的内置
-llama-server。模型与管线都和上面 2026-09-19 那次不同，**不能当作同口径提升**：
+两次标签对应的实测均使用 Apple 芯片上的内置 llama-server 和 **MiniCPM-V 4.7（1B）**。9 月的基线使用 MiniCPM5-2B，运行管线也不同。
 
 | 100 条 goldenset | 结果 |
 |------|------|
@@ -1167,9 +1160,10 @@ llama-server。模型与管线都和上面 2026-09-19 那次不同，**不能当
 | 渲染层 | 98/100 |
 | 轨迹层 | 98/100 |
 | 确定性修复通过率 | 53/53（100%） |
-| 延迟 p50 / p95 | 1.5s / 4.2s |
+| v0.4.8 延迟 p50 / p95 | 1548 ms / 4218 ms |
+| v0.4.9 延迟 p50 / p95 | 1255 ms / 3325 ms |
 
-95 条可判条目里有 7 条由确定性规则（词表/预设/转写）零 token 直出，其余是模型跑出来的。
+v0.4.9 的黄金集记录了 7 条零 token 的确定性结果。 [v0.4.8 报告](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.8/eval/reports/2026-11-13-baseline-live.md) · [v0.4.9 报告](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.9/eval/reports/2026-11-13-baseline-live.md)
 
 其中 `010`、`073` 两条被计算范围门禁拒绝而不是转写，基线报告里单列、不计入
 分母。`062`（`u 除以 v 的求导法则`）此前也被误拒，v0.4.8 已修——`求导法则/
@@ -1177,8 +1171,9 @@ llama-server。模型与管线都和上面 2026-09-19 那次不同，**不能当
 [eval/known-gaps.md](eval/known-gaps.md) G-016：`010` 要的是因式分解**结果**，
 `073` 无法用正则与真实的求导请求区分。
 
-新增的真实语料（`eval/real_world_set.yaml`，52 条，取自本机讲义、真题详解与
-运行日志）测的是 100 条集里没有的那一档输入：
+#### 真实语料复测（v0.4.7 与 v0.4.9）
+
+52 条语料取自讲义、真题详解和运行日志。v0.4.7 通过 31/52，下表为 v0.4.9 的结果。
 
 | 真实语料 | 通过 |
 |------|------|
@@ -1189,20 +1184,14 @@ llama-server。模型与管线都和上面 2026-09-19 那次不同，**不能当
 | `no-solving`（只转写不解答） | 6/6（由范围门禁拒绝） |
 | `completion`（半截/拼错 LaTeX） | 10/11 |
 
-`named-formula` 这一档**不再测模型**：只给术语名时由受控词表
-（`src/texada/core/glossary.py`，24 条）沿既有 `nl_canonical_concept` 规则直出，
-约 12 ms、零 token；52 条里有 21 条走这条路。加词表前同一个 1B 模型在这档是
-5/20——差的是"记不记得住定理"，不是"会不会转写"。其余失败项仍是模型真实结果。
+`named-formula` 由 5/20 升至 20/20，提升来自只给术语名时的词表精确匹配。v0.4.9 的 52 条结果中有 21 条标为 `template`，这一组的延迟中位数为 12.3 ms。剩余 5 条失败发生在 `model` 或 `agent` 路径，包括 1 条补全。
 
-复现：`python eval/run_real_world.py --base-url … --output …`；逐条判定与理由见
-[eval/real-world-baseline.json](eval/real-world-baseline.json)，原始报告见
-[eval/reports/2026-11-13-baseline-live.md](eval/reports/2026-11-13-baseline-live.md)。
-术语名是最弱的一档：1B 模型经常答成另一个定理，或只吐一句 `\text{...}`。
+复现命令为 `python eval/run_real_world.py --base-url … --output …`。逐条判定见 [v0.4.7 结果](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.7/eval/real-world-baseline.json)与 [v0.4.9 结果](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.9/eval/real-world-baseline.json)。
 
 
 ### 质量门禁
 
-当前 `main` 分支在最新审计后没有已知阻塞问题。这里的含义是测试和静态检查通过，不是声称软件绝对不可能有 bug。维护者验证细节见 [贡献指南](.github/CONTRIBUTING.md)、[源码审计](docs/audit.md) 和 GitHub Actions。
+[Audit 工作流](https://github.com/CacinieP/TeXada-the-Math-Agent/actions/workflows/audit.yml)按提交记录测试和静态检查结果。检查项及覆盖范围见 [贡献指南](.github/CONTRIBUTING.md)和[源码审计](docs/audit.md)。
 
 ### 文档
 
@@ -1217,12 +1206,6 @@ llama-server。模型与管线都和上面 2026-09-19 那次不同，**不能当
 记录的许可证。详见 [LICENSE](LICENSE)。
 
 </details>
-
-## v0.4.4 release scope
-
-The built-in backend uses one MiniCPM-V-4.7-1B Q4_K_M checkpoint for text and OCR. Download the model in Settings and start llama-server. Existing Ollama and OpenAI-compatible settings remain selectable. Model files are not included in installers.
-
-Generated formulas require mathematical review: syntax validation and successful submission do not prove correctness. See [the v0.4.4 release notes](docs/release-v0.4.4.md) for current behavior and package verification; [beta validation](docs/beta-release-validation.md) remains historical evidence.
 
 ## Author and citation · 作者与引用
 
