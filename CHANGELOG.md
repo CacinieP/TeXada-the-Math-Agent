@@ -2,8 +2,12 @@
 
 ## Unreleased
 
+## 0.4.10 - 2026-11-14
+
 - 首次启动按系统语言选择界面，中文环境默认中文，其余环境默认英文。已保存的语言偏好优先，调整缩放不会固定自动选择的语言。
 - Choose the first-run UI language from the system locale and fall back to English. Preserve saved language preferences independently of zoom.
+
+- Verify the English first window from the actual Linux AppImage and deb with a fresh profile under Xvfb. See [Ubuntu 24.04 validation](docs/validation/2026-11-14-ubuntu24-appimage/README.md).
 
 ## 0.4.9 - 2026-11-13
 
