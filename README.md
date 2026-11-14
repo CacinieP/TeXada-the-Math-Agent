@@ -170,22 +170,23 @@ The Ollama port is configurable. The default is `http://localhost:11434`, but Se
 
 ### Download
 
-Use the [v0.4.4 release](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.4)
-and choose the package for your machine:
+Open the [current public release](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/latest)
+and choose the asset for your machine:
 
 | Platform | Installer |
 |----------|-----------|
-| macOS Apple Silicon | [TeXada_0.4.4_aarch64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.4/TeXada_0.4.4_aarch64.dmg) |
-| macOS Intel | [TeXada_0.4.4_x64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.4/TeXada_0.4.4_x64.dmg) |
-| Windows x64 | [TeXada_0.4.4_x64-setup.exe](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.4/TeXada_0.4.4_x64-setup.exe) |
-| Linux x64, Debian/Ubuntu | [TeXada_0.4.4_amd64.deb](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.4/TeXada_0.4.4_amd64.deb) |
-| Linux x64, AppImage | [TeXada_0.4.4_amd64.AppImage](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.4/TeXada_0.4.4_amd64.AppImage) |
+| macOS Apple Silicon | `TeXada_<version>_aarch64.dmg` |
+| macOS Intel | `TeXada_<version>_x64.dmg` |
+| Windows x64 | `TeXada_<version>_x64-setup.exe` |
+| Linux x64, Debian/Ubuntu | `TeXada_<version>_amd64.deb` |
+| Linux x64, AppImage | `TeXada_<version>_amd64.AppImage` |
 
 macOS requires 13.3 or later. Model weights download separately in Settings.
 Windows installers are not code-signed. Linux compatibility is scoped to the
 final Ubuntu native build and installed-package checks; it is not a claim of
 support for every distribution. Check the release assets and attached validation
-records for the final package results; older beta/RC checks are historical.
+records for the final package results; older beta/RC checks are historical. See the
+[Linux installation guide](docs/linux-installation.md) for verified environments, locale behavior and the local model.
 
 Generated formulas still need comparison with the source. Historical beta runs
 include mathematically incorrect committed results and have no independent
@@ -216,7 +217,7 @@ TeXada release packages are built for end users. You do not need Python, Node.js
 2. Install and open TeXada.
    - macOS: open the DMG and drag TeXada into Applications.
    - Windows: run the setup EXE and start TeXada from the Start menu.
-   - Linux: install the `.deb` with your package manager, or make the AppImage executable and run it. See the [Linux notes](docs/release-v0.4.4.md#linux-installation).
+   - Linux: install the `.deb` with your package manager, or make the AppImage executable and run it. See the [Linux notes](docs/linux-installation.md).
 
 3. Choose one local backend in **Settings → Backend** and click **Save**:
    - **New to TeXada? Choose `Built-in llama-server`** (new-install default). Follow [the built-in setup](#quick-start-with-built-in-llama-server): download the model in the app, then click Start. No Ollama installation or API key is needed.
@@ -768,17 +769,17 @@ Ollama 端口不是写死的。默认地址是 `http://localhost:11434`，但可
 
 ### 下载
 
-前往 [v0.4.4 正式版](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.4)，选择适合自己机器的安装包：
+前往[当前正式发布页](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/latest)，选择适合自己机器的安装包：
 
 | 平台 | 安装包 |
 |------|--------|
-| macOS Apple Silicon | [TeXada_0.4.4_aarch64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.4/TeXada_0.4.4_aarch64.dmg) |
-| macOS Intel | [TeXada_0.4.4_x64.dmg](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.4/TeXada_0.4.4_x64.dmg) |
-| Windows x64 | [TeXada_0.4.4_x64-setup.exe](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.4/TeXada_0.4.4_x64-setup.exe) |
-| Linux x64，Debian/Ubuntu | [TeXada_0.4.4_amd64.deb](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.4/TeXada_0.4.4_amd64.deb) |
-| Linux x64，AppImage | [TeXada_0.4.4_amd64.AppImage](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/download/v0.4.4/TeXada_0.4.4_amd64.AppImage) |
+| macOS Apple Silicon | `TeXada_<version>_aarch64.dmg` |
+| macOS Intel | `TeXada_<version>_x64.dmg` |
+| Windows x64 | `TeXada_<version>_x64-setup.exe` |
+| Linux x64，Debian/Ubuntu | `TeXada_<version>_amd64.deb` |
+| Linux x64，AppImage | `TeXada_<version>_amd64.AppImage` |
 
-macOS 需要 13.3 或更新版本；模型权重安装后单独下载。Windows 安装包未做代码签名。Linux 兼容范围以最终 Ubuntu 原生构建和安装包检查记录为准，不代表所有发行版已经通过验收。最终产物及检查结果以 Release 资产和附带记录为准，旧 Beta/RC 的实测仅属于历史版本。
+macOS 需要 13.3 或更新版本；模型权重安装后单独下载。Windows 安装包未做代码签名。Linux 兼容范围以最终 Ubuntu 原生构建和安装包检查记录为准，不代表所有发行版已经通过验收。最终产物及检查结果以 Release 资产和附带记录为准，旧 Beta/RC 的实测仅属于历史版本。验证环境、首屏语言和本地模型说明见 [Linux 安装指南](docs/linux-installation.md)。
 
 生成结果仍需对照原文。历史 Beta 记录中存在数学错误公式成功提交，且没有独立人工复核；本次正式发布不把这些记录改写为准确率结论。详见[已知限制](docs/release-v0.4.4.md#known-limits)。
 
@@ -799,7 +800,7 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 2. 安装并打开 TeXada。
    - macOS：打开 DMG，把 TeXada 拖到 Applications。
    - Windows：运行安装器，然后从开始菜单启动 TeXada。
-   - Linux：用包管理器安装 `.deb`，或给 AppImage 执行权限后运行，见[Linux 安装说明](docs/release-v0.4.4.md#linux-installation)。
+   - Linux：用包管理器安装 `.deb`，或给 AppImage 执行权限后运行，见[Linux 安装说明](docs/linux-installation.md)。
 
 3. 在**设置 → 后端连接**中选择一种本地后端，然后点击**保存**。
    - **第一次使用，建议选 `Built-in llama-server`**（全新安装的默认值）：按[内置启动步骤](#内置-llama-server-快速启动)，在应用内下载模型并点击启动，无需安装 Ollama 或填写 API key。

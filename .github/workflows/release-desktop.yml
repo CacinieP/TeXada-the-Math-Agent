@@ -146,7 +146,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libglib2.0-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2 xvfb xauth cmake
+          sudo apt-get install -y build-essential pkg-config libglib2.0-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2 xvfb xauth cmake xdotool imagemagick tesseract-ocr tesseract-ocr-eng
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -529,11 +529,12 @@ jobs:
           test -n "$appdir"
           python scripts/check-linux-glibc.py "$appdir"
 
-      - name: Smoke both installed Linux packages under Xvfb
+      - name: Verify English first window and offline startup for both Linux packages
         if: runner.os == 'Linux'
         shell: bash
         run: |
           set -euo pipefail
+          smoke_result=0
           for format in deb AppImage; do
             if [ "$format" = deb ]; then pattern='*/bundle/deb/*.deb'; else pattern='*/bundle/appimage/*.AppImage'; fi
             installer="$(find tauri-shell/src-tauri/target -path "$pattern" -type f -print -quit)"
@@ -541,8 +542,16 @@ jobs:
             # Block external networking while retaining loopback for the sidecar.
             xvfb-run -a sudo --preserve-env=DISPLAY,XAUTHORITY unshare --net -- \
               bash -c 'ip link set lo up; exec runuser -u "$1" -- "${@:2}"' \
-              bash "$USER" "$(command -v python)" scripts/smoke-installed-linux.py --installer "$installer" --format "$format" --version "${{ needs.preflight.outputs.version }}" --expected-commit "$GITHUB_SHA" --out "native-smoke-${{ matrix.rust-targets }}-$format.json"
+              bash "$USER" "$(command -v python)" scripts/smoke-installed-linux.py --installer "$installer" --format "$format" --version "${{ needs.preflight.outputs.version }}" --expected-commit "$GITHUB_SHA" --out "native-smoke-${{ matrix.rust-targets }}-$format.json" --screenshot "linux-first-window-$format.png" || smoke_result=1
           done
+          exit "$smoke_result"
+
+      - name: Upload Linux first-window screenshots
+        if: always() && runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Linux first-window screenshots
+          path: linux-first-window-*.png
 
       - name: Upload installer artifact
         if: always()
@@ -576,6 +585,7 @@ jobs:
         with:
           path: release-assets
           merge-multiple: true
+          pattern: '!Linux first-window screenshots'
 
       - name: Validate all installers and prepare manifest and checksums
         run: python scripts/prepare-desktop-release.py collect --input release-assets --output staged-release --expected-commit "$GITHUB_SHA" --version "${{ needs.preflight.outputs.version }}"

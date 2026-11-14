@@ -263,6 +263,15 @@ class LlamaPullRequest(BaseModel):
 class UiSettingsResponse(BaseModel):
     ui_language: str
     ui_zoom: float
+    ui_language_explicit: bool
+
+    @classmethod
+    def from_config(cls, config: TeXadaConfig) -> UiSettingsResponse:
+        return cls(
+            ui_language=config.ui_language,
+            ui_zoom=config.ui_zoom,
+            ui_language_explicit="ui_language" in config.model_fields_set,
+        )
 
 
 class UiSettingsUpdate(BaseModel):
@@ -357,7 +366,7 @@ def _app_version() -> str:
     try:
         return version("texada")
     except PackageNotFoundError:
-        return "0.4.9"
+        return "0.4.10"
 
 
 def _settings_response(config: TeXadaConfig) -> BackendSettingsResponse:
@@ -810,7 +819,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
 
     @app.get("/api/settings/ui", response_model=UiSettingsResponse)
     async def get_ui_settings():
-        return UiSettingsResponse(ui_language=config.ui_language, ui_zoom=config.ui_zoom)
+        return UiSettingsResponse.from_config(config)
 
     @app.get("/api/runtime", response_model=RuntimeConfigResponse)
     async def get_runtime_config():
@@ -885,7 +894,7 @@ def create_app(config: TeXadaConfig | None = None) -> FastAPI:
         updates = req.model_dump(exclude_none=True)
         if updates:
             config = save_config_updates(updates, data_dir=config.data_dir)
-        return UiSettingsResponse(ui_language=config.ui_language, ui_zoom=config.ui_zoom)
+        return UiSettingsResponse.from_config(config)
 
     @app.post("/api/convert", response_model=LaTeXResponse)
     async def convert_text(req: ConvertRequest):

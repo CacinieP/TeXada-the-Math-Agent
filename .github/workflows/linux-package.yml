@@ -6,7 +6,8 @@ name: Linux package compatibility
     - .github/workflows/**
     - scripts/**
     - tauri-shell/src-tauri/**
-    - texada/**
+    - tauri-shell/src/**
+    - src/texada/**
     - pyproject.toml
     - uv.lock
   workflow_dispatch: {}
@@ -48,7 +49,7 @@ jobs:
     - name: Install Linux native build and installation dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential pkg-config libglib2.0-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2 xvfb xauth cmake
+        sudo apt-get install -y build-essential pkg-config libglib2.0-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2 xvfb xauth cmake xdotool imagemagick tesseract-ocr tesseract-ocr-eng
     - name: Rust cache
       uses: swatinem/rust-cache@v2
       with:
@@ -112,10 +113,11 @@ jobs:
         appdir="$(find tauri-shell/src-tauri/target -type d -name '*.AppDir' -print -quit)"
         test -n "$appdir"
         python scripts/check-linux-glibc.py "$appdir"
-    - name: Smoke both installed Linux packages under Xvfb
+    - name: Verify English first window and offline startup for both Linux packages
       shell: bash
       run: |
         set -euo pipefail
+        smoke_result=0
         for format in deb AppImage; do
           if [ "$format" = deb ]; then pattern='*/bundle/deb/*.deb'; else pattern='*/bundle/appimage/*.AppImage'; fi
           installer="$(find tauri-shell/src-tauri/target -path "$pattern" -type f -print -quit)"
@@ -123,8 +125,9 @@ jobs:
           # Block external networking while retaining loopback for the sidecar.
           xvfb-run -a sudo --preserve-env=DISPLAY,XAUTHORITY unshare --net -- \
             bash -c 'ip link set lo up; exec runuser -u "$1" -- "${@:2}"' \
-            bash "$USER" "$(command -v python)" scripts/smoke-installed-linux.py --installer "$installer" --format "$format" --version "${{ steps.version.outputs.version }}" --expected-commit "$(git rev-parse HEAD)" --out "native-smoke-${{ matrix.rust-targets }}-$format.json"
+            bash "$USER" "$(command -v python)" scripts/smoke-installed-linux.py --installer "$installer" --format "$format" --version "${{ steps.version.outputs.version }}" --expected-commit "$(git rev-parse HEAD)" --out "native-smoke-${{ matrix.rust-targets }}-$format.json" --screenshot "linux-first-window-$format.png" || smoke_result=1
         done
+        exit "$smoke_result"
     - name: Upload installer artifact
       if: always()
       uses: actions/upload-artifact@v4
@@ -137,4 +140,5 @@ jobs:
           tauri-shell/src-tauri/target/**/bundle/deb/*.deb
           tauri-shell/src-tauri/target/**/bundle/appimage/*.AppImage
           native-smoke-*.json
+          linux-first-window-*.png
           notarization-*.json

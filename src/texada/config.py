@@ -54,6 +54,15 @@ SAVED_CONFIG_FIELDS = frozenset({
 })
 
 
+def _default_ui_language() -> Literal["zh", "en"]:
+    locale = next(
+        (value for key in ("LC_ALL", "LC_MESSAGES", "LANG")
+         if (value := os.environ.get(key, "").strip())),
+        "",
+    )
+    return "zh" if re.match(r"^zh(?:$|[-_.@])", locale, re.IGNORECASE) else "en"
+
+
 def _default_nl_candidate_first(data: dict) -> bool:
     """The built-in 1B profile needs a candidate before revision-bound tools."""
     if data.get("backend") == "llama_server":
@@ -126,7 +135,7 @@ class TeXadaConfig(BaseSettings):
     delimiter: Literal["$$", "$", "\\[", "\\("] = "$$"
     katex_enabled: bool = True
     latex_highlight_enabled: bool = True
-    ui_language: Literal["zh", "en"] = "zh"
+    ui_language: Literal["zh", "en"] = Field(default_factory=_default_ui_language)
     ui_zoom: float = 1.0
 
     # ── Server ──

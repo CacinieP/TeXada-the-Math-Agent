@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -151,6 +152,8 @@ def test_success_report_is_bound_to_artifact_and_missing_proof_cannot_write_it(
         "a" * 40,
         "--out",
         str(output),
+        "--screenshot",
+        str(tmp_path / "window.png"),
     ]
     with pytest.raises(RuntimeError, match="package failed"):
         smoke.main(args)
@@ -164,4 +167,36 @@ def test_success_report_is_bound_to_artifact_and_missing_proof_cannot_write_it(
     assert report["target"] == "x86_64-unknown-linux-gnu"
     assert report["version"] == "0.4.2"
     assert report["installed_desktop_started"] is True
+    assert report["english_first_window_verified"] is True
     assert report["model_inference_tested"] is False
+
+
+@pytest.mark.parametrize(
+    ("ocr_text", "passes"),
+    [("Complete Presets History Settings", True), ("TeXada Offline NL OCR", False)],
+)
+def test_english_window_requires_visible_navigation(monkeypatch, tmp_path, ocr_text, passes):
+    screenshot = tmp_path / "first-window.png"
+    proc = Mock()
+    proc.poll.return_value = None
+    clock = iter((0, 1, 30))
+    monkeypatch.setattr(smoke.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(smoke.time, "sleep", lambda _: None)
+
+    def run(args, **kwargs):
+        if args[0] == "xdotool":
+            return subprocess.CompletedProcess(args, 0, stdout="1234\n")
+        if args[0] == "import":
+            assert args[2] == "1234"
+            Path(args[3]).write_bytes(b"captured window")
+            return subprocess.CompletedProcess(args, 0)
+        assert args[0] == "tesseract"
+        return subprocess.CompletedProcess(args, 0, stdout=ocr_text)
+
+    monkeypatch.setattr(smoke.subprocess, "run", run)
+    if passes:
+        smoke.verify_english_first_window(proc, screenshot)
+    else:
+        with pytest.raises(RuntimeError, match="English navigation not visible"):
+            smoke.verify_english_first_window(proc, screenshot)
+    assert screenshot.read_bytes() == b"captured window"

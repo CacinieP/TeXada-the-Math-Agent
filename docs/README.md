@@ -48,6 +48,7 @@ This directory keeps technical and maintenance documentation. Community health f
 | Document | Purpose |
 |----------|---------|
 | [README](../README.md) | User guide, installation package path, Ollama quick start, cloud mode and hardware notes. |
+| [Linux installation](linux-installation.md) / [Linux 安装指南](linux-installation.md) | deb and AppImage setup, interface language, bundled model runtime and tested environments. |
 | [Recorded examples](../examples/README.md) | Short desktop runs for natural-language conversion, OCR, and deterministic repair. |
 | [Contributing](../.github/CONTRIBUTING.md) | Contribution rules, validation checklist, and no hard-coded interface policy. |
 | [Security](../.github/SECURITY.md) | Supported versions and private vulnerability reporting. |

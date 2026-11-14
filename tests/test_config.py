@@ -20,6 +20,27 @@ from texada.config import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.mark.parametrize(
+    ("environment", "expected"),
+    [
+        ({}, "en"),
+        ({"LANG": "C.UTF-8"}, "en"),
+        ({"LANG": "zh_CN.UTF-8"}, "zh"),
+        ({"LANG": "en_US.UTF-8", "LC_MESSAGES": "zh_TW.UTF-8"}, "zh"),
+        ({"LANG": "zh_CN.UTF-8", "LC_ALL": "C"}, "en"),
+        ({"LANG": "ja_JP.UTF-8"}, "en"),
+    ],
+)
+def test_fresh_ui_uses_system_locale(monkeypatch, tmp_path, environment, expected):
+    for key in ("LC_ALL", "LC_MESSAGES", "LANG", "TEXADA_UI_LANGUAGE"):
+        monkeypatch.delenv(key, raising=False)
+    for key, value in environment.items():
+        monkeypatch.setenv(key, value)
+    config = TeXadaConfig(data_dir=tmp_path)
+    assert config.ui_language == expected
+    assert "ui_language" not in config.model_fields_set
+
+
 def test_release_version_is_synchronized_across_python_node_and_tauri():
     python_version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
         "project"
@@ -62,7 +83,7 @@ def test_release_version_is_synchronized_across_python_node_and_tauri():
             __version__,
             _app_version(),
         }
-    } == {Version("0.4.9")}
+    } == {Version("0.4.10")}
     assert f"v{python_version}" in frontend
 
 
@@ -72,7 +93,7 @@ def test_app_version_fallback_matches_source_version(monkeypatch):
 
     monkeypatch.setattr(api_module, "version", missing_distribution)
 
-    assert _app_version() == "0.4.9"
+    assert _app_version() == "0.4.10"
 
 
 def test_license_is_synchronized_as_agpl_v3_or_later():
