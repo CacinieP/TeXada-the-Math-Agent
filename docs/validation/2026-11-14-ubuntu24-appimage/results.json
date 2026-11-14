@@ -1,0 +1,84 @@
+{
+  "date": "2026-11-14",
+  "platform": "Ubuntu 24.04.5 LTS x86_64",
+  "cpu": "Intel Core i5-7200U",
+  "logical_cpus": 4,
+  "ram_visible_gib": 11,
+  "ram_available_before_run_gib": 7.1,
+  "display": "Xvfb over SSH",
+  "locale": "C.UTF-8",
+  "appimage_sha256": "bce835067f9fe2ab026830f60a4be1f412b968f89a20baca3c9e2bfa8e846a2f",
+  "source_commit": "4709ddd4ed20906d36420de141d28606481f5f16",
+  "llama_server_build": 11669,
+  "model_start_wall_s": 6.413973,
+  "cases": [
+    {
+      "request": "用 LaTeX 转写：商的分子是 x 的三次方加 y 的平方，分母是自然对数 ln(x+1)。",
+      "http": 200,
+      "wall_s": 49.763323,
+      "response": {
+        "latex": "\\frac{x^3 + y^2}{\\ln(x+1)}",
+        "valid": true,
+        "committed": true,
+        "latency_ms": 49616.602788999444,
+        "tokens_used": 3058,
+        "stop_reason": "finish_confirmed",
+        "run_id": "477be6bfcd5f4330ae129f508e31d9fc",
+        "katex_rendered": true
+      }
+    },
+    {
+      "request": "Transcribe into LaTeX: the sum over integers n from 2 to infinity of cosine of n theta divided by n cubed.",
+      "http": 200,
+      "wall_s": 38.413355,
+      "response": {
+        "latex": "\\sum_{n=2}^{\\infty} \\frac{\\cos(n\\theta)}{n^3}",
+        "valid": true,
+        "committed": true,
+        "latency_ms": 38384.56751699414,
+        "tokens_used": 3053,
+        "stop_reason": "finish_confirmed",
+        "run_id": "22c26b63c85a410c8ec65115758d3c0e",
+        "katex_rendered": true
+      }
+    },
+    {
+      "request": {
+        "image": "ocr-fixture.png",
+        "expected": "x^2 + y^2 = z^2"
+      },
+      "http": 200,
+      "wall_s": 77.611375,
+      "response": {
+        "latex": "\\mathbf{x}^2 + \\mathbf{y}^2 = \\mathbf{z}^2",
+        "valid": true,
+        "committed": true,
+        "latency_ms": 34167.9399939967,
+        "tokens_used": 2918,
+        "stop_reason": "finish_confirmed",
+        "run_id": "8a46b0987d0444eb8d628d0f38660e5a",
+        "katex_rendered": true
+      }
+    }
+  ],
+  "startup": {
+    "ui_language": "en",
+    "ui_language_explicit": false
+  },
+  "deterministic_smoke": {
+    "latex": "\\iint_{\\placeholder{}} \\placeholder{}\\,dA",
+    "valid": true,
+    "committed": true,
+    "latency_ms": 96.50026800227351,
+    "tokens_used": 0,
+    "stop_reason": "deterministic_candidate",
+    "run_id": "2aa4ce8c0e794f7b91f04d286c8fb21a",
+    "katex_rendered": true
+  },
+  "model_status": {
+    "status": "ready",
+    "model": "MiniCPM-V-4.7-1B",
+    "text_model_installed": true,
+    "vision_model_installed": true
+  }
+}
