@@ -199,8 +199,7 @@ TeXada v0.4.10 uses `AGPL-3.0-or-later`. Older tags retain their own licenses.
 Closing the main window hides TeXada; restore it from the tray or the existing
 shortcut. To stop the app, choose **Quit** in its menu. If a model download is
 interrupted, retry in Settings: received data can resume, and completion appears
-only after the whole batch succeeds. The v0.4.3 close/restore/Quit and cold
-download acceptance record is in [#50](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/50).
+only after the whole batch succeeds. Window hiding, exit logging and download resumption fixes shipped in v0.4.3. [#50](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/50) tracks the pending macOS GUI retest of continuous cold download, window restoration and Quit.
 
 ### From A Fresh Machine To First Formula
 
@@ -598,15 +597,15 @@ Apple silicon. The September baseline used MiniCPM5-2B and a different pipeline.
 | Render layer | 98/100 |
 | Trace layer | 98/100 |
 | Deterministic repair pass rate | 53/53 (100%) |
-| Latency p50 / p95, v0.4.8 | 1548 ms / 4218 ms |
-| Latency p50 / p95, v0.4.9 | 1255 ms / 3325 ms |
+| Recorded latency p50 / p95, v0.4.8 | 1548 ms / 4218 ms |
+| Recorded latency p50 / p95, v0.4.9 | 1255 ms / 3325 ms |
 
 The v0.4.9 report records seven zero-token deterministic results across the
 golden set. See the [v0.4.8 report](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.8/eval/reports/2026-11-13-baseline-live.md) and [v0.4.9 report](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.9/eval/reports/2026-11-13-baseline-live.md).
 
 Two golden entries (`010`, `073`) are refused by the computation-scope gate
 instead of transcribed; they are listed separately in the baseline report and
-kept out of the denominators. `062` (`u 除以 v 的求导法则`) used to be refused too
+excluded from the structural denominator. The compile, render and trace layers still use all 100 entries. `062` (`u 除以 v 的求导法则`) used to be refused too
 and is fixed in v0.4.8 by treating `求导法则/公式/规则/表` as nouns. The remaining
 two are documented as a deliberate boundary in
 [eval/known-gaps.md](eval/known-gaps.md) (G-016): `010` asks for a factorisation
@@ -779,7 +778,7 @@ macOS 需要 13.3 或更新版本，两个 DMG 均已签名和公证。Windows �
 
 v0.4.10 使用 `AGPL-3.0-or-later`。`v0.3.6` 及更早产物为 `GPL-3.0-or-later`，`v0.3.7` 起为 `AGPL-3.0-or-later`。历史安装包见 [Release 列表](https://github.com/CacinieP/TeXada-the-Math-Agent/releases)。
 
-关闭主窗口会隐藏 TeXada，可通过托盘或现有快捷键恢复。需要停止应用时，请在菜单中选择 **Quit / 退出**。模型下载中断后可在设置中重试，已接收的数据支持续传，整批文件成功后才显示完成。v0.4.3 的原生关闭、恢复、退出及冷下载验收见 [#50](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/50)。
+关闭主窗口会隐藏 TeXada，可通过托盘或现有快捷键恢复。需要停止应用时，请在菜单中选择 **Quit / 退出**。模型下载中断后可在设置中重试，已接收的数据支持续传，整批文件成功后才显示完成。关闭隐藏、退出记录和下载续传修复已随 v0.4.3 发布。[#50](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/50) 跟踪 macOS 正常桌面会话中仍待完成的连续冷下载、窗口恢复和退出复验。
 
 ### 从裸机到第一次使用
 
@@ -1160,13 +1159,12 @@ Linux 尚未实现系统光标自动键入；点击公式后需手动粘贴。Wa
 | 渲染层 | 98/100 |
 | 轨迹层 | 98/100 |
 | 确定性修复通过率 | 53/53（100%） |
-| v0.4.8 延迟 p50 / p95 | 1548 ms / 4218 ms |
-| v0.4.9 延迟 p50 / p95 | 1255 ms / 3325 ms |
+| v0.4.8 有记录的样本延迟 p50 / p95 | 1548 ms / 4218 ms |
+| v0.4.9 有记录的样本延迟 p50 / p95 | 1255 ms / 3325 ms |
 
 v0.4.9 的黄金集记录了 7 条零 token 的确定性结果。 [v0.4.8 报告](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.8/eval/reports/2026-11-13-baseline-live.md) · [v0.4.9 报告](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.9/eval/reports/2026-11-13-baseline-live.md)
 
-其中 `010`、`073` 两条被计算范围门禁拒绝而不是转写，基线报告里单列、不计入
-分母。`062`（`u 除以 v 的求导法则`）此前也被误拒，v0.4.8 已修——`求导法则/
+其中 `010`、`073` 两条被计算范围门禁拒绝而不是转写，基线报告将其单列，并从结构层分母排除。编译、渲染和轨迹层仍按 100 条统计。`062`（`u 除以 v 的求导法则`）此前也被误拒，v0.4.8 已修——`求导法则/
 公式/规则/表` 现在按名词处理。剩下两条是**有意的产品边界**，登记在
 [eval/known-gaps.md](eval/known-gaps.md) G-016：`010` 要的是因式分解**结果**，
 `073` 无法用正则与真实的求导请求区分。

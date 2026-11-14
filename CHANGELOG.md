@@ -2,6 +2,8 @@
 
 This history includes stable releases, prerelease tags and explicitly marked development snapshots. / 本记录覆盖正式版、预发布标签和明确标注的开发快照。
 
+Dates in headings preserve the historical changelog dates. Where the source milestone and GitHub publication differ, both dates are labeled below in Asia/Shanghai time. / 标题保留历史日志日期。源码里程碑与 GitHub 公开日期不同时，下文按北京时间分别标注。
+
 ## Unreleased
 
 ## 0.4.10 - 2026-11-14
@@ -26,24 +28,24 @@ This history includes stable releases, prerelease tags and explicitly marked dev
 
 - 新增术语名词表 `src/texada/core/glossary.py`（24 条，含格林/高斯/斯托克斯/贝叶斯/全概率/华里士/施密特/拉格朗日/罗尔/柯西/泰勒/洛必达/一阶线性 ODE/二阶常系数/中心极限/样本方差/欧拉/夹逼/路径无关/二项分布/分部积分/N-L/柯西不等式/秩不等式），每条带名称别名、LaTeX、出处与备注。
 - 词表沿既有确定性快路径接入：`DeterministicCandidateEngine._canonical_concept` 兜底查表（规则名仍为 `nl_canonical_concept`），`/api/convert` 在同一处先查表，命中返回 `Source.TEMPLATE`、`tokens_used=0`。匹配要求规范化后与别名完全相等，带参数的句子与复合问句仍交给模型；每条 LaTeX 必须通过 KaTeX 校验，失败则回退模型路径。
-- 实测（MiniCPM-V 4.7 1B）：真实语料从 v0.4.7 的 31/52 升至 **47/52**，其中 `named-formula` 从 5/20 升至 **20/20**；52 条中 21 条由模板直出，模板路径 p50 为 12.3 ms。100 条 golden set 的结构通过率仍为 59/95，整套运行的 p50/p95 为 1255/3325 ms。见[真实语料逐条结果](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.9/eval/real-world-baseline.json)和[黄金集报告](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.9/eval/reports/2026-11-13-baseline-live.md)。
+- 实测（MiniCPM-V 4.7 1B）：真实语料从 v0.4.7 的 31/52 升至 **47/52**，其中 `named-formula` 从 5/20 升至 **20/20**；52 条中 21 条由模板直出，模板路径 p50 为 12.3 ms。100 条黄金集的结构层仍通过 59/95，有延迟记录的样本 p50/p95 为 1255/3325 ms。见[真实语料逐条结果](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.9/eval/real-world-baseline.json)和[黄金集报告](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.9/eval/reports/2026-11-13-baseline-live.md)。
 - 评测 runner 现在区分「确定性直出」与「模型结果」并单列条目，避免把查表得分读成模型能力；README 中英双段与 `docs/architecture.md`、`eval/known-gaps.md`（G-017）同步。
 ### English
 
 - Add a 24-entry formula glossary with aliases, LaTeX and provenance. A normalized exact match on a bare name uses the existing deterministic candidate path, including `/api/convert`. A failed KaTeX check falls back to the model. Parameterized and compound requests continue through the model path.
-- On the 52-case real-world corpus, the MiniCPM-V 4.7 1B configuration went from 31/52 in v0.4.7 to 47/52. Named formulas went from 5/20 to 20/20 via the glossary. The evaluator records template, model and agent paths separately. The 100-case golden set retained 59/95 structural passes.
+- On the 52-case real-world corpus, the MiniCPM-V 4.7 1B configuration went from 31/52 in v0.4.7 to 47/52. Named formulas went from 5/20 to 20/20 via the glossary. Templates served 21 of the 52 cases with a median latency of 12.3 ms. The evaluator records template, model and agent paths separately. The 100-case golden set retained 59/95 structural passes. Among samples with a recorded latency, p50/p95 were 1255/3325 ms.
 
 ## 0.4.8 - 2026-11-13
 
 ### 中文
 
 - 修复计算范围门禁的误拒：`u 除以 v 的求导法则`、`泰勒公式的求导法则`、`基本积分公式表` 这类"要排版的内容"此前因动词 `求导` 命中而被整句拒绝。现在动词扫描前先剥离 `求导/积分/极限 +（的）法则|公式|规则|表` 固定搭配，`计算这个求导公式`、`推导…的求导法则` 仍按计算请求拒绝。
-- 基线报告把范围拒绝与失败分开统计。`ComputationOutsideScope` 不再计入 Errors 与分母，改为单列条目（当前为 golden `010`、`073`）；两条已登记为有意的产品边界（`eval/known-gaps.md` G-016）：`010` 要的是因式分解结果，`073` 无法用正则与真实求导请求区分。
-- 复测 100 条 golden set（MiniCPM-V 4.7 1B，内置 llama-server）：结构通过 59/95（62.1%）、编译 92/100、渲染 98/100、轨迹 98/100、确定性修复 53/53；延迟 p50/p95 = 1.5s/4.2s。分母由 94 变 95 是因为 `062` 重新进入评测，不代表通过率下降。
+- 基线报告把范围拒绝与失败分开统计。`ComputationOutsideScope`（黄金集 `010`、`073`）单列，排除在 Errors 和结构层分母之外。编译、渲染和轨迹层仍按 100 条统计。两条已登记为有意的产品边界（`eval/known-gaps.md` G-016）：`010` 要的是因式分解结果，`073` 无法用正则与真实求导请求区分。
+- 复测 100 条 golden set（MiniCPM-V 4.7 1B，内置 llama-server）：结构通过 59/95（62.1%）、编译 92/100、渲染 98/100、轨迹 98/100、确定性修复 53/53；有延迟记录的样本 p50/p95 为 1548/4218 ms。`062` 恢复计入结构层，分母由 94 增至 95，通过数仍为 59。
 ### English
 
 - Treat phrases such as `求导法则` (differentiation rule), `基本积分公式表` (table of standard integrals) and equivalent limit phrases as notation requests. Explicit requests to calculate or derive a result still hit the computation gate.
-- Report `ComputationOutsideScope` separately and exclude the two scope refusals (`010`, `073`) from the structural denominator. Restoring case `062` gives 59/95 structural passes, 92/100 compile, 98/100 render, 98/100 trace and 53/53 deterministic repairs. The tagged run recorded 1548/4218 ms p50/p95. See the [v0.4.8 report](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.8/eval/reports/2026-11-13-baseline-live.md).
+- Report `ComputationOutsideScope` separately and exclude the two scope refusals (`010`, `073`) from the structural denominator. Restoring case `062` increases the structural denominator from 94 to 95, with 59 passes in both runs. The run recorded 92/100 compile, 98/100 render, 98/100 trace and 53/53 deterministic repairs. Among samples with a recorded latency, p50/p95 were 1548/4218 ms. See the [v0.4.8 report](https://github.com/CacinieP/TeXada-the-Math-Agent/blob/v0.4.8/eval/reports/2026-11-13-baseline-live.md).
 
 ## 0.4.7 - 2026-11-13
 
@@ -62,6 +64,8 @@ This history includes stable releases, prerelease tags and explicitly marked dev
 
 ## 0.4.6 - 2026-11-10
 
+Source milestone / 源码里程碑 2026-11-10 · [GitHub publication / 公开发布](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.6) 2026-11-13.
+
 - Fix Linux compatibility by building the desktop, Python backend and pinned llama-server on Ubuntu 22.04 / glibc 2.35.
 - Reject packaged ELF imports newer than glibc 2.35, including weak imports. Validate deb installation and extracted AppImage startup with external networking disabled and loopback retained.
 - Linux validation covers desktop/backend startup and deterministic KaTeX rendering; it does not test model inference, every Linux distribution, or AppImageHub acceptance.
@@ -71,12 +75,17 @@ This history includes stable releases, prerelease tags and explicitly marked dev
 
 ## 0.4.5 - 2026-11-08
 
+Source milestone / 源码里程碑 2026-11-08 · [GitHub publication / 公开发布](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.5) 2026-11-09.
+
 - Clear stale history previews and their action closures on close, refresh/filter and successful history deletion without stealing search-field focus. / 关闭、刷新/筛选及成功清空历史时同步清理旧预览和操作引用，避免残留已移除内容或抢走搜索输入焦点。
 
 - 修复历史矩阵/预设卡片渲染：KaTeX 每次使用独立可变宏表，避免冻结宏表在矩阵环境中抛错；保留宏隔离及可见的源码回退。历史「查看」改为页内只读数学预览，不再自动跳到预设或覆盖草稿；只有「复用输入」才恢复参数。大矩阵首尾列均可滚动查看。见 [#70](https://github.com/CacinieP/TeXada-the-Math-Agent/issues/70)。
 - Fix matrix/preset rendering with per-render mutable macro copies. View historical formulas in a read-only History preview without navigating or changing drafts; only explicit reuse restores editor parameters. Preserve full source, visible render failures, and scrollable edges for wide matrices. [Validation](docs/issue70-history-preview.md).
+- 带补充上下文的矩阵和转写请求仍须满足原始公式约束，候选与约束冲突时阻止提交。 / Matrix and transcription requests with supplemental context retain their source formula constraints. A conflicting candidate is blocked from commit. [#69](https://github.com/CacinieP/TeXada-the-Math-Agent/pull/69)
 
 ## 0.4.4 - 2026-11-06
+
+Source milestone / 源码里程碑 2026-11-06 · [GitHub publication / 公开发布](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.4) 2026-11-08.
 
 ### 中文
 
@@ -160,6 +169,8 @@ This history includes stable releases, prerelease tags and explicitly marked dev
 [Tag / 标签](https://github.com/CacinieP/TeXada-the-Math-Agent/tree/v0.4.2-pre-inline-fix.1) · [Compare with v0.4.2 / 与正式版对比](https://github.com/CacinieP/TeXada-the-Math-Agent/compare/v0.4.2-pre-inline-fix.1...v0.4.2)
 
 ## 0.4.2-rc.3 - 2026-10-20
+
+Source milestone / 源码里程碑 2026-10-21 · [GitHub publication / 公开发布](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.2-rc.3) 2026-10-21.
 
 ### 中文
 
@@ -399,6 +410,8 @@ ollama pull hf.co/openbmb/MiniCPM5-2B-GGUF:Q4_K_M
 OCR 继续使用独立配置的视觉模型；不安装 OCR 模型也可使用文本转换。
 
 ## 0.4.0 - 2026-08-25
+
+Source milestone / 源码里程碑 2026-08-26 · [GitHub publication / 公开发布](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.0) 2026-08-26.
 
 ### English
 
@@ -882,6 +895,8 @@ OCR 继续使用独立配置的视觉模型；不安装 OCR 模型也可使用�
 
 ## 0.2.6 - 2026-07-20
 
+Source milestone / 源码里程碑 2026-07-21 · [GitHub publication / 公开发布](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.2.6) 2026-07-21.
+
 - Added Settings -> Data controls for full backup export/import, history export/import, and confirmed history clearing.
 - Added JSON backup APIs for full data export/import and history-only export/import.
 - Added merge-mode history import with duplicate skipping and replace-mode support in the backend.
@@ -983,6 +998,8 @@ Development snapshot recorded in [commit `2a756b4`](https://github.com/CacinieP/
 - 历史记录清理同时遵守保留天数和最大条数配置。
 
 ## 0.1.0 - 2026-07-07
+
+Source milestone / 源码里程碑 2026-07-08 · [GitHub publication / 公开发布](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.1.0) 2026-07-08.
 
 - Released the Tauri desktop app surface for macOS DMG and Windows NSIS installers.
 - Added local-first Ollama MiniCPM defaults with configurable text and vision models.
