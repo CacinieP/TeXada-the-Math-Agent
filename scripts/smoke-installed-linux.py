@@ -222,8 +222,37 @@ def stop_process_group(proc) -> None:
         proc.wait(timeout=10)
 
 
+def verify_english_first_window(proc, screenshot: Path) -> None:
+    """Wait for the actual X11 window to render its English navigation."""
+    screenshot.parent.mkdir(parents=True, exist_ok=True)
+    expected = {"complete", "presets", "history", "settings"}
+    deadline = time.monotonic() + 25
+    detected = set()
+    while time.monotonic() < deadline and proc.poll() is None:
+        window = subprocess.run(
+            ["xdotool", "search", "--onlyvisible", "--limit", "1", "--name", "^TeXada$"],
+            text=True, capture_output=True, timeout=5,
+        )
+        if window.returncode == 0 and window.stdout.strip().isdigit():
+            capture = subprocess.run(
+                ["import", "-window", window.stdout.strip(), str(screenshot)],
+                capture_output=True, timeout=5,
+            )
+            if capture.returncode == 0:
+                ocr = subprocess.run(
+                    ["tesseract", str(screenshot), "stdout", "-l", "eng", "--psm", "11"],
+                    check=True, text=True, capture_output=True, timeout=10,
+                )
+                detected = expected.intersection(re.findall(r"[a-z]+", ocr.stdout.lower()))
+                if len(detected) >= 3:
+                    return
+        time.sleep(0.5)
+    raise RuntimeError(f"English navigation not visible in TeXada window: {sorted(detected)}")
+
+
 def exercise_desktop(
-    executable: Path, bundled_runtime: Path, root: Path, version: str, *, appimage: bool
+    executable: Path, bundled_runtime: Path, root: Path, version: str, *,
+    appimage: bool, screenshot: Path,
 ) -> None:
     runtime_check = subprocess.run(
         [str(bundled_runtime), "--version"], check=True, text=True, capture_output=True, timeout=30
@@ -269,8 +298,7 @@ def exercise_desktop(
                 raise RuntimeError("Fresh Linux UI must default to English under C.UTF-8")
             result = request(base, "/api/agent", {"text": "二重积分", "render_mode": "katex"})
             verify_result(status, runtime, settings, result, version, bundled_runtime)
-            if proc.poll() is not None:
-                raise RuntimeError("Linux desktop exited during deterministic rendering")
+            verify_english_first_window(proc, screenshot)
         except Exception:
             sys.stderr.write(log_path.read_text(encoding="utf-8", errors="replace")[-8000:])
             raise
@@ -285,6 +313,7 @@ def main(argv=None) -> None:
     parser.add_argument("--version", required=True)
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--screenshot", type=Path, required=True)
     args = parser.parse_args(argv)
     if sys.platform != "linux" or platform.machine().lower() not in {"x86_64", "amd64"}:
         raise RuntimeError("Installed Linux smoke requires native Linux x64")
@@ -304,7 +333,10 @@ def main(argv=None) -> None:
             executable, runtime, installation = install_deb(installer, args.version)
         else:
             executable, runtime, installation = extract_appimage(installer, root)
-        exercise_desktop(executable, runtime, root, args.version, appimage=kind == "appimage")
+        exercise_desktop(
+            executable, runtime, root, args.version,
+            appimage=kind == "appimage", screenshot=args.screenshot.resolve(),
+        )
         report = {
             "platform": "linux",
             "target": TARGET,
@@ -319,9 +351,10 @@ def main(argv=None) -> None:
             "bundled_runtime_build": 11669,
             "deterministic_compile_and_render_valid": True,
             "candidate_commits_directly": True,
+            "english_first_window_verified": True,
             "model_inference_tested": False,
             "scope": (
-                "Native Linux x64 desktop/API startup and deterministic rendering; "
+                "Native Linux x64 startup, English window OCR and deterministic rendering; "
                 "no model download or inference"
             ),
         }
