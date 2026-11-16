@@ -12,13 +12,13 @@ Dates in headings preserve the historical changelog dates. Where the source mile
 
 - 首次启动按系统语言选择界面。Linux 按 `LC_ALL`、`LC_MESSAGES`、`LANG` 的优先级判断，macOS 和 Windows 使用 WebView 的语言环境。中文环境默认中文，其余环境默认英文。显式保存的语言优先，单独调整缩放会继续沿用自动语言选择。见 [#90](https://github.com/CacinieP/TeXada-the-Math-Agent/pull/90)。
 - 正式版 Ubuntu 22.04 安装检查验证了 deb 和 AppImage 的离线启动、英文首屏和确定性公式渲染。独立 Ubuntu 24.04.5 的英文首屏、CPU 文本转写和 OCR 实测使用的是同一修复分支的 v0.4.9 CI 候选包。见 [发布工作流](https://github.com/CacinieP/TeXada-the-Math-Agent/actions/runs/43581742151)和 [Ubuntu 24.04 实测](docs/validation/2026-11-14-ubuntu24-appimage/README.md)。
-- AppImageHub 复测通过的是正式发布的 `TeXada_0.4.10_amd64.AppImage`，报告记录 glibc 2.35；目录收录仍待维护者审核。见 [上游测试报告](https://github.com/AppImage/appimage.github.io/pull/11396#issuecomment-6875598626)。
+- AppImageHub 复测通过的是正式发布的 `TeXada_0.4.10_amd64.AppImage`，报告记录 glibc 2.35。见 [上游测试报告](https://github.com/AppImage/appimage.github.io/pull/11396#issuecomment-6875598626)。收录 [PR #11396](https://github.com/AppImage/appimage.github.io/pull/11396) 已合并，[TeXada 目录页](https://appimage.github.io/TeXada/)已上线。
 
 ### English
 
 - Select the first-run UI language from the system locale. On Linux, check `LC_ALL`, `LC_MESSAGES` and `LANG` in that order. On macOS and Windows, use the WebView locale. Chinese locales select Chinese, and other locales select English. An explicit language choice takes precedence, and changing zoom alone preserves automatic selection. See [#90](https://github.com/CacinieP/TeXada-the-Math-Agent/pull/90).
 - Verify offline startup, the English first window and deterministic formula rendering for the released Ubuntu 22.04 deb and AppImage. The separate Ubuntu 24.04.5 English-window, CPU transcription and OCR run used a v0.4.9 CI candidate from the locale-fix branch. See the [release workflow](https://github.com/CacinieP/TeXada-the-Math-Agent/actions/runs/43581742151) and [Ubuntu 24.04 hardware validation](docs/validation/2026-11-14-ubuntu24-appimage/README.md).
-- AppImageHub passed the public `TeXada_0.4.10_amd64.AppImage` with a glibc 2.35 baseline. Catalog review is pending. See the [upstream test report](https://github.com/AppImage/appimage.github.io/pull/11396#issuecomment-6875598626).
+- AppImageHub passed the public `TeXada_0.4.10_amd64.AppImage` with a glibc 2.35 baseline. See the [upstream test report](https://github.com/AppImage/appimage.github.io/pull/11396#issuecomment-6875598626). The catalog [PR #11396](https://github.com/AppImage/appimage.github.io/pull/11396) was merged, and the [TeXada listing](https://appimage.github.io/TeXada/) is live.
 
 [GitHub release / 正式发布](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.4.10) · [Compare / 版本差异](https://github.com/CacinieP/TeXada-the-Math-Agent/compare/v0.4.9...v0.4.10)
 
