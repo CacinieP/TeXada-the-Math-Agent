@@ -301,12 +301,21 @@ async def test_shadow_uses_remaining_request_budget_and_ignores_late_thread_resu
     runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path, tool_timeout_seconds=0.02))
     state = transition_state()
     original = CASTransitionChecker.evaluate
-    completed = []
+    loop = asyncio.get_running_loop()
+    done = asyncio.Event()
+    late_results = []
 
     def slow(self, current):
         time.sleep(0.1)
-        completed.append(True)
-        return original(self, current)
+        try:
+            # Evaluate against an isolated state without the timeout evidence
+            # attached by the main loop, ensuring non-empty late results that
+            # would bloat state.ledger.evidence if a buggy runtime attached them.
+            late = original(self, transition_state())
+            late_results.extend(late)
+            return late
+        finally:
+            loop.call_soon_threadsafe(done.set)
 
     monkeypatch.setattr(runtime_module.CASTransitionChecker, "evaluate", slow)
     started = time.monotonic()
@@ -315,8 +324,11 @@ async def test_shadow_uses_remaining_request_budget_and_ignores_late_thread_resu
     evidence = [item for item in state.ledger.evidence if item.kind == "cas_transition"]
     assert evidence[-1].output["verdict"] == "timeout"
     assert evidence[-1].output["basis"] == "request_or_tool_budget_exhausted"
-    await asyncio.sleep(0.15)
-    assert completed
+    # Reliability fix for issue #73: wait for the worker thread via a
+    # thread-safe Event signal after original() completes, instead of a fixed
+    # asyncio.sleep(0.15) whose completion time is unspecified.
+    await asyncio.wait_for(done.wait(), timeout=5.0)
+    assert len(late_results) == 2
     assert len([item for item in state.ledger.evidence if item.kind == "cas_transition"]) == 2
 
 
