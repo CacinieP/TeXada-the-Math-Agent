@@ -301,11 +301,11 @@ async def test_shadow_uses_remaining_request_budget_and_ignores_late_thread_resu
     runtime = TeXadaAgentRuntime(TeXadaConfig(data_dir=tmp_path, tool_timeout_seconds=0.02))
     state = transition_state()
     original = CASTransitionChecker.evaluate
-    completed = []
+    done = asyncio.Event()
 
     def slow(self, current):
         time.sleep(0.1)
-        completed.append(True)
+        done.set()
         return original(self, current)
 
     monkeypatch.setattr(runtime_module.CASTransitionChecker, "evaluate", slow)
@@ -315,8 +315,10 @@ async def test_shadow_uses_remaining_request_budget_and_ignores_late_thread_resu
     evidence = [item for item in state.ledger.evidence if item.kind == "cas_transition"]
     assert evidence[-1].output["verdict"] == "timeout"
     assert evidence[-1].output["basis"] == "request_or_tool_budget_exhausted"
-    await asyncio.sleep(0.15)
-    assert completed
+    # Reliability fix for issue #73: wait for the slow thread via Event instead
+    # of a fixed asyncio.sleep(0.15) whose completion time is unspecified.
+    await asyncio.wait_for(done.wait(), timeout=5.0)
+    assert done.is_set()
     assert len([item for item in state.ledger.evidence if item.kind == "cas_transition"]) == 2
 
 
