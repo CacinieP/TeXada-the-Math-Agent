@@ -283,40 +283,6 @@ Source milestone / 源码里程碑 2026-10-21 · [GitHub publication / 公开发
 - Keep Data, Shortcuts and About within Settings when switching tabs.
 - Preserve the existing floating-window behavior. Includes the beta.1 changes and documented evaluation limitations.
 
-## 0.4.2 development baseline - 2026-09-19
-
-### English
-
-- Add the first quantitative baseline evidence: a 100-entry golden set
-  generated from the manual test prompts (four assertion layers: semantic
-  anchor, compile, render, trace) and a 53-entry deterministic repair
-  dataset, both runnable in CI via the new `eval` optional dependency group.
-  First live baseline (2026-09-19, MiniCPM5-2B Q4_K_M on llama-server):
-  structural pass rate 28/95, compile 65/100, render 98/100, repair 53/53,
-  latency p50 5.5s. Recorded-mode CI gate replays committed planner
-  recordings. No runtime behavior change. Measured repair-tool boundaries
-  and known matcher limitations are documented in `eval/known-gaps.md`.
-
-
-- Add macOS local model notes to both README languages: native Ollama with
-  Metal on Apple Silicon, the Docker Desktop container limitation, the tested
-  A18 Pro / 8GB text-model memory usage, and the lack of Intel performance tests.
-
-### 中文
-
-- 新增首个量化基线证据：由人工测试文案生成的 100 条黄金集（四层断言：
-  语义锚点、编译、渲染、轨迹）与 53 条确定性修复数据集，均可通过新增
-  `eval` 可选依赖组在 CI 运行。首个实时基线（2026-09-19，llama-server 上的
-  MiniCPM5-2B Q4_K_M）：结构通过率 28/95，编译 65/100，渲染 98/100，
-  修复 53/53，延迟 p50 5.5s。CI 门禁回放已提交的 planner 录制输出。
-  无运行时行为变更。修复工具的实测边界与匹配器已知限制记录在
-  `eval/known-gaps.md`。
-
-
-- 在中英文 README 补充 macOS 本地模型说明：Apple Silicon 原生 Ollama 的 Metal
-  加速、Docker Desktop 容器限制、A18 Pro / 8GB 文本模型内存实测，以及 Intel
-  性能尚未实测。
-
 ## 0.4.2-beta.1 - 2026-10-14
 
 ### 中文
@@ -340,6 +306,38 @@ Source milestone / 源码里程碑 2026-10-21 · [GitHub publication / 公开发
 - Full still commits 24 mathematically incorrect formulas in the 100-case run. Generated mathematics requires review.
 - Verify native installer launch, the bundled backend/runtime and KaTeX on macOS arm64/Intel and Windows x64. Windows installers are unsigned.
 - Beta prerelease; v0.4.1 remains the stable latest release. Public release follows signed/notarized macOS package verification and installation testing.
+
+## 0.4.2 development baseline - 2026-09-19
+
+### English
+
+- Add the first quantitative baseline evidence: a 100-entry golden set
+  generated from the manual test prompts (four assertion layers: semantic
+  anchor, compile, render, trace) and a 53-entry deterministic repair
+  dataset, both runnable in CI via the new `eval` optional dependency group.
+  First live baseline (2026-09-19, MiniCPM5-2B Q4_K_M on llama-server):
+  structural pass rate 28/95, compile 65/100, render 98/100, repair 53/53,
+  latency p50 5.5s. Recorded-mode CI gate replays committed planner
+  recordings. No runtime behavior change. Measured repair-tool boundaries
+  and known matcher limitations are documented in `eval/known-gaps.md`.
+
+- Add macOS local model notes to both README languages: native Ollama with
+  Metal on Apple Silicon, the Docker Desktop container limitation, the tested
+  A18 Pro / 8GB text-model memory usage, and the lack of Intel performance tests.
+
+### 中文
+
+- 新增首个量化基线证据：由人工测试文案生成的 100 条黄金集（四层断言：
+  语义锚点、编译、渲染、轨迹）与 53 条确定性修复数据集，均可通过新增
+  `eval` 可选依赖组在 CI 运行。首个实时基线（2026-09-19，llama-server 上的
+  MiniCPM5-2B Q4_K_M）：结构通过率 28/95，编译 65/100，渲染 98/100，
+  修复 53/53，延迟 p50 5.5s。CI 门禁回放已提交的 planner 录制输出。
+  无运行时行为变更。修复工具的实测边界与匹配器已知限制记录在
+  `eval/known-gaps.md`。
+
+- 在中英文 README 补充 macOS 本地模型说明：Apple Silicon 原生 Ollama 的 Metal
+  加速、Docker Desktop 容器限制、A18 Pro / 8GB 文本模型内存实测，以及 Intel
+  性能尚未实测。
 
 ## 0.4.1 - 2026-09-12
 
@@ -816,6 +814,8 @@ Source milestone / 源码里程碑 2026-08-26 · [GitHub publication / 公开发
 
 ## 0.3.0 - 2026-07-27
 
+### English
+
 - Repositioned TeXada as an on-device, agent-driven structured math editor.
 - Added a MiniCPM5 Planner → Tool → Observation runtime with native XML and
   OpenAI tool-call normalization.
@@ -858,7 +858,7 @@ Source milestone / 源码里程碑 2026-08-26 · [GitHub publication / 公开发
 - Migrated cursor-relative window positioning to Tauri's monitor APIs, added
   `httpx2` for tests, and updated Pillow to 12.3.0.
 
-## 0.3.0 - 2026-07-27 中文
+### 中文
 
 - 将 TeXada 重新定位为基于端侧 Agent 的结构化数学编辑器。
 - 新增 MiniCPM5 Planner → Tool → Observation 运行时，同时兼容原生 XML 与
@@ -897,6 +897,8 @@ Source milestone / 源码里程碑 2026-08-26 · [GitHub publication / 公开发
 
 Source milestone / 源码里程碑 2026-07-21 · [GitHub publication / 公开发布](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.2.6) 2026-07-21.
 
+### English
+
 - Added Settings -> Data controls for full backup export/import, history export/import, and confirmed history clearing.
 - Added JSON backup APIs for full data export/import and history-only export/import.
 - Added merge-mode history import with duplicate skipping and replace-mode support in the backend.
@@ -904,7 +906,7 @@ Source milestone / 源码里程碑 2026-07-21 · [GitHub publication / 公开发
 - Documented the backup JSON format in README and `docs/data-backup.md`.
 - Fixed platform-specific OCR paste hints so Windows shows `Ctrl+V` and macOS shows `Cmd+V`.
 
-## 0.2.6 - 2026-07-20 中文
+### 中文
 
 - 在设置页新增“数据”区域，支持完整备份导入导出、历史记录导入导出，以及二次确认后清空历史。
 - 新增完整数据和仅历史记录的 JSON 导入导出 API。
@@ -917,15 +919,17 @@ Source milestone / 源码里程碑 2026-07-21 · [GitHub publication / 公开发
 
 Development snapshot recorded in [commit `2a756b4`](https://github.com/CacinieP/TeXada-the-Math-Agent/commit/2a756b4), with no `v0.2.5` tag.
 
+此版本见[源码提交 `2a756b4`](https://github.com/CacinieP/TeXada-the-Math-Agent/commit/2a756b4)，仓库没有 `v0.2.5` 标签。
+
+### English
+
 - Fixed the OCR tab so a second recognition can start immediately by dragging, pasting, or selecting another image after a completed run.
 - Prevented duplicate OCR drag/drop handlers from being registered when reopening the OCR tab.
 - Changed the desktop shell to open visible by default instead of starting hidden.
 - Smoothed the frameless transparent window border by insetting and clipping the rounded shell on macOS and Windows.
 - Stabilized macOS Intel release packaging by signing the bundled backend after PyInstaller creates it.
 
-## 0.2.5 - 2026-07-09 中文
-
-此版本见[源码提交 `2a756b4`](https://github.com/CacinieP/TeXada-the-Math-Agent/commit/2a756b4)，仓库没有 `v0.2.5` 标签。
+### 中文
 
 - 修复 OCR 页：第一次识别完成后，可以直接拖图、粘贴或选择另一张图片继续第二次识别。
 - 避免反复进入 OCR 页时重复注册拖放事件，导致一次拖图触发多次请求。
@@ -935,21 +939,25 @@ Development snapshot recorded in [commit `2a756b4`](https://github.com/CacinieP/
 
 ## 0.2.4 - 2026-07-08
 
+### English
+
 - Fixed history result restoration: clicking a history record now reopens the previous generated formula in the result view without rerunning the model.
 - Kept history input reuse as a separate action, while LaTeX and Markdown copy actions continue to copy the saved generated formula.
 
-## 0.2.4 - 2026-07-08 中文
+### 中文
 
 - 修复历史结果恢复：点击历史记录时会直接打开以前生成的公式结果，不需要重新跑模型。
 - 保留“复用输入”为独立操作，同时 LaTeX 和 Markdown 复制按钮继续复制已保存的生成公式。
 
 ## 0.2.3 - 2026-07-08
 
+### English
+
 - Replaced the app icon with a unified deep-blue no-star TeXada artwork.
 - Regenerated the packaged macOS, Windows and frontend icon assets from the new artwork.
 - Rethemed the desktop shell with layered deep-blue surfaces, controls, borders and focus states.
 
-## 0.2.3 - 2026-07-08 中文
+### 中文
 
 - 将应用图标替换为统一深蓝、无星标的 TeXada 新图。
 - 基于新图重新生成 macOS、Windows 和前端打包图标资源。
@@ -957,12 +965,14 @@ Development snapshot recorded in [commit `2a756b4`](https://github.com/CacinieP/
 
 ## 0.2.2 - 2026-07-08
 
+### English
+
 - Renamed the shortcuts tab to Presets and made it a self-contained preset formula panel.
 - Changed preset cards to insert formulas directly at the cursor instead of sending their keys through natural-language conversion.
 - Added per-preset LaTeX and Markdown copy actions plus inline KaTeX previews.
 - Treated optional local KaTeX CLI timeouts as skipped validation checks, matching missing CLI behavior.
 
-## 0.2.2 - 2026-07-08 中文
+### 中文
 
 - 将缩写页改为预设页，作为独立的预设公式面板使用。
 - 预设卡片点击后直接在光标处键入公式，不再把 key 传入自然语言转换。
@@ -971,12 +981,14 @@ Development snapshot recorded in [commit `2a756b4`](https://github.com/CacinieP/
 
 ## 0.2.1 - 2026-07-08
 
+### English
+
 - Fixed packaged desktop formula rendering when `npx katex` is unavailable.
 - Bundled local KaTeX browser CSS, JavaScript, fonts, and license with the Tauri frontend.
 - Changed backend KaTeX rendering to use `npx --no-install` and return a visible formula fallback instead of a user-facing `npx katex not available` error.
 - Rendered OCR and completion results with the same local KaTeX frontend path.
 
-## 0.2.1 - 2026-07-08 中文
+### 中文
 
 - 修复桌面安装包中缺少 `npx katex` 时公式渲染版不可见的问题。
 - 将本地 KaTeX 浏览器 CSS、JavaScript、字体和 license 随 Tauri 前端一起打包。
@@ -985,12 +997,14 @@ Development snapshot recorded in [commit `2a756b4`](https://github.com/CacinieP/
 
 ## 0.2.0 - 2026-07-08
 
+### English
+
 - Improved history reuse with searchable natural-language, completion, OCR, and LaTeX records.
 - Added history type filters and per-record actions for reusing source input, copying LaTeX, and copying Markdown.
 - Extended the history API with `type` filtering and broader query matching across input, LaTeX, intent, and source fields.
 - Enforced configured history retention by both age and maximum item count.
 
-## 0.2.0 - 2026-07-08 中文
+### 中文
 
 - 增强历史记录复用：可搜索自然语言、补全、OCR 和 LaTeX 记录。
 - 历史页新增类型筛选，以及复用输入、复制 LaTeX、复制 Markdown 等单条记录操作。
@@ -1001,16 +1015,19 @@ Development snapshot recorded in [commit `2a756b4`](https://github.com/CacinieP/
 
 Source milestone / 源码里程碑 2026-07-08 · [GitHub publication / 公开发布](https://github.com/CacinieP/TeXada-the-Math-Agent/releases/tag/v0.1.0) 2026-07-08.
 
+### English
+
 - Released the Tauri desktop app surface for macOS DMG and Windows NSIS installers.
 - Added local-first Ollama MiniCPM defaults with configurable text and vision models.
 - Added OpenAI-compatible cloud mode with separate text and vision model settings.
 - Added natural language conversion, OCR, completion, snippets, history, validation, repair, rendering, copy, and insert-at-cursor flows.
 - Added bilingual README, architecture notes, source audit, technical report, release workflows, and community health files.
 
-## 0.1.0 - 2026-07-07 中文
+### 中文
 
 - 发布 Tauri 桌面应用，支持 macOS DMG 和 Windows NSIS 安装包。
 - 默认使用本地 Ollama MiniCPM，并支持配置文本模型和视觉模型。
 - 支持 OpenAI-compatible 云侧模式，可分别设置文本模型、视觉模型和 endpoint。
 - 支持自然语言转 LaTeX、OCR、补全、缩写、历史、校验、修复、渲染、复制和光标处键入。
 - 补齐中英双语 README、架构文档、源码审计、技术报告、release workflow 和社区健康文件。
+
