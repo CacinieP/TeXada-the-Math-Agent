@@ -5,6 +5,8 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const { ReadableStream } = require('node:stream/web');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../tauri-shell/src/main.js'), 'utf8');
+const html = fs.readFileSync(require('node:path').join(__dirname, '../tauri-shell/src/index.html'), 'utf8');
+const domSource = source.slice(source.indexOf('  const els = {'), source.indexOf('  // ── Helpers ──'));
 const start = source.indexOf('  async function llamaPull()');
 const end = source.indexOf('\n  // ── OCR', start);
 const functionSource = source.slice(start, end);
@@ -48,6 +50,7 @@ function fixture(responses = [], language = 'en') {
   const els = {
     backendSelect: { value: 'llama_server' },
     llamaHostInput: { value: '' }, llamaBinaryInput: { value: '' }, llamaModelsDirInput: { value: '' },
+    llamaMirrorInput: { checked: false },
     btnLlamaPull: {
       disabled: false,
       setAttribute: (name, value) => { buttonAttributes[name] = value; },
@@ -102,7 +105,27 @@ function assertRecovered(f, controlled) {
   assert.equal(controlled.stream.locked, false);
 }
 
-test('model download uses the resolved backend and consumes split progress events', async () => {
+test('mirror checkbox starts unchecked, has a translated label and is wired to the download control', () => {
+  const input = html.match(/<input\b[^>]*\bid="llama-mirror-input"[^>]*>/)?.[0];
+  assert.ok(input, 'the download section must expose its mirror checkbox');
+  assert.match(input, /\btype="checkbox"/);
+  assert.doesNotMatch(input, /\schecked(?:\s|=|\/?>)/);
+  const label = html.match(/<label\b[^>]*\bfor="llama-mirror-input"[^>]*>/)?.[0];
+  assert.ok(label, 'the checkbox must have an associated label');
+  const labelKey = label.match(/\bdata-i18n="([^"]+)"/)?.[1];
+  assert.ok(labelKey, 'the mirror label must follow the selected UI language');
+  for (const language of ['zh', 'en']) {
+    const f = fixture([], language);
+    assert.match(vm.runInContext(`t(${JSON.stringify(labelKey)})`, f.context), /hf-mirror\.com/);
+  }
+  const checkbox = { checked: false };
+  const context = vm.createContext({
+    document: { getElementById: id => id === 'llama-mirror-input' ? checkbox : null },
+  });
+  assert.equal(vm.runInContext(domSource + '\nels.llamaMirrorInput', context), checkbox);
+});
+
+test('model download defaults to direct access, uses the resolved backend and consumes split progress events', async () => {
   const controlled = controlledStream();
   const bytes = new TextEncoder().encode([
     JSON.stringify({ file: '模型.gguf', received: 4, total: 4, done: true }), JSON.stringify(COMPLETE),
@@ -116,6 +139,52 @@ test('model download uses the resolved backend and consumes split progress event
   assert.equal(f.els.llamaPullProgress.textContent, 'Model download complete');
   assert.equal(f.refreshes, 1);
   assertRecovered(f, controlled);
+});
+
+test('checking the mirror checkbox sends the boolean true in the download request', async () => {
+  const controlled = closedStream([COMPLETE]);
+  const f = fixture([{ controlled }]);
+  f.els.llamaMirrorInput.checked = true;
+  await f.start();
+  assert.equal(f.requests.length, 1);
+  assert.equal(f.requests[0].url, 'http://127.0.0.1:19321/api/llama/pull');
+  assert.deepEqual(JSON.parse(f.requests[0].options.body), { mirror: true });
+  assert.equal(f.els.llamaPullProgress.textContent, 'Model download complete');
+  assertRecovered(f, controlled);
+});
+
+test('unchecking the mirror checkbox makes the next download use direct access again', async () => {
+  const first = closedStream([COMPLETE]); const second = closedStream([COMPLETE]);
+  const f = fixture([{ controlled: first }, { controlled: second }]);
+  f.els.llamaMirrorInput.checked = true;
+  await f.start();
+  f.els.llamaMirrorInput.checked = false;
+  await f.start();
+  assert.deepEqual(f.requests.map(request => JSON.parse(request.options.body)), [
+    { mirror: true }, { mirror: false },
+  ]);
+  assertRecovered(f, second);
+});
+
+test('direct connection failure waits for an explicit mirror selection and retry', async () => {
+  const failed = closedStream([
+    { file: 'model.gguf', received: 0, error: 'ConnectError: ' },
+    { all_done: true, success: false, error: 'ConnectError: ' },
+  ]);
+  const retried = closedStream([COMPLETE]);
+  const f = fixture([{ controlled: failed }, { controlled: retried }]);
+  await f.start();
+  assert.equal(f.requests.length, 1, 'connection failures must not silently retry through a mirror');
+  assert.deepEqual(JSON.parse(f.requests[0].options.body), { mirror: false });
+  assert.equal(f.els.llamaMirrorInput.checked, false);
+  assert.match(f.els.llamaPullProgress.textContent, /^Download failed: ConnectError:/);
+  assertRecovered(f, failed);
+  f.els.llamaMirrorInput.checked = true;
+  await f.start();
+  assert.equal(f.requests.length, 2);
+  assert.deepEqual(JSON.parse(f.requests[1].options.body), { mirror: true });
+  assert.equal(f.els.llamaPullProgress.textContent, 'Model download complete');
+  assertRecovered(f, retried);
 });
 
 test('model download drives a determinate progress bar with size and speed', async () => {

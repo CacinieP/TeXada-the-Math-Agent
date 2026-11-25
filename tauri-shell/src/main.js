@@ -239,6 +239,8 @@
       'settings.llamaModelsDirDesc': '留空则使用 ~/.texada/models',
       'settings.llamaServiceTitle': '本地推理服务（llama-server）',
       'settings.llamaStatus': '服务状态',
+      'settings.llamaMirror': '使用 hf-mirror.com 下载',
+      'settings.llamaMirrorDesc': '默认直连 huggingface.co；无法连接时，勾选后重试。仅用于本次应用会话的后续下载。',
       'action.llamaStart': '启动',
       'action.llamaStop': '停止',
       'action.llamaPull': '下载模型',
@@ -492,6 +494,8 @@
       'settings.llamaModelsDirDesc': 'Leave blank to use ~/.texada/models',
       'settings.llamaServiceTitle': 'Local inference service (llama-server)',
       'settings.llamaStatus': 'Service status',
+      'settings.llamaMirror': 'Use hf-mirror.com for downloads',
+      'settings.llamaMirrorDesc': 'Off by default. If huggingface.co is unreachable, check this and retry. Applies to subsequent downloads in this app session.',
       'action.llamaStart': 'Start',
       'action.llamaStop': 'Stop',
       'action.llamaPull': 'Download model',
@@ -651,6 +655,7 @@
     btnLlamaStart: document.getElementById('btn-llama-start'),
     btnLlamaStop: document.getElementById('btn-llama-stop'),
     btnLlamaPull: document.getElementById('btn-llama-pull'),
+    llamaMirrorInput: document.getElementById('llama-mirror-input'),
     llamaPullProgress: document.getElementById('llama-pull-progress'),
     llamaPullTrack: document.getElementById('llama-pull-track'),
     llamaPullFill: document.getElementById('llama-pull-fill'),
@@ -2116,7 +2121,7 @@
       const res = await fetch(API_BASE + '/api/llama/pull', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mirror: false }),
+        body: JSON.stringify({ mirror: Boolean(els.llamaMirrorInput?.checked) }),
       });
       if (!res.ok || !res.body) {
         if (res.body) await res.body.cancel().catch(() => {});

@@ -434,6 +434,15 @@
             <button class="action-btn" id="btn-llama-pull" disabled data-i18n="action.llamaPull">下载模型</button>
           </div>
         </div>
+        <div class="setting-row form-row">
+          <div>
+            <label class="setting-label" for="llama-mirror-input" data-i18n="settings.llamaMirror">使用 hf-mirror.com 下载</label>
+            <div class="setting-desc" id="llama-mirror-desc" data-i18n="settings.llamaMirrorDesc">默认直连 huggingface.co；无法连接时，勾选后重试。仅用于本次应用会话的后续下载。</div>
+          </div>
+          <div>
+            <input id="llama-mirror-input" type="checkbox" aria-describedby="llama-mirror-desc">
+          </div>
+        </div>
         <div class="setting-row">
           <div class="setting-desc" id="llama-pull-progress"></div>
           <div class="progress-track" id="llama-pull-track" role="progressbar" aria-label="Model download" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
