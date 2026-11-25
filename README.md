@@ -263,6 +263,11 @@ Save after changing the backend or its runtime paths before using service contro
 4. Click **Start** in the same section. Wait for the service to be ready, then return to **NL** and try `x plus y`.
 5. To try OCR, open **OCR** and paste or drop a formula image. The same 4.7 model handles text and OCR; compare the candidate with the source before copying or inserting it.
 
+Source builds provide **Use hf-mirror.com for downloads** in the same section.
+If `huggingface.co` is unreachable, check it and click **Download model** again.
+It is off by default and applies to subsequent downloads in the current app session.
+The v0.4.10 installers linked above do not include this control.
+
 You do not need terminal commands, an Ollama model name, or an API key for this
 route. If model files are missing, complete **Download model** first. If the
 service cannot start, check its status message; port `8080` may already be in
@@ -840,6 +845,10 @@ TeXada 的 release 安装包面向普通用户。你不需要安装 Python、Nod
 3. 在**本地推理服务（llama-server）**中点击**下载模型**，等待模型权重和视觉投影文件全部下载完成。安装包不包含这些文件。
 4. 在同一区域点击**启动**，等待服务就绪，回到 **NL** 页签输入 `x 加上 y` 试用。
 5. 需要识图时，进入 **OCR** 页签粘贴或拖入公式图片。文本和 OCR 使用同一个 4.7 模型；复制或插入前请对照候选结果。
+
+当前源码在同一区域提供**使用 hf-mirror.com 下载**开关。
+如果无法连接 `huggingface.co`，勾选后再次点击**下载模型**。
+开关默认关闭，仅用于本次应用会话的后续下载。上方 v0.4.10 安装包不含此开关。
 
 这条路线无需终端命令、Ollama 模型名或 API key。
 提示缺模型时，先完成**下载模型**；启动失败时查看服务状态信息，确认 `8080` 端口是否被占用。
